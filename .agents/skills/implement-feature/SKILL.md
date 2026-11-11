@@ -1,10 +1,10 @@
 ---
 name: implement-feature
-description: "Implement one ticket end to end with a fixed chain of subagents: implement, polish-ui, improve-animations, code-review. Use when the user names a ticket and where to implement it from."
+description: "Implement one ticket end to end with a fixed chain of subagents: implement with polish-ui and improve-animations, then code-review. Use when the user names a ticket and where to implement it from."
 disable-model-invocation: true
 ---
 
-You are the main agent. You write no code yourself. You run four subagents one after another and report to the user. The user names the ticket and its source (a file, a `SPEC.md` row, an issue text, a link).
+You are the main agent. You write no code yourself. You run two subagents one after another and report to the user. The user names the ticket and its source (a file, a `SPEC.md` row, an issue text, a link).
 
 ## 1. Pin the ticket
 
@@ -27,30 +27,22 @@ Rules for every subagent:
 
 | Role | Tier | pi (pi-subagents) | Claude Code | Codex |
 |------|------|-------------------|-------------|-------|
-| Writer (A to C) | Sonnet, medium effort | agent `worker`, model `anthropic/claude-sonnet-5-5:medium`, `async: false` | Task tool, `general-purpose`, model `sonnet` | spawn an agent, model `gpt-6-luna`, reasoning effort `medium` |
-| Reviewer (D) | Opus, medium effort | agent `worker`, model `anthropic/claude-opus-5-5:medium`, `async: false` | Task tool, `general-purpose`, model `opus` | spawn an agent, model `gpt-6.1-sol`, reasoning effort `medium` |
+| Writer (A) | Sonnet, medium effort | agent `worker`, model `anthropic/claude-sonnet-5-5:medium`, `async: false` | Task tool, `general-purpose`, model `sonnet` | spawn an agent, model `gpt-6-luna`, reasoning effort `medium` |
+| Reviewer (B) | Opus, medium effort | agent `worker`, model `anthropic/claude-opus-5-5:medium`, `async: false` | Task tool, `general-purpose`, model `opus` | spawn an agent, model `gpt-6.1-sol`, reasoning effort `medium` |
 
-Another harness: pick its closest equivalent of the tier. The reviewer needs shell and edit tools, because it fixes what it finds. In pi the `reviewer` agent is read-only, so step D uses `worker`. The `code-review` skill asks for two sub-agents, one per axis: where the reviewer cannot start subagents, it runs both axes itself, one after the other.
+Another harness: pick its closest equivalent of the tier. The reviewer needs shell and edit tools, because it fixes what it finds. In pi the `reviewer` agent is read-only, so step B uses `worker`. The `code-review` skill asks for two sub-agents, one per axis: where the reviewer cannot start subagents, it runs both axes itself, one after the other.
 
-### A. Implement
+### A. Implement, polish, animate
 
-- Writer.
-- Task: implement the ticket. Tick the feature in `SPEC.md`. Return the list of changed files and the `npm run check` result.
+- One Writer runs all three parts in one context, in this order, so it reuses the files it already read.
+- Part 1, implement: implement the ticket. Tick the feature in `SPEC.md`.
+- Part 2, polish: skip when part 1 touched no `.tsx` or `.css` file, and say so. Otherwise read `.agents/skills/polish-ui/SKILL.md` and run it on the current changes (no target named: the skill takes them from `git diff HEAD` and untracked files).
+- Part 3, animations: skip when the changed files contain no motion code, and say so. Otherwise read `.agents/skills/improve-animations/SKILL.md` and `AUDIT.md` and run the skill, limited to the motion code in the changed files (`git diff HEAD --name-only` plus untracked files). Name that file list to the skill so it does not answer with its greeting.
+- Return the list of changed files, the findings of parts 2 and 3 it did not fix, and one `npm run check` result at the end.
 
-### B. Polish UI
+### B. Code review
 
-- Writer.
-- Task: read `.agents/skills/polish-ui/SKILL.md` and run it on the current changes (no target named: the skill takes them from `git diff HEAD` and untracked files). Return the findings it did not fix and the `npm run check` result.
-- Skip this step when step A touched no `.tsx` or `.css` file. Say so in the report.
-
-### C. Improve animations
-
-- Writer.
-- Task: read `.agents/skills/improve-animations/SKILL.md` and `AUDIT.md` and run the skill, limited to the motion code in the files of the current changes (`git diff HEAD --name-only` plus untracked files). Name that file list in the task so the skill does not answer with its greeting. Return the findings it did not fix and the `npm run check` result.
-- Skip this step when the current changes contain no motion code. Say so in the report.
-
-### D. Code review
-
+- Before you launch it, run `git diff HEAD --stat` and `git status --short` yourself, and put both outputs in the task, with the Writer's list of changed files. The reviewer starts from them instead of searching for the changes.
 - Reviewer.
 - Task: read `.agents/skills/code-review/SKILL.md` and run it on the uncommitted changes, with the ticket text and source path as the spec. Then fix only the trivial findings: a one-line, mechanical fix with no behavior change (an unused import, a stray comment, a naming rule, a leftover debug line). Leave every other finding untouched, and list it. Run `npm run check` after the fixes. Return every finding on both axes (Standards, Spec), each with file and line and the status `fixed` or `open`, plus the `npm run check` result.
 
