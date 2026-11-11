@@ -1,4 +1,4 @@
-//! Commands for projects and their worktrees: load, add, remove, list.
+//! Commands for projects and their worktrees: load, add, remove, list, create.
 
 use std::path::PathBuf;
 
@@ -51,6 +51,32 @@ pub async fn remove_project(app: AppHandle, project: PathBuf) -> Result<(), Stri
 pub async fn list_worktrees(app: AppHandle, project: PathBuf) -> Result<Vec<Worktree>, String> {
     blocking(app, move |_, store| {
         worktrees::list(&projects::find(store, &project)?.path)
+    })
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn check_branch_name(
+    app: AppHandle,
+    project: PathBuf,
+    name: String,
+) -> Result<Option<String>, String> {
+    blocking(app, move |_, store| {
+        worktrees::check_branch(&projects::find(store, &project)?, &name)
+    })
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn create_worktree(
+    app: AppHandle,
+    project: PathBuf,
+    branch: String,
+) -> Result<Worktree, String> {
+    blocking(app, move |_, store| {
+        worktrees::create(&projects::find(store, &project)?, &branch)
     })
     .await
 }

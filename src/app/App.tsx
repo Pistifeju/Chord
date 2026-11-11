@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { Sidebar, SidebarToggle } from "../features/sidebar/Sidebar";
 import { sidebar } from "../features/sidebar/store";
 import { NoProjects } from "../features/worktrees/NoProjects";
+import { NewWorktreePopup } from "../features/worktrees/NewWorktreePopup";
 import { ProjectDrop } from "../features/worktrees/ProjectDrop";
 import { dismissError, projects } from "../features/worktrees/store";
 import { WarningToast } from "../ui/Toast";
@@ -28,6 +29,7 @@ export default function App() {
       <Sidebar />
       <main className="main">{list.length === 0 && <NoProjects />}</main>
       <ProjectDrop />
+      <NewWorktreePopup />
       {error && <WarningToast text={error} onDismiss={dismissError} />}
     </div>
   );

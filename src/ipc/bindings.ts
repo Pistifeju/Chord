@@ -10,6 +10,8 @@ export const commands = {
 	addProject: (folder: string) => __TAURI_INVOKE<Project>("add_project", { folder }),
 	removeProject: (project: string) => __TAURI_INVOKE<null>("remove_project", { project }),
 	listWorktrees: (project: string) => __TAURI_INVOKE<Worktree_Serialize[]>("list_worktrees", { project }),
+	checkBranchName: (project: string, name: string) => __TAURI_INVOKE<string | null>("check_branch_name", { project, name }),
+	createWorktree: (project: string, branch: string) => __TAURI_INVOKE<Worktree_Serialize>("create_worktree", { project, branch }),
 	setSidebarHidden: (hidden: boolean) => __TAURI_INVOKE<null>("set_sidebar_hidden", { hidden }),
 	setProjectFolded: (project: string, folded: boolean) => __TAURI_INVOKE<string[]>("set_project_folded", { project, folded }),
 };

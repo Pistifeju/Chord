@@ -28,9 +28,9 @@ Rules for every subagent:
 | Role | Tier | pi (pi-subagents) | Claude Code | Codex |
 |------|------|-------------------|-------------|-------|
 | Writer (A to C) | Sonnet, medium effort | agent `worker`, model `anthropic/claude-sonnet-5-5:medium`, `async: false` | Task tool, `general-purpose`, model `sonnet` | spawn an agent, model `gpt-6-luna`, reasoning effort `medium` |
-| Reviewer (D) | Opus, medium effort | agent `reviewer`, model `anthropic/claude-opus-5-5:medium`, `async: false` | Task tool, `general-purpose`, model `opus` | spawn an agent, model `gpt-6.1-sol`, reasoning effort `medium` |
+| Reviewer (D) | Opus, medium effort | agent `worker`, model `anthropic/claude-opus-5-5:medium`, `async: false` | Task tool, `general-purpose`, model `opus` | spawn an agent, model `gpt-6.1-sol`, reasoning effort `medium` |
 
-Another harness: pick its closest equivalent of the tier. The reviewer must be able to start its own subagents, because the `code-review` skill does.
+Another harness: pick its closest equivalent of the tier. The reviewer needs shell and edit tools, because it fixes what it finds. In pi the `reviewer` agent is read-only, so step D uses `worker`. The `code-review` skill asks for two sub-agents, one per axis: where the reviewer cannot start subagents, it runs both axes itself, one after the other.
 
 ### A. Implement
 
@@ -52,16 +52,16 @@ Another harness: pick its closest equivalent of the tier. The reviewer must be a
 ### D. Code review
 
 - Reviewer.
-- Task: read `.agents/skills/code-review/SKILL.md` and run it on the uncommitted changes, with the ticket text and source path as the spec. The reviewer edits nothing. Return the full findings on both axes (Standards, Spec), each with file and line.
+- Task: read `.agents/skills/code-review/SKILL.md` and run it on the uncommitted changes, with the ticket text and source path as the spec. Then fix only the trivial findings: a one-line, mechanical fix with no behavior change (an unused import, a stray comment, a naming rule, a leftover debug line). Leave every other finding untouched, and list it. Run `npm run check` after the fixes. Return every finding on both axes (Standards, Spec), each with file and line and the status `fixed` or `open`, plus the `npm run check` result.
 
 ## 3. Report to the user
 
 Answer in this order:
 
-1. Verdict: did the reviewer find anything? Yes or no, with the count per axis.
+1. Verdict: did the reviewer find anything? Yes or no, with the count per axis, and how many it fixed.
 2. What now works: the ticket's behavior in concrete terms, and the changed files.
 3. Each step: done, skipped (why) or failed (why), and the `npm run check` result of every editing step.
-4. The reviewer's findings, ranked, each with file and line.
+4. The reviewer's findings, ranked, each with file, line and status (`fixed` or `open`).
 5. Findings from polish and animations that nobody fixed.
 
-Do not fix reviewer findings. Do not commit. Offer one next action: fix the top finding, or commit.
+Do not fix findings yourself. Do not commit. Offer one next action: decide the top `open` finding, or commit.

@@ -1,7 +1,7 @@
 // Tests for the project list rules.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { noProjects, withProject, withoutProject, withWorktrees } from "./projects.ts";
+import { branchName, noProjects, withProject, withoutProject, withWorktrees } from "./projects.ts";
 
 test("removing a project clears the selection only when it held the selected worktree", () => {
   let projects = withProject(withProject(noProjects, { path: "/a", name: "a" }), { path: "/b", name: "b" });
@@ -10,4 +10,9 @@ test("removing a project clears the selection only when it held the selected wor
 
   assert.equal(withoutProject({ ...projects, selected: "/a-fix" }, "/a").selected, null);
   assert.equal(withoutProject({ ...projects, selected: "/b" }, "/a").selected, "/b");
+});
+
+test("a typed branch name has its whitespace runs turned into dashes and its ends trimmed", () => {
+  assert.equal(branchName("  feature  my x\t"), "feature-my-x");
+  assert.equal(branchName("   "), "");
 });

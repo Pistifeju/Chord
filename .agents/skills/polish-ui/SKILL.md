@@ -4,7 +4,7 @@ description: Run impeccable layout, typeset and polish on a Chord UI target in o
 disable-model-invocation: true
 ---
 
-One refinement pass over a UI target: three impeccable commands in a fixed order, then a Chord drift sweep. The pass refines the existing look. A finding that needs a redesign goes in the report, not in the diff.
+One refinement pass over a UI target: three impeccable commands in a fixed order, then a Chord drift sweep. Every finding the pass raises gets fixed in the same pass, redesign-sized ones included. Only a finding that needs a product decision nobody has made stays in the report.
 
 ## 1. Pin the target
 
@@ -48,7 +48,11 @@ Grep the target, and compare each hit with the neighbor from step 2 and the DESI
 - **Copy**: title case on buttons and menu items, sentence case in the canvas, meta lines joined with ` · `, an ellipsis `…` on commands that open a sheet. [Typography › Principles]
 - **Shared pieces**: a local style that duplicates a class in `controls.css` or a component in `src/ui/` gets replaced with the shared one.
 
-A value with no DESIGN.md rule and no neighbor to copy: leave it, and list it in the report as a DESIGN.md gap.
+Resolve every finding instead of listing it:
+
+- **Native control where DESIGN.md names a styled one** (a `<select>` where the doc describes a popover): replace it with the shared component in `src/ui/`, or the neighbor's pattern. Build a new component only when none exists.
+- **DESIGN.md contradicts itself or `tokens.css`**: the token value wins. Fix the prose in `DESIGN.md` to match, in the same diff.
+- **A state, motion or limit with no DESIGN.md rule** (pill hover, sheet open and close, max-height and scroll): copy the neighbor from step 2, using existing tokens and `controls.css` classes. Then add the rule to the matching `DESIGN.md` section. No neighbor and no token that fits: leave it and list it in the report.
 
 Done when: every bullet above was grepped on every target file.
 
@@ -58,5 +62,6 @@ Done when: every bullet above was grepped on every target file.
 2. Run `npm run check`. Fix failures it reports in files you touched.
 3. Report, short:
    - what changed, grouped by command and sweep;
-   - the intentional exceptions and DESIGN.md gaps;
-   - redesign-sized findings you left alone.
+   - each `DESIGN.md` edit, with the rule you added or the contradiction you settled;
+   - the intentional exceptions;
+   - findings you left alone, each with the one decision it needs.

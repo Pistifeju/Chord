@@ -25,3 +25,19 @@ export function withWorktrees(projects: Projects, path: string, list: Worktree[]
   if (!projects.list.some((p) => p.path === path)) return projects;
   return { ...projects, worktrees: { ...projects.worktrees, [path]: list } };
 }
+
+// The project that owns the selected worktree, else the first one.
+export function defaultProject(projects: Projects): string | null {
+  const owner = projects.list.find((p) => projects.worktrees[p.path]?.some((w) => w.path === projects.selected));
+  return (owner ?? projects.list[0])?.path ?? null;
+}
+
+// Whitespace in a typed branch name becomes a dash; this is the name git sees.
+export function branchName(typed: string): string {
+  return typed.trim().replace(/\s+/g, "-");
+}
+
+// Create stays disabled until the live git check of a non-empty name passed.
+export function canCreate(form: { project: string | null; branch: string; checked: boolean; problem: string | null; creating: boolean }): boolean {
+  return form.project !== null && branchName(form.branch) !== "" && form.checked && !form.problem && !form.creating;
+}
