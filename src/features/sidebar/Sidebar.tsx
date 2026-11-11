@@ -2,8 +2,9 @@
 import { Menu } from "@tauri-apps/api/menu";
 import type { MouseEvent } from "react";
 import type { Project } from "../../ipc/bindings";
-import { menuItem, tooltip } from "../../app/commands";
+import { menuItem, shortcutLabel, tooltip } from "../../app/commands";
 import { ChevronIcon, EllipsisIcon, PlusIcon, SidebarIcon } from "../../ui/icons";
+import { worktreeOrder } from "../worktrees/projects";
 import { pickProject, projects, selectWorktree } from "../worktrees/store";
 import { sidebar, toggleFold, toggleSidebar } from "./store";
 import "./sidebar.css";
@@ -45,7 +46,9 @@ async function showMenu(event: MouseEvent, commandId: string, target: string) {
 
 function ProjectGroup({ project }: { project: Project }) {
   const { folded } = sidebar.use();
-  const { worktrees, selected } = projects.use();
+  const state = projects.use();
+  const { worktrees, selected } = state;
+  const order = worktreeOrder(state);
   const open = !folded.includes(project.path);
   return (
     <section className="project-group">
@@ -62,20 +65,24 @@ function ProjectGroup({ project }: { project: Project }) {
       </div>
       {open && (
         <ul className="worktree-list">
-          {(worktrees[project.path] ?? []).map((worktree) => (
-            <li key={worktree.path}>
-              <button
-                type="button"
-                className="worktree-card"
-                aria-current={worktree.path === selected}
-                title={worktree.path}
-                onClick={() => selectWorktree(worktree.path)}
-                onContextMenu={worktree.path === project.path ? undefined : (e) => showMenu(e, "worktree.delete", worktree.path)}
-              >
-                {worktree.branch ?? worktree.path.split("/").pop()}
-              </button>
-            </li>
-          ))}
+          {(worktrees[project.path] ?? []).map((worktree) => {
+            const hint = shortcutLabel(`worktree.select.${order.indexOf(worktree.path) + 1}`);
+            return (
+              <li key={worktree.path}>
+                <button
+                  type="button"
+                  className="worktree-card"
+                  aria-current={worktree.path === selected}
+                  title={worktree.path}
+                  onClick={() => selectWorktree(worktree.path)}
+                  onContextMenu={worktree.path === project.path ? undefined : (e) => showMenu(e, "worktree.delete", worktree.path)}
+                >
+                  <span className="worktree-name">{worktree.branch ?? worktree.path.split("/").pop()}</span>
+                  {hint && <span className="worktree-hint">{hint}</span>}
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>

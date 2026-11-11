@@ -302,7 +302,7 @@ Content runs dense; the chrome stays airy. Sheets use 20 to 28pt padding. Center
 ### Segmented controls and tabs
 
 - Segmented control: a hairline pill track with a black selected pill.
-- Tabs: a hairline pill track, selected tab in `surface-muted`, count badges inline. ⌘1, ⌘2, ⌘3 switch them.
+- Tabs: a hairline pill track, selected tab in `surface-muted`, count badges inline. ⌃1, ⌃2, ⌃3 switch them; ⌘1 to ⌘9 select worktrees.
 - Panel tabs use a 2pt black underline instead of a pill.
 
 ### Chips

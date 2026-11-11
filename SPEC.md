@@ -15,7 +15,7 @@ Tags:
 ## 1. Window and navigation (core)
 
 - [x] A1 Sidebar: one group per project, one card per worktree, fold per project, show/hide, remembered.
-- [ ] A2 Worktree card: branch name, ⌘1-9 hint. Other features add to it: git counts (B6), pane rows (C1), status (D2).
+- [x] A2 Worktree card: branch name, ⌘1-9 hint. Other features add to it: git counts (B6), pane rows (C1), status (D2).
 - [ ] A3 One commands table drives shortcuts, menu accelerators and tooltips.
 - [ ] A4 Workspace details card (⌘I), with its tab bar button: folder, reveal in Finder, branch, last commit, changes.
 - [ ] A5 Light / dark / system theme; text size (⌘=, ⌘-, ⌘0). Settings rows for both.

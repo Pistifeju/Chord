@@ -59,3 +59,8 @@ export function withoutWorktree(projects: Projects, project: string, path: strin
 export function withSelectionRestored(projects: Projects, path: string, before: string | null, afterDelete: string | null): Projects {
   return before === path && projects.selected === afterDelete ? { ...projects, selected: path } : projects;
 }
+
+// Worktree paths in sidebar order, folded projects included; the first ones take the select shortcuts.
+export function worktreeOrder(projects: Projects): string[] {
+  return projects.list.flatMap((p) => (projects.worktrees[p.path] ?? []).map((w) => w.path));
+}

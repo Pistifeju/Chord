@@ -22,12 +22,15 @@ export function runShortcut(e: KeyboardEvent) {
   command.run();
 }
 
+export function shortcutLabel(id: string): string | undefined {
+  const s = table.find((c) => c.id === id)?.shortcut;
+  return s && `${s.ctrl ? "⌃" : ""}${s.alt ? "⌥" : ""}${s.shift ? "⇧" : ""}${s.cmd ? "⌘" : ""}${s.key.toUpperCase()}`;
+}
+
 export function tooltip(id: string): string {
   const command = table.find((c) => c.id === id);
-  const s = command?.shortcut;
-  if (!command || !s) return id;
-  const keys = `${s.ctrl ? "⌃" : ""}${s.alt ? "⌥" : ""}${s.shift ? "⇧" : ""}${s.cmd ? "⌘" : ""}${s.key.toUpperCase()}`;
-  return `${command.title} (${keys})`;
+  const keys = shortcutLabel(id);
+  return command && keys ? `${command.title} (${keys})` : id;
 }
 
 // A context-menu item that runs a command on the item it was opened for.
