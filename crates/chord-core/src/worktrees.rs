@@ -71,10 +71,58 @@ pub fn create(project: &Project, branch: &str) -> Result<Worktree, Error> {
     let path = folder(project, branch);
     let path_arg = path.to_string_lossy();
     git::run(&project.path, &["worktree", "add", "-b", branch, &path_arg])?;
+    copy_ignored_files(&project.path, &path);
     Ok(Worktree {
         path,
         branch: Some(branch.to_string()),
     })
+}
+
+const MAX_COPIED_FILE_BYTES: u64 = 5 * 1024 * 1024;
+
+// A failed copy leaves the worktree usable, so it never fails the creation.
+fn copy_ignored_files(from: &Path, to: &Path) {
+    let listing = match git::run(
+        from,
+        &[
+            "ls-files",
+            "-z",
+            "--others",
+            "--ignored",
+            "--exclude-standard",
+            "--directory",
+        ],
+    ) {
+        Ok(listing) => listing,
+        Err(error) => {
+            eprintln!("chord: listing gitignored files failed: {error}");
+            return;
+        }
+    };
+    for relative in listing
+        .split('\0')
+        .filter(|item| !item.is_empty() && !item.ends_with('/'))
+    {
+        let source = from.join(relative);
+        let Ok(metadata) = std::fs::symlink_metadata(&source) else {
+            continue;
+        };
+        if !metadata.is_file() || metadata.len() > MAX_COPIED_FILE_BYTES {
+            continue;
+        }
+        let target = to.join(relative);
+        if target.exists() {
+            continue;
+        }
+        let copied = match target.parent() {
+            Some(parent) => std::fs::create_dir_all(parent),
+            None => Ok(()),
+        }
+        .and_then(|()| std::fs::copy(&source, &target));
+        if let Err(error) = copied {
+            eprintln!("chord: copying gitignored {relative} failed: {error}");
+        }
+    }
 }
 
 #[derive(Serialize, Type, Debug, PartialEq)]
