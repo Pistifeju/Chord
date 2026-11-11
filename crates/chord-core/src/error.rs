@@ -20,3 +20,15 @@ impl fmt::Display for Error {
 }
 
 impl std::error::Error for Error {}
+
+impl From<std::io::Error> for Error {
+    fn from(error: std::io::Error) -> Self {
+        Error::Message(error.to_string())
+    }
+}
+
+impl From<serde_json::Error> for Error {
+    fn from(error: serde_json::Error) -> Self {
+        Error::Message(error.to_string())
+    }
+}

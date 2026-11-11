@@ -1,0 +1,67 @@
+/* Shared controls: icon button, tertiary pill, toast. Rules: DESIGN.md, Components. */
+button {
+  font: inherit;
+  color: inherit;
+  cursor: default;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--ink-muted);
+}
+
+.icon-button:hover {
+  background: var(--surface-muted);
+  color: var(--ink);
+}
+
+.icon-button:active {
+  background: var(--surface-pressed);
+}
+
+.pill-tertiary {
+  height: 28px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 9999px;
+  background: var(--surface-muted);
+  font-weight: 500;
+}
+
+.pill-tertiary:active {
+  background: var(--surface-pressed);
+}
+
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(560px, calc(100vw - 40px));
+  padding: 8px 16px;
+  border: none;
+  border-radius: 9999px;
+  background: var(--canvas);
+  box-shadow: var(--shadow-popover);
+  text-align: left;
+}
+
+.toast-warning {
+  display: inline-grid;
+  color: var(--danger);
+}

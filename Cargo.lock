@@ -3,6 +3,12 @@
 version = 4
 
 [[package]]
+name = "Inflector"
+version = "0.11.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fe438c63458706e03479442743baae6c88256498e6431708f6dfc520a26515d3"
+
+[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2032,6 +2038,7 @@ checksum = "e3e0adef53c21f888deb4fa59fc59f7eb17404926ee8a6f59f5df0fd7f9f3272"
 dependencies = [
  "bitflags 2.13.2",
  "block2",
+ "libc",
  "objc2",
  "objc2-core-foundation",
 ]
@@ -2163,6 +2170,12 @@ dependencies = [
  "smallvec",
  "windows-link",
 ]
+
+[[package]]
+name = "paste"
+version = "1.0.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
 name = "percent-encoding"
@@ -2551,6 +2564,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "rfd"
+version = "0.17.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "20dafead71c16a34e1ff357ddefc8afc11e7d51d6d2b9fbd07eaa48e3e540220"
+dependencies = [
+ "block2",
+ "dispatch2",
+ "glib-sys",
+ "gobject-sys",
+ "gtk-sys",
+ "js-sys",
+ "libc",
+ "log",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-core-foundation",
+ "objc2-foundation",
+ "percent-encoding",
+ "raw-window-handle",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "rustc-hash"
 version = "2.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2866,13 +2905,23 @@ dependencies = [
 name = "chord"
 version = "0.1.0"
 dependencies = [
+ "chord-core",
+ "specta",
+ "specta-typescript",
  "tauri",
  "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-specta",
 ]
 
 [[package]]
 name = "chord-core"
 version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "specta",
+]
 
 [[package]]
 name = "shlex"
@@ -2960,6 +3009,56 @@ dependencies = [
  "gobject-sys",
  "libc",
  "system-deps",
+]
+
+[[package]]
+name = "specta"
+version = "2.0.0-rc.28"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3fa60a95f1bed059a9e9b1f4052dfa8fee47813c429223c8590b338f719ac12e"
+dependencies = [
+ "paste",
+ "rustc_version",
+ "specta-macros",
+]
+
+[[package]]
+name = "specta-macros"
+version = "2.0.0-rc.28"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7eeb2926ce0ef69a996fb8ad805c39936d47b6f02b327eca79cb207645ac8686"
+dependencies = [
+ "Inflector",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
+
+[[package]]
+name = "specta-serde"
+version = "0.0.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "69fbb7f8846160cc2924352f5a3b199281742ea335b6b4328d886a44d398e417"
+dependencies = [
+ "specta",
+]
+
+[[package]]
+name = "specta-typescript"
+version = "0.0.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b96519dc9b060d66e50b55ab10fb550bbf56c7576b9c9cca467d580a53cd473d"
+dependencies = [
+ "specta",
+]
+
+[[package]]
+name = "specta-util"
+version = "0.0.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ed24b868f6dec27caa846d02ea7ba6568fea4676dc7ebf27f2ca407f6b787d05"
+dependencies = [
+ "specta",
 ]
 
 [[package]]
@@ -3196,6 +3295,7 @@ dependencies = [
  "serde_json",
  "serde_repr",
  "serialize-to-javascript",
+ "specta",
  "swift-rs",
  "tauri-build",
  "tauri-macros",
@@ -3277,6 +3377,64 @@ dependencies = [
 ]
 
 [[package]]
+name = "tauri-plugin"
+version = "2.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "67fb21a77e8f94e8beb3325e583102488659365af0a3948b7ea244c5b779c291"
+dependencies = [
+ "anyhow",
+ "glob",
+ "plist",
+ "schemars 0.8.22",
+ "serde",
+ "serde_json",
+ "tauri-utils",
+ "walkdir",
+]
+
+[[package]]
+name = "tauri-plugin-dialog"
+version = "2.8.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce0fb9c2b6d34a9720627ed930ebc8af26f61e648695aecaeb03d5c33c5896f5"
+dependencies = [
+ "log",
+ "raw-window-handle",
+ "rfd",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
+ "tauri-plugin-fs",
+ "thiserror 2.0.21",
+ "url",
+]
+
+[[package]]
+name = "tauri-plugin-fs"
+version = "2.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d58eb1d4984e535f47a642ffec09a2da6f5c18a12b5902d12126cb7626d628b"
+dependencies = [
+ "anyhow",
+ "dunce",
+ "glob",
+ "log",
+ "objc2-foundation",
+ "percent-encoding",
+ "schemars 0.8.22",
+ "serde",
+ "serde_json",
+ "serde_repr",
+ "tauri",
+ "tauri-plugin",
+ "tauri-utils",
+ "thiserror 2.0.21",
+ "toml 1.2.1+spec-1.1.0",
+ "url",
+]
+
+[[package]]
 name = "tauri-runtime"
 version = "2.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3324,6 +3482,38 @@ dependencies = [
  "webview2-com",
  "windows",
  "wry",
+]
+
+[[package]]
+name = "tauri-specta"
+version = "2.0.0-rc.28"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a643157bb0c035b5421297d95e979f9c17bf75cba9e18beae36660a84dc8da6b"
+dependencies = [
+ "heck 0.5.0",
+ "paste",
+ "serde",
+ "serde_json",
+ "specta",
+ "specta-serde",
+ "specta-typescript",
+ "specta-util",
+ "tauri",
+ "tauri-specta-macros",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "tauri-specta-macros"
+version = "2.0.0-rc.28"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ae0dad2bef5ff4dd8f0397538dc20b4b07b261d3aa287b88828f28bd2248918f"
+dependencies = [
+ "darling",
+ "heck 0.5.0",
+ "proc-macro2",
+ "quote",
+ "syn 3.0.10",
 ]
 
 [[package]]

@@ -1,0 +1,116 @@
+/* The sidebar: project groups and worktree cards. */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 var(--sidebar-width);
+  padding-top: 52px;
+  background: var(--surface-cream);
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--sidebar-inset) 4px 12px;
+}
+
+.sidebar-title {
+  font-size: 11px;
+  color: var(--ink-muted);
+}
+
+.sidebar-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 8px 12px;
+}
+
+.project-group + .project-group {
+  margin-top: 8px;
+}
+
+.project-header {
+  display: flex;
+  align-items: center;
+}
+
+.project-name {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px 0 4px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.project-name:active {
+  background: var(--surface-pressed);
+}
+
+.project-chevron {
+  display: inline-grid;
+  color: var(--ink-muted);
+  transition: transform var(--t-fast) var(--ease-out);
+}
+
+.project-chevron[data-open="true"] {
+  transform: rotate(90deg);
+}
+
+.project-more {
+  opacity: 0;
+}
+
+.project-header:hover .project-more,
+.project-header:focus-within .project-more {
+  opacity: 1;
+}
+
+.worktree-list {
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.worktree-card {
+  display: block;
+  width: 100%;
+  padding: 6px 8px 6px 20px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--ink-secondary);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.worktree-card:hover {
+  color: var(--ink);
+}
+
+.worktree-card[aria-current="true"] {
+  background: var(--surface-muted);
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.worktree-card:active {
+  background: var(--surface-pressed);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .project-chevron {
+    transition: none;
+  }
+}

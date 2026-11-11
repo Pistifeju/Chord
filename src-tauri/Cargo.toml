@@ -12,7 +12,12 @@ name = "chord_lib"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+chord-core = { version = "0.1.0", path = "../crates/chord-core" }
+specta = "=2.0.0-rc.28"
+specta-typescript = "=0.0.15"
 tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-specta = { version = "=2.0.0-rc.28", features = ["derive", "typescript"] }
 
 [lints]
 workspace = true

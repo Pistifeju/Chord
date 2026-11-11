@@ -2,6 +2,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./ui/tokens.css";
+import "./ui/controls.css";
 import App from "./app/App";
 
 createRoot(document.getElementById("root") as HTMLElement).render(

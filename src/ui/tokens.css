@@ -99,4 +99,5 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; }
+body { margin: 0; -webkit-user-select: none; user-select: none; }
+input, textarea, [data-selectable] { -webkit-user-select: text; user-select: text; }

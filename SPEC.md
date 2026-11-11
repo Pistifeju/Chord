@@ -14,7 +14,7 @@ Tags:
 
 ## 1. Window and navigation (core)
 
-- [ ] A1 Sidebar: one group per project, one card per worktree, fold per project, show/hide, remembered.
+- [x] A1 Sidebar: one group per project, one card per worktree, fold per project, show/hide, remembered.
 - [ ] A2 Worktree card: branch name, ⌘1-9 hint. Other features add to it: git counts (B6), pane rows (C1), status (D2).
 - [ ] A3 One commands table drives shortcuts, menu accelerators and tooltips.
 - [ ] A4 Workspace details card (⌘I), with its tab bar button: folder, reveal in Finder, branch, last commit, changes.
@@ -42,7 +42,7 @@ Edge cases:
 
 ## 2. Projects and worktrees (core)
 
-- [ ] B1 Add a project (dialog or folder drop), remove it, switch between projects.
+- [x] B1 Add a project (dialog or folder drop), remove it, switch between projects.
 - [ ] B2 New worktree popup (⌘N): branch name with the live `git check-ref-format` check, project picker; create opens the worktree.
 - [ ] B3 Delete worktree: the card goes at once, git and cleanup run in the background; force prompt; a merged branch goes with it, and Chord says when it keeps one.
 - [ ] B4 Remove from Chord: hides the worktree, folder and branch stay; adding the folder again brings it back.

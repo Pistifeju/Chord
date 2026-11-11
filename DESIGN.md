@@ -251,6 +251,10 @@ Floating pill groups in the title bar row, 36pt tall, vertically centered with t
 
 In full screen the toolbar stays; the traffic lights hide and the first group moves to the window margin.
 
+### Text selection
+
+Text is not selectable by default. Only content someone copies or edits is: chat messages, code and diffs, terminal output, file paths and error details, and the text in inputs. Chrome is never selectable: labels, titles, buttons, rows, tabs, toasts, menus, tooltips, empty states. Mark a selectable region with `data-selectable`; `src/ui/tokens.css` sets `user-select: none` on `body` and turns it back on for inputs and `[data-selectable]`. Set both `-webkit-user-select` and `user-select`, because the macOS web view ignores the unprefixed one.
+
 ### Whitespace
 
 Content runs dense; the chrome stays airy. Sheets use 20 to 28pt padding. Centered views (empty states) leave large empty margins and keep content in a narrow column.
@@ -369,6 +373,7 @@ SF Symbols at regular weight, 15 to 17pt, in ink or muted gray.
 - Don't mix radii: inputs stay at 8pt, cards at 14pt, actions stay pill.
 - Don't use bold weights for headings.
 - Don't put a Save button in the Settings window.
+- Don't make chrome text selectable.
 
 ## Window Resizing
 

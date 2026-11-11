@@ -1,0 +1,56 @@
+//! Commands for projects and their worktrees: load, add, remove, list.
+
+use std::path::PathBuf;
+
+use chord_core::{Error, Project, State, Worktree, projects, worktrees};
+use tauri::AppHandle;
+use tauri_plugin_dialog::DialogExt;
+
+use super::blocking;
+
+#[tauri::command]
+#[specta::specta]
+pub async fn load_state(app: AppHandle) -> Result<State, String> {
+    blocking(app, |_, store| Ok(store.get())).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn pick_project(app: AppHandle) -> Result<Option<Project>, String> {
+    blocking(app, |app, store| {
+        let Some(folder) = app
+            .dialog()
+            .file()
+            .set_title("Add Project")
+            .blocking_pick_folder()
+        else {
+            return Ok(None);
+        };
+        let folder = folder
+            .into_path()
+            .map_err(|error| Error::Message(error.to_string()))?;
+        projects::add(store, &folder).map(Some)
+    })
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn add_project(app: AppHandle, folder: PathBuf) -> Result<Project, String> {
+    blocking(app, move |_, store| projects::add(store, &folder)).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn remove_project(app: AppHandle, project: PathBuf) -> Result<(), String> {
+    blocking(app, move |_, store| projects::remove(store, &project)).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn list_worktrees(app: AppHandle, project: PathBuf) -> Result<Vec<Worktree>, String> {
+    blocking(app, move |_, store| {
+        worktrees::list(&projects::find(store, &project)?.path)
+    })
+    .await
+}

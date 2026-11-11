@@ -16,7 +16,14 @@
         "width": 1100,
         "height": 720,
         "minWidth": 900,
-        "minHeight": 600
+        "minHeight": 600,
+        "label": "main",
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": {
+          "x": 20,
+          "y": 26
+        }
       }
     ],
     "security": {
@@ -25,7 +32,9 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["app"],
+    "targets": [
+      "app"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

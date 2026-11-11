@@ -51,5 +51,6 @@ Never test copy, CSS classes, constants, third-party libraries, private state, t
 ## Done
 
 - `npm run check` passes. Never report a check you did not run.
+- Skip visual checks: no screenshots, no launching the app to look at the UI. The user checks it.
 - `SPEC.md` ticks the feature in the same commit.
 - Commit messages: `type(area): what changed`, lower case. Types: `feat`, `fix`, `perf`, `refactor`, `test`, `docs`, `chore`. The area is a feature folder (`sidebar`, `chat`, `ios`, ...) and may be left out: `docs: add the harness contract`.
