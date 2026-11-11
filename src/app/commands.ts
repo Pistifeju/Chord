@@ -1,4 +1,4 @@
-// The commands table: every feature's commands, the shortcuts that run them and their tooltips.
+// The commands table: every feature's commands, the shortcuts that run them, their menu accelerators and tooltips.
 import { sidebarCommands } from "../features/sidebar/commands";
 import { worktreeCommands } from "../features/worktrees/commands";
 
@@ -22,9 +22,18 @@ export function runShortcut(e: KeyboardEvent) {
   command.run();
 }
 
+const modifiers = [
+  ["ctrl", "⌃", "Ctrl"],
+  ["alt", "⌥", "Alt"],
+  ["shift", "⇧", "Shift"],
+  ["cmd", "⌘", "Cmd"],
+] as const;
+
+const keyParts = (s: Shortcut, form: 1 | 2) => [...modifiers.filter(([flag]) => s[flag]).map((m) => m[form]), s.key.toUpperCase()];
+
 export function shortcutLabel(id: string): string | undefined {
   const s = table.find((c) => c.id === id)?.shortcut;
-  return s && `${s.ctrl ? "⌃" : ""}${s.alt ? "⌥" : ""}${s.shift ? "⇧" : ""}${s.cmd ? "⌘" : ""}${s.key.toUpperCase()}`;
+  return s && keyParts(s, 1).join("");
 }
 
 export function tooltip(id: string): string {
@@ -33,8 +42,16 @@ export function tooltip(id: string): string {
   return command && keys ? `${command.title} (${keys})` : id;
 }
 
+const accelerator = (s: Shortcut) => keyParts(s, 2).join("+");
+
 // A context-menu item that runs a command on the item it was opened for.
 export function menuItem(id: string, target: string) {
   const command = table.find((c) => c.id === id);
-  return { id, text: command?.title ?? id, action: () => command?.run(target) };
+  const shortcut = command?.shortcut;
+  return {
+    id,
+    text: command?.title ?? id,
+    accelerator: shortcut && accelerator(shortcut),
+    action: () => command?.run(target),
+  };
 }

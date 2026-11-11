@@ -1,13 +1,19 @@
-// The project and worktree commands for the commands table.
+// The project, worktree and sheet commands for the commands table.
 import type { AppCommand } from "../../app/commands";
-import { openNewWorktree } from "./newWorktree";
+import { closeNewWorktree, newWorktree, openNewWorktree } from "./newWorktree";
 import { worktreeOrder } from "./projects";
-import { pickProject, projects, removeProject, requestDelete, selectWorktree } from "./store";
+import { cancelDeletion, cancelForceRemoval, pickProject, projects, removeProject, requestDelete, selectWorktree } from "./store";
 
 function deleteWorktreeAt(path?: string) {
   const { list, worktrees } = projects.get();
   const owner = list.find((p) => worktrees[p.path]?.some((w) => w.path === path));
   if (owner && path) requestDelete(owner.path, path);
+}
+
+function closeSheets() {
+  if (newWorktree.get().open) closeNewWorktree();
+  cancelDeletion();
+  cancelForceRemoval();
 }
 
 const selectCommands: AppCommand[] = Array.from({ length: 9 }, (_, i) => ({
@@ -25,5 +31,6 @@ export const worktreeCommands: AppCommand[] = [
   { id: "worktree.new", title: "New Worktree…", shortcut: { key: "n", cmd: true }, run: openNewWorktree },
   { id: "project.remove", title: "Remove Project", run: (path) => path && void removeProject(path) },
   { id: "worktree.delete", title: "Delete Worktree", run: deleteWorktreeAt },
+  { id: "sheet.close", title: "Close", shortcut: { key: "escape" }, run: closeSheets },
   ...selectCommands,
 ];

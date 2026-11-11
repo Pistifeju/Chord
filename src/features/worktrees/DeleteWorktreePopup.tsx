@@ -1,10 +1,8 @@
 // The sheet that confirms a worktree delete before its folder leaves the disk.
-import { useEscape } from "../../ui/escapeKey";
 import { cancelDeletion, confirmDeletion, deletion } from "./store";
 
 export function DeleteWorktreePopup() {
   const pending = deletion.use();
-  useEscape(pending !== null, cancelDeletion);
   if (!pending) return null;
   return (
     <div className="sheet-scrim" onMouseDown={cancelDeletion}>

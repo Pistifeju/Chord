@@ -1,10 +1,8 @@
 // The sheet that asks before a worktree git refused to remove is removed with force.
-import { useEscape } from "../../ui/escapeKey";
 import { cancelForceRemoval, confirmForceRemoval, forceRemoval } from "./store";
 
 export function ForceRemovalPopup() {
   const pending = forceRemoval.use();
-  useEscape(pending !== null, cancelForceRemoval);
   if (!pending) return null;
   return (
     <div className="sheet-scrim" onMouseDown={cancelForceRemoval}>

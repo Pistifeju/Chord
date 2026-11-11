@@ -16,8 +16,7 @@ Tags:
 
 - [x] A1 Sidebar: one group per project, one card per worktree, fold per project, show/hide, remembered.
 - [x] A2 Worktree card: branch name, ⌘1-9 hint. Other features add to it: git counts (B6), pane rows (C1), status (D2).
-- [ ] A3 One commands table drives shortcuts, menu accelerators and tooltips.
-- [ ] A4 Workspace details card (⌘I), with its tab bar button: folder, reveal in Finder, branch, last commit, changes.
+- [x] A3 One commands table drives shortcuts, menu accelerators and tooltips.
 - [ ] A5 Light / dark / system theme; text size (⌘=, ⌘-, ⌘0). Settings rows for both.
 - [ ] A6 Restores the open project and worktree on launch.
 
@@ -25,7 +24,7 @@ Containers. The first feature that puts something in one builds it:
 
 | Container | What it is | Features that fill it |
 |-----------|------------|-----------------------|
-| Tab bar | Strip above the panes; window drag region; shows the project name or "Settings" as a title when it has no tabs | Tabs: C3, F2. Buttons: A4, F1, H1, H2, I1 |
+| Tab bar | Strip above the panes; window drag region; shows the project name or "Settings" as a title when it has no tabs | Tabs: C3, F2. Buttons: F1, H1, H2, I1 |
 | Side panel | One panel right of the panes, one view at a time; resizable; width, open state and shown view remembered per worktree | F1 Files, I1 Simulator, J1 Preview |
 | Bottom panel | Resizable; open state remembered per worktree | G1 terminal, H3 build log and console |
 | Status bar | Strip at the bottom of the window | E11 usage, H3 build log toggle, H5 cache size and running simulators |
@@ -47,7 +46,6 @@ Edge cases:
 - [x] B3 Delete worktree: the card goes at once, git and cleanup run in the background; force prompt; a merged branch goes with it, and Chord says when it keeps one.
 - [x] B5 A new worktree gets a copy of the main checkout's gitignored files (up to 5 MB each, no ignored folders).
 - [ ] B6 Git counts on the worktree card (ahead, behind, changed); refresh on window focus only for expanded projects and the selected one.
-- [ ] B7 Context menu on the card: reveal in Finder, copy path.
 
 Edge cases:
 - Worktree folder names never collide across projects.
@@ -146,7 +144,6 @@ Edge cases:
 - [ ] H3 Build log and app console (stdout, stderr, OSLog) in the bottom panel, 10,000 lines, ⌘F. Build log toggle in the status bar.
 - [ ] H4 One build per worktree: ⌘R takes over; a preview build waits, then follows.
 - [ ] H5 Caches: DerivedData, hot reload folders and simulators per worktree; one forget, one prune; stop other worktrees' simulators. Cache size and running simulators in the status bar.
-- [ ] H6 Open in Xcode: in the workspace details card (A4) and the worktree card's context menu (B7).
 - [ ] H7 a missing `xcodebuild` or `xcrun` shows the install step.
 
 Edge cases:
