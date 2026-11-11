@@ -4,6 +4,8 @@ import type { MouseEvent } from "react";
 import type { Project } from "../../ipc/bindings";
 import { menuItem, shortcutLabel, tooltip } from "../../app/commands";
 import { ChevronIcon, EllipsisIcon, PlusIcon, SidebarIcon } from "../../ui/icons";
+import { countsLabel, countsTitle } from "../worktrees/gitCounts";
+import { gitCounts } from "../worktrees/gitCountsRefresh";
 import { worktreeOrder } from "../worktrees/projects";
 import { pickProject, projects, selectWorktree } from "../worktrees/store";
 import { sidebar, toggleFold, toggleSidebar } from "./store";
@@ -49,6 +51,7 @@ function ProjectGroup({ project }: { project: Project }) {
   const state = projects.use();
   const { worktrees, selected } = state;
   const order = worktreeOrder(state);
+  const counts = gitCounts.use();
   const open = !folded.includes(project.path);
   return (
     <section className="project-group">
@@ -67,6 +70,8 @@ function ProjectGroup({ project }: { project: Project }) {
         <ul className="worktree-list">
           {(worktrees[project.path] ?? []).map((worktree) => {
             const hint = shortcutLabel(`worktree.select.${order.indexOf(worktree.path) + 1}`);
+            const countsText = countsLabel(counts[worktree.path]);
+            const countsHint = countsTitle(counts[worktree.path]);
             return (
               <li key={worktree.path}>
                 <button
@@ -78,6 +83,7 @@ function ProjectGroup({ project }: { project: Project }) {
                   onContextMenu={worktree.path === project.path ? undefined : (e) => showMenu(e, "worktree.delete", worktree.path)}
                 >
                   <span className="worktree-name">{worktree.branch ?? worktree.path.split("/").pop()}</span>
+                  {countsText && <span className="worktree-counts" title={countsHint}>{countsText}</span>}
                   {hint && <span className="worktree-hint">{hint}</span>}
                 </button>
               </li>

@@ -7,6 +7,7 @@ import { DeleteWorktreePopup } from "../features/worktrees/DeleteWorktreePopup";
 import { ForceRemovalPopup } from "../features/worktrees/ForceRemovalPopup";
 import { NewWorktreePopup } from "../features/worktrees/NewWorktreePopup";
 import { ProjectDrop } from "../features/worktrees/ProjectDrop";
+import { watchGitCounts } from "../features/worktrees/gitCountsRefresh";
 import { dismissError, projects } from "../features/worktrees/store";
 import { WarningToast } from "../ui/Toast";
 import { runShortcut } from "./commands";
@@ -19,7 +20,11 @@ export default function App() {
   useEffect(() => {
     launch().catch(console.error);
     window.addEventListener("keydown", runShortcut);
-    return () => window.removeEventListener("keydown", runShortcut);
+    const unwatch = watchGitCounts();
+    return () => {
+      window.removeEventListener("keydown", runShortcut);
+      unwatch();
+    };
   }, []);
   return (
     <div className="app">

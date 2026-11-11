@@ -11,6 +11,7 @@ export function externalStore<T>(initial: T) {
   const get = () => value;
   return {
     get,
+    subscribe,
     set(next: T) {
       value = next;
       listeners.forEach((listener) => listener());

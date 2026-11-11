@@ -13,11 +13,30 @@ export const commands = {
 	checkBranchName: (project: string, name: string) => __TAURI_INVOKE<string | null>("check_branch_name", { project, name }),
 	createWorktree: (project: string, branch: string) => __TAURI_INVOKE<Worktree_Serialize>("create_worktree", { project, branch }),
 	removeWorktree: (project: string, worktree: string, force: boolean) => __TAURI_INVOKE<Removal_Serialize>("remove_worktree", { project, worktree, force }),
+	readGitCounts: (worktrees: string[]) => __TAURI_INVOKE<GitCounts_Serialize[]>("read_git_counts", { worktrees }),
 	setSidebarHidden: (hidden: boolean) => __TAURI_INVOKE<null>("set_sidebar_hidden", { hidden }),
 	setProjectFolded: (project: string, folded: boolean) => __TAURI_INVOKE<string[]>("set_project_folded", { project, folded }),
 };
 
 /* Types */
+export type GitCounts = GitCounts_Serialize | GitCounts_Deserialize;
+
+export type GitCounts_Deserialize = {
+	path: string,
+	/**  Against the upstream, or the main checkout's branch without one; None on a detached HEAD. */
+	ahead?: number | null,
+	behind?: number | null,
+	changed: number,
+};
+
+export type GitCounts_Serialize = {
+	path: string,
+	/**  Against the upstream, or the main checkout's branch without one; None on a detached HEAD. */
+	ahead: number | null,
+	behind: number | null,
+	changed: number,
+};
+
 export type KeptBranch = {
 	name: string,
 	reason: string,

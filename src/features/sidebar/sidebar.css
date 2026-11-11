@@ -102,6 +102,13 @@
   text-overflow: ellipsis;
 }
 
+.worktree-counts {
+  flex: none;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--ink-muted);
+}
+
 .worktree-hint {
   flex: none;
   font-size: 11px;

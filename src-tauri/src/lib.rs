@@ -16,6 +16,7 @@ pub fn ipc() -> tauri_specta::Builder<tauri::Wry> {
         commands::projects::check_branch_name,
         commands::projects::create_worktree,
         commands::projects::remove_worktree,
+        commands::projects::read_git_counts,
         commands::sidebar::set_sidebar_hidden,
         commands::sidebar::set_project_folded,
     ])

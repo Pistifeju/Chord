@@ -45,14 +45,14 @@ Edge cases:
 - [x] B2 New worktree popup (⌘N): branch name with the live `git check-ref-format` check, project picker; create opens the worktree.
 - [x] B3 Delete worktree: the card goes at once, git and cleanup run in the background; force prompt; a merged branch goes with it, and Chord says when it keeps one.
 - [x] B5 A new worktree gets a copy of the main checkout's gitignored files (up to 5 MB each, no ignored folders).
-- [ ] B6 Git counts on the worktree card (ahead, behind, changed); refresh on window focus only for expanded projects and the selected one.
+- [x] B6 Git counts on the worktree card: ↑ahead and ↓behind against the branch's upstream, or against the main checkout's branch without one (nothing on a detached HEAD), and changed files from `git status --porcelain`; zeros show nothing. Refreshes on window focus, then every 10 seconds while the window is visible, only for worktrees of expanded projects and the selected one; a refresh still running skips the next. No file watcher.
 
 Edge cases:
 - Worktree folder names never collide across projects.
 - Deleting the open worktree opens the one below it, or above if it was last.
 - A gitignored file that fails to copy does not strand the new worktree.
 - Worktrees deleted outside Chord lose their caches on app start and window focus.
-- Counts work in reftable repos; a branch without an upstream counts against the base branch.
+- Counts work in reftable repos; a branch without an upstream counts against the main checkout's current branch.
 - An unchanged worktree list skips the git refresh.
 - Project switch shows cached worktrees at once.
 - `await` the confirm dialog before deleting.
