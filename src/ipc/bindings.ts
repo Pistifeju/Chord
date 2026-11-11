@@ -12,15 +12,43 @@ export const commands = {
 	listWorktrees: (project: string) => __TAURI_INVOKE<Worktree_Serialize[]>("list_worktrees", { project }),
 	checkBranchName: (project: string, name: string) => __TAURI_INVOKE<string | null>("check_branch_name", { project, name }),
 	createWorktree: (project: string, branch: string) => __TAURI_INVOKE<Worktree_Serialize>("create_worktree", { project, branch }),
+	removeWorktree: (project: string, worktree: string, force: boolean) => __TAURI_INVOKE<Removal_Serialize>("remove_worktree", { project, worktree, force }),
 	setSidebarHidden: (hidden: boolean) => __TAURI_INVOKE<null>("set_sidebar_hidden", { hidden }),
 	setProjectFolded: (project: string, folded: boolean) => __TAURI_INVOKE<string[]>("set_project_folded", { project, folded }),
 };
 
 /* Types */
+export type KeptBranch = {
+	name: string,
+	reason: string,
+};
+
 export type Project = {
 	path: string,
 	name: string,
 };
+
+export type Removal = Removal_Serialize | Removal_Deserialize;
+
+export type Removal_Deserialize = 
+/**  The worktree is gone; `kept_branch` is its branch when it stays. */
+({ Removed: {
+	kept_branch?: KeptBranch | null,
+} }) & { NeedsForce?: never } | 
+/**  Git refused over modified or untracked files or a lock, which `--force` overrides. */
+({ NeedsForce: {
+	reason: string,
+} }) & { Removed?: never };
+
+export type Removal_Serialize = 
+/**  The worktree is gone; `kept_branch` is its branch when it stays. */
+({ Removed: {
+	kept_branch: KeptBranch | null,
+} }) & { NeedsForce?: never } | 
+/**  Git refused over modified or untracked files or a lock, which `--force` overrides. */
+({ NeedsForce: {
+	reason: string,
+} }) & { Removed?: never };
 
 export type Sidebar = Sidebar_Serialize | Sidebar_Deserialize;
 

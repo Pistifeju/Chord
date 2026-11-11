@@ -2,9 +2,9 @@
 import { Menu } from "@tauri-apps/api/menu";
 import type { MouseEvent } from "react";
 import type { Project } from "../../ipc/bindings";
-import { tooltip } from "../../app/commands";
+import { menuItem, tooltip } from "../../app/commands";
 import { ChevronIcon, EllipsisIcon, PlusIcon, SidebarIcon } from "../../ui/icons";
-import { pickProject, projects, removeProject, selectWorktree } from "../worktrees/store";
+import { pickProject, projects, selectWorktree } from "../worktrees/store";
 import { sidebar, toggleFold, toggleSidebar } from "./store";
 import "./sidebar.css";
 
@@ -37,11 +37,9 @@ export function Sidebar() {
   );
 }
 
-async function showProjectMenu(event: MouseEvent, path: string) {
+async function showMenu(event: MouseEvent, commandId: string, target: string) {
   event.preventDefault();
-  const menu = await Menu.new({
-    items: [{ id: "remove", text: "Remove Project", action: () => void removeProject(path) }],
-  });
+  const menu = await Menu.new({ items: [menuItem(commandId, target)] });
   await menu.popup();
 }
 
@@ -51,14 +49,14 @@ function ProjectGroup({ project }: { project: Project }) {
   const open = !folded.includes(project.path);
   return (
     <section className="project-group">
-      <div className="project-header" onContextMenu={(e) => showProjectMenu(e, project.path)}>
+      <div className="project-header" onContextMenu={(e) => showMenu(e, "project.remove", project.path)}>
         <button type="button" className="project-name" aria-expanded={open} onClick={() => toggleFold(project.path)}>
           <span className="project-chevron" data-open={open}>
             <ChevronIcon />
           </span>
           {project.name}
         </button>
-        <button type="button" className="icon-button project-more" title="Project Actions" onClick={(e) => showProjectMenu(e, project.path)}>
+        <button type="button" className="icon-button project-more" title="Project Actions" onClick={(e) => showMenu(e, "project.remove", project.path)}>
           <EllipsisIcon />
         </button>
       </div>
@@ -72,6 +70,7 @@ function ProjectGroup({ project }: { project: Project }) {
                 aria-current={worktree.path === selected}
                 title={worktree.path}
                 onClick={() => selectWorktree(worktree.path)}
+                onContextMenu={worktree.path === project.path ? undefined : (e) => showMenu(e, "worktree.delete", worktree.path)}
               >
                 {worktree.branch ?? worktree.path.split("/").pop()}
               </button>

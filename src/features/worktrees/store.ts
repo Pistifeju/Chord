@@ -1,13 +1,14 @@
-// Connects the project rules to IPC: load, add by dialog or drop, remove, select.
+// Connects the project rules to IPC: load, add by dialog or drop, remove, select, delete a worktree.
 import { commands, type Project } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
 import { sidebar, toggleFold } from "../sidebar/store";
-import { noProjects, withProject, withoutProject, withWorktrees, type Projects } from "./projects";
+import { noProjects, withProject, withoutProject, withoutWorktree, withSelectionRestored, withWorktrees, type Projects } from "./projects";
 
 export const projects = externalStore(noProjects);
 
 const update = (change: (p: Projects) => Projects) => projects.set(change(projects.get()));
-export const fail = (error: unknown) => update((p) => ({ ...p, error: String(error) }));
+export const fail = (error: unknown) => update((p) => ({ ...p, error: String(error), errorIsNotice: false }));
+const notify = (text: string) => update((p) => ({ ...p, error: text, errorIsNotice: true }));
 
 export async function refreshWorktrees(project: string) {
   const list = await commands.listWorktrees(project);
@@ -58,3 +59,54 @@ export function selectWorktree(path: string) {
   update((p) => ({ ...p, selected: path }));
 }
 export const dismissError = () => update((p) => ({ ...p, error: null }));
+
+// The worktree git refused to remove, waiting for the user to confirm a forced removal.
+export const forceRemoval = externalStore<{ project: string; path: string; branch: string | null; reason: string } | null>(null);
+
+// The worktree the user asked to delete, waiting for the confirm sheet.
+export const deletion = externalStore<{ project: string; path: string; name: string } | null>(null);
+
+export function requestDelete(project: string, path: string) {
+  const worktree = projects.get().worktrees[project]?.find((w) => w.path === path);
+  deletion.set({ project, path, name: worktree?.branch ?? path.split("/").pop() ?? path });
+}
+
+export const cancelDeletion = () => deletion.set(null);
+
+export function confirmDeletion() {
+  const pending = deletion.get();
+  deletion.set(null);
+  if (pending) void deleteWorktree(pending.project, pending.path);
+}
+
+// The card goes at once; git runs in the background and the list comes back if it refuses.
+export async function deleteWorktree(project: string, path: string, force = false) {
+  const branch = projects.get().worktrees[project]?.find((w) => w.path === path)?.branch ?? null;
+  const before = projects.get().selected;
+  update((p) => withoutWorktree(p, project, path));
+  const afterDelete = projects.get().selected;
+  const restore = () => update((p) => withSelectionRestored(p, path, before, afterDelete));
+  try {
+    const removal = await commands.removeWorktree(project, path, force);
+    if (removal.NeedsForce) {
+      forceRemoval.set({ project, path, branch, reason: removal.NeedsForce.reason });
+      await refreshWorktrees(project);
+      restore();
+    } else if (removal.Removed?.kept_branch) {
+      const { name, reason } = removal.Removed.kept_branch;
+      notify(`Kept branch ${name}: ${reason}`);
+    }
+  } catch (error) {
+    fail(error);
+    await refreshWorktrees(project).catch(fail);
+    restore();
+  }
+}
+
+export function confirmForceRemoval() {
+  const pending = forceRemoval.get();
+  forceRemoval.set(null);
+  if (pending) void deleteWorktree(pending.project, pending.path, true);
+}
+
+export const cancelForceRemoval = () => forceRemoval.set(null);

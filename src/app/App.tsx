@@ -3,6 +3,8 @@ import { useEffect } from "react";
 import { Sidebar, SidebarToggle } from "../features/sidebar/Sidebar";
 import { sidebar } from "../features/sidebar/store";
 import { NoProjects } from "../features/worktrees/NoProjects";
+import { DeleteWorktreePopup } from "../features/worktrees/DeleteWorktreePopup";
+import { ForceRemovalPopup } from "../features/worktrees/ForceRemovalPopup";
 import { NewWorktreePopup } from "../features/worktrees/NewWorktreePopup";
 import { ProjectDrop } from "../features/worktrees/ProjectDrop";
 import { dismissError, projects } from "../features/worktrees/store";
@@ -12,7 +14,7 @@ import { launch } from "./launch";
 import "./app.css";
 
 export default function App() {
-  const { list, error } = projects.use();
+  const { list, error, errorIsNotice } = projects.use();
   const { hidden } = sidebar.use();
   useEffect(() => {
     launch().catch(console.error);
@@ -30,7 +32,9 @@ export default function App() {
       <main className="main">{list.length === 0 && <NoProjects />}</main>
       <ProjectDrop />
       <NewWorktreePopup />
-      {error && <WarningToast text={error} onDismiss={dismissError} />}
+      <DeleteWorktreePopup />
+      <ForceRemovalPopup />
+      {error && <WarningToast text={error} notice={errorIsNotice} onDismiss={dismissError} />}
     </div>
   );
 }

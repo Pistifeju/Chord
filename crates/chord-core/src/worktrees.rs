@@ -77,6 +77,60 @@ pub fn create(project: &Project, branch: &str) -> Result<Worktree, Error> {
     })
 }
 
+#[derive(Serialize, Type, Debug, PartialEq)]
+pub enum Removal {
+    /// The worktree is gone; `kept_branch` is its branch when it stays.
+    Removed { kept_branch: Option<KeptBranch> },
+    /// Git refused over modified or untracked files or a lock, which `--force` overrides.
+    NeedsForce { reason: String },
+}
+
+#[derive(Serialize, Type, Debug, PartialEq)]
+pub struct KeptBranch {
+    pub name: String,
+    pub reason: String,
+}
+
+/// Removes a worktree and deletes its branch when it is merged.
+pub fn remove(project: &Project, path: &Path, force: bool) -> Result<Removal, Error> {
+    // git lists real paths, so a path through a symlink must resolve before it is compared.
+    let real = path.canonicalize()?;
+    let branch = entries(&project.path)?
+        .into_iter()
+        .find(|entry| entry.worktree.path == real)
+        .and_then(|entry| entry.worktree.branch);
+    let path_arg = path.to_string_lossy();
+    let mut args = vec!["worktree", "remove"];
+    if force {
+        // A locked worktree needs the flag twice.
+        args.extend(["--force", "--force"]);
+    }
+    args.push(&path_arg);
+    match git::run(&project.path, &args) {
+        Ok(_) => {}
+        Err(Error::Message(reason)) if !force && force_helps(&reason) => {
+            return Ok(Removal::NeedsForce { reason });
+        }
+        Err(other) => return Err(other),
+    }
+    let kept_branch = branch.and_then(|name| {
+        let Err(Error::Message(message)) = git::run(&project.path, &["branch", "-d", &name]) else {
+            return None;
+        };
+        let reason = if message.contains("not fully merged") {
+            "it is not merged".to_string()
+        } else {
+            message
+        };
+        Some(KeptBranch { name, reason })
+    });
+    Ok(Removal::Removed { kept_branch })
+}
+
+fn force_helps(refusal: &str) -> bool {
+    refusal.contains("modified or untracked files") || refusal.contains("locked")
+}
+
 fn folder(project: &Project, branch: &str) -> PathBuf {
     project
         .path
@@ -168,7 +222,48 @@ mod tests {
         let made = create(&project, "feature/x")?;
         let clash = check_branch(&project, "feature-x")?;
         let listed = list(&repo)?;
+        let unmerged = create(&project, "wip")?;
+        git::run(
+            &unmerged.path,
+            &[
+                "-c",
+                "user.name=t",
+                "-c",
+                "user.email=t@t",
+                "-c",
+                "commit.gpgsign=false",
+                "commit",
+                "-q",
+                "--allow-empty",
+                "-m",
+                "more",
+            ],
+        )?;
+        let merged_removal = remove(&project, &made.path, false)?;
+        let unmerged_removal = remove(&project, &unmerged.path, false)?;
 
+        assert_eq!(merged_removal, Removal::Removed { kept_branch: None });
+        assert_eq!(
+            unmerged_removal,
+            Removal::Removed {
+                kept_branch: Some(KeptBranch {
+                    name: "wip".into(),
+                    reason: "it is not merged".into()
+                })
+            }
+        );
+        assert!(!made.path.exists());
+        assert!(matches!(
+            remove(&project, &repo, false),
+            Err(Error::Message(_))
+        ));
+        assert!(
+            git::run(
+                &repo,
+                &["rev-parse", "--verify", "--quiet", "refs/heads/feature/x"]
+            )
+            .is_err()
+        );
         assert_eq!(bad.as_deref(), Some("Not a valid branch name"));
         assert_eq!(taken.as_deref(), Some("A branch with this name exists"));
         assert_eq!(clash.as_deref(), Some("A folder with this name exists"));

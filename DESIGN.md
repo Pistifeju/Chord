@@ -199,6 +199,7 @@ Skip system vibrancy materials on the canvas and toolbar. Flat warm fills keep t
 - Success `#3E8E41`: inline text only.
 - Notification dot `#3B82F6`: a 5pt dot on the tab or icon that holds something unseen. Mirror it with a Dock badge.
 - Focus ring: a 2pt `focus-ring` outline outside the control's own radius. Keyboard focus must stay visible on every control.
+- Text fields and selects (`.input`) get no outline. Focus changes only the border color to `focus-ring`, with no transition, so clicking between the Project and Branch name fields never flashes a ring.
 
 Keep large areas free of semantic color. Confirmation uses a black circle with a white check.
 
@@ -312,7 +313,7 @@ Text only; the selected chip becomes a black pill.
 
 - Sheets attach to the main window and appear centered over the scrim as white cards, 20pt radius, 20 to 28pt padding.
 - Header patterns: centered title with a text "Cancel" left and an optional primary pill right, or small muted title left with an X right.
-- Confirm dialogs: title, one muted line, two equal pills side by side (Cancel / destructive or primary).
+- Confirm dialogs: title, one muted line, two equal 40pt pills side by side (Cancel / destructive or primary); the muted line is `.sheet-description`, centered, with any detail beneath it as meta text.
 - Success dialogs: black check circle, title, muted line, full-width "Done".
 
 ### Settings window
@@ -336,9 +337,9 @@ Bottom-center floating pill inside the window, white, soft shadow, 13pt label, d
 
 1. Label + black check circle ("Changes saved").
 2. Label + black "View" pill.
-3. Label + red warning triangle.
+3. Label only (errors and notices).
 
-A two-line variant adds a muted sublabel. Events that happen while the app sits in the background go to Notification Center instead.
+Toasts carry no warning or exclamation icon. Errors state the cause in text. A two-line variant adds a muted sublabel. Events that happen while the app sits in the background go to Notification Center instead.
 
 ### Floating action bar
 
@@ -374,6 +375,7 @@ SF Symbols at regular weight, 15 to 17pt, in ink or muted gray.
 - Don't use bold weights for headings.
 - Don't put a Save button in the Settings window.
 - Don't make chrome text selectable.
+- Don't put a warning or exclamation icon on a toast, popup, sheet or alert. Text only.
 
 ## Window Resizing
 

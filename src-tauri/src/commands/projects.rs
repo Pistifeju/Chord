@@ -1,8 +1,8 @@
-//! Commands for projects and their worktrees: load, add, remove, list, create.
+//! Commands for projects and their worktrees: load, add, remove, list, create, delete.
 
 use std::path::PathBuf;
 
-use chord_core::{Error, Project, State, Worktree, projects, worktrees};
+use chord_core::{Error, Project, Removal, State, Worktree, projects, worktrees};
 use tauri::AppHandle;
 use tauri_plugin_dialog::DialogExt;
 
@@ -77,6 +77,20 @@ pub async fn create_worktree(
 ) -> Result<Worktree, String> {
     blocking(app, move |_, store| {
         worktrees::create(&projects::find(store, &project)?, &branch)
+    })
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn remove_worktree(
+    app: AppHandle,
+    project: PathBuf,
+    worktree: PathBuf,
+    force: bool,
+) -> Result<Removal, String> {
+    blocking(app, move |_, store| {
+        worktrees::remove(&projects::find(store, &project)?, &worktree, force)
     })
     .await
 }

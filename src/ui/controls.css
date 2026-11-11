@@ -126,6 +126,20 @@ button:focus-visible {
   box-shadow: var(--shadow-chrome-pill);
 }
 
+.pill-destructive {
+  height: 28px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 9999px;
+  background: var(--surface-muted);
+  color: var(--danger);
+  font-weight: 500;
+}
+
+.pill-destructive:active {
+  background: var(--surface-pressed);
+}
+
 .pill-secondary:active {
   background: var(--surface-pressed);
 }
@@ -143,8 +157,8 @@ button:focus-visible {
 }
 
 .input:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
+  outline: none;
+  border-color: var(--focus-ring);
 }
 
 .field {
@@ -212,4 +226,29 @@ button:focus-visible {
   font-size: 14px;
   font-weight: 500;
   text-align: center;
+}
+
+.sheet-description {
+  margin: 0;
+  text-align: center;
+  color: var(--ink-secondary);
+}
+
+.sheet-meta {
+  margin: 0;
+  text-align: center;
+  font-size: 11px;
+  color: var(--ink-muted);
+}
+
+.sheet-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.sheet-actions .pill-primary,
+.sheet-actions .pill-destructive,
+.sheet-actions .pill-secondary {
+  height: 40px;
 }

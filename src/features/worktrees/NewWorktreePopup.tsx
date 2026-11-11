@@ -1,5 +1,6 @@
 // The New Worktree sheet: project picker, branch name with its live git check, Create.
-import { useEffect, type FormEvent } from "react";
+import type { FormEvent } from "react";
+import { useEscape } from "../../ui/escapeKey";
 import { branchName, canCreate } from "./projects";
 import { closeNewWorktree, createWorktree, newWorktree, setBranch, setProject } from "./newWorktree";
 import { projects } from "./store";
@@ -7,12 +8,7 @@ import { projects } from "./store";
 export function NewWorktreePopup() {
   const { open, project, branch, problem, checked, creating, createError } = newWorktree.use();
   const { list } = projects.use();
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: KeyboardEvent) => e.key === "Escape" && closeNewWorktree();
-    window.addEventListener("keydown", close);
-    return () => window.removeEventListener("keydown", close);
-  }, [open]);
+  useEscape(open, closeNewWorktree);
   if (!open) return null;
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -53,7 +49,7 @@ export function NewWorktreePopup() {
             value={branch}
             onChange={(e) => setBranch(e.target.value)}
           />
-          <span className="field-hint">{createError ?? (branchName(branch) || "…")}</span>
+          <span className="field-hint">{createError ?? branchName(branch)}</span>
         </label>
       </form>
     </div>

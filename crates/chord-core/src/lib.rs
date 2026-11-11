@@ -9,4 +9,4 @@ pub mod worktrees;
 pub use error::Error;
 pub use projects::Project;
 pub use state::{Sidebar, State, Store};
-pub use worktrees::Worktree;
+pub use worktrees::{KeptBranch, Removal, Worktree};
