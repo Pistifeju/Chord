@@ -1,0 +1,102 @@
+/* Design tokens: every color, shadow, curve and font the app uses. Rules: DESIGN.md. */
+:root {
+  --ink: #111111;
+  --ink-secondary: #5c5c5c;
+  --ink-muted: #8e8e8e;
+  --ink-disabled: #b5b5b5;
+
+  --canvas: #ffffff;
+  --chrome: #faf9f7;
+  --surface-cream: #fbfaf8;
+  --surface-muted: #f2f1ef;
+  --surface-pressed: #ebeae8;
+  --skeleton: #f1f0ee;
+
+  --hairline: #ecebe9;
+  --hairline-strong: #dedddb;
+  --focus-ring: rgba(17, 17, 17, 0.35);
+  --scrim: rgba(190, 190, 190, 0.55);
+
+  --primary: #111111;
+  --on-primary: #ffffff;
+  --danger: #c0392b;
+  --success: #3e8e41;
+  --notification-dot: #3b82f6;
+
+  --status-running: #1f8a38;
+  --status-waiting: #b8860b;
+  --status-done: #2a7fd4;
+  --status-error: #d93f3f;
+  --editor-selection: rgba(17, 17, 17, 0.12);
+  --editor-match: rgba(242, 201, 76, 0.4);
+
+  --shadow-chrome-pill: 0 1px 2px rgba(0, 0, 0, 0.04), inset 0 0 0 1px var(--hairline);
+  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.06);
+  --shadow-popover: 0 8px 28px rgba(0, 0, 0, 0.1);
+  --shadow-sheet: 0 16px 48px rgba(0, 0, 0, 0.12);
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --t-fast: 120ms;
+  --t-med: 200ms;
+  --syn-keyword: hsl(256, 55%, 48%);
+  --syn-string: hsl(140, 60%, 28%);
+  --syn-number: hsl(28, 85%, 40%);
+  --syn-type: hsl(190, 80%, 30%);
+  --syn-function: hsl(214, 70%, 42%);
+
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink);
+  background: var(--canvas);
+  color-scheme: light dark;
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #f5f5f5;
+    --ink-secondary: #b5b5b5;
+    --ink-muted: #8a8a8a;
+    --ink-disabled: #5c5c5c;
+
+    --canvas: #141414;
+    --chrome: #1f1f1f;
+    --surface-cream: #242424;
+    --surface-muted: #2a2a2a;
+    --surface-pressed: #333333;
+    --skeleton: #1f1f1f;
+
+    --hairline: #2e2e2e;
+    --hairline-strong: #3a3a3a;
+    --focus-ring: rgba(245, 245, 245, 0.35);
+    --scrim: rgba(0, 0, 0, 0.55);
+
+    --primary: #ffffff;
+    --on-primary: #111111;
+
+    --status-running: #27a644;
+    --status-waiting: #f2c94c;
+    --status-done: #4ea7fc;
+    --status-error: #eb5757;
+    --editor-selection: rgba(245, 245, 245, 0.16);
+    --editor-match: rgba(242, 201, 76, 0.22);
+
+    --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.4);
+    --shadow-popover: 0 8px 28px rgba(0, 0, 0, 0.5);
+    --shadow-sheet: 0 16px 48px rgba(0, 0, 0, 0.6);
+
+    --syn-keyword: hsl(256, 80%, 78%);
+    --syn-string: hsl(140, 40%, 64%);
+    --syn-number: hsl(32, 85%, 66%);
+    --syn-type: hsl(190, 60%, 64%);
+    --syn-function: hsl(214, 85%, 74%);
+  }
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; }

@@ -1,0 +1,18 @@
+[package]
+name = "chord"
+description = "A macOS workspace for coding agents"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "chord_lib"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+
+[lints]
+workspace = true
