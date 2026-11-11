@@ -45,7 +45,6 @@ Edge cases:
 - [x] B1 Add a project (dialog or folder drop), remove it, switch between projects.
 - [x] B2 New worktree popup (⌘N): branch name with the live `git check-ref-format` check, project picker; create opens the worktree.
 - [x] B3 Delete worktree: the card goes at once, git and cleanup run in the background; force prompt; a merged branch goes with it, and Chord says when it keeps one.
-- [ ] B4 Remove from Chord: hides the worktree, folder and branch stay; adding the folder again brings it back.
 - [ ] B5 A new worktree gets a copy of the main checkout's gitignored files (up to 5 MB each, no ignored folders).
 - [ ] B6 Git counts on the worktree card (ahead, behind, changed); refresh on window focus only for expanded projects and the selected one.
 - [ ] B7 Context menu on the card: reveal in Finder, copy path.
