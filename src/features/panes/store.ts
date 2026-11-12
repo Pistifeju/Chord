@@ -2,21 +2,16 @@
 import { commands, type Direction, type Layout, type WorktreePanes } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
 import { forgetChat, startChat } from "../chat/store";
-import { withEvenSizes, paneIds, withSizes, type Edge } from "./layout";
+import { paneChanges, resumedPanes, vanishedWorktrees } from "./agents";
+import { withEvenSizes, withSizes, type Edge } from "./layout";
 import { activeSession, firstPanes, withActiveSession, withFocus, withLayout, withNewSession, withoutPaneClosed, withSessionClosed, withSessionDropped, withSplitFocused } from "./sessions";
 
 export const panes = externalStore<Record<string, WorktreePanes>>({});
 
 export const loadPanes = (saved: Record<string, WorktreePanes>) => panes.set(saved);
 
-// Agents that ran at quit start again; each opens its pane's saved session.
-export const allPaneIds = (saved: WorktreePanes | undefined): string[] => (saved?.sessions ?? []).flatMap((session) => paneIds(session.layout));
-
-// Only worktrees that still exist.
-export function resumeAgents(running: string[], existing: Set<string>) {
-  for (const [worktree, saved] of Object.entries(panes.get())) {
-    if (existing.has(worktree)) for (const pane of allPaneIds(saved)) if (running.includes(pane)) void startChat(worktree, pane);
-  }
+export function resumeAgents(running: string[], existing: string[]) {
+  for (const [worktree, pane] of resumedPanes(panes.get(), running, existing)) void startChat(worktree, pane);
 }
 
 const newId = () => crypto.randomUUID();
@@ -30,10 +25,9 @@ function commit(worktree: string, next: WorktreePanes | undefined, persist: bool
   const { [worktree]: before, ...rest } = panes.get();
   panes.set(next ? { ...panes.get(), [worktree]: next } : rest);
   if (persist) save(worktree);
-  const was = allPaneIds(before);
-  const now = allPaneIds(next);
-  for (const pane of now) if (!was.includes(pane)) void startChat(worktree, pane);
-  for (const pane of was) if (!now.includes(pane)) forgetChat(pane);
+  const { started, gone } = paneChanges(before, next);
+  for (const pane of started) void startChat(worktree, pane);
+  for (const pane of gone) forgetChat(pane);
 }
 
 // Opening a worktree for the first time gives it one session with one pane, whose agent waits for Start.
@@ -95,6 +89,6 @@ export function forgetPanes(worktree: string) {
 }
 
 // Layouts of worktrees that are not in the known paths go, as when one was removed while the app was closed.
-export function forgetPanesExcept(known: Set<string>) {
-  for (const worktree of Object.keys(panes.get())) if (!known.has(worktree)) forgetPanes(worktree);
+export function forgetPanesExcept(known: string[]) {
+  for (const worktree of vanishedWorktrees(panes.get(), known)) forgetPanes(worktree);
 }

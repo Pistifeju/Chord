@@ -214,6 +214,9 @@ fn parse_version(line: &str) -> Option<(u32, u32, u32)> {
 struct Kind {
     #[serde(rename = "type")]
     kind: String,
+    // A reply chunk needs only this field, so its record is not parsed a second time.
+    #[serde(rename = "assistantMessageEvent")]
+    update: Option<Value>,
 }
 
 const READ_KINDS: [&str; 8] = [
@@ -260,7 +263,10 @@ impl OpenCalls {
 // Tool output and turn summaries are large and unused, so only the records `events_from` reads get a full parse.
 fn events_from_line(line: &[u8]) -> Vec<HarnessEvent> {
     match serde_json::from_slice::<Kind>(line) {
-        Ok(Kind { kind }) if READ_KINDS.contains(&kind.as_str()) => {
+        Ok(Kind { kind, update }) if kind == "message_update" => {
+            message_update(update.as_ref().unwrap_or(&Value::Null))
+        }
+        Ok(Kind { kind, .. }) if READ_KINDS.contains(&kind.as_str()) => {
             serde_json::from_slice::<Value>(line)
                 .map(|record| events_from(&record))
                 .unwrap_or_default()
@@ -273,19 +279,7 @@ fn events_from(record: &Value) -> Vec<HarnessEvent> {
     match record["type"].as_str() {
         Some("agent_start") => vec![HarnessEvent::State { running: true }],
         Some("agent_settled") => vec![HarnessEvent::State { running: false }],
-        Some("message_update") => {
-            let update = &record["assistantMessageEvent"];
-            match (update["type"].as_str(), update["delta"].as_str()) {
-                (Some("text_delta"), Some(text)) => {
-                    vec![HarnessEvent::MessageChunk { text: text.into() }]
-                }
-                (Some("thinking_start"), _) => vec![HarnessEvent::ThoughtStart],
-                (Some("thinking_delta"), Some(text)) => {
-                    vec![HarnessEvent::ThoughtChunk { text: text.into() }]
-                }
-                _ => vec![],
-            }
-        }
+        Some("message_update") => message_update(&record["assistantMessageEvent"]),
         Some("tool_execution_start") => {
             let (title, detail) = describe_tool(
                 record["toolName"].as_str().unwrap_or("tool"),
@@ -321,6 +315,19 @@ fn events_from(record: &Value) -> Vec<HarnessEvent> {
                 .unwrap_or("pi refused the command")
                 .into(),
         }],
+        _ => vec![],
+    }
+}
+
+fn message_update(update: &Value) -> Vec<HarnessEvent> {
+    match (update["type"].as_str(), update["delta"].as_str()) {
+        (Some("text_delta"), Some(text)) => {
+            vec![HarnessEvent::MessageChunk { text: text.into() }]
+        }
+        (Some("thinking_start"), _) => vec![HarnessEvent::ThoughtStart],
+        (Some("thinking_delta"), Some(text)) => {
+            vec![HarnessEvent::ThoughtChunk { text: text.into() }]
+        }
         _ => vec![],
     }
 }

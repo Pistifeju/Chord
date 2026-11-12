@@ -1,11 +1,12 @@
 // The sidebar: one foldable group per project, one card per worktree, and its show/hide button.
 import { Menu } from "@tauri-apps/api/menu";
 import { useEffect, useState, type MouseEvent } from "react";
-import type { Project } from "../../ipc/bindings";
+import type { GitCounts_Serialize as GitCounts, Project, Worktree_Serialize as Worktree } from "../../ipc/bindings";
 import { menuItem, shortcutLabel, tooltip } from "../../app/commands";
 import { chats } from "../chat/store";
 import { paneRows } from "../panes/sessions";
-import { allPaneIds, focusPane, panes } from "../panes/store";
+import { allPaneIds } from "../panes/agents";
+import { focusPane, panes } from "../panes/store";
 import { shortcutChanges } from "../settings/store";
 import { finished } from "../status/store";
 import { ageLabel, statusLabel, urgentReport } from "../status/status";
@@ -86,7 +87,6 @@ function ProjectGroup({ project }: { project: Project }) {
   const { worktrees, selected } = state;
   const order = worktreeOrder(state);
   const counts = gitCounts.use();
-  const allPanes = panes.use();
   const finishedPanes = finished.use();
   shortcutChanges.use();
   const open = !folded.includes(project.path);
@@ -102,56 +102,83 @@ function ProjectGroup({ project }: { project: Project }) {
       </div>
       {open && (
         <ul className="worktree-list">
-          {(worktrees[project.path] ?? []).map((worktree) => {
-            const hint = shortcutLabel(`worktree.select.${order.indexOf(worktree.path) + 1}`);
-            const countsText = countsLabel(counts[worktree.path]);
-            const countsHint = countsTitle(counts[worktree.path]);
-            const paneIdList = allPaneIds(allPanes[worktree.path]);
-            const rows = paneRows(allPanes[worktree.path], worktree.path === selected);
-            return (
-              <li key={worktree.path}>
-                <button
-                  type="button"
-                  className="worktree-card"
-                  aria-current={worktree.path === selected}
-                  data-pane-selected={rows.some((row) => row.focused) || undefined}
-                  data-finished={paneIdList.some((pane) => finishedPanes.includes(pane)) || undefined}
-                  title={worktree.path}
-                  onClick={() => selectWorktree(worktree.path)}
-                  onContextMenu={worktree.path === project.path ? undefined : (e) => showMenu(e, "worktree.delete", worktree.path)}
-                >
-                  <span className="worktree-line">
-                    <span className="worktree-name">{worktreeName(worktree)}</span>
-                    {countsText && <span className="worktree-counts" title={countsHint}>{countsText}</span>}
-                    {hint && <span className="worktree-hint">{hint}</span>}
-                  </span>
-                  <WorktreeStatus paneIdList={paneIdList} unseenDone={paneIdList.some((pane) => finishedPanes.includes(pane))} />
-                </button>
-                {rows.length > 0 && (
-                  <ul className="pane-list">
-                    {rows.map(({ pane, label, focused }) => (
-                      <li key={pane}>
-                        <button
-                          type="button"
-                          className="pane-row"
-                          data-finished={finishedPanes.includes(pane) || undefined}
-                          aria-current={focused}
-                          onClick={() => {
-                            selectWorktree(worktree.path);
-                            focusPane(worktree.path, pane);
-                          }}
-                        >
-                          {label}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </li>
-            );
-          })}
+          {(worktrees[project.path] ?? []).map((worktree) => (
+            <WorktreeCard
+              key={worktree.path}
+              project={project}
+              worktree={worktree}
+              selected={worktree.path === selected}
+              hint={shortcutLabel(`worktree.select.${order.indexOf(worktree.path) + 1}`)}
+              counts={counts[worktree.path]}
+              finishedPanes={finishedPanes}
+            />
+          ))}
         </ul>
       )}
     </section>
+  );
+}
+
+// Reads only its own worktree's panes, so a resize or a focus in another worktree leaves it alone.
+function WorktreeCard({
+  project,
+  worktree,
+  selected,
+  hint,
+  counts,
+  finishedPanes,
+}: {
+  project: Project;
+  worktree: Worktree;
+  selected: boolean;
+  hint: string | undefined;
+  counts: GitCounts | undefined;
+  finishedPanes: string[];
+}) {
+  const saved = panes.usePart((all) => all[worktree.path]);
+  const countsText = countsLabel(counts);
+  const countsHint = countsTitle(counts);
+  const paneIdList = allPaneIds(saved);
+  const rows = paneRows(saved, selected);
+  return (
+    <li>
+      <button
+        type="button"
+        className="worktree-card"
+        aria-current={selected}
+        data-pane-selected={rows.some((row) => row.focused) || undefined}
+        data-finished={paneIdList.some((pane) => finishedPanes.includes(pane)) || undefined}
+        title={worktree.path}
+        onClick={() => selectWorktree(worktree.path)}
+        onContextMenu={worktree.path === project.path ? undefined : (e) => showMenu(e, "worktree.delete", worktree.path)}
+      >
+        <span className="worktree-line">
+          <span className="worktree-name">{worktreeName(worktree)}</span>
+          {countsText && <span className="worktree-counts" title={countsHint}>{countsText}</span>}
+          {hint && <span className="worktree-hint">{hint}</span>}
+        </span>
+        <WorktreeStatus paneIdList={paneIdList} unseenDone={paneIdList.some((pane) => finishedPanes.includes(pane))} />
+      </button>
+      {rows.length > 0 && (
+        <ul className="pane-list">
+          {rows.map(({ pane, label, focused }) => (
+            <li key={pane}>
+              <button
+                type="button"
+                className="pane-row"
+                data-finished={finishedPanes.includes(pane) || undefined}
+                aria-current={focused}
+                onClick={() => {
+                  selectWorktree(worktree.path);
+                  focusPane(worktree.path, pane);
+                }}
+              >
+                {label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </li>
   );
 }

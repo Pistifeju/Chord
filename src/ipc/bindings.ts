@@ -23,7 +23,7 @@ export const commands = {
 	showPanes: (panes: string[]) => __TAURI_INVOKE<void>("show_panes", { panes }),
 	/**  Stops every agent and ends the app once the user confirmed the quit. Panes stay saved as running, so they start again on launch. */
 	quitApp: () => __TAURI_INVOKE<null>("quit_app"),
-	/**  Saves the setting and applies it; a missing `caffeinate` fails before anything is saved. */
+	/**  Saves the setting and applies it; a missing `caffeinate` fails before anything is saved, even with no agent working. */
 	setKeepAwake: (enabled: boolean) => __TAURI_INVOKE<null>("set_keep_awake", { enabled }),
 };
 

@@ -1,7 +1,7 @@
 // Rules for an agent's reported status: its words, which of several is most urgent, and how old it is.
 import type { Status } from "../../ipc/bindings";
 
-/** What Rust reported for a pane; the store stamps `since` when the status changes. */
+/** What Rust reported for a pane; the transcript rules stamp `since` when the status changes. */
 export type StatusReport = { status: Status; lastMessage: string; since: number };
 
 // Most urgent first: what needs the user before what runs or rests.

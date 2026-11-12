@@ -5,7 +5,7 @@ import { externalStore } from "../../ui/externalStore";
 import { forgetPanes, forgetPanesExcept } from "../panes/store";
 import { settingsOpen } from "../settings/store";
 import { sidebar, toggleFold } from "../sidebar/store";
-import { noProjects, withProject, withoutProject, withoutWorktree, withSavedSelection, withSelectionRestored, withWorktrees, type Projects } from "./projects";
+import { noProjects, withProject, withoutProject, withoutWorktree, withSavedSelection, withSelectionRestored, withWorktrees, worktreeOrder, type Projects } from "./projects";
 
 export const projects = externalStore(noProjects);
 
@@ -40,7 +40,7 @@ export function loadProjects(list: Project[], saved: string | null) {
 function pruneVanishedPanes() {
   const { list, worktrees } = projects.get();
   if (list.some((p) => !worktrees[p.path]?.length)) return;
-  forgetPanesExcept(new Set(list.flatMap((p) => worktrees[p.path].map((w) => w.path))));
+  forgetPanesExcept(worktreeOrder(projects.get()));
 }
 
 export async function pickProject() {

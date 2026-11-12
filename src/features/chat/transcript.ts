@@ -1,6 +1,6 @@
 // Rules for a chat's transcript: how each harness event changes the messages, the run flag, the notice and the status report.
 import type { Capability, HarnessEvent } from "../../ipc/bindings";
-import type { StatusReport } from "../status/status.ts";
+import { stampedReport, type StatusReport } from "../status/status.ts";
 
 export type Message = { role: "user" | "assistant"; text: string; streaming: boolean };
 
@@ -18,7 +18,7 @@ export type Chat = {
   agent: "idle" | "starting" | "ready";
   items: Item[];
   running: boolean;
-  /** When the current run started, in ms since the epoch; the store sets it. */
+  /** When the current run started, in ms since the epoch. */
   since: number | null;
   /** What the harness can do; null until the agent has started. */
   capabilities: Capability[] | null;
@@ -31,9 +31,16 @@ export const emptyChat: Chat = { agent: "idle", items: [], running: false, since
 
 const closed = (items: Item[]): Item[] => items.map((item) => (item.role !== "steps" && item.streaming ? { ...item, streaming: false } : item));
 
+// One copy of the list instead of the two a spread of a slice makes; it runs on every chunk.
+const withLast = <T,>(list: T[], last: T): T[] => {
+  const next = list.slice();
+  next[next.length - 1] = last;
+  return next;
+};
+
 const withStep = (items: Item[], extend: (steps: Step[]) => Step[]): Item[] => {
   const last = items[items.length - 1];
-  if (last?.role === "steps") return [...items.slice(0, -1), { role: "steps", steps: extend(last.steps) }];
+  if (last?.role === "steps") return withLast<Item>(items, { role: "steps", steps: extend(last.steps) });
   return [...closed(items), { role: "steps", steps: extend([]) }];
 };
 
@@ -55,13 +62,14 @@ export function stepsSummary(steps: Step[]): string {
   return parts.join(", ");
 }
 
-export function chatAfter(chat: Chat, event: HarnessEvent): Chat {
+/** `now` is the event's arrival time in ms since the epoch; it stamps when a run starts and when the status changes. */
+export function chatAfter(chat: Chat, event: HarnessEvent, now: number): Chat {
   switch (event.kind) {
     case "user_message_chunk":
       return { ...chat, items: [...closed(chat.items), { role: "user", text: event.text, streaming: false }] };
     case "message_chunk": {
       const last = chat.items[chat.items.length - 1];
-      if (last?.role === "assistant" && last.streaming) return { ...chat, items: [...chat.items.slice(0, -1), { ...last, text: last.text + event.text }] };
+      if (last?.role === "assistant" && last.streaming) return { ...chat, items: withLast<Item>(chat.items, { ...last, text: last.text + event.text }) };
       return { ...chat, items: [...chat.items, { role: "assistant", text: event.text, streaming: true }] };
     }
     case "thought_start":
@@ -71,7 +79,7 @@ export function chatAfter(chat: Chat, event: HarnessEvent): Chat {
         ...chat,
         items: withStep(chat.items, (steps) => {
           const last = steps[steps.length - 1];
-          if (last?.kind === "thought") return [...steps.slice(0, -1), { ...last, text: last.text + event.text }];
+          if (last?.kind === "thought") return withLast<Step>(steps, { ...last, text: last.text + event.text });
           return [...steps, { kind: "thought", id: steps.length, text: event.text }];
         }),
       };
@@ -93,9 +101,14 @@ export function chatAfter(chat: Chat, event: HarnessEvent): Chat {
     case "message_end":
       return { ...chat, items: closed(chat.items) };
     case "state":
-      return { ...chat, running: event.running, items: event.running ? chat.items : closed(chat.items) };
+      return {
+        ...chat,
+        running: event.running,
+        since: event.running && !chat.running ? now : chat.since,
+        items: event.running ? chat.items : closed(chat.items),
+      };
     case "status":
-      return { ...chat, report: { status: event.status, lastMessage: event.last_message, since: chat.report?.since ?? 0 } };
+      return { ...chat, report: stampedReport(chat.report, { status: event.status, lastMessage: event.last_message, since: now }, now) };
     case "notice":
       return { ...chat, notice: event.text };
     case "exited":

@@ -68,6 +68,12 @@ const StepsRow = memo(function StepsRow({ group, running, fresh }: { group: Step
   );
 });
 
+const isStreaming = (item: Item) => item.role !== "steps" && item.streaming;
+
+// A streaming reply renders nothing, so its chunks leave the rows as they are.
+const sameRows = (a: { items: Item[]; running: boolean }, b: { items: Item[]; running: boolean }) =>
+  a.running === b.running && a.items.length === b.items.length && a.items.every((item, i) => item === b.items[i] || (isStreaming(item) && isStreaming(b.items[i])));
+
 const Messages = memo(function Messages({ items, running }: { items: Item[]; running: boolean }) {
   // Only items that arrive while the pane is open animate in; reopening a long chat stays still.
   const loaded = useRef(items.length);
@@ -82,7 +88,7 @@ const Messages = memo(function Messages({ items, running }: { items: Item[]; run
       )}
     </div>
   );
-});
+}, sameRows);
 
 export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { worktree: string; pane: string; focused: boolean }) {
   const chat = chats.usePart((all) => chatOf(all, pane));
