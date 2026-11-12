@@ -47,7 +47,7 @@ export function NewWorktreePopup() {
             value={branch}
             onChange={(e) => setBranch(e.target.value)}
           />
-          <span className="field-hint">{createError ?? branchName(branch)}</span>
+          <span className="field-hint">{createError ?? problem ?? branchName(branch)}</span>
         </label>
         <footer className="sheet-footer">
           <button type="submit" className="button-primary" disabled={!ready && !creating} aria-busy={creating}>
