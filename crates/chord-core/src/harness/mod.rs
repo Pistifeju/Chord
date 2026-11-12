@@ -21,6 +21,8 @@ pub enum Capability {
     Steer,
     /// The model and the thinking level can be read and picked.
     Models,
+    /// The size of the model's context window and how much of it the session fills.
+    Context,
 }
 
 /// An image in a message: base64 data and its MIME type.
@@ -122,6 +124,11 @@ pub enum HarnessEvent {
     Model {
         name: String,
         thinking: Option<String>,
+    },
+    /// How many tokens the session fills of the model's context window; `tokens` is missing right after a compaction, until a reply measures it again; `window` is missing when the model has none.
+    Context {
+        tokens: Option<u32>,
+        window: Option<u32>,
     },
     /// The streaming reply is complete; `failed` when it ended in an error.
     MessageEnd { failed: bool },

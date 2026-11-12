@@ -5,5 +5,5 @@ import type { Chat, ModelChoice } from "./transcript.ts";
 export function modelLabels({ capabilities, model }: Chat): ModelChoice | null {
   if (!capabilities?.includes("models") || model === null) return null;
   const level = model.thinking;
-  return { name: model.name, thinking: level ? level[0].toUpperCase() + level.slice(1) : null };
+  return { name: model.name.replace(/^(claude|codex)\s+/i, ""), thinking: level ? level[0].toUpperCase() + level.slice(1) : null };
 }

@@ -22,6 +22,9 @@ export type OpenDialog = { id: string; title: string; ask: DialogAsk };
 /** A model's name and, when it reasons, its thinking level. */
 export type ModelChoice = { name: string; thinking: string | null };
 
+/** The model's context window and the tokens the session fills of it; null tokens right after a compaction. */
+export type ContextFill = { tokens: number | null; window: number };
+
 export type Chat = {
   /** idle: no agent runs (the Start button shows); starting: the process is coming up; ready: it takes messages. */
   agent: "idle" | "starting" | "ready";
@@ -36,6 +39,8 @@ export type Chat = {
   dialog: OpenDialog | null;
   /** The model the agent runs; null until the agent tells. */
   model: ModelChoice | null;
+  /** How full the context window is; null until the agent tells. */
+  context: ContextFill | null;
   /** The commands the agent offers after a slash; none until it lists them. */
   commands: SlashCommand[];
   /** Steering messages the agent has not taken in yet. */
@@ -46,7 +51,7 @@ export type Chat = {
   historyLength: number;
 };
 
-export const emptyChat: Chat = { agent: "idle", items: [], running: false, since: null, capabilities: null, notice: null, dialog: null, model: null, commands: [], queued: [], report: null, historyLength: 0 };
+export const emptyChat: Chat = { agent: "idle", items: [], running: false, since: null, capabilities: null, notice: null, dialog: null, model: null, context: null, commands: [], queued: [], report: null, historyLength: 0 };
 
 export const isStreaming = (item: Item) => item.role !== "steps" && item.role !== "stopped" && item.streaming;
 
@@ -141,6 +146,8 @@ function applied(chat: Chat, event: HarnessEvent, now: number): Chat {
       return { ...chat, dialog: { id: event.id, title: event.title, ask: event.ask } };
     case "model":
       return { ...chat, model: { name: event.name, thinking: event.thinking ?? null } };
+    case "context":
+      return { ...chat, context: event.window == null ? null : { tokens: event.tokens ?? null, window: event.window } };
     case "commands":
       return { ...chat, commands: event.commands };
     case "queue":
@@ -171,6 +178,6 @@ function applied(chat: Chat, event: HarnessEvent, now: number): Chat {
     case "exported":
       return chat;
     case "exited":
-      return { ...chat, agent: "idle", running: false, queued: [], items: closed(chat.items) };
+      return { ...chat, agent: "idle", running: false, queued: [], context: null, items: closed(chat.items) };
   }
 }

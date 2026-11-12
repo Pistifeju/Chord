@@ -57,7 +57,9 @@ export type Capability =
 /**  A message sent while the agent runs steers the run. */
 "steer" | 
 /**  The model and the thinking level can be read and picked. */
-"models";
+"models" | 
+/**  The size of the model's context window and how much of it the session fills. */
+"context";
 
 /**  The user's answer to a dialog. */
 export type DialogAnswer = 
@@ -122,6 +124,8 @@ export type HarnessEvent_Deserialize =
 { kind: "tool_end"; id: string; outcome: ToolOutcome; images: Image[] } | 
 /**  The model the agent runs and, when that model reasons, its thinking level; sent when a session starts and after each pick. */
 { kind: "model"; name: string; thinking?: string | null } | 
+/**  How many tokens the session fills of the model's context window; `tokens` is missing right after a compaction, until a reply measures it again; `window` is missing when the model has none. */
+{ kind: "context"; tokens?: number | null; window?: number | null } | 
 /**  The streaming reply is complete; `failed` when it ended in an error. */
 { kind: "message_end"; failed: boolean } | 
 /**  The agent opened a dialog and waits for an answer; `id` goes back with it. */
@@ -166,6 +170,8 @@ export type HarnessEvent_Serialize =
 { kind: "tool_end"; id: string; outcome: ToolOutcome; images: Image[] } | 
 /**  The model the agent runs and, when that model reasons, its thinking level; sent when a session starts and after each pick. */
 { kind: "model"; name: string; thinking: string | null } | 
+/**  How many tokens the session fills of the model's context window; `tokens` is missing right after a compaction, until a reply measures it again; `window` is missing when the model has none. */
+{ kind: "context"; tokens: number | null; window: number | null } | 
 /**  The streaming reply is complete; `failed` when it ended in an error. */
 { kind: "message_end"; failed: boolean } | 
 /**  The agent opened a dialog and waits for an answer; `id` goes back with it. */

@@ -6,6 +6,7 @@ import type { Image, SlashCommand } from "../../ipc/bindings";
 import { ArrowDownIcon, ArrowUpIcon, ChevronIcon, CloseIcon, PaperclipIcon } from "../../ui/icons";
 import { imageMime, imageUrl, isImageType, type Attachment } from "./attachments";
 import { DialogMenu, DialogPanel } from "./DialogPanel";
+import { contextMeter } from "./context";
 import { modelLabels } from "./model";
 import { appearance } from "../settings/store";
 import { StatusMark } from "../status/StatusMark";
@@ -163,6 +164,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
   const slashRows = slashMenu(chat.commands, draft, closedOn);
   const slashAt = Math.min(slashActive, slashRows.length - 1);
   const labels = modelLabels(chat);
+  const context = contextMeter(chat);
   const canSend = ready && (!chat.running || steers);
   const textPercent = appearance.usePart((a) => a.textPercent);
   const dialogOpen = chat.dialog !== null;
@@ -369,6 +371,15 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
                     </button>
                   )}
                 </div>
+              )}
+              {context && (
+                <span className={context.warning ? "chat-context chat-context-warning" : "chat-context"} title={context.title} aria-label={context.title}>
+                  <svg className="chat-context-ring" viewBox="0 0 14 14" aria-hidden="true">
+                    <circle cx="7" cy="7" r="5.5" pathLength="100" />
+                    <circle cx="7" cy="7" r="5.5" pathLength="100" strokeDasharray={`${context.percent ?? 0} 100`} />
+                  </svg>
+                  {context.percent === null ? "?" : `${context.percent}%`}
+                </span>
               )}
               <button
                 type="button"

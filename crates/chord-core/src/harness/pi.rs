@@ -170,10 +170,15 @@ impl Session {
                     }
                     on_event(event);
                 }
-                // A `/tree` pi refused mid-run left the session as it was, so reading it again would restart the live transcript; only the state, which is read-only, goes out mid-run.
+                // A `/tree` pi refused mid-run left the session as it was, so reading it again would restart the live transcript; only the state and the stats, which are read-only, go out mid-run.
                 let running = reader_running.load(Ordering::SeqCst);
                 for request in requests {
-                    if !running || request["type"] == "get_state" {
+                    if !running
+                        || matches!(
+                            request["type"].as_str(),
+                            Some("get_state" | "get_session_stats")
+                        )
+                    {
                         let _ = write_to(&reader_stdin, &request);
                     }
                 }
@@ -208,6 +213,7 @@ impl Session {
             Capability::Attachments,
             Capability::Steer,
             Capability::Models,
+            Capability::Context,
         ]
     }
 
@@ -326,10 +332,11 @@ fn command_name(text: &str) -> &str {
 }
 
 // What tells the chat which session pi holds now and what it says.
-fn session_requests() -> [Value; 2] {
+fn session_requests() -> [Value; 3] {
     [
         json!({ "type": "get_state" }),
         json!({ "type": "get_messages" }),
+        json!({ "type": "get_session_stats" }),
     ]
 }
 
@@ -359,6 +366,10 @@ fn picked_value(answer: &DialogAnswer) -> Option<&str> {
 }
 
 // The model label shows pi's name for the model; the thinking level shows only for a model that reasons.
+fn count(value: &Value) -> Option<u32> {
+    value.as_u64().and_then(|number| u32::try_from(number).ok())
+}
+
 fn chosen_model(state: &Value) -> Option<HarnessEvent> {
     let model = &state["model"];
     let name = model["name"].as_str().or_else(|| model["id"].as_str())?;
@@ -694,10 +705,15 @@ fn requests_after(record: &Value) -> Vec<Value> {
         (Some("response"), Some("prompt")) if changed && record["id"] == SESSION_PROMPT => {
             session_requests().into()
         }
-        // A new model can change the thinking level too, so the state tells both.
+        // A new model can change the thinking level and the context window too.
         (Some("response"), Some("set_model" | "set_thinking_level")) if changed => {
-            vec![json!({ "type": "get_state" })]
+            vec![
+                json!({ "type": "get_state" }),
+                json!({ "type": "get_session_stats" }),
+            ]
         }
+        // The settled run is what grew the context.
+        (Some("agent_settled"), _) => vec![json!({ "type": "get_session_stats" })],
         _ => vec![],
     }
 }
@@ -804,6 +820,10 @@ fn response(command: Option<&str>, data: &Value) -> Vec<HarnessEvent> {
             .chain(chosen_model(data))
             .collect(),
         Some("get_messages") => history(&data["messages"]),
+        Some("get_session_stats") => vec![HarnessEvent::Context {
+            tokens: count(&data["contextUsage"]["tokens"]),
+            window: count(&data["contextUsage"]["contextWindow"]),
+        }],
         Some("get_available_models") => vec![model_dialog(&data["models"])],
         Some("get_available_thinking_levels") => vec![thinking_dialog(&data["levels"])],
         Some("get_fork_messages") => vec![fork_dialog(&data["messages"])],
@@ -1396,6 +1416,7 @@ mod tests {
         let again = vec![
             json!({ "type": "get_state" }),
             json!({ "type": "get_messages" }),
+            json!({ "type": "get_session_stats" }),
         ];
         assert_eq!(
             read(
@@ -1524,12 +1545,52 @@ mod tests {
     }
 
     #[test]
+    fn the_session_stats_tell_the_context_fill() {
+        let stats = r#"{"type":"response","command":"get_session_stats","success":true,"data":{"contextUsage":{"tokens":60000,"contextWindow":200000,"percent":30}}}"#;
+        assert_eq!(
+            events(stats),
+            vec![HarnessEvent::Context {
+                tokens: Some(60000),
+                window: Some(200000)
+            }]
+        );
+        let no_window = r#"{"type":"response","command":"get_session_stats","success":true,"data":{"contextUsage":{"tokens":null,"contextWindow":null}}}"#;
+        assert_eq!(
+            events(no_window),
+            vec![HarnessEvent::Context {
+                tokens: None,
+                window: None
+            }]
+        );
+        let compacted = r#"{"type":"response","command":"get_session_stats","success":true,"data":{"contextUsage":{"tokens":null,"contextWindow":200000,"percent":null}}}"#;
+        assert_eq!(
+            events(compacted),
+            vec![HarnessEvent::Context {
+                tokens: None,
+                window: Some(200000)
+            }]
+        );
+    }
+
+    #[test]
+    fn a_settled_run_reads_the_stats_again() {
+        let settled = r#"{"type":"agent_settled","aborted":false}"#;
+        assert_eq!(
+            read_line(settled.as_bytes(), &mut ShownSession::default()).requests,
+            vec![json!({ "type": "get_session_stats" })]
+        );
+    }
+
+    #[test]
     fn a_pick_reads_the_state_again() {
         let set = r#"{"type":"response","command":"set_model","success":true,"data":{}}"#;
         let refused = r#"{"type":"response","command":"set_thinking_level","success":false}"#;
         assert_eq!(
             read_line(set.as_bytes(), &mut ShownSession::default()).requests,
-            vec![json!({ "type": "get_state" })]
+            vec![
+                json!({ "type": "get_state" }),
+                json!({ "type": "get_session_stats" })
+            ]
         );
         assert!(
             read_line(refused.as_bytes(), &mut ShownSession::default())

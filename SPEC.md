@@ -100,7 +100,7 @@ Edge cases:
 - [x] E7 harness(commands): slash menu with the typed part marked; a bubble shows `/skill:name`, not the expanded skill.
 - [x] E8 **hard** harness(sessions): resume, fork, clone, tree, export, new; the session's name on its tab; history on restart.
 - [x] E9 harness(models): model picker with search; thinking level picker.
-- [ ] E10 harness(context): context meter with a limit warning; `/new` resets it.
+- [x] E10 harness(context): context meter with a limit warning; `/new` resets it.
 - [ ] E11 harness(usage): subscription usage (5h, weekly) in the status bar, with the reset as a clock time; stale windows hidden.
 - [ ] E12 harness(status-line): extension status texts in the composer bar.
 - [ ] E13 harness(widgets): background subagent runs as a lineage card over the composer. The pi adapter reads the snapshot a pi subagent extension writes. Without such an extension the card never shows.
