@@ -265,6 +265,7 @@ Sizes multiply by `--text-scale`, which the text size setting changes (⌘=, ⌘
 - The title bar row is 40px tall (`--titlebar-height`), transparent, and drags the window. The sidebar toggle sits right after the traffic lights, whether the sidebar shows or not. The traffic lights, the toggle and the tabs share the row's center line. On a worktree the tab bar takes the row over the work area, at the same height.
 - The toast shows 4px below the window's top edge, centered over the title bar row.
 - The transcript and the composer share a centered column, 720px at most, with 20px side padding.
+- The transcript fades out over its top and bottom 16px, so text scrolls away under the edges.
 - The Settings page is a centered column, 560px at most.
 - Sheets are 400px wide, cap at 80% of the window height and scroll inside.
 
@@ -364,7 +365,7 @@ While the user drags a folder over the window, a 2px dashed `accent-ink` outline
 
 ### Scrollbars
 
-One global style in `tokens.css`: a fixed 4×24px `ink-disabled` pill with rounded ends, centered in the thumb inside a 10px gutter, `ink-muted` on hover. The pill keeps its length whatever the content length; the track keeps 6px from the scroll area's edges. No track fill and no rule along the edge.
+One global style in `tokens.css`: a 4px `ink-disabled` pill with rounded ends inside a 10px gutter, `ink-muted` on hover. WebKit sizes its length from the content, 24px at least. No track fill and no rule along the edge.
 
 ### Icons
 
