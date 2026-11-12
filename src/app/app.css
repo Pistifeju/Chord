@@ -7,6 +7,10 @@
   height: 100vh;
 }
 
+.app-content {
+  display: contents;
+}
+
 .titlebar {
   position: fixed;
   top: 0;

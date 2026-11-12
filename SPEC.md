@@ -29,7 +29,7 @@ Containers. The first feature that puts something in one builds it:
 | Side panel | One panel right of the panes, one view at a time; resizable; width, open state and shown view remembered per worktree | F1 Files, I1 Simulator, J1 Preview |
 | Bottom panel | Resizable; open state remembered per worktree | G1 terminal, H3 build log and console |
 | Status bar | Strip at the bottom of the window | E11 usage, H3 build log toggle, H5 cache size and running simulators |
-| Settings page (⌘,) | One page of rows | A5, D5, G1, H2, K1, L4 |
+| Settings panel (⌘,) | A panel over the blurred window: a section list (General, Appearance, Shortcuts) and grouped rows | A5, D5, G1, H2, K1, L4 |
 
 Edge cases:
 - The window opens centered on the screen under the cursor.

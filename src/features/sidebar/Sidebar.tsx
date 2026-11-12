@@ -1,4 +1,4 @@
-// The sidebar: every worktree as a card under its project's name, in project order, and its show/hide button.
+// The sidebar: each project's worktrees as cards under its name, in project order, and its show/hide button.
 import { Menu } from "@tauri-apps/api/menu";
 import { useEffect, useState, type MouseEvent } from "react";
 import type { GitCounts_Serialize as GitCounts, Project, Worktree_Serialize as Worktree } from "../../ipc/bindings";
@@ -6,11 +6,11 @@ import { menuItem, shortcutLabel, tooltip } from "../../app/commands";
 import { chats, usePaneNames } from "../chat/store";
 import { allPaneIds } from "../panes/agents";
 import { panes } from "../panes/store";
-import { settingsOpen, shortcutChanges } from "../settings/store";
+import { openSettings, settingsOpen, shortcutChanges } from "../settings/store";
 import { finished } from "../status/store";
 import { ageLabel, statusLabel, urgentReport } from "../status/status";
 import { StatusMark } from "../status/StatusMark";
-import { PlusIcon, SidebarIcon } from "../../ui/icons";
+import { BranchIcon, GearIcon, PlusIcon, SidebarIcon } from "../../ui/icons";
 import { countsLabel, countsTitle } from "../worktrees/gitCounts";
 import { gitCounts } from "../worktrees/gitCountsRefresh";
 import { worktreeName, worktreeOrder } from "../worktrees/projects";
@@ -44,22 +44,38 @@ export function Sidebar() {
           <PlusIcon />
         </button>
       </div>
-      <ul className="worktree-list">
-        {state.list.flatMap((project) =>
-          (state.worktrees[project.path] ?? []).map((worktree) => (
-            <WorktreeCard
-              key={worktree.path}
-              project={project}
-              worktree={worktree}
-              selected={worktree.path === state.selected}
-              shown={worktree.path === state.selected && !settings}
-              hint={shortcutLabel(`worktree.select.${order.indexOf(worktree.path) + 1}`)}
-              counts={counts[worktree.path]}
-              finishedPanes={finishedPanes}
-            />
-          )),
-        )}
-      </ul>
+      <div className="sidebar-scroll">
+        {state.list.map((project) => (
+          <section key={project.path} className="project-group" aria-label={project.name}>
+            <div
+              className="project-name"
+              title={project.path}
+              onContextMenu={(e) => showMenu(e, [["worktree.new", project.path], ["project.remove", project.path]])}
+            >
+              {project.name}
+            </div>
+            <ul className="worktree-list">
+              {(state.worktrees[project.path] ?? []).map((worktree) => (
+                <WorktreeCard
+                  key={worktree.path}
+                  project={project}
+                  worktree={worktree}
+                  selected={worktree.path === state.selected}
+                  shown={worktree.path === state.selected && !settings}
+                  hint={shortcutLabel(`worktree.select.${order.indexOf(worktree.path) + 1}`)}
+                  counts={counts[worktree.path]}
+                  finishedPanes={finishedPanes}
+                />
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
+      <div className="sidebar-footer">
+        <button type="button" className="icon-button" title={tooltip("settings.open")} aria-label="Settings" onClick={openSettings}>
+          <GearIcon />
+        </button>
+      </div>
     </nav>
   );
 }
@@ -142,13 +158,15 @@ function WorktreeCard({
         onClick={() => selectWorktree(worktree.path)}
         onContextMenu={(e) => showMenu(e, [...menu, ["project.remove", project.path]])}
       >
-        <span className="worktree-line worktree-meta">
-          <span className="worktree-project">{project.name}</span>
+        <span className="worktree-line">
+          <span className="worktree-title">{title ?? branch}</span>
           {!shown && <WorktreeStatus paneIdList={paneIdList} unseenDone={unseenDone} />}
         </span>
-        <span className="worktree-line worktree-title">{title ?? branch}</span>
-        <span className="worktree-line worktree-meta worktree-branch-line">
-          <span className="worktree-branch">{branch}</span>
+        <span className="worktree-line worktree-meta">
+          {title && <span className="worktree-branch">
+              <BranchIcon />
+              {branch}
+            </span>}
           {(countsText.sides || countsText.changed) && (
             <span className="worktree-counts" title={countsTitle(counts)}>
               {countsText.sides && <span>{countsText.sides}</span>}

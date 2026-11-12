@@ -18,6 +18,7 @@ import { watchGitCounts } from "../features/worktrees/gitCountsRefresh";
 import { dismissError, projects } from "../features/worktrees/store";
 import { WarningToast } from "../ui/Toast";
 import { runShortcut } from "./commands";
+import { sheet } from "./sheet";
 import { launch } from "./launch";
 import "./app.css";
 
@@ -26,6 +27,7 @@ export default function App() {
   const { list, selected, error, errorIsNotice } = state;
   const { hidden } = sidebar.use();
   const settings = settingsOpen.use();
+  const sheetOpen = sheet.use() !== null;
   useEffect(() => {
     launch().catch(console.error);
     window.addEventListener("keydown", runShortcut);
@@ -45,13 +47,17 @@ export default function App() {
   }, []);
   return (
     <div className="app">
-      <div className="titlebar" data-tauri-drag-region>
-        <span className="titlebar-sidebar" data-hidden={hidden}>
-          <SidebarToggle />
-        </span>
+      {/* An open sheet or Settings keeps keyboard focus and clicks inside itself. */}
+      <div className="app-content" inert={sheetOpen || settings}>
+        <div className="titlebar" data-tauri-drag-region>
+          <span className="titlebar-sidebar" data-hidden={hidden}>
+            <SidebarToggle />
+          </span>
+        </div>
+        <Sidebar />
+        <main className="main">{list.length === 0 ? <NoProjects /> : selected && <PaneArea key={selected} worktree={selected} />}</main>
       </div>
-      <Sidebar />
-      <main className="main">{settings ? <SettingsPage /> : list.length === 0 ? <NoProjects /> : selected && <PaneArea key={selected} worktree={selected} />}</main>
+      {settings && <SettingsPage />}
       <ProjectDrop />
       <NewWorktreePopup />
       <DeleteWorktreePopup />

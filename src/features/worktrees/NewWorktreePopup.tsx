@@ -18,8 +18,8 @@ export function NewWorktreePopup() {
   };
   const ready = canCreate({ project, branch, checked, problem, creating });
   return (
-    <div className="sheet-scrim" onMouseDown={closeNewWorktree}>
-      <form className="sheet" role="dialog" aria-label="New Worktree" onMouseDown={(e) => e.stopPropagation()} onSubmit={submit}>
+    <div className="sheet-backdrop" onMouseDown={closeNewWorktree}>
+      <form className="sheet" role="dialog" aria-modal="true" aria-label="New Worktree" onMouseDown={(e) => e.stopPropagation()} onSubmit={submit}>
         <header className="sheet-header">
           <h2 className="sheet-title">New Worktree</h2>
           <button type="button" className="icon-button" aria-label="Cancel" title={tooltip("sheet.close")} onClick={closeNewWorktree}>
@@ -47,7 +47,9 @@ export function NewWorktreePopup() {
             value={branch}
             onChange={(e) => setBranch(e.target.value)}
           />
-          <span className="field-hint">{createError ?? problem ?? branchName(branch)}</span>
+          <span className="field-hint" data-error={createError || problem ? true : undefined}>
+            {createError ?? problem ?? branchName(branch)}
+          </span>
         </label>
         <footer className="sheet-footer">
           <button type="submit" className="button-primary" disabled={!ready && !creating} aria-busy={creating}>

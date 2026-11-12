@@ -2,7 +2,7 @@
 .md {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
   overflow-wrap: anywhere;
 }
 
@@ -39,6 +39,11 @@
 
 .md a:hover {
   text-decoration-color: currentColor;
+}
+
+.md a:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 .md ul,
@@ -83,7 +88,7 @@
 .md blockquote {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
   padding-left: 12px;
   border-left: 2px solid var(--line-strong);
   color: var(--ink-secondary);
@@ -138,6 +143,8 @@
 
 .md table {
   border-collapse: collapse;
+  font-size: calc(12px * var(--text-scale));
+  line-height: 1.45;
   font-variant-numeric: tabular-nums;
 }
 

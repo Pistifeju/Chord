@@ -50,3 +50,7 @@ export async function setKeepAwake(enabled: boolean): Promise<string | null> {
 export function openSettings() {
   settingsOpen.set(true);
 }
+
+export function closeSettings() {
+  settingsOpen.set(false);
+}

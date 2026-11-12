@@ -21,7 +21,9 @@
 .chat-transcript {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  /* The 10px scrollbar always takes its gutter; the matching left padding keeps the column centered over the composer. */
+  overflow-y: scroll;
+  padding-left: 10px;
   mask-image: linear-gradient(to bottom, transparent, black 16px, black calc(100% - 16px), transparent);
 }
 
@@ -37,9 +39,9 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  max-width: 720px;
+  max-width: 700px;
   margin: 0 auto;
-  padding: 16px 20px;
+  padding: 16px 25px;
   line-height: 1.5;
 }
 
@@ -51,6 +53,7 @@
   white-space: pre-wrap;
   align-self: flex-end;
   max-width: 85%;
+  margin-right: -15px;
   padding: 8px 12px;
   border-radius: var(--radius-card);
   background: var(--raised);
@@ -111,14 +114,15 @@
   border: none;
   border-radius: var(--radius-inset);
   background: transparent;
-  font: inherit;
-  color: inherit;
-  cursor: pointer;
 }
 
 .chat-steps-toggle:hover {
   background: var(--raised);
   color: var(--ink-secondary);
+}
+
+.chat-steps-toggle:active {
+  background: var(--selected);
 }
 
 .chat-step-thought {
@@ -180,10 +184,10 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  width: min(720px, 100% - 40px);
+  width: calc(min(720px, 100%) - 40px);
   height: var(--working-height);
   margin: 0 auto;
-  padding: 0 8px 8px;
+  padding: 0 15px 8px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -271,11 +275,10 @@
   background: var(--canvas);
   color: var(--ink-secondary);
   box-shadow: var(--shadow-control);
-  cursor: pointer;
   opacity: 0;
   visibility: hidden;
   transform: translate(-50%, 8px) scale(0.9);
-  transition: opacity var(--t-med) var(--ease-out), transform var(--t-med) var(--ease-out), visibility 0s linear var(--t-med), background-color var(--t-fast) ease;
+  transition: opacity var(--t-med) var(--ease-out), transform var(--t-med) var(--ease-out), visibility 0s linear var(--t-med), background-color var(--t-fast) var(--ease-out);
 }
 
 .chat-jump[data-shown] {
@@ -288,6 +291,10 @@
 .chat-jump:hover {
   background: var(--raised);
   color: var(--ink);
+}
+
+.chat-jump:active {
+  background: var(--selected);
 }
 
 .chat-jump[data-shown]:active {
@@ -310,7 +317,7 @@
 .chat-notice {
   width: min(720px, 100%);
   margin: 0 auto;
-  padding: 0 20px 8px;
+  padding: 0 35px 8px;
   color: var(--danger);
   font-size: calc(12px * var(--text-scale));
 }
@@ -318,7 +325,7 @@
 .chat-composer-anchor,
 .chat-dialog,
 .chat-restart {
-  width: min(720px, 100% - 40px);
+  width: calc(min(720px, 100%) - 40px);
   margin: 0 auto 20px;
 }
 
@@ -556,7 +563,7 @@
   padding: 0;
   margin-left: auto;
   border-radius: 50%;
-  transition: background-color var(--t-fast) ease, transform var(--t-fast) var(--ease-out);
+  transition: background-color var(--t-fast) var(--ease-out), transform var(--t-fast) var(--ease-out);
 }
 
 .chat-send:active:not(:disabled) {
@@ -576,11 +583,13 @@
   margin: 0 0 4px;
   font-size: calc(16px * var(--text-scale));
   font-weight: 600;
+  text-wrap: balance;
 }
 
 .chat-empty-text {
   margin: 0 0 16px;
   color: var(--ink-muted);
+  text-wrap: balance;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -615,7 +624,7 @@
 
 .chat-dialog-title {
   margin: 0;
-  padding: 4px 4px 0;
+  padding: 4px 8px 0;
   font-size: calc(14px * var(--text-scale));
   font-weight: 600;
   overflow-wrap: anywhere;
@@ -623,7 +632,7 @@
 
 .chat-dialog-message {
   margin: 0;
-  padding: 0 4px;
+  padding: 0 8px;
   overflow-wrap: anywhere;
   color: var(--ink-secondary);
 }
@@ -673,7 +682,6 @@
   z-index: 1;
   display: flex;
   flex-direction: column;
-  box-sizing: border-box;
   max-height: 372px;
   padding: 6px;
   overflow: hidden;

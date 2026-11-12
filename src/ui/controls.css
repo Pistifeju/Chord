@@ -19,7 +19,7 @@ button:focus-visible {
   border: none;
   border-radius: var(--radius-control);
   background: transparent;
-  color: var(--ink-muted);
+  color: var(--ink-secondary);
 }
 
 .icon-button:hover {
@@ -229,9 +229,13 @@ button:focus-visible {
 }
 
 .field-hint {
-  min-height: 16px;
+  min-height: 1lh;
   font-size: calc(12px * var(--text-scale));
   color: var(--ink-muted);
+}
+
+.field-hint[data-error] {
+  color: var(--danger);
 }
 
 .toast {
@@ -267,13 +271,14 @@ button:focus-visible {
   }
 }
 
-.sheet-scrim {
+.sheet-backdrop {
   position: fixed;
   inset: 0;
   z-index: 20;
   display: grid;
   place-items: center;
-  background: var(--scrim);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
   animation: scrim-in var(--t-med) var(--ease-out);
 }
 
@@ -347,6 +352,14 @@ button:focus-visible {
   font-size: calc(14px * var(--text-scale));
   font-weight: 600;
   text-align: center;
+  text-wrap: balance;
+}
+
+/* The confirm sheet's title, description and detail read as one block, apart from the buttons. */
+.sheet-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .sheet-description {
@@ -370,7 +383,7 @@ button:focus-visible {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
-  margin-top: 4px;
+  margin-top: 8px;
 }
 
 .sheet-actions button {
@@ -406,7 +419,7 @@ button:focus-visible {
 
   .toast,
   .sheet,
-  .sheet-scrim {
+  .sheet-backdrop {
     animation: none;
   }
 }

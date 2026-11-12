@@ -9,7 +9,7 @@ export function DeleteWorktreePopup() {
   return (
     <ConfirmSheet
       title="Delete Worktree?"
-      description={`Delete ${pending.name}? Its folder is removed from disk.`}
+      description={`Chord removes the folder of ${pending.name} from disk.`}
       confirmLabel="Delete"
       onCancel={() => closeSheet("deleteWorktree")}
       onConfirm={confirmDeletion}

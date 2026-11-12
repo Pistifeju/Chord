@@ -1,22 +1,134 @@
-/* The Settings page: header, rows, segmented control, size stepper and shortcut rows. */
+/* The Settings panel: section list, header, grouped rows, segmented control, size stepper and shortcut rows. */
 .settings {
-  max-width: 560px;
-  margin: 0 auto;
-  padding: 16px 28px 32px;
+  display: flex;
+  width: min(960px, calc(100vw - 56px));
+  height: min(760px, calc(100vh - 56px));
+  overflow: hidden;
+  border-radius: var(--radius-card);
+  background: var(--canvas);
+  box-shadow: var(--shadow-sheet);
+  animation: sheet-in var(--t-med) var(--ease-out);
+}
+
+.settings-nav {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 220px;
+  padding: 12px 8px;
+  overflow-y: auto;
+  border-right: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.settings-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 10px;
+  border: none;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--ink-secondary);
+  text-align: left;
+  transition: background-color var(--t-fast) var(--ease-out);
+}
+
+.settings-nav-item svg {
+  flex: none;
+  color: var(--ink-muted);
+}
+
+.settings-nav-item:hover {
+  background: var(--raised);
+  color: var(--ink);
+}
+
+.settings-nav-item:active {
+  background: var(--selected);
+}
+
+.settings-nav-item[aria-current="page"] {
+  background: var(--selected);
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.settings-nav-item[aria-current="page"] svg {
+  color: var(--ink-secondary);
+}
+
+.settings-nav-item:focus-visible {
+  outline-offset: -2px;
+}
+
+.settings-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .settings-header {
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: 12px;
+  gap: 8px;
+  height: 48px;
+  padding: 0 10px 0 28px;
+  border-bottom: 1px solid var(--line);
 }
 
-.settings-title {
+.settings-breadcrumb {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
   margin: 0;
-  font-size: calc(22px * var(--text-scale));
+  font-size: calc(14px * var(--text-scale));
   font-weight: 600;
-  letter-spacing: -0.01em;
+}
+
+.settings-breadcrumb-root {
+  color: var(--ink-muted);
+}
+
+.settings-breadcrumb-separator {
+  font-weight: 400;
+  color: var(--ink-disabled);
+}
+
+.settings-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 28px 28px;
+}
+
+.settings-section {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.settings-section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 28px 0 8px;
+}
+
+.settings-heading {
+  margin: 0;
+  font-size: calc(14px * var(--text-scale));
+  font-weight: 600;
+}
+
+.settings-group {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--panel);
 }
 
 .settings-row {
@@ -25,10 +137,37 @@
   justify-content: space-between;
   gap: 16px;
   min-height: 44px;
+  padding: 10px 16px;
+}
+
+.settings-row + .settings-row {
   border-top: 1px solid var(--line);
 }
 
+.settings-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.settings-description {
+  margin: 0;
+  font-size: calc(12px * var(--text-scale));
+  color: var(--ink-muted);
+  text-wrap: pretty;
+}
+
+.settings-description:empty {
+  display: none;
+}
+
+.settings-description[data-error] {
+  color: var(--danger);
+}
+
 .segmented {
+  flex: none;
   display: flex;
   gap: 2px;
   padding: 2px;
@@ -57,6 +196,7 @@
 }
 
 .settings-stepper {
+  flex: none;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -75,26 +215,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.settings-section-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 28px 0 8px;
-}
-
-.settings-heading {
-  margin: 0;
-  font-size: calc(14px * var(--text-scale));
-  font-weight: 600;
-}
-
-.settings-notice {
-  margin: 0;
-  font-size: calc(12px * var(--text-scale));
-  color: var(--ink-muted);
-}
-
 .settings-key {
   min-width: 10ch;
   font-variant-numeric: tabular-nums;
@@ -107,4 +227,14 @@
 .settings-key[data-recording="true"] {
   background: var(--canvas);
   box-shadow: inset 0 0 0 1px var(--accent-ink), 0 0 0 3px var(--accent-wash);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings {
+    animation: none;
+  }
+
+  .settings-nav-item {
+    transition: none;
+  }
 }

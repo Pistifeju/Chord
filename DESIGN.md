@@ -54,13 +54,8 @@ colors:
   dark-status-error: "#eb5757"
   dark-git-changed: "#f2c94c"
 typography:
-  page-title:
-    fontFamily: "-apple-system, BlinkMacSystemFont, 'Inter Variable', 'Helvetica Neue', sans-serif"
-    fontSize: "22px"
-    fontWeight: 600
-    lineHeight: 1.45
-    letterSpacing: "-0.01em"
   empty-title:
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Inter Variable', 'Helvetica Neue', sans-serif"
     fontSize: "16px"
     fontWeight: 600
     lineHeight: 1.45
@@ -122,7 +117,7 @@ components:
     rounded: "{rounded.control}"
     height: "28px"
   icon-button:
-    textColor: "{colors.ink-muted}"
+    textColor: "{colors.ink-secondary}"
     rounded: "{rounded.control}"
     size: "28px"
   icon-button-hover:
@@ -147,7 +142,7 @@ components:
   worktree-card:
     textColor: "{colors.ink-muted}"
     rounded: "{rounded.control}"
-    padding: "8px 10px"
+    padding: "7px 10px"
   worktree-card-selected:
     backgroundColor: "{colors.selected}"
     textColor: "{colors.ink-secondary}"
@@ -180,14 +175,14 @@ Chord looks like the tools a developer already has open next to it. The window i
 
 The developer chose this look on purpose over an invented visual world. Play the convention straight. A new screen earns its place by being clear, dense and consistent with the panels around it.
 
-The app keeps the platform conventions a Mac user expects: traffic lights on a transparent title bar, a full menu bar, a keyboard shortcut for every command, drag and drop from Finder, and light and dark appearance. Settings opens as a page in the main window (⌘,).
+The app keeps the platform conventions a Mac user expects: traffic lights on a transparent title bar, a full menu bar, a keyboard shortcut for every command, drag and drop from Finder, and light and dark appearance. Settings opens as a panel over the blurred window (⌘,).
 
 **Key Characteristics:**
 
 - Four neutral surface steps, one blue accent, hairline borders.
 - 8px controls, 12px cards, no pills.
 - Inter at 13px; semibold 14px for titles.
-- Worktree cards grouped by project in the sidebar, two lines each; 44px rows in Settings.
+- Worktree cards grouped under project names in the sidebar, two lines each; 44px rows in Settings.
 - Light and dark use the same roles; the app follows the system by default.
 
 ## Colors
@@ -212,20 +207,20 @@ The dark neutrals, lines, inks, danger, success and status tones come from Linea
 - **Raised** (`raised`): the user's message, hovered rows and icon buttons, secondary buttons, the segmented track.
 - **Selected** (`selected`): the open worktree's row and every pressed neutral control.
 - **Sheet** (`sheet`): sheets, the toast, the drop label.
-- **Line** (`line`): the sidebar's edge and the rules between Settings rows.
+- **Line** (`line`): the sidebar's edge and the rules between Settings rows, the border of a Settings group.
 - **Strong Line** (`line-strong`): the border of an input, the composer and a secondary button.
 - **Ink** (`ink`): titles, message text, selected labels.
-- **Secondary Ink** (`ink-secondary`): the open worktree card's meta text, sheet descriptions, field labels, unselected segments.
-- **Muted Ink** (`ink-muted`): meta lines, hints, placeholders, resting icon buttons.
+- **Secondary Ink** (`ink-secondary`): the open worktree card's meta text, sheet descriptions, field labels, unselected segments, resting icon buttons.
+- **Muted Ink** (`ink-muted`): meta lines, hints, placeholders.
 - **Disabled Ink** (`ink-disabled`): the label of a disabled primary button.
 
 ### Semantic
 
-- **Danger** (`danger`): text and icons only. The destructive button's label, the chat notice, the toast's warning icon.
+- **Danger** (`danger`): text and icons only. The destructive button's label, the chat notice, a field hint that holds an error, the toast's warning icon.
 - **Success** (`success`): inline text only.
 - **Status** (`status-running`, `status-waiting`, `status-done`, `status-error`): blue, amber, green, red. Reserved for agent status marks, and the same in every place. A status shows once, where you see the agent: the Working row in an open pane, the tab of a session that is not open, the card of a worktree that is not open (or of the open one while Settings covers it). An exit takes `status-error`. The mark is one component (`StatusMark`): the orbit while the agent runs, otherwise an 8px dot. The orbit is 10px: two 4px dots circle a shared center seen edge-on, once per 1.4s; the near dot grows to 115%, the far one shrinks to 50% at 40% opacity. The words come from `statusLabel` and the notification uses them too: "Working", "Awaiting input", "Done", "Failed", "Exited".
 - **Git Changed** (`git-changed`): amber, the changed file count on a worktree card.
-- **Scrim** (`scrim`): the wash behind a sheet and the drop target.
+- **Scrim** (`scrim`): the wash behind the drop target and the lightbox. A sheet blurs the window behind it (12px) instead.
 
 ### Named Rules
 
@@ -245,9 +240,8 @@ Sizes multiply by `--text-scale`, which the text size setting changes (⌘=, ⌘
 
 ### Hierarchy
 
-- **Page title** (600, 22px, -0.01em): the title of a page, "Settings".
 - **Empty title** (600, 16px): the title of an empty state.
-- **Heading** (600, 14px): section headings and sheet titles.
+- **Heading** (600, 14px): section headings, sheet titles and the Settings header.
 - **Body** (400, 13px, 1.45): descriptions, row labels, tab names. The transcript runs at 1.5.
 - **Label** (500, 13px): buttons, segments, the worktree name in the title bar.
 - **Code** (400, 12px): inline code, code blocks and tables of the agent's Markdown take the Body line height.
@@ -267,9 +261,9 @@ Sizes multiply by `--text-scale`, which the text size setting changes (⌘=, ⌘
 - One window, minimum 900 × 600. A flex row: the sidebar (280px) and the main area.
 - The title bar row is 40px tall (`--titlebar-height`), transparent, and drags the window. The sidebar toggle sits right after the traffic lights, whether the sidebar shows or not. The traffic lights, the toggle and the tabs share the row's center line. On a worktree the tab bar takes the row over the work area, at the same height.
 - The toast shows 4px below the window's top edge, centered over the title bar row.
-- The transcript and the composer share a centered column, 720px at most, with 20px side padding.
+- The transcript and the composer share a centered column, 720px at most, with 20px side padding. The composer card and a dialog fill the column's inner width, and the user's message bubble ends on the card's right edge. Transcript text, the Working row and the notice sit 15px further in (the card's border, padding and input padding), so they start where the draft text starts, at every pane width.
 - The transcript fades out over its top and bottom 16px, so text scrolls away under the edges.
-- The Settings page is a centered column, 560px at most.
+- The Settings panel is 960 × 760px at most and keeps 28px clear of the window edges.
 - Sheets are 400px wide, cap at 80% of the window height and scroll inside.
 
 Spacing steps: 4, 8, 12, 16, 20, 28. Rows inside a group sit 0 to 2px apart; groups sit 12px apart; a section heading gets 28px above and 8px below.
@@ -292,13 +286,13 @@ Popover and sheet shadows include a 1px ring: black at 8% in light, white at 10%
 
 ### Motion
 
-- A sheet fades in and rises 8px over 200ms; its scrim fades with it. The toast drops 8px into place over 200ms. Both use `--ease-out`.
+- A sheet fades in and rises 8px from 98% scale over 200ms; its backdrop blur fades in with it. A sheet closes at once. The toast drops 8px into place over 200ms. Both use `--ease-out`.
 - The project chevron and a step group's chevron turn in 120ms.
 - In the chat, a message, a step row, the Working row, the find bar and the notice fade in and rise 4px over 200ms with `--ease-out` when they arrive. A chat that opens with history shows it still.
 - A worktree card's status fades in and rises 4px over 200ms with `--ease-out` when it changes.
 - The send button changes color over 120ms and presses to 97% scale.
 - The lightbox and its scrim animate like a sheet.
-- Under Reduce Motion the sheet, lightbox, scrim, toast and chevrons skip their animation, chat items and a card's status only fade, the send button and the jump button do not move or scale, the jump scrolls instantly and spinners and the orbit run at a third of their speed.
+- Under Reduce Motion the sheet, its backdrop, the lightbox, scrim, toast and chevrons skip their animation, chat items and a card's status only fade, the send button and the jump button do not move or scale, the jump scrolls instantly and spinners and the orbit run at a third of their speed.
 
 ## Shapes
 
@@ -323,7 +317,7 @@ No pills. A circle appears only as the spinner, the status dot and orbit, the se
 
 ### Inputs
 
-- **Field** (`.input`): 30px tall, `canvas` fill, 1px `line-strong` border. The label sits above at 12px/500; the hint sits below at 12px muted and reserves its line so the sheet keeps its height.
+- **Field** (`.input`): 30px tall, `canvas` fill, 1px `line-strong` border. The label sits above at 12px/500; the hint sits below at 12px muted and reserves its line so the sheet keeps its height. A hint that holds an error (a branch git refuses, a failed create) takes `danger`.
 - **Focus:** no visual change. The caret shows where you type. No outline, no blue border, no halo.
 - **Segmented control** (`.segmented`): a `raised` track with 2px padding. The selected segment is a `control-selected` chip with the control shadow.
 - **Shortcut recorder:** a secondary button that shows the shortcut, or "None" in muted ink. While recording it gets a `canvas` fill, a 1px `accent-ink` inset border and a 3px `accent-wash` halo, and reads "Press keys".
@@ -344,14 +338,14 @@ No pills. A circle appears only as the spinner, the status dot and orbit, the se
 The status roles keep the app's values, so a card shows a status in the same color as its tab. Lavender stays out of the sidebar except the focus ring.
 
 - 280px, `panel` fill with a 1px `line` right edge. The header holds the "Workspaces" title (12px/500 `ink-muted`) and the add button.
-- **List:** one card per worktree, in project order then the project's worktree order, 4px apart, scrolling inside. No project rows and no folding.
+- **List:** one group per project, in project order, 14px apart, scrolling inside. A group is the project name (12px/500 `ink`, 16px line, 10px left padding so it aligns with the card text, truncates; right-click opens New Worktree and Remove Project), then its worktree cards 2px apart. No folding.
 - **Shortcuts:** ⌘1 to ⌘9 follow the cards top to bottom.
-- **Worktree card:** 10px 12px padding, Control radius, 2px between its lines, `ink-muted` meta text, three lines:
-  - **Project line** (18px, 12px meta): the project name, which truncates, then the status slot at the line's right end. The slot stays empty on the open worktree's card, whose tabs show the status. Elsewhere it never shrinks, 11px/500 in the status color, the tooltip holds the pane's last message: the orbit and the run's age ("4m", none in the first minute) while the most urgent pane runs, an 8px dot and "Awaiting input", "Failed" or the exit; a finished pane nobody opened shows a dot and "Done" in `status-done`. A pane that is done and seen shows the time since that status began ("now", "5m", "3h", "2d") in 11px `ink-muted`, tabular.
-  - **Title line** (18px): the first named session of the worktree (the first 30 characters of its first user message, whitespace collapsed), or the branch while no session has a name, at 14px `ink`, which truncates.
-  - **Branch line** (16px, 12px meta): the branch, which truncates, the git counts at 11px/500 tabular ("↑2 ↓1" in the meta color, then the changed files as "~33" in `git-changed`), and the shortcut hint at 11px at the right end; the line aligns on the text baseline, and counts and hint never shrink.
+- **Footer:** below the list, 4px 8px 8px padding: a gear icon button at the left that opens Settings, tooltip "Settings (⌘,)".
+- **Worktree card:** 7px 10px padding, Control radius, 1px between its lines, `ink-muted` meta text, two lines:
+  - **Title line** (18px): the first named session of the worktree (the first 30 characters of its first user message, whitespace collapsed), or the branch while no session has a name, at 13px `ink`, which truncates; then the status slot at the line's right end. The slot stays empty on the open worktree's card, whose tabs show the status. Elsewhere it never shrinks, 11px/500 in the status color, the tooltip holds the pane's last message: the orbit and the run's age ("4m", none in the first minute) while the most urgent pane runs, an 8px dot and "Awaiting input", "Failed" or the exit; a finished pane nobody opened shows a dot and "Done" in `status-done`. A pane that is done and seen shows the time since that status began ("now", "5m", "3h", "2d") in 11px `ink-muted`, tabular.
+  - **Meta line** (16px, 12px meta): the branch when the title line shows a session name, after a 12px branch icon 4px before it, which truncates, the git counts at 11px/500 tabular ("↑2 ↓1" in the meta color, then the changed files as "~33" in `git-changed`), and the shortcut hint at 11px `ink-disabled` at the right end (`ink-muted` on hover and when open); the line aligns on the text baseline, and counts and hint never shrink.
 - **Card menu:** right-click opens New Worktree (for its project), Delete Worktree (not on the main checkout) and Remove Project.
-- **States:** hover takes `raised`, pressed takes `selected`. The open worktree takes `selected`, a 1px inset `line-strong` ring, a 500 title and `ink-secondary` meta text. The focus ring sits inside the card, so it clears the cards above and below.
+- **States:** hover takes `raised` over 120ms, pressed takes `selected`. The open worktree takes `selected`, a 500 `ink` title and `ink-secondary` meta text; no ring. The focus ring sits inside the card, so it clears the cards above and below.
 
 ### Tab bar and panes
 
@@ -366,10 +360,10 @@ The status roles keep the app's values, so a card shows a status in the same col
 
 - **User message:** right-aligned, 85% wide at most, on a `raised` card. A steer the agent has not taken in yet sits at the end of the transcript as a user message at 50% opacity (tooltip "Queued"); it turns opaque once the agent takes it in. The agent's message is Markdown on the canvas; the user's stays plain text. Its images follow the text as 64px square thumbnails (Control radius, 1px `line` border, cropped to fill), 8px apart. A click opens the lightbox.
 - **Lightbox:** the image at full size on the scrim, over everything (Control radius, sheet shadow); it fades in and rises like a sheet. A 28px close button sits at the top right, and with several images a previous and a next button at the left and right edges (disabled at the ends) and a "2 of 3" chip at the bottom; the buttons are 28px `canvas` squares with a 1px `line-strong` border and the popover shadow. ← and → step, Esc closes (the agent keeps running), a click outside the image closes.
-- **Markdown:** blocks stack 8px apart. Headings take the Heading row at every level. Lists indent 20px; a task shows a 14px `line-strong` box, with a check once done. A quote has a 2px `line-strong` rule on its left and `ink-secondary` text. A link is underlined in `ink-disabled`, in the text color (`ink` underline on hover); a click opens it in the default app, and only web and mail links open. A table has 1px `line` borders, a `panel` header row and scrolls sideways when wide. Inline code sits on a `raised` chip with the Inset radius.
+- **Markdown:** blocks stack 4px apart, inside a quote too. Headings take the Heading row at every level. Lists indent 20px; a task shows a 14px `line-strong` box, with a check once done. A quote has a 2px `line-strong` rule on its left and `ink-secondary` text. A link is underlined in `ink-disabled`, in the text color (`ink` underline on hover), and takes the focus ring on keyboard focus; a click opens it in the default app, and only web and mail links open. A table has 1px `line` borders, a `panel` header row and scrolls sideways when wide. Inline code sits on a `raised` chip with the Inset radius.
 - **Code block:** a `panel` card with a 1px `line` border and the Control radius. No language label. The copy icon button sits 4px from the top and right edges and shows only on hover or keyboard focus; it shows a check for 1.5s after it copied. The code scrolls sideways and never wraps.
 - **Find:** ⌘F opens a bar floating at the transcript's top right (`--shadow-popover`, on `canvas` with a 1px `line-strong` border and the Control radius): a field, the position ("2 of 7", "No results"; meta, tabular), previous and next icon buttons (disabled without matches) and a close icon button. Return steps to the next match, Shift-Return to the previous, Esc or a click anywhere outside the bar closes it. Matches take an `editor-match` background; the current one adds a 2px `accent-ink` underline and scrolls to the middle.
-- **Step group:** thoughts and tool calls between two messages, one row in meta text: a toggle with a chevron and a count ("1 thought, 3 calls"), folded when the run is past it. While it runs it keeps the last thought (three lines at most) and the last three calls open; the toggle opens all steps. A call is its title (`ink-secondary`, `danger` when it failed) and its detail on one line. A call the run left unfinished (stopped with Esc) has an `ink-muted` title. Images the group's tools returned sit once in a row below the group's last line, folded or open: the same 64px thumbnails, 8px below it, in call order, opening the same lightbox. No images, no row.
+- **Step group:** thoughts and tool calls between two messages, one row in meta text: a toggle with a chevron and a count ("1 thought, 3 calls"; Inset radius, `raised` and `ink-secondary` on hover, `selected` when pressed), folded when the run is past it. While it runs it keeps the last thought (three lines at most) and the last three calls open; the toggle opens all steps. A call is its title (`ink-secondary`, `danger` when it failed) and its detail on one line. A call the run left unfinished (stopped with Esc) has an `ink-muted` title. Images the group's tools returned sit once in a row below the group's last line, folded or open: the same 64px thumbnails, 8px below it, in call order, opening the same lightbox. No images, no row.
 - **Working:** a row of meta text right above the composer while the agent runs. It floats over the foot of the transcript, so a run's start resizes nothing; the transcript's bottom fade moves up to end at the row's top, and the text under the row hides; while it shows, the transcript ends that much lower. The row holds the `status-running` orbit, a verb in `ink-secondary` ("Cooking", "Locking in", "Hold my beer", "Going feral"), the time since the run started ("14s", "2m 5s") and "esc stops". The run's start time picks the verb, so it holds for the whole run.
 - **Notice:** one line of `danger` meta text above the composer.
 - **Stopped:** a run the user stops with Esc ends in a left-aligned "Stopped" row of meta text in `ink-muted`, after the run's last item.
@@ -378,14 +372,22 @@ The status roles keep the app's values, so a card shows a status in the same col
 - **Dialog:** a dialog an agent's extension opens (select, confirm, input) takes the composer's place as the same `panel` card: a Heading title, then the body, and the composer returns once it is answered. Esc cancels it. A select is a list of 30px rows in `ink-secondary`, 224px tall at most, scrolling inside; the highlighted row takes `selected` and `ink`, moves with ↑ and ↓ or the pointer, and Return or a click picks it. A select opens with the current option highlighted, if it has one, and marks it with a 16px `ink-muted` check at the row's right end. Every select starts with a Field (placeholder "Filter") that narrows the rows by what they contain, and reads "No matches" in meta text when none is left. A confirm shows its message in `ink-secondary` and a secondary "No" and a primary "Yes", right-aligned; an input shows a Field and "Cancel" and "Submit".
 - **Slash menu:** while the draft is only a slash and a command name, a card of its own floats above the composer card, 6px clear of it and as wide: `panel`, the composer card's own background, a 1px `line-strong` border, the Card radius, `--shadow-popover`, 6px padding, 372px tall at most (ten rows), scrolling inside with the global scrollbar (see Scrollbars) and keeping the highlighted row in view. Its rows are 36px with 10px padding on both sides and no dividers, one line each: a 16px `ink-muted` outline icon for the command's kind (skill, prompt, extension or session; one per kind, none per command; a session command takes the tab's chat icon), then after an 8px gap its title in `ink` at the body size (the name without a `skill:` prefix, split on `-`, `_` and `:`, each word capitalized), then a one-line `ink-muted` meta description that ends in an ellipsis, then a right-aligned `ink-muted` meta label that never shrinks and sits 24px (the 8px gap plus 16px) after the description, even when it is ellipsized: "Local file" for a skill or prompt from a file, the package name for one from a package, "Extension" for an extension command, "Session" for a session command (Model, Thinking, New, Resume, Fork, Clone, Tree, Export), which runs when sent instead of going to the agent. The highlighted row takes `selected` with the Control radius and its description and label step up to `ink-secondary`. No chevrons. A command whose name equals the typed part comes first, then names that start with it; the typed part of the title, when it matches from the start of a word ignoring case and separators, takes 600, and nothing is marked when it does not. ↑ and ↓ or the pointer move the highlight; Tab or a click completes the name and a space; Return completes it too, unless the draft already is that name, then it sends. Esc or a click anywhere outside the list closes it until the draft changes. A harness that lists no commands shows no menu. A message that began as `/skill:name` shows that text in its bubble, never the skill's body.
 - **Picker menu:** the model and thinking level pickers float above the composer card, which stays in place, as the slash menu does: the same card, position, size and scrolling. Neither picker has a Field; its list takes the focus. In the model picker, typing moves the highlight as a Mac menu does: to the first row with a word that starts with the typed letters, else the first that contains them. When the typed letters match nothing, the longest matching tail of them wins, so typing "fable" right after "opus" lands on Fable without deleting anything. The rows never narrow. A 1s pause starts a new name, and the highlight stays put when nothing matches. Then come the options as 36px rows in `ink` with 10px padding, the current one marked with the dialog's check. ↑ and ↓ or the pointer move the `selected` highlight, Return or a click picks. Esc or a click anywhere outside the card closes it without a pick.
-- **Jump to latest:** once the reader scrolls 72px or more above the end of the transcript, a 28px `canvas` circle with a 1px `line-strong` border, the control shadow and an `ink-secondary` down arrow sits centered 4px above the Working row's place, whether the row shows or not. It shows no status: the Working row does. Hover takes `raised` and `ink`. A click scrolls smoothly to the end and resumes following the reply. It fades in and rises 8px from 90% scale over 200ms with `--ease-out`, fades out the same way once the reader is back at the end, and presses to 94% scale.
+- **Jump to latest:** once the reader scrolls 72px or more above the end of the transcript, a 28px `canvas` circle with a 1px `line-strong` border, the control shadow and an `ink-secondary` down arrow sits centered 4px above the Working row's place, whether the row shows or not. It shows no status: the Working row does. Hover takes `raised` and `ink`, pressed takes `selected`. A click scrolls smoothly to the end and resumes following the reply. It fades in and rises 8px from 90% scale over 200ms with `--ease-out`, fades out the same way once the reader is back at the end, and presses to 94% scale.
 - **Empty state:** a centered title, one muted line and the primary button.
 
 ### Sheets
 
-- A `sheet` card centered over the scrim. A click on the scrim cancels.
+- A `sheet` card centered over the window, which blurs 12px behind it and keeps its brightness. A click outside the sheet cancels. While a sheet is open the window behind it is inert: Tab and clicks stay in the sheet.
 - **Form sheet:** a header row with the title on the left and a close icon button (X) on the right that cancels. The fields follow, then a footer with the primary button on the right. Return triggers the primary button, Escape cancels.
-- **Confirm sheet:** title, one centered `ink-secondary` line (`.sheet-description`), an optional detail in meta text, then two equal 32px buttons: secondary "Cancel" and the destructive or primary action. Focus starts on the action, Escape cancels, and a long name or path wraps inside the sheet. The detail is selectable text.
+- **Confirm sheet:** title, one centered `ink-secondary` line (`.sheet-description`) and an optional detail in meta text, 4px apart as one block; 20px below it two equal 32px buttons: secondary "Cancel" and the destructive or primary action. Focus starts on the action, Escape cancels, and a long name or path wraps inside the sheet. The detail is selectable text.
+
+### Settings
+
+- A panel centered over the window, which blurs behind it as behind a sheet: `canvas`, Card radius, sheet shadow, 960 × 760px at most and 28px clear of the window edges. It rises in like a sheet. Esc, the close icon button or a click outside it closes it; a sheet opened over it closes first. The window behind it is inert.
+- **Section list:** 220px on the left, `panel` with a 1px `line` right edge, 12px 8px padding, rows 2px apart: General, Appearance, Shortcuts. A row is 30px, 10px padding, Control radius, a 16px `ink-muted` icon and the name in `ink-secondary` 8px after it. Hover takes `raised` and `ink` over 120ms, pressed takes `selected`; the shown section takes `selected`, `ink` at 500 and an `ink-secondary` icon. The focus ring sits inside the row. It opens on General.
+- **Header:** 48px with a 1px `line` bottom rule, 28px left padding: "Settings / General" at Heading size, "Settings" in `ink-muted`, the slash at 400 in `ink-disabled`, the section in `ink`. A close icon button sits at the right.
+- **Content:** scrolls inside; 640px at most, centered, 28px side padding. Each group takes a Heading (28px above, 8px below, a status notice in meta text at its right), then a `panel` card with a 1px `line` border and the Card radius.
+- **Row:** 44px at least, 10px 16px padding, a 1px `line` rule above every row but the first. The name in body `ink` on the left, a one-line meta description in `ink-muted` under it (an error takes `danger`), the control on the right.
 
 ### Toast
 
@@ -421,7 +423,7 @@ Line icons drawn in `src/ui/icons.tsx` on a 16px grid with a 1.3px stroke, in th
 - **Don't** color selection, hover or a second button blue.
 - **Don't** fill an area with red or green.
 - **Don't** use a pill shape for a button, a row or a toast.
-- **Don't** add a second accent hue, a gradient or a blur.
+- **Don't** add a second accent hue, a gradient, or a blur anywhere except behind a sheet.
 - **Don't** add a hover color to the primary button.
 - **Don't** make chrome text selectable.
 - **Don't** put a raw hex color in a component.

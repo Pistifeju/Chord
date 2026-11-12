@@ -1,10 +1,11 @@
-// The Settings page: one page of rows for the theme, the text size, keep-awake and every command's shortcut.
-import { useState, type KeyboardEvent } from "react";
+// The Settings panel over the blurred window: a section list on the left, the chosen section's grouped rows on the right.
+import { useState, type KeyboardEvent, type ReactNode } from "react";
 import type { Theme } from "../../ipc/bindings";
 import { changeShortcut, commandTitles, resetShortcut, shortcutLabel, tooltip } from "../../app/commands";
+import { sheet } from "../../app/sheet";
 import { recordedShortcut } from "../../app/shortcuts";
-import { MinusIcon, PlusIcon } from "../../ui/icons";
-import { appearance, changeTextSize, keepAwake, setKeepAwake, setTheme, shortcutChanges } from "./store";
+import { AppearanceIcon, CloseIcon, KeyboardIcon, MinusIcon, PlusIcon, SlidersIcon } from "../../ui/icons";
+import { appearance, changeTextSize, closeSettings, keepAwake, setKeepAwake, setTheme, shortcutChanges } from "./store";
 import "./settings.css";
 
 const themes: { value: Theme; label: string }[] = [
@@ -13,35 +14,104 @@ const themes: { value: Theme; label: string }[] = [
   { value: "dark", label: "Dark" },
 ];
 
-function KeepAwakeRow() {
-  const enabled = keepAwake.use();
-  const [notice, setNotice] = useState("");
+const sections = [
+  { id: "general", title: "General", icon: <SlidersIcon /> },
+  { id: "appearance", title: "Appearance", icon: <AppearanceIcon /> },
+  { id: "shortcuts", title: "Shortcuts", icon: <KeyboardIcon /> },
+] as const;
+
+type SectionId = (typeof sections)[number]["id"];
+
+function Row({ title, description, children }: { title: string; description?: ReactNode; children: ReactNode }) {
   return (
     <div className="settings-row">
-      <div>
-        <span className="settings-label">Keep the Mac awake while an agent runs</span>
-        <p className="settings-notice" role="status">
-          {notice}
-        </p>
+      <div className="settings-row-text">
+        <span className="settings-label">{title}</span>
+        {description}
       </div>
-      <div className="segmented" role="radiogroup" aria-label="Keep the Mac awake while an agent runs">
-        {[true, false].map((value) => (
-          <button
-            key={String(value)}
-            type="button"
-            role="radio"
-            aria-checked={enabled === value}
-            onClick={() => setKeepAwake(value).then((error) => setNotice(error ?? ""))}
-          >
-            {value ? "On" : "Off"}
-          </button>
-        ))}
-      </div>
+      {children}
     </div>
   );
 }
 
-function ShortcutRows() {
+function Group({ heading, notice, children }: { heading: string; notice?: ReactNode; children: ReactNode }) {
+  return (
+    <section className="settings-section" aria-label={heading}>
+      <div className="settings-section-header">
+        <h3 className="settings-heading">{heading}</h3>
+        {notice}
+      </div>
+      <div className="settings-group">{children}</div>
+    </section>
+  );
+}
+
+function General() {
+  const enabled = keepAwake.use();
+  const [error, setError] = useState("");
+  return (
+    <Group heading="Agents">
+      <Row
+        title="Keep the Mac awake"
+        description={
+          <>
+            <p className="settings-description">The Mac does not sleep while an agent runs.</p>
+            <p className="settings-description" data-error role="status">
+              {error}
+            </p>
+          </>
+        }
+      >
+        <div className="segmented" role="radiogroup" aria-label="Keep the Mac awake while an agent runs">
+          {[true, false].map((value) => (
+            <button
+              key={String(value)}
+              type="button"
+              role="radio"
+              aria-checked={enabled === value}
+              onClick={() => setKeepAwake(value).then((failure) => setError(failure ?? ""))}
+            >
+              {value ? "On" : "Off"}
+            </button>
+          ))}
+        </div>
+      </Row>
+    </Group>
+  );
+}
+
+function Appearance() {
+  const { theme, textPercent } = appearance.use();
+  return (
+    <Group heading="Window">
+      <Row title="Theme" description={<p className="settings-description">System follows the macOS appearance.</p>}>
+        <div className="segmented" role="radiogroup" aria-label="Theme">
+          {themes.map(({ value, label }) => (
+            <button key={value} type="button" role="radio" aria-checked={theme === value} onClick={() => setTheme(value)}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </Row>
+      <Row title="Text size" description={<p className="settings-description">Scales all text in the window.</p>}>
+        <div className="settings-stepper">
+          <button type="button" className="button-secondary settings-step" aria-label="Decrease text size" title={tooltip("text.smaller")} onClick={() => changeTextSize("smaller")}>
+            <MinusIcon />
+          </button>
+          <span className="settings-value">{textPercent}%</span>
+          <button type="button" className="button-secondary settings-step" aria-label="Increase text size" title={tooltip("text.larger")} onClick={() => changeTextSize("larger")}>
+            <PlusIcon />
+          </button>
+          <button type="button" className="button-secondary" title={tooltip("text.reset")} onClick={() => changeTextSize("reset")}>
+            Reset
+          </button>
+        </div>
+      </Row>
+    </Group>
+  );
+}
+
+function Shortcuts() {
   const changes = shortcutChanges.use();
   const [recording, setRecording] = useState<string>();
   const [notice, setNotice] = useState("");
@@ -59,16 +129,16 @@ function ShortcutRows() {
   };
 
   return (
-    <>
-      <div className="settings-section-header">
-        <h2 className="settings-heading">Shortcuts</h2>
-        <p className="settings-notice" role="status">
+    <Group
+      heading="Commands"
+      notice={
+        <p className="settings-description" role="status">
           {notice}
         </p>
-      </div>
+      }
+    >
       {commandTitles.map(({ id, title }) => (
-        <div key={id} className="settings-row">
-          <span className="settings-label">{title}</span>
+        <Row key={id} title={title}>
           <div className="settings-stepper">
             {id in changes && (
               <button type="button" className="button-secondary" aria-label={`Reset shortcut for ${title}`} onClick={() => announce(resetShortcut(id))}>
@@ -94,46 +164,47 @@ function ShortcutRows() {
               {recording === id ? "Press keys" : (shortcutLabel(id) ?? "None")}
             </button>
           </div>
-        </div>
+        </Row>
       ))}
-    </>
+    </Group>
   );
 }
 
 export function SettingsPage() {
-  const { theme, textPercent } = appearance.use();
+  const [shown, setShown] = useState<SectionId>("general");
+  const sheetOpen = sheet.use() !== null;
+  const current = sections.find((s) => s.id === shown)!;
   return (
-    <section className="settings" aria-label="Settings">
-      <header className="settings-header">
-        <h1 className="settings-title">Settings</h1>
-      </header>
-      <div className="settings-row">
-        <span className="settings-label">Theme</span>
-        <div className="segmented" role="radiogroup" aria-label="Theme">
-          {themes.map(({ value, label }) => (
-            <button key={value} type="button" role="radio" aria-checked={theme === value} onClick={() => setTheme(value)}>
-              {label}
+    <div className="sheet-backdrop" inert={sheetOpen} onMouseDown={closeSettings}>
+      <div className="settings" role="dialog" aria-modal="true" aria-label="Settings" onMouseDown={(e) => e.stopPropagation()}>
+        <nav className="settings-nav" aria-label="Settings sections">
+          {sections.map(({ id, title, icon }) => (
+            <button key={id} type="button" className="settings-nav-item" aria-current={id === shown ? "page" : undefined} onClick={() => setShown(id)}>
+              {icon}
+              {title}
             </button>
           ))}
+        </nav>
+        <div className="settings-main">
+          <header className="settings-header">
+            <h2 className="settings-breadcrumb">
+              <span className="settings-breadcrumb-root">Settings</span>
+              <span className="settings-breadcrumb-separator" aria-hidden="true">
+                /
+              </span>
+              <span>{current.title}</span>
+            </h2>
+            <button type="button" className="icon-button" aria-label="Close Settings" title={tooltip("settings.close")} onClick={closeSettings}>
+              <CloseIcon />
+            </button>
+          </header>
+          <div className="settings-content">
+            {shown === "general" && <General />}
+            {shown === "appearance" && <Appearance />}
+            {shown === "shortcuts" && <Shortcuts />}
+          </div>
         </div>
       </div>
-      <div className="settings-row">
-        <span className="settings-label">Text size</span>
-        <div className="settings-stepper">
-          <button type="button" className="button-secondary settings-step" aria-label="Decrease text size" title={tooltip("text.smaller")} onClick={() => changeTextSize("smaller")}>
-            <MinusIcon />
-          </button>
-          <span className="settings-value">{textPercent}%</span>
-          <button type="button" className="button-secondary settings-step" aria-label="Increase text size" title={tooltip("text.larger")} onClick={() => changeTextSize("larger")}>
-            <PlusIcon />
-          </button>
-          <button type="button" className="button-secondary" title={tooltip("text.reset")} onClick={() => changeTextSize("reset")}>
-            Reset
-          </button>
-        </div>
-      </div>
-      <KeepAwakeRow />
-      <ShortcutRows />
-    </section>
+    </div>
   );
 }
