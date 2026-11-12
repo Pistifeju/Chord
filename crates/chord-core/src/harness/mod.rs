@@ -4,15 +4,26 @@ pub mod pi;
 pub mod sessions;
 mod shell;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use specta::Type;
 
 /// What a harness can do; the adapter returns its list when a session starts, and the UI hides a control whose capability is missing.
 #[derive(Serialize, Type, Debug, Clone, Copy, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum Capability {
-    /// Streaming replies, a composer, steering and stopping a run.
+    /// Streaming replies, a composer and stopping a run.
     Chat,
+    /// Images sent with a message.
+    Attachments,
+    /// A message sent while the agent runs steers the run.
+    Steer,
+}
+
+/// An image in a message: base64 data and its MIME type.
+#[derive(Serialize, Deserialize, Type, Debug, Clone, PartialEq)]
+pub struct Image {
+    pub data: String,
+    pub mime_type: String,
 }
 
 #[derive(Serialize, Type, Debug, Clone, Copy, PartialEq)]
@@ -27,7 +38,7 @@ pub enum ToolOutcome {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum HarnessEvent {
     /// A user message the agent took in, whether it started the run or steered it.
-    UserMessageChunk { text: String },
+    UserMessageChunk { text: String, images: Vec<Image> },
     /// Text of the reply that is streaming now.
     MessageChunk { text: String },
     /// The agent began a new block of reasoning.
@@ -46,6 +57,8 @@ pub enum HarnessEvent {
     MessageEnd { failed: bool },
     /// The agent opened a dialog and waits for an answer.
     Dialog,
+    /// The steering messages the agent has not taken in yet, oldest first; the whole queue each time.
+    Queue { steering: Vec<String> },
     /// The agent started or finished work.
     State { running: bool },
     /// Something the user should read: a refused command or a failed reply.

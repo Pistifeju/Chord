@@ -24,6 +24,8 @@ pub fn ipc() -> tauri_specta::Builder<tauri::Wry> {
         commands::projects::read_git_counts,
         commands::chat::start_chat,
         commands::chat::send_message,
+        commands::chat::pick_images,
+        commands::chat::read_image_file,
         commands::chat::abort_run,
         commands::chat::stop_chat,
         commands::chat::show_panes,

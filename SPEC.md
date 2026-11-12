@@ -93,7 +93,7 @@ Edge cases:
 - [x] E1 harness(chat): streaming replies, composer, steer while running, Esc stops. A new worktree starts a chat; an empty pane shows a Start button.
 - [x] E2 harness(chat): tool calls and thinking folded into step groups; a running group keeps its last thought and last three calls open; read-only shell commands show as Read, Search or List.
 - [x] E3 core: Markdown (lists, tasks, headings, quotes, tables, links), code blocks with a copy button, ⌘F in the transcript.
-- [ ] E4 harness(attachments): attach button, dropped files, screenshots; sent images as thumbnails with a lightbox (← → steps through).
+- [x] E4 harness(attachments): attach button, dropped files, screenshots; sent images as thumbnails with a lightbox (← → steps through).
 - [ ] E5 harness(tool-images): images a tool returns show under its row.
 - [ ] E6 harness(dialogs): extension dialogs (select, confirm, input) over the composer; a select marks the current option and filters long lists.
 - [ ] E7 harness(commands): slash menu with the typed part marked; a bubble shows `/skill:name`, not the expanded skill.

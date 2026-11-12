@@ -13,7 +13,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::shell::read_only_title;
-use super::{Capability, HarnessEvent, ToolOutcome};
+use super::{Capability, HarnessEvent, Image, ToolOutcome};
 use crate::Error;
 
 /// The binary to run when the user chose none.
@@ -95,12 +95,12 @@ impl Session {
     }
 
     pub fn capabilities(&self) -> Vec<Capability> {
-        vec![Capability::Chat]
+        vec![Capability::Chat, Capability::Attachments, Capability::Steer]
     }
 
     /// Sends a message; while the agent runs, pi queues it as a steer.
-    pub fn send(&self, text: &str) -> Result<(), Error> {
-        self.write(&json!({ "type": "prompt", "message": text, "streamingBehavior": "steer" }))
+    pub fn send(&self, text: &str, images: &[Image]) -> Result<(), Error> {
+        self.write(&prompt_command(text, images))
     }
 
     pub fn abort(&self) -> Result<(), Error> {
@@ -122,6 +122,14 @@ impl Drop for Session {
         let _ = child.kill();
         let _ = child.wait();
     }
+}
+
+fn prompt_command(text: &str, images: &[Image]) -> Value {
+    let images: Vec<Value> = images
+        .iter()
+        .map(|image| json!({ "type": "image", "data": image.data, "mimeType": image.mime_type }))
+        .collect();
+    json!({ "type": "prompt", "message": text, "images": images, "streamingBehavior": "steer" })
 }
 
 // Stdout closed, so the process is ending; it gets a moment to report its code.
@@ -219,7 +227,7 @@ struct Kind {
     update: Option<Value>,
 }
 
-const READ_KINDS: [&str; 8] = [
+const READ_KINDS: [&str; 9] = [
     "extension_ui_request",
     "agent_start",
     "agent_settled",
@@ -227,6 +235,7 @@ const READ_KINDS: [&str; 8] = [
     "message_end",
     "tool_execution_start",
     "tool_execution_end",
+    "queue_update",
     "response",
 ];
 
@@ -300,6 +309,14 @@ fn events_from(record: &Value) -> Vec<HarnessEvent> {
             },
         }],
         Some("message_end") => message_end(&record["message"]),
+        Some("queue_update") => vec![HarnessEvent::Queue {
+            steering: record["steering"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|text| text.as_str().map(String::from))
+                .collect(),
+        }],
         // Select, confirm, input and editor wait for an answer; notify and the status methods do not.
         Some("extension_ui_request")
             if matches!(
@@ -382,6 +399,7 @@ fn message_end(message: &Value) -> Vec<HarnessEvent> {
     match message["role"].as_str() {
         Some("user") => vec![HarnessEvent::UserMessageChunk {
             text: text_of(&message["content"]),
+            images: images_of(&message["content"]),
         }],
         Some("assistant") => {
             let failed = message["stopReason"] == "error";
@@ -411,6 +429,22 @@ fn text_of(content: &Value) -> String {
             .join("\n"),
         _ => String::new(),
     }
+}
+
+fn images_of(content: &Value) -> Vec<Image> {
+    let Some(blocks) = content.as_array() else {
+        return vec![];
+    };
+    blocks
+        .iter()
+        .filter(|block| block["type"] == "image")
+        .filter_map(|block| {
+            Some(Image {
+                data: block["data"].as_str()?.into(),
+                mime_type: block["mimeType"].as_str()?.into(),
+            })
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -510,13 +544,40 @@ mod tests {
     }
 
     #[test]
-    fn a_user_message_joins_its_text_blocks() {
-        let record = r#"{"type":"message_end","message":{"role":"user","content":[{"type":"text","text":"a"},{"type":"image","data":"x"},{"type":"text","text":"b"}]}}"#;
+    fn a_user_message_joins_its_text_blocks_and_keeps_its_images() {
+        let record = r#"{"type":"message_end","message":{"role":"user","content":[{"type":"text","text":"a"},{"type":"image","data":"x","mimeType":"image/png"},{"type":"text","text":"b"}]}}"#;
         assert_eq!(
             events(record),
             vec![HarnessEvent::UserMessageChunk {
-                text: "a\nb".into()
+                text: "a\nb".into(),
+                images: vec![Image {
+                    data: "x".into(),
+                    mime_type: "image/png".into()
+                }]
             }]
+        );
+    }
+
+    #[test]
+    fn a_queue_update_lists_the_waiting_steers() {
+        let record = r#"{"type":"queue_update","steering":["a","b"],"followUp":[]}"#;
+        assert_eq!(
+            events(record),
+            vec![HarnessEvent::Queue {
+                steering: vec!["a".into(), "b".into()]
+            }]
+        );
+    }
+
+    #[test]
+    fn a_prompt_carries_its_images() {
+        let image = Image {
+            data: "x".into(),
+            mime_type: "image/png".into(),
+        };
+        assert_eq!(
+            prompt_command("look", &[image]),
+            json!({ "type": "prompt", "message": "look", "images": [{ "type": "image", "data": "x", "mimeType": "image/png" }], "streamingBehavior": "steer" })
         );
     }
 

@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use super::pi::{Session, session_file};
-use super::{Capability, HarnessEvent, StatusTracker, status_for};
+use super::{Capability, HarnessEvent, Image, StatusTracker, status_for};
 use crate::awake::Awake;
 use crate::{Error, Store};
 
@@ -89,8 +89,8 @@ impl Sessions {
         Ok(capabilities)
     }
 
-    pub fn send(&self, pane: &str, text: &str) -> Result<(), Error> {
-        self.with(pane, |session| session.send(text))
+    pub fn send(&self, pane: &str, text: &str, images: &[Image]) -> Result<(), Error> {
+        self.with(pane, |session| session.send(text, images))
     }
 
     pub fn abort(&self, pane: &str) -> Result<(), Error> {

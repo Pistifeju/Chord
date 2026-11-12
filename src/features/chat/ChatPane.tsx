@@ -1,10 +1,15 @@
 // The chat of one pane: transcript, composer, and a Start button while no agent runs.
-import { memo, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
-import { ArrowDownIcon, ArrowUpIcon, ChevronIcon, SparkleIcon } from "../../ui/icons";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { memo, useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
+import { tooltip } from "../../app/commands";
+import { ArrowDownIcon, ArrowUpIcon, ChevronIcon, CloseIcon, PaperclipIcon, SparkleIcon } from "../../ui/icons";
+import { imageMime, imageUrl, isImageType, type Attachment } from "./attachments";
 import { FindBar } from "./FindBar";
 import { finds } from "./find";
 import { Markdown } from "./MarkdownView";
-import { chatOf, chats, drafts, sendMessage, setDraft, startChat } from "./store";
+import { Lightbox } from "./Lightbox";
+import { closeLightbox, lightboxes, openLightbox, stepLightbox } from "./viewing";
+import { attachFiles, attachments, attachPasted, chatOf, chats, drafts, pickAttachments, removeAttachment, sendMessage, setDraft, startChat } from "./store";
 import { shownSteps, stepsSummary, type Item, type Message, type StepGroup } from "./transcript";
 import "./chat.css";
 
@@ -36,10 +41,20 @@ function Working({ since }: { since: number }) {
   );
 }
 
-const MessageRow = memo(function MessageRow({ message, fresh }: { message: Message; fresh: boolean }) {
+const MessageRow = memo(function MessageRow({ pane, message, fresh }: { pane: string; message: Message; fresh: boolean }) {
+  const images = message.images ?? [];
   return (
     <div className="chat-message" data-role={message.role} data-fresh={fresh || undefined}>
       {message.role === "user" ? message.text : <Markdown text={message.text} />}
+      {images.length > 0 && (
+        <div className="chat-thumbs">
+          {images.map((image, i) => (
+            <button key={i} type="button" className="chat-thumb" aria-label={`Open image ${i + 1} of ${images.length}`} onClick={() => openLightbox(pane, images, i)}>
+              <img src={imageUrl(image)} alt="" />
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 });
@@ -74,10 +89,11 @@ const StepsRow = memo(function StepsRow({ group, running, fresh }: { group: Step
 const isStreaming = (item: Item) => item.role !== "steps" && item.streaming;
 
 // A streaming reply renders nothing, so its chunks leave the rows as they are.
-const sameRows = (a: { items: Item[]; running: boolean }, b: { items: Item[]; running: boolean }) =>
-  a.running === b.running && a.items.length === b.items.length && a.items.every((item, i) => item === b.items[i] || (isStreaming(item) && isStreaming(b.items[i])));
+type Rows = { items: Item[]; running: boolean; queued: string[] };
+const sameRows = (a: Rows, b: Rows) =>
+  a.running === b.running && a.queued === b.queued && a.items.length === b.items.length && a.items.every((item, i) => item === b.items[i] || (isStreaming(item) && isStreaming(b.items[i])));
 
-const Messages = memo(function Messages({ items, running }: { items: Item[]; running: boolean }) {
+const Messages = memo(function Messages({ pane, items, running, queued }: { pane: string } & Rows) {
   // Only items that arrive while the pane is open animate in; reopening a long chat stays still.
   const loaded = useRef(items.length);
   return (
@@ -86,23 +102,54 @@ const Messages = memo(function Messages({ items, running }: { items: Item[]; run
         item.role === "steps" ? (
           <StepsRow key={i} group={item} running={running && i === items.length - 1} fresh={i >= loaded.current} />
         ) : item.streaming ? null : (
-          <MessageRow key={i} message={item} fresh={i >= loaded.current} />
+          <MessageRow key={i} pane={pane} message={item} fresh={i >= loaded.current} />
         ),
       )}
+      {queued.map((text, i) => (
+        <div key={`queued-${i}`} className="chat-message" data-role="user" data-queued data-fresh title="Queued">
+          {text}
+        </div>
+      ))}
     </div>
   );
 }, sameRows);
+
+const noAttachments: Attachment[] = [];
 
 export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { worktree: string; pane: string; focused: boolean }) {
   const chat = chats.usePart((all) => chatOf(all, pane));
   const draft = drafts.usePart((all) => all[pane] ?? "");
   const find = finds.usePart((all) => all[pane]);
+  const viewing = lightboxes.usePart((all) => all[pane]);
+  const waiting = attachments.usePart((all) => all[pane]) ?? noAttachments;
+  const root = useRef<HTMLDivElement>(null);
+  const [dropping, setDropping] = useState(false);
   const composer = useRef<HTMLTextAreaElement>(null);
   const transcript = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
   const [away, setAway] = useState(false);
   const ready = chat.agent === "ready";
   const hasChat = chat.capabilities === null || chat.capabilities.includes("chat");
+  const canAttach = chat.capabilities?.includes("attachments") === true && chat.agent !== "idle";
+  const steers = chat.running && chat.capabilities?.includes("steer") === true;
+  const canSend = ready && (!chat.running || steers);
+
+  // The pane under the pointer takes the dropped images.
+  useEffect(() => {
+    if (!canAttach) return;
+    let carriesImages = false;
+    const unlisten = getCurrentWebview().onDragDropEvent(({ payload }) => {
+      if (payload.type === "leave") return setDropping(false);
+      if (payload.type === "enter") carriesImages = payload.paths.some((path) => imageMime(path));
+      const rect = root.current?.getBoundingClientRect();
+      const x = payload.position.x / window.devicePixelRatio;
+      const y = payload.position.y / window.devicePixelRatio;
+      const inside = !!rect && x >= rect.left && x < rect.right && y >= rect.top && y < rect.bottom;
+      setDropping(carriesImages && inside && payload.type !== "drop");
+      if (payload.type === "drop" && inside) attachFiles(pane, payload.paths);
+    });
+    return () => void unlisten.then((stop) => stop());
+  }, [canAttach, pane]);
 
   useEffect(() => {
     if (ready && focused) composer.current?.focus();
@@ -112,7 +159,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
   useLayoutEffect(() => {
     const el = transcript.current;
     if (el && pinned.current) el.scrollTop = el.scrollHeight;
-  }, [chat.items, chat.running]);
+  }, [chat.items, chat.running, chat.queued]);
 
   const jumpToEnd = () => {
     const el = transcript.current;
@@ -124,7 +171,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
 
   const send = () => {
     const text = draft.trim();
-    if (!text) return;
+    if (!canSend || (!text && waiting.length === 0)) return;
     setDraft(pane, "");
     sendMessage(pane, text);
     composer.current?.focus();
@@ -137,11 +184,19 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
     }
   };
 
+  const onComposerPaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
+    const files = [...e.clipboardData.files].filter((file) => isImageType(file.type));
+    if (!canAttach || files.length === 0) return;
+    e.preventDefault();
+    files.forEach((file) => attachPasted(pane, file));
+  };
+
   if (!hasChat) return null;
 
   return (
     <div
       className="chat"
+      ref={root}
       onClick={(e) => {
         // A click outside a control lands in the composer, unless the reader selected text.
         if ((e.target as Element).closest("button, a, input, textarea")) return;
@@ -166,7 +221,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
               <StartButton worktree={worktree} pane={pane} />
             </div>
           ) : (
-            <Messages items={chat.items} running={chat.running} />
+            <Messages pane={pane} items={chat.items} running={chat.running} queued={chat.queued} />
           )}
         </div>
         <button type="button" className="chat-jump" data-shown={away || undefined} data-running={chat.running || undefined} title="Jump to Latest" aria-label="Jump to Latest" onClick={jumpToEnd}>
@@ -175,6 +230,12 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
         {find && <FindBar pane={pane} find={find} transcript={transcript} items={chat.items} />}
         {chat.running && <Working since={chat.since ?? Date.now()} />}
       </div>
+      {viewing && <Lightbox images={viewing.images} index={viewing.index} onStep={(by) => stepLightbox(pane, by)} onClose={() => closeLightbox(pane)} />}
+      {dropping && (
+        <div className="drop-target chat-drop">
+          <span className="drop-label">Drop images to attach</span>
+        </div>
+      )}
       {chat.notice && <p className="chat-notice">{chat.notice}</p>}
       {chat.agent === "idle" && chat.items.length > 0 && (
         <div className="chat-restart">
@@ -184,23 +245,43 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
       )}
       {chat.agent !== "idle" && (
         <div className="chat-composer">
+          {waiting.length > 0 && (
+            <div className="chat-attachments">
+              {waiting.map((a, i) => (
+                <div key={a.id} className="chat-attachment">
+                  <button type="button" className="chat-attachment-open" aria-label={`Open ${a.name}`} onClick={() => openLightbox(pane, waiting.map((w) => w.image), i)}>
+                    <img src={imageUrl(a.image)} alt={a.name} />
+                  </button>
+                  <button type="button" className="chat-attachment-remove" title="Remove" aria-label={`Remove ${a.name}`} onClick={() => removeAttachment(pane, a.id)}>
+                    <CloseIcon size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           <textarea
             ref={composer}
             className="chat-input"
             rows={2}
             disabled={!ready}
             value={draft}
-            placeholder={chat.running ? "Steer the agent" : "Message the agent"}
+            placeholder={steers ? "Steer the agent" : "Message the agent"}
             onChange={(e) => setDraft(pane, e.target.value)}
             onKeyDown={onComposerKey}
+            onPaste={onComposerPaste}
           />
           <div className="chat-composer-bar">
+            {canAttach && (
+              <button type="button" className="icon-button" title={tooltip("chat.attach")} aria-label="Attach Images" disabled={!ready} onClick={() => pickAttachments(pane)}>
+                <PaperclipIcon />
+              </button>
+            )}
             <button
               type="button"
               className="button-primary chat-send"
-              title={chat.running ? "Steer" : "Send"}
-              aria-label={chat.running ? "Steer" : "Send"}
-              disabled={!ready || !draft.trim()}
+              title={steers ? "Steer" : "Send"}
+              aria-label={steers ? "Steer" : "Send"}
+              disabled={!canSend || (!draft.trim() && waiting.length === 0)}
               onClick={send}
             >
               <ArrowUpIcon />

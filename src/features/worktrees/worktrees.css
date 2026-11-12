@@ -1,24 +1,4 @@
-/* The project drop target and the empty state. */
-.project-drop {
-  position: fixed;
-  inset: 12px;
-  z-index: 10;
-  display: grid;
-  place-items: center;
-  border: 2px dashed var(--accent-ink);
-  border-radius: var(--radius-card);
-  background: var(--scrim);
-  pointer-events: none;
-}
-
-.project-drop-label {
-  padding: 8px 14px;
-  border-radius: var(--radius-control);
-  background: var(--sheet);
-  box-shadow: var(--shadow-popover);
-  font-weight: 500;
-}
-
+/* The empty state while Chord has no project. */
 .no-projects {
   display: flex;
   flex-direction: column;

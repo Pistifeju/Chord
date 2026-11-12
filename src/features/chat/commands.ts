@@ -5,7 +5,8 @@ import { panes } from "../panes/store";
 import { settingsOpen } from "../settings/store";
 import { projects } from "../worktrees/store";
 import { closeFind, finds, openFind } from "./find";
-import { abortRun, chatOf, chats } from "./store";
+import { closeLightbox, lightboxes, stepLightbox } from "./viewing";
+import { abortRun, chatOf, chats, pickAttachments } from "./store";
 
 const focusedPane = (): string | null => {
   const { selected } = projects.get();
@@ -24,7 +25,58 @@ const findingPane = (): string | null => {
   return pane && finds.get()[pane] ? pane : null;
 };
 
+const lightboxPane = (): string | null => {
+  const pane = focusedPane();
+  return pane && lightboxes.get()[pane] ? pane : null;
+};
+
+const attachingPane = (): string | null => {
+  const pane = focusedPane();
+  const chat = pane && chatOf(chats.get(), pane);
+  return chat && chat.capabilities?.includes("attachments") && chat.agent === "ready" ? pane : null;
+};
+
 export const chatCommands: AppCommand[] = [
+  {
+    id: "chat.lightboxClose",
+    title: "Close Image",
+    shortcut: { key: "escape" },
+    when: () => lightboxPane() !== null,
+    run: () => {
+      const pane = lightboxPane();
+      if (pane) closeLightbox(pane);
+    },
+  },
+  {
+    id: "chat.lightboxPrevious",
+    title: "Previous Image",
+    shortcut: { key: "arrowleft" },
+    when: () => lightboxPane() !== null,
+    run: () => {
+      const pane = lightboxPane();
+      if (pane) stepLightbox(pane, -1);
+    },
+  },
+  {
+    id: "chat.lightboxNext",
+    title: "Next Image",
+    shortcut: { key: "arrowright" },
+    when: () => lightboxPane() !== null,
+    run: () => {
+      const pane = lightboxPane();
+      if (pane) stepLightbox(pane, 1);
+    },
+  },
+  {
+    id: "chat.attach",
+    title: "Attach Images",
+    shortcut: { key: "u", cmd: true },
+    when: () => attachingPane() !== null,
+    run: () => {
+      const pane = attachingPane();
+      if (pane) pickAttachments(pane);
+    },
+  },
   {
     id: "chat.find",
     title: "Find in Chat",

@@ -89,3 +89,21 @@ export const CheckIcon = () => (
     <path d="M3 8.5l3.5 3.5L13 4.5" />
   </Icon>
 );
+
+export const ArrowLeftIcon = () => (
+  <Icon>
+    <path d="M13 8H3M7.5 3.5L3 8l4.5 4.5" strokeWidth="1.5" />
+  </Icon>
+);
+
+export const ArrowRightIcon = () => (
+  <Icon>
+    <path d="M3 8h10M8.5 3.5L13 8l-4.5 4.5" strokeWidth="1.5" />
+  </Icon>
+);
+
+export const PaperclipIcon = () => (
+  <Icon>
+    <path d="M13.25 7.5l-4.9 4.9a3 3 0 0 1-4.25-4.25l5.1-5.1a2 2 0 0 1 2.85 2.85l-5.1 5.1a1 1 0 0 1-1.4-1.4L10.4 4.7" />
+  </Icon>
+);

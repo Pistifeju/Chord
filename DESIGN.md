@@ -294,7 +294,8 @@ Popover and sheet shadows include a 1px ring: black at 8% in light, white at 10%
 - The project chevron and a step group's chevron turn in 120ms.
 - In the chat, a message, a step row, the Working row, the find bar and the notice fade in and rise 4px over 200ms with `--ease-out` when they arrive. A chat that opens with history shows it still.
 - The send button changes color over 120ms and presses to 97% scale.
-- Under Reduce Motion the sheet, scrim, toast and chevrons skip their animation, chat items only fade, the send button and the jump button do not move or scale, the jump scrolls instantly, its sparkle only fades, its comet stands still, its halo stays off and spinners turn at a third of their speed.
+- The lightbox and its scrim animate like a sheet.
+- Under Reduce Motion the sheet, lightbox, scrim, toast and chevrons skip their animation, chat items only fade, the send button and the jump button do not move or scale, the jump scrolls instantly, its sparkle only fades, its comet stands still, its halo stays off and spinners turn at a third of their speed.
 
 ## Shapes
 
@@ -344,7 +345,8 @@ No pills. A circle appears only as the spinner and the status dot.
 
 ### Chat
 
-- **User message:** right-aligned, 85% wide at most, on a `raised` card. The agent's message is Markdown on the canvas; the user's stays plain text.
+- **User message:** right-aligned, 85% wide at most, on a `raised` card. A steer the agent has not taken in yet sits at the end of the transcript as a user message at 50% opacity (tooltip "Queued"); it turns opaque once the agent takes it in. The agent's message is Markdown on the canvas; the user's stays plain text. Its images follow the text as 64px square thumbnails (Control radius, 1px `line` border, cropped to fill), 8px apart. A click opens the lightbox.
+- **Lightbox:** the image at full size on the scrim, over everything (Control radius, sheet shadow); it fades in and rises like a sheet. A 28px close button sits at the top right, and with several images a previous and a next button at the left and right edges (disabled at the ends) and a "2 of 3" chip at the bottom; the buttons are 28px `canvas` squares with a 1px `line-strong` border and the popover shadow. ← and → step, Esc closes (the agent keeps running), a click outside the image closes.
 - **Markdown:** blocks stack 8px apart. Headings take the Heading row at every level. Lists indent 20px; a task shows a 14px `line-strong` box, with a check once done. A quote has a 2px `line-strong` rule on its left and `ink-secondary` text. A link is underlined in `ink-disabled`, in the text color (`ink` underline on hover); a click opens it in the default app, and only web and mail links open. A table has 1px `line` borders, a `panel` header row and scrolls sideways when wide. Inline code sits on a `raised` chip with the Inset radius.
 - **Code block:** a `panel` card with a 1px `line` border and the Control radius. No language label. The copy icon button sits 4px from the top and right edges and shows only on hover or keyboard focus; it shows a check for 1.5s after it copied. The code scrolls sideways and never wraps.
 - **Find:** ⌘F opens a bar floating at the transcript's top right (`--shadow-popover`, on `canvas` with a 1px `line-strong` border and the Control radius): a field, the position ("2 of 7", "No results"; meta, tabular), previous and next icon buttons (disabled without matches) and a close icon button. Return steps to the next match, Shift-Return to the previous, Esc closes. Matches take an `editor-match` background; the current one adds a 2px `accent-ink` underline and scrolls to the middle.
@@ -352,7 +354,7 @@ No pills. A circle appears only as the spinner and the status dot.
 - **Working:** a row of meta text right above the composer while the agent runs. It floats over the foot of the transcript, so a run's start resizes nothing; the transcript's bottom fade moves up to end at the row's top, and the text under the row hides; while it shows, the transcript ends that much lower. The row holds a 10px `accent-ink` spinner, a verb in `ink-secondary` ("Cooking…", "Locking in…", "Hold my beer…", "Going feral…"), the time since the run started ("14s", "2m 5s") and "esc stops". The run's start time picks the verb, so it holds for the whole run.
 - **Notice:** one line of `danger` meta text above the composer.
 - **Sending** keeps the transcript where the reader left it; it follows the reply only when the reader sits at the end.
-- **Composer:** a `panel` card with a 1px `line-strong` border. Focus inside changes nothing. Its bar holds the send button on the right: a 28px `accent` circle with a white up arrow, `raised` with `ink-disabled` arrow while the draft is empty. Its tooltip reads Send, or Steer while the agent runs.
+- **Composer:** a `panel` card with a 1px `line-strong` border. Focus inside changes nothing. Pasted and attached images wait above the text as 48px thumbnails with an 18px remove button on their top-right corner. Its bar holds the attach icon button (paperclip, tooltip "Attach Images") on the left, shown only when the harness has the attachments capability, and the send button on the right: a 28px `accent` circle with a white up arrow, `raised` with `ink-disabled` arrow while the draft is empty. Its tooltip reads Send, or Steer while the agent runs and the harness has the steer capability; without it the button stays disabled until the run ends.
 - **Jump to latest:** once the reader scrolls 72px or more above the end of the transcript, a 28px `canvas` circle with a 1px `line-strong` border, the control shadow and an `ink-secondary` down arrow sits centered 12px above the Working row's place, whether the row shows or not. While the agent runs, the button turns `accent-ink`: a 16px four-point sparkle takes the arrow's place and turns 90° while it grows from 75% to 105% and back every 1.2s, a comet (a conic `accent-ink` tail on the rim) circles the button once per 1.2s, and an `accent-wash` halo breathes 8px out every 1.8s. Hover takes `raised` and `ink`. A click scrolls smoothly to the end and resumes following the reply. It fades in and rises 8px from 90% scale over 200ms with `--ease-out`, fades out the same way once the reader is back at the end, and presses to 94% scale.
 - **Empty state:** a centered title, one muted line and the primary button.
 
@@ -367,6 +369,8 @@ No pills. A circle appears only as the spinner and the status dot.
 One surface in the title bar row, 32px tall at least, 560px wide at most. It closes after 4 seconds or on click. A failure shows a `danger` warning icon before the text; a notice shows text only.
 
 ### Drop target
+
+While the user drags an image over a chat pane that takes attachments, a 2px dashed `accent-ink` outline sits 8px inside the pane over the scrim, with the label "Drop images to attach". The window's folder drop stays off for images.
 
 While the user drags a folder over the window, a 2px dashed `accent-ink` outline sits 12px inside the window over the scrim, with its label on a small `sheet` chip.
 

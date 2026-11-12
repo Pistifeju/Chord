@@ -1,4 +1,4 @@
-/* Shared controls: buttons, icon button, input, sheet, toast. Rules: DESIGN.md, Components. */
+/* Shared controls: buttons, icon button, input, sheet, toast, drop target. Rules: DESIGN.md, Components. */
 button {
   font: inherit;
   color: inherit;
@@ -223,6 +223,27 @@ button:focus-visible {
   background: var(--sheet);
   box-shadow: var(--shadow-sheet);
   animation: sheet-in var(--t-med) var(--ease-out);
+}
+
+/* A drag over the window or a pane: a dashed outline over the scrim with its label on a chip. */
+.drop-target {
+  position: fixed;
+  inset: 12px;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  border: 2px dashed var(--accent-ink);
+  border-radius: var(--radius-card);
+  background: var(--scrim);
+  pointer-events: none;
+}
+
+.drop-label {
+  padding: 8px 14px;
+  border-radius: var(--radius-control);
+  background: var(--sheet);
+  box-shadow: var(--shadow-popover);
+  font-weight: 500;
 }
 
 @keyframes scrim-in {

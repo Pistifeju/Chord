@@ -5,9 +5,10 @@ use std::sync::Mutex;
 
 use chord_core::harness::pi::DEFAULT_BINARY;
 use chord_core::harness::sessions::Sessions;
-use chord_core::{Capability, HarnessEvent};
+use chord_core::{Capability, Error, HarnessEvent, Image, images};
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager, State};
+use tauri_plugin_dialog::DialogExt;
 
 use super::blocking;
 use crate::notifications::{self, ShownPanes};
@@ -55,11 +56,44 @@ pub async fn start_chat(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn send_message(app: AppHandle, pane: String, text: String) -> Result<(), String> {
+pub async fn send_message(
+    app: AppHandle,
+    pane: String,
+    text: String,
+    images: Vec<Image>,
+) -> Result<(), String> {
     blocking(app, move |app, _| {
-        app.state::<Sessions>().send(&pane, &text)
+        app.state::<Sessions>().send(&pane, &text, &images)
     })
     .await
+}
+
+/// Asks for image files with one of the extensions; no pick gives an empty list.
+#[tauri::command]
+#[specta::specta]
+pub async fn pick_images(app: AppHandle, extensions: Vec<String>) -> Result<Vec<PathBuf>, String> {
+    blocking(app, move |app, _| {
+        let extensions: Vec<&str> = extensions.iter().map(String::as_str).collect();
+        app.dialog()
+            .file()
+            .set_title("Attach Images")
+            .add_filter("Images", &extensions)
+            .blocking_pick_files()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|file| {
+                file.into_path()
+                    .map_err(|error| Error::Message(error.to_string()))
+            })
+            .collect()
+    })
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn read_image_file(app: AppHandle, path: PathBuf) -> Result<String, String> {
+    blocking(app, move |_, _| images::read_base64(&path)).await
 }
 
 #[tauri::command]

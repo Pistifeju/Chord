@@ -1,8 +1,8 @@
 // Rules for a chat's transcript: how each harness event changes the messages, the run flag, the notice and the status report.
-import type { Capability, HarnessEvent } from "../../ipc/bindings";
+import type { Capability, HarnessEvent, Image } from "../../ipc/bindings";
 import { stampedReport, type StatusReport } from "../status/status.ts";
 
-export type Message = { role: "user" | "assistant"; text: string; streaming: boolean };
+export type Message = { role: "user" | "assistant"; text: string; streaming: boolean; /** The images a user message carried. */ images?: Image[] };
 
 export type Step =
   | { kind: "thought"; /** Its place in the group; steps only append, so it stays stable. */ id: number; text: string }
@@ -23,11 +23,13 @@ export type Chat = {
   /** What the harness can do; null until the agent has started. */
   capabilities: Capability[] | null;
   notice: string | null;
+  /** Steering messages the agent has not taken in yet. */
+  queued: string[];
   /** The status Rust reported; null until the first run. */
   report: StatusReport | null;
 };
 
-export const emptyChat: Chat = { agent: "idle", items: [], running: false, since: null, capabilities: null, notice: null, report: null };
+export const emptyChat: Chat = { agent: "idle", items: [], running: false, since: null, capabilities: null, notice: null, queued: [], report: null };
 
 const closed = (items: Item[]): Item[] => items.map((item) => (item.role !== "steps" && item.streaming ? { ...item, streaming: false } : item));
 
@@ -66,7 +68,7 @@ export function stepsSummary(steps: Step[]): string {
 export function chatAfter(chat: Chat, event: HarnessEvent, now: number): Chat {
   switch (event.kind) {
     case "user_message_chunk":
-      return { ...chat, items: [...closed(chat.items), { role: "user", text: event.text, streaming: false }] };
+      return { ...chat, items: [...closed(chat.items), { role: "user", text: event.text, streaming: false, images: event.images }] };
     case "message_chunk": {
       const last = chat.items[chat.items.length - 1];
       if (last?.role === "assistant" && last.streaming) return { ...chat, items: withLast<Item>(chat.items, { ...last, text: last.text + event.text }) };
@@ -98,6 +100,8 @@ export function chatAfter(chat: Chat, event: HarnessEvent, now: number): Chat {
     }
     case "dialog":
       return chat;
+    case "queue":
+      return { ...chat, queued: event.steering };
     case "message_end":
       return { ...chat, items: closed(chat.items) };
     case "state":
@@ -112,6 +116,6 @@ export function chatAfter(chat: Chat, event: HarnessEvent, now: number): Chat {
     case "notice":
       return { ...chat, notice: event.text };
     case "exited":
-      return { ...chat, agent: "idle", running: false, items: closed(chat.items) };
+      return { ...chat, agent: "idle", running: false, queued: [], items: closed(chat.items) };
   }
 }

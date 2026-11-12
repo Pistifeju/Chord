@@ -16,7 +16,10 @@ export const commands = {
 	removeWorktree: (project: string, worktree: string, force: boolean) => __TAURI_INVOKE<Removal_Serialize>("remove_worktree", { project, worktree, force }),
 	readGitCounts: (worktrees: string[]) => __TAURI_INVOKE<GitCounts_Serialize[]>("read_git_counts", { worktrees }),
 	startChat: (worktree: string, pane: string, onEvent: Channel<HarnessEvent_Deserialize>) => __TAURI_INVOKE<Capability[]>("start_chat", { worktree, pane, onEvent }),
-	sendMessage: (pane: string, text: string) => __TAURI_INVOKE<null>("send_message", { pane, text }),
+	sendMessage: (pane: string, text: string, images: Image[]) => __TAURI_INVOKE<null>("send_message", { pane, text, images }),
+	/**  Asks for image files with one of the extensions; no pick gives an empty list. */
+	pickImages: (extensions: string[]) => __TAURI_INVOKE<string[]>("pick_images", { extensions }),
+	readImageFile: (path: string) => __TAURI_INVOKE<string>("read_image_file", { path }),
 	abortRun: (pane: string) => __TAURI_INVOKE<null>("abort_run", { pane }),
 	stopChat: (pane: string) => __TAURI_INVOKE<null>("stop_chat", { pane }),
 	/**  Tells Rust which panes the window shows, so a notification skips a pane the user is looking at. */
@@ -46,8 +49,12 @@ export type Appearance_Serialize = {
 
 /**  What a harness can do; the adapter returns its list when a session starts, and the UI hides a control whose capability is missing. */
 export type Capability = 
-/**  Streaming replies, a composer, steering and stopping a run. */
-"chat";
+/**  Streaming replies, a composer and stopping a run. */
+"chat" | 
+/**  Images sent with a message. */
+"attachments" | 
+/**  A message sent while the agent runs steers the run. */
+"steer";
 
 export type Direction = 
 /**  Children sit side by side. */
@@ -77,7 +84,7 @@ export type HarnessEvent = HarnessEvent_Serialize | HarnessEvent_Deserialize;
 
 export type HarnessEvent_Deserialize = 
 /**  A user message the agent took in, whether it started the run or steered it. */
-{ kind: "user_message_chunk"; text: string } | 
+{ kind: "user_message_chunk"; text: string; images: Image[] } | 
 /**  Text of the reply that is streaming now. */
 { kind: "message_chunk"; text: string } | 
 /**  The agent began a new block of reasoning. */
@@ -92,6 +99,8 @@ export type HarnessEvent_Deserialize =
 { kind: "message_end"; failed: boolean } | 
 /**  The agent opened a dialog and waits for an answer. */
 { kind: "dialog" } | 
+/**  The steering messages the agent has not taken in yet, oldest first; the whole queue each time. */
+{ kind: "queue"; steering: string[] } | 
 /**  The agent started or finished work. */
 { kind: "state"; running: boolean } | 
 /**  Something the user should read: a refused command or a failed reply. */
@@ -103,7 +112,7 @@ export type HarnessEvent_Deserialize =
 
 export type HarnessEvent_Serialize = 
 /**  A user message the agent took in, whether it started the run or steered it. */
-{ kind: "user_message_chunk"; text: string } | 
+{ kind: "user_message_chunk"; text: string; images: Image[] } | 
 /**  Text of the reply that is streaming now. */
 { kind: "message_chunk"; text: string } | 
 /**  The agent began a new block of reasoning. */
@@ -118,6 +127,8 @@ export type HarnessEvent_Serialize =
 { kind: "message_end"; failed: boolean } | 
 /**  The agent opened a dialog and waits for an answer. */
 { kind: "dialog" } | 
+/**  The steering messages the agent has not taken in yet, oldest first; the whole queue each time. */
+{ kind: "queue"; steering: string[] } | 
 /**  The agent started or finished work. */
 { kind: "state"; running: boolean } | 
 /**  Something the user should read: a refused command or a failed reply. */
@@ -126,6 +137,12 @@ export type HarnessEvent_Serialize =
 { kind: "exited"; code: number | null } | 
 /**  The pane's status changed or a reply ended; `last_message` is the text of the last reply. Core adds it, no adapter emits it. */
 { kind: "status"; status: Status_Serialize; last_message: string };
+
+/**  An image in a message: base64 data and its MIME type. */
+export type Image = {
+	data: string,
+	mime_type: string,
+};
 
 export type KeptBranch = {
 	name: string,
