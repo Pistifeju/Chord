@@ -46,13 +46,13 @@ Edge cases:
 - [x] B3 Delete worktree: the card goes at once, git and cleanup run in the background; force prompt; a merged branch goes with it, and Chord says when it keeps one.
 - [x] B5 A new worktree gets a copy of the main checkout's gitignored files (up to 5 MB each, no ignored folders).
 - [x] B6 Git counts on the worktree card: ↑ahead and ↓behind against the branch's upstream, or against the main checkout's branch without one (nothing on a detached HEAD), and changed files from `git status --porcelain`; zeros show nothing. Refreshes on window focus, then every 10 seconds while the window is visible, only for worktrees of expanded projects and the selected one; a refresh still running skips the next. No file watcher.
-- [ ] B7 Extends B5: a new worktree also gets the main checkout's gitignored folders (`node_modules`, `Pods`, `.build`) and files of any size as APFS clones (`clonefile`), which take no extra disk space until one side changes.
+- [x] B7 Extends B5: a new worktree also gets the main checkout's gitignored folders (`node_modules`, `Pods`, `.build`) and files of any size as APFS clones (`clonefile`), which take no extra disk space until one side changes.
 
 Edge cases:
 - Worktree folder names never collide across projects.
 - Deleting the open worktree opens the one below it, or above if it was last.
 - A gitignored file that fails to copy does not strand the new worktree.
-- On a volume without clone support, B7 skips ignored folders and keeps B5's 5 MB file cap.
+- On a volume without clone support, or when the worktree sits on another volume than the main checkout, B7 skips ignored folders and keeps B5's 5 MB file cap.
 - B7 never clones DerivedData.
 - Worktrees deleted outside Chord lose their caches on app start and window focus.
 - Counts work in reftable repos; a branch without an upstream counts against the main checkout's current branch.

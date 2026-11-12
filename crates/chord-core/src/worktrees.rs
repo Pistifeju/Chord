@@ -80,6 +80,9 @@ pub fn create(project: &Project, branch: &str) -> Result<Worktree, Error> {
 
 const MAX_COPIED_FILE_BYTES: u64 = 5 * 1024 * 1024;
 
+// Xcode rebuilds DerivedData per checkout path, so a clone of it is never used.
+const NEVER_CLONED: &str = "DerivedData";
+
 // A failed copy leaves the worktree usable, so it never fails the creation.
 fn copy_ignored_files(from: &Path, to: &Path) {
     let listing = match git::run(
@@ -99,30 +102,101 @@ fn copy_ignored_files(from: &Path, to: &Path) {
             return;
         }
     };
-    for relative in listing
-        .split('\0')
-        .filter(|item| !item.is_empty() && !item.ends_with('/'))
-    {
-        let source = from.join(relative);
+    for relative in listing.split('\0').filter(|item| !item.is_empty()) {
+        // Components drop the listing's trailing `/` without touching non-UTF-8 bytes.
+        let relative_path: PathBuf = Path::new(relative).components().collect();
+        if relative_path
+            .components()
+            .any(|part| part.as_os_str() == NEVER_CLONED)
+        {
+            continue;
+        }
+        let source = from.join(&relative_path);
+        let target = to.join(&relative_path);
         let Ok(metadata) = std::fs::symlink_metadata(&source) else {
             continue;
         };
-        if !metadata.is_file() || metadata.len() > MAX_COPIED_FILE_BYTES {
+        if (!metadata.is_dir() && !metadata.is_file()) || target.exists() {
             continue;
         }
-        let target = to.join(relative);
-        if target.exists() {
-            continue;
-        }
-        let copied = match target.parent() {
-            Some(parent) => std::fs::create_dir_all(parent),
-            None => Ok(()),
-        }
-        .and_then(|()| std::fs::copy(&source, &target));
-        if let Err(error) = copied {
-            eprintln!("chord: copying gitignored {relative} failed: {error}");
+        if let Err(error) = clone_or_copy(&source, &target, &metadata) {
+            eprintln!("chord: placing gitignored {relative} failed: {error}");
         }
     }
+}
+
+// Without clone support a folder is skipped, so ignored folders never cost a full copy.
+fn clone_or_copy(
+    source: &Path,
+    target: &Path,
+    metadata: &std::fs::Metadata,
+) -> std::io::Result<()> {
+    if let Some(parent) = target.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    match clone(source, target) {
+        Ok(()) => {
+            if metadata.is_dir() {
+                remove_nested_never_cloned(target);
+            }
+            Ok(())
+        }
+        Err(error) if is_clone_unsupported(&error) => {
+            if metadata.is_dir() || metadata.len() > MAX_COPIED_FILE_BYTES {
+                return Ok(());
+            }
+            std::fs::copy(source, target).map(|_| ())
+        }
+        Err(error) => Err(error),
+    }
+}
+
+// A cloned ignored folder such as `build/` can hold a DerivedData folder.
+fn remove_nested_never_cloned(folder: &Path) {
+    let Ok(children) = std::fs::read_dir(folder) else {
+        return;
+    };
+    for child in children.flatten() {
+        let Ok(kind) = child.file_type() else {
+            continue;
+        };
+        if !kind.is_dir() {
+            continue;
+        }
+        if child.file_name() == NEVER_CLONED {
+            if let Err(error) = std::fs::remove_dir_all(child.path()) {
+                eprintln!("chord: removing cloned {NEVER_CLONED} failed: {error}");
+            }
+        } else {
+            remove_nested_never_cloned(&child.path());
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn clone(source: &Path, target: &Path) -> std::io::Result<()> {
+    use std::os::unix::ffi::OsStrExt;
+    let cstring = |path: &Path| {
+        std::ffi::CString::new(path.as_os_str().as_bytes())
+            .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidInput, error))
+    };
+    let (source, target) = (cstring(source)?, cstring(target)?);
+    // SAFETY: both pointers are NUL-terminated strings that outlive the call.
+    if unsafe { libc::clonefile(source.as_ptr(), target.as_ptr(), 0) } == 0 {
+        Ok(())
+    } else {
+        Err(std::io::Error::last_os_error())
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn clone(_source: &Path, _target: &Path) -> std::io::Result<()> {
+    Err(std::io::Error::from_raw_os_error(libc::ENOTSUP))
+}
+
+// ENOTSUP: the volume has no clones. EXDEV: the two sides are on different volumes.
+fn is_clone_unsupported(error: &std::io::Error) -> bool {
+    matches!(error.raw_os_error(), Some(libc::ENOTSUP | libc::EXDEV))
 }
 
 #[derive(Serialize, Type, Debug, PartialEq)]
