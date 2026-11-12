@@ -13,7 +13,9 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::shell::read_only_title;
-use super::{Capability, DialogAnswer, DialogAsk, HarnessEvent, Image, ToolOutcome};
+use super::{
+    Capability, DialogAnswer, DialogAsk, HarnessEvent, Image, SlashCommand, SlashKind, ToolOutcome,
+};
 use crate::Error;
 
 /// The binary to run when the user chose none.
@@ -87,11 +89,14 @@ impl Session {
                 });
             }
         });
-        Ok(Session {
+        let session = Session {
             child,
             stdin: Mutex::new(stdin),
             stopped,
-        })
+        };
+        // Without the list the slash menu stays hidden; the agent works without it.
+        let _ = session.write(&json!({ "type": "get_commands" }));
+        Ok(session)
     }
 
     pub fn capabilities(&self) -> Vec<Capability> {
@@ -331,10 +336,31 @@ fn events_from(record: &Value) -> Vec<HarnessEvent> {
                 .as_array()
                 .into_iter()
                 .flatten()
-                .filter_map(|text| text.as_str().map(String::from))
+                .filter_map(|text| text.as_str().map(collapse_skill))
                 .collect(),
         }],
         Some("extension_ui_request") => dialog_from(record).into_iter().collect(),
+        Some("response") if record["command"] == "get_commands" => {
+            vec![HarnessEvent::Commands {
+                commands: record["data"]["commands"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|command| {
+                        Some(SlashCommand {
+                            name: command["name"].as_str()?.into(),
+                            description: command["description"].as_str().unwrap_or_default().into(),
+                            kind: match command["source"].as_str() {
+                                Some("skill") => SlashKind::Skill,
+                                Some("prompt") => SlashKind::Prompt,
+                                _ => SlashKind::Extension,
+                            },
+                            origin: package_name(&command["sourceInfo"]),
+                        })
+                    })
+                    .collect(),
+            }]
+        }
         Some("response") if record["success"] == false => vec![HarnessEvent::Notice {
             text: record["error"]
                 .as_str()
@@ -343,6 +369,22 @@ fn events_from(record: &Value) -> Vec<HarnessEvent> {
         }],
         _ => vec![],
     }
+}
+
+// The package a command comes from, from a source like `npm:@scope/name@1.2.0` or `https://host/user/name.git`; none for a local file.
+fn package_name(source_info: &Value) -> Option<String> {
+    if source_info["origin"] != "package" {
+        return None;
+    }
+    let source = source_info["source"].as_str()?;
+    let last = source.trim_end_matches('/').rsplit('/').next()?;
+    let name = last.strip_suffix(".git").unwrap_or(last);
+    let name = name.rsplit(':').next()?;
+    let name = match name.rfind('@') {
+        Some(at) if at > 0 => &name[..at],
+        _ => name,
+    };
+    (!name.is_empty()).then(|| name.to_string())
 }
 
 // Select, confirm and input wait for an answer; notify and the status methods do not.
@@ -434,7 +476,7 @@ fn argument_values(args: &Value) -> String {
 fn message_end(message: &Value) -> Vec<HarnessEvent> {
     match message["role"].as_str() {
         Some("user") => vec![HarnessEvent::UserMessageChunk {
-            text: text_of(&message["content"]),
+            text: collapse_skill(&text_of(&message["content"])),
             images: images_of(&message["content"]),
         }],
         Some("assistant") => {
@@ -451,6 +493,23 @@ fn message_end(message: &Value) -> Vec<HarnessEvent> {
             events
         }
         _ => vec![],
+    }
+}
+
+// pi expands `/skill:name args` into `<skill name="name" location="...">\n...\n</skill>\n\nargs`; the chat shows what the user typed.
+fn collapse_skill(text: &str) -> String {
+    let collapsed = text
+        .strip_prefix("<skill name=\"")
+        .and_then(|rest| rest.split_once("\" location=\""))
+        .and_then(|(name, rest)| {
+            let (_, after) = rest.split_once("\">\n")?;
+            let (_, args) = after.split_once("\n</skill>")?;
+            Some((name, args.trim_start_matches("\n\n")))
+        });
+    match collapsed {
+        Some((name, "")) => format!("/skill:{name}"),
+        Some((name, args)) => format!("/skill:{name} {args}"),
+        None => text.into(),
     }
 }
 
@@ -609,6 +668,53 @@ mod tests {
                     data: "x".into(),
                     mime_type: "image/png".into()
                 }]
+            }]
+        );
+    }
+
+    #[test]
+    fn an_expanded_skill_shows_as_the_command_the_user_typed() {
+        let record = r#"{"type":"message_end","message":{"role":"user","content":[{"type":"text","text":"<skill name=\"deploy\" location=\"deploy/SKILL.md\">\nReferences are relative to deploy.\n\nSteps\n</skill>\n\nto staging"}]}}"#;
+        assert_eq!(
+            events(record),
+            vec![HarnessEvent::UserMessageChunk {
+                text: "/skill:deploy to staging".into(),
+                images: vec![]
+            }]
+        );
+        assert_eq!(
+            collapse_skill("<skill name=\"deploy\" location=\"x\">\nbody\n</skill>"),
+            "/skill:deploy"
+        );
+        assert_eq!(collapse_skill("<skill is a tag"), "<skill is a tag");
+    }
+
+    #[test]
+    fn the_command_list_becomes_slash_commands() {
+        let record = r#"{"type":"response","command":"get_commands","success":true,"data":{"commands":[{"name":"skill:deploy","description":"Ship it","source":"skill"},{"name":"compact","source":"extension"},{"name":"review","source":"prompt","sourceInfo":{"source":"npm:@acme/pi-tools@1.2.0","origin":"package"}}]}}"#;
+        assert_eq!(
+            events(record),
+            vec![HarnessEvent::Commands {
+                commands: vec![
+                    SlashCommand {
+                        name: "skill:deploy".into(),
+                        description: "Ship it".into(),
+                        kind: SlashKind::Skill,
+                        origin: None
+                    },
+                    SlashCommand {
+                        name: "compact".into(),
+                        description: "".into(),
+                        kind: SlashKind::Extension,
+                        origin: None
+                    },
+                    SlashCommand {
+                        name: "review".into(),
+                        description: "".into(),
+                        kind: SlashKind::Prompt,
+                        origin: Some("pi-tools".into())
+                    }
+                ]
             }]
         );
     }

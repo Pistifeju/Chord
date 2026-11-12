@@ -13,7 +13,7 @@ pub mod worktrees;
 
 pub use error::Error;
 pub use git_counts::GitCounts;
-pub use harness::{Capability, DialogAnswer, DialogAsk, HarnessEvent, Image, Status};
+pub use harness::{Capability, DialogAnswer, DialogAsk, HarnessEvent, Image, SlashCommand, Status};
 pub use panes::{Direction, Layout, PaneSession, WorktreePanes};
 pub use projects::Project;
 pub use state::{Appearance, Shortcut, Sidebar, State, StateChange, Store, Theme};

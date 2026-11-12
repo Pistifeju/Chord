@@ -2,7 +2,7 @@
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { memo, useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
 import { tooltip } from "../../app/commands";
-import type { Image } from "../../ipc/bindings";
+import type { Image, SlashCommand } from "../../ipc/bindings";
 import { ArrowDownIcon, ArrowUpIcon, ChevronIcon, CloseIcon, PaperclipIcon, SparkleIcon } from "../../ui/icons";
 import { imageMime, imageUrl, isImageType, type Attachment } from "./attachments";
 import { DialogPanel } from "./DialogPanel";
@@ -10,8 +10,11 @@ import { FindBar } from "./FindBar";
 import { finds } from "./find";
 import { Markdown } from "./MarkdownView";
 import { Lightbox } from "./Lightbox";
+import { SlashMenu } from "./SlashMenu";
+import { steppedIndex } from "./dialog";
+import { completion, slashMenu, slashQuery } from "./slash";
 import { closeLightbox, lightboxes, openLightbox, stepLightbox } from "./viewing";
-import { attachFiles, attachments, attachPasted, chatOf, chats, drafts, pickAttachments, removeAttachment, sendMessage, setDraft, startChat } from "./store";
+import { attachFiles, attachments, attachPasted, chatOf, chats, drafts, pickAttachments, removeAttachment, sendMessage, setDraft, slashClosed, startChat } from "./store";
 import { shownSteps, stepImages, stepsSummary, type Item, type Message, type StepGroup } from "./transcript";
 import "./chat.css";
 
@@ -129,6 +132,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
   const draft = drafts.usePart((all) => all[pane] ?? "");
   const find = finds.usePart((all) => all[pane]);
   const viewing = lightboxes.usePart((all) => all[pane]);
+  const closedOn = slashClosed.usePart((all) => all[pane]);
   const waiting = attachments.usePart((all) => all[pane]) ?? noAttachments;
   const root = useRef<HTMLDivElement>(null);
   const [dropping, setDropping] = useState(false);
@@ -136,10 +140,13 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
   const transcript = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
   const [away, setAway] = useState(false);
+  const [slashActive, setSlashActive] = useState(0);
   const ready = chat.agent === "ready";
   const hasChat = chat.capabilities === null || chat.capabilities.includes("chat");
   const canAttach = chat.capabilities?.includes("attachments") === true && chat.agent !== "idle";
   const steers = chat.running && chat.capabilities?.includes("steer") === true;
+  const slashRows = slashMenu(chat.commands, draft, closedOn);
+  const slashAt = Math.min(slashActive, slashRows.length - 1);
   const canSend = ready && (!chat.running || steers);
 
   // The pane under the pointer takes the dropped images.
@@ -186,7 +193,24 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
     composer.current?.focus();
   };
 
+  const pickSlash = (command: SlashCommand) => {
+    setDraft(pane, completion(command));
+    composer.current?.focus();
+  };
+
   const onComposerKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (slashRows.length > 0 && !e.nativeEvent.isComposing) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        return setSlashActive(steppedIndex(slashAt, e.key === "ArrowDown" ? 1 : -1, slashRows.length));
+      }
+      // Return sends a command typed in full; Tab always completes.
+      const picked = slashRows[slashAt];
+      if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey && draft !== `/${picked.name}`)) {
+        e.preventDefault();
+        return pickSlash(picked);
+      }
+    }
     if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
       send();
@@ -254,48 +278,54 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
       )}
       {chat.dialog && <DialogPanel key={chat.dialog.id} pane={pane} dialog={chat.dialog} />}
       {chat.agent !== "idle" && !chat.dialog && (
-        <div className="chat-composer">
-          {waiting.length > 0 && (
-            <div className="chat-attachments">
-              {waiting.map((a, i) => (
-                <div key={a.id} className="chat-attachment">
-                  <button type="button" className="chat-attachment-open" aria-label={`Open ${a.name}`} onClick={() => openLightbox(pane, waiting.map((w) => w.image), i)}>
-                    <img src={imageUrl(a.image)} alt={a.name} />
-                  </button>
-                  <button type="button" className="chat-attachment-remove" title="Remove" aria-label={`Remove ${a.name}`} onClick={() => removeAttachment(pane, a.id)}>
-                    <CloseIcon size={12} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-          <textarea
-            ref={composer}
-            className="chat-input"
-            rows={2}
-            disabled={!ready}
-            value={draft}
-            placeholder={steers ? "Steer the agent" : "Message the agent"}
-            onChange={(e) => setDraft(pane, e.target.value)}
-            onKeyDown={onComposerKey}
-            onPaste={onComposerPaste}
-          />
-          <div className="chat-composer-bar">
-            {canAttach && (
-              <button type="button" className="icon-button" title={tooltip("chat.attach")} aria-label="Attach Images" disabled={!ready} onClick={() => pickAttachments(pane)}>
-                <PaperclipIcon />
-              </button>
+        <div className="chat-composer-anchor">
+          {slashRows.length > 0 && <SlashMenu commands={slashRows} query={slashQuery(draft) ?? ""} active={slashAt} onActive={setSlashActive} onPick={pickSlash} />}
+          <div className="chat-composer">
+            {waiting.length > 0 && (
+              <div className="chat-attachments">
+                {waiting.map((a, i) => (
+                  <div key={a.id} className="chat-attachment">
+                    <button type="button" className="chat-attachment-open" aria-label={`Open ${a.name}`} onClick={() => openLightbox(pane, waiting.map((w) => w.image), i)}>
+                      <img src={imageUrl(a.image)} alt={a.name} />
+                    </button>
+                    <button type="button" className="chat-attachment-remove" title="Remove" aria-label={`Remove ${a.name}`} onClick={() => removeAttachment(pane, a.id)}>
+                      <CloseIcon size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
             )}
-            <button
-              type="button"
-              className="button-primary chat-send"
-              title={steers ? "Steer" : "Send"}
-              aria-label={steers ? "Steer" : "Send"}
-              disabled={!canSend || (!draft.trim() && waiting.length === 0)}
-              onClick={send}
-            >
-              <ArrowUpIcon />
-            </button>
+            <textarea
+              ref={composer}
+              className="chat-input"
+              rows={2}
+              disabled={!ready}
+              value={draft}
+              placeholder={steers ? "Steer the agent" : "Message the agent"}
+              onChange={(e) => {
+                setDraft(pane, e.target.value);
+                setSlashActive(0);
+              }}
+              onKeyDown={onComposerKey}
+              onPaste={onComposerPaste}
+            />
+            <div className="chat-composer-bar">
+              {canAttach && (
+                <button type="button" className="icon-button" title={tooltip("chat.attach")} aria-label="Attach Images" disabled={!ready} onClick={() => pickAttachments(pane)}>
+                  <PaperclipIcon />
+                </button>
+              )}
+              <button
+                type="button"
+                className="button-primary chat-send"
+                title={steers ? "Steer" : "Send"}
+                aria-label={steers ? "Steer" : "Send"}
+                disabled={!canSend || (!draft.trim() && waiting.length === 0)}
+                onClick={send}
+              >
+                <ArrowUpIcon />
+              </button>
+            </div>
           </div>
         </div>
       )}

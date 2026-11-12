@@ -16,6 +16,11 @@ export const drafts = externalStore<Record<string, string>>({});
 
 export const setDraft = (pane: string, text: string) => drafts.set({ ...drafts.get(), [pane]: text });
 
+// The draft each pane's slash menu was closed on with Esc; it stays closed until the draft changes.
+export const slashClosed = externalStore<Record<string, string>>({});
+
+export const closeSlash = (pane: string, draft: string) => slashClosed.set({ ...slashClosed.get(), [pane]: draft });
+
 // The latest start per pane; events of an older agent are dropped.
 const starts = new Map<string, number>();
 let startCount = 0;
@@ -29,7 +34,7 @@ export async function startChat(worktree: string, pane: string) {
     if (starts.get(pane) !== start) return;
     update(pane, (chat) => chatAfter(chat, event, Date.now()));
   };
-  update(pane, (chat) => ({ ...chat, agent: "starting", notice: null, report: null }));
+  update(pane, (chat) => ({ ...chat, agent: "starting", notice: null, report: null, commands: [] }));
   try {
     const capabilities = await commands.startChat(worktree, pane, channel);
     if (starts.get(pane) === start) update(pane, (chat) => (chat.agent === "starting" ? { ...chat, agent: "ready", capabilities } : chat));

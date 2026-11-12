@@ -1,5 +1,5 @@
 // Rules for a chat's transcript: how each harness event changes the messages, the run flag, the notice and the status report.
-import type { Capability, DialogAsk, HarnessEvent, Image } from "../../ipc/bindings";
+import type { Capability, DialogAsk, HarnessEvent, Image, SlashCommand } from "../../ipc/bindings";
 import { stampedReport, type StatusReport } from "../status/status.ts";
 
 export type Message = { role: "user" | "assistant"; text: string; streaming: boolean; /** The images a user message carried. */ images?: Image[] };
@@ -28,13 +28,15 @@ export type Chat = {
   notice: string | null;
   /** The dialog the agent waits on, shown over the composer. */
   dialog: OpenDialog | null;
+  /** The commands the agent offers after a slash; none until it lists them. */
+  commands: SlashCommand[];
   /** Steering messages the agent has not taken in yet. */
   queued: string[];
   /** The status Rust reported; null until the first run. */
   report: StatusReport | null;
 };
 
-export const emptyChat: Chat = { agent: "idle", items: [], running: false, since: null, capabilities: null, notice: null, dialog: null, queued: [], report: null };
+export const emptyChat: Chat = { agent: "idle", items: [], running: false, since: null, capabilities: null, notice: null, dialog: null, commands: [], queued: [], report: null };
 
 const closed = (items: Item[]): Item[] => items.map((item) => (item.role !== "steps" && item.streaming ? { ...item, streaming: false } : item));
 
@@ -125,6 +127,8 @@ function applied(chat: Chat, event: HarnessEvent, now: number): Chat {
     }
     case "dialog":
       return { ...chat, dialog: { id: event.id, title: event.title, ask: event.ask } };
+    case "commands":
+      return { ...chat, commands: event.commands };
     case "queue":
       return { ...chat, queued: event.steering };
     case "message_end":

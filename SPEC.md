@@ -97,7 +97,7 @@ Edge cases:
 - [x] E4 harness(attachments): attach button, dropped files, screenshots; sent images as thumbnails with a lightbox (← → steps through).
 - [x] E5 harness(tool-images): images a tool returns show in one thumbnail row below its step group, folded or open, and open in the E4 lightbox.
 - [x] E6 harness(dialogs): extension dialogs (select, confirm, input) over the composer; a select marks the current option and filters long lists.
-- [ ] E7 harness(commands): slash menu with the typed part marked; a bubble shows `/skill:name`, not the expanded skill.
+- [x] E7 harness(commands): slash menu with the typed part marked; a bubble shows `/skill:name`, not the expanded skill.
 - [ ] E8 **hard** harness(sessions): resume, fork, clone, tree, export, new; the session's name on its tab; history on restart.
 - [ ] E9 harness(models): model picker with search; thinking level picker.
 - [ ] E10 harness(context): context meter with a limit warning; `/new` resets it.

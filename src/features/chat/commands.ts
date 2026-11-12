@@ -7,7 +7,8 @@ import { projects } from "../worktrees/store";
 import { sheet } from "../../app/sheet";
 import { closeFind, finds, openFind } from "./find";
 import { closeLightbox, lightboxes, stepLightbox } from "./viewing";
-import { abortRun, answerDialog, chatOf, chats, pickAttachments } from "./store";
+import { slashMenu } from "./slash";
+import { abortRun, answerDialog, chatOf, chats, closeSlash, drafts, pickAttachments, slashClosed } from "./store";
 
 const focusedPane = (): string | null => {
   const { selected } = projects.get();
@@ -29,6 +30,13 @@ const findingPane = (): string | null => {
 const dialogPane = (): string | null => {
   const pane = focusedPane();
   return pane && sheet.get() === null && chatOf(chats.get(), pane).dialog ? pane : null;
+};
+
+const slashPane = (): string | null => {
+  const pane = focusedPane();
+  if (!pane || sheet.get() !== null) return null;
+  const draft = drafts.get()[pane] ?? "";
+  return slashMenu(chatOf(chats.get(), pane).commands, draft, slashClosed.get()[pane]).length > 0 ? pane : null;
 };
 
 const lightboxPane = (): string | null => {
@@ -112,6 +120,16 @@ export const chatCommands: AppCommand[] = [
       const pane = dialogPane();
       const dialog = pane && chatOf(chats.get(), pane).dialog;
       if (pane && dialog) answerDialog(pane, dialog.id, { kind: "cancelled" });
+    },
+  },
+  {
+    id: "chat.slashClose",
+    title: "Close Command Menu",
+    shortcut: { key: "escape" },
+    when: () => slashPane() !== null,
+    run: () => {
+      const pane = slashPane();
+      if (pane) closeSlash(pane, drafts.get()[pane] ?? "");
     },
   },
   {

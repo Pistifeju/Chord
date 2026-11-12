@@ -26,6 +26,24 @@ pub struct Image {
     pub mime_type: String,
 }
 
+/// Where a slash command is defined.
+#[derive(Serialize, Type, Debug, Clone, Copy, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum SlashKind {
+    Skill,
+    Prompt,
+    Extension,
+}
+
+/// A command the user can type after a slash; `name` has no slash. `origin` names the package it comes from; it is empty for a local file.
+#[derive(Serialize, Type, Debug, Clone, PartialEq)]
+pub struct SlashCommand {
+    pub name: String,
+    pub description: String,
+    pub kind: SlashKind,
+    pub origin: Option<String>,
+}
+
 /// What a dialog asks.
 #[derive(Serialize, Type, Debug, Clone, PartialEq)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -88,6 +106,8 @@ pub enum HarnessEvent {
         title: String,
         ask: DialogAsk,
     },
+    /// The commands the agent offers after a slash.
+    Commands { commands: Vec<SlashCommand> },
     /// The steering messages the agent has not taken in yet, oldest first; the whole queue each time.
     Queue { steering: Vec<String> },
     /// The agent started or finished work.

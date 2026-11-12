@@ -386,10 +386,15 @@
   font-size: calc(11px * var(--text-scale));
 }
 
-.chat-composer,
+.chat-composer-anchor,
+.chat-dialog,
 .chat-restart {
   width: min(720px, 100% - 40px);
   margin: 0 auto 20px;
+}
+
+.chat-composer-anchor {
+  position: relative;
 }
 
 .chat-composer {
@@ -682,6 +687,80 @@
 .chat-dialog-option[data-active] {
   background: var(--selected);
   color: var(--ink);
+}
+
+.chat-slash-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 1;
+  box-sizing: border-box;
+  max-height: 372px;
+  padding: 6px;
+  overflow-y: auto;
+  scroll-padding: 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-card);
+  background: var(--panel);
+  box-shadow: var(--shadow-popover);
+}
+
+.chat-slash-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: var(--radius-control);
+  color: var(--ink);
+  cursor: default;
+}
+
+.chat-slash-option[data-active] {
+  background: var(--selected);
+}
+
+.chat-slash-icon {
+  display: flex;
+  flex: none;
+  color: var(--ink-muted);
+}
+
+.chat-slash-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: calc(13px * var(--text-scale));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-slash-typed {
+  font-weight: 600;
+}
+
+.chat-slash-description {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink-muted);
+  font-size: calc(11px * var(--text-scale));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-slash-source {
+  flex: none;
+  margin-left: 16px;
+  color: var(--ink-muted);
+  font-size: calc(11px * var(--text-scale));
+  white-space: nowrap;
+}
+
+.chat-slash-option[data-active] .chat-slash-description,
+.chat-slash-option[data-active] .chat-slash-source {
+  color: var(--ink-secondary);
 }
 
 .chat-dialog-empty {

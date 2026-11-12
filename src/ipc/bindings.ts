@@ -108,6 +108,8 @@ export type HarnessEvent_Deserialize =
 { kind: "message_end"; failed: boolean } | 
 /**  The agent opened a dialog and waits for an answer; `id` goes back with it. */
 { kind: "dialog"; id: string; title: string; ask: DialogAsk } | 
+/**  The commands the agent offers after a slash. */
+{ kind: "commands"; commands: SlashCommand_Deserialize[] } | 
 /**  The steering messages the agent has not taken in yet, oldest first; the whole queue each time. */
 { kind: "queue"; steering: string[] } | 
 /**  The agent started or finished work. */
@@ -136,6 +138,8 @@ export type HarnessEvent_Serialize =
 { kind: "message_end"; failed: boolean } | 
 /**  The agent opened a dialog and waits for an answer; `id` goes back with it. */
 { kind: "dialog"; id: string; title: string; ask: DialogAsk } | 
+/**  The commands the agent offers after a slash. */
+{ kind: "commands"; commands: SlashCommand_Serialize[] } | 
 /**  The steering messages the agent has not taken in yet, oldest first; the whole queue each time. */
 { kind: "queue"; steering: string[] } | 
 /**  The agent started or finished work. */
@@ -228,6 +232,28 @@ export type Sidebar_Serialize = {
 	hidden: boolean,
 	folded: string[],
 };
+
+/**  A command the user can type after a slash; `name` has no slash. `origin` names the package it comes from; it is empty for a local file. */
+export type SlashCommand = SlashCommand_Serialize | SlashCommand_Deserialize;
+
+/**  A command the user can type after a slash; `name` has no slash. `origin` names the package it comes from; it is empty for a local file. */
+export type SlashCommand_Deserialize = {
+	name: string,
+	description: string,
+	kind: SlashKind,
+	origin?: string | null,
+};
+
+/**  A command the user can type after a slash; `name` has no slash. `origin` names the package it comes from; it is empty for a local file. */
+export type SlashCommand_Serialize = {
+	name: string,
+	description: string,
+	kind: SlashKind,
+	origin: string | null,
+};
+
+/**  Where a slash command is defined. */
+export type SlashKind = "skill" | "prompt" | "extension";
 
 export type State = State_Serialize | State_Deserialize;
 
