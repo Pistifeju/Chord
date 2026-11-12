@@ -6,7 +6,7 @@ export type Message = { role: "user" | "assistant"; text: string; streaming: boo
 
 export type Step =
   | { kind: "thought"; /** Its place in the group; steps only append, so it stays stable. */ id: number; text: string }
-  | { kind: "call"; id: string; title: string; detail: string; state: "running" | "done" | "failed" | "stopped"; /** The images the tool returned. */ images?: Image[] };
+  | { kind: "call"; id: string; title: string; detail: string; state: "running" | "done" | "failed" | "stopped"; /** The images the tool returned. */ images?: Image[]; /** How long it ran, when the agent measured it. */ ms?: number };
 
 /** The thoughts and tool calls between two messages, folded into one row. */
 export type StepGroup = { role: "steps"; steps: Step[] };
@@ -93,6 +93,23 @@ export function stepsSummary(steps: Step[]): string {
   return parts.join(", ");
 }
 
+// Below this a call's run time is noise.
+const SLOW_MS = 5000;
+
+const seconds = (ms: number) => (ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`);
+
+/** A call's run time, shown when it ran slow or failed. */
+export function callTime(step: Step): string | null {
+  if (step.kind !== "call" || step.ms === undefined) return null;
+  return step.ms >= SLOW_MS || step.state === "failed" ? seconds(step.ms) : null;
+}
+
+/** The group's total call time, shown when it ran slow. */
+export function stepsTime(steps: Step[]): string | null {
+  const ms = steps.reduce((sum, step) => sum + (step.kind === "call" ? (step.ms ?? 0) : 0), 0);
+  return ms >= SLOW_MS ? seconds(ms) : null;
+}
+
 // Mirrors the events that clear a dialog in Rust's `status_for`; `exited` also clears it, as nobody is left to answer.
 const movesOn = (event: HarnessEvent): boolean =>
   event.kind === "message_chunk" ||
@@ -132,7 +149,7 @@ function applied(chat: Chat, event: HarnessEvent, now: number): Chat {
     case "tool_start":
       return { ...chat, items: withStep(chat.items, (steps) => [...steps, { kind: "call", id: event.id, title: event.title, detail: event.detail, state: "running" }]) };
     case "tool_end": {
-      const ended = (step: Step): Step => (step.kind === "call" && step.id === event.id ? { ...step, state: event.outcome, images: event.images } : step);
+      const ended = (step: Step): Step => (step.kind === "call" && step.id === event.id ? { ...step, state: event.outcome, images: event.images, ...(event.ms != null && { ms: event.ms }) } : step);
       // The call is almost always in the last group.
       for (let i = chat.items.length - 1; i >= 0; i--) {
         const item = chat.items[i];

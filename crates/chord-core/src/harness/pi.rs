@@ -592,6 +592,7 @@ impl OpenCalls {
                 id,
                 outcome: ToolOutcome::Stopped,
                 images: vec![],
+                ms: None,
             })
             .collect()
     }
@@ -751,6 +752,7 @@ fn events_from(record: &Value) -> Vec<HarnessEvent> {
                 ToolOutcome::Done
             },
             images: images_of(&record["result"]["content"]),
+            ms: record["durationMs"].as_f64().map(|ms| ms.round() as u32),
         }],
         Some("message_end") => message_end(&record["message"]),
         Some("queue_update") => vec![HarnessEvent::Queue {
@@ -877,6 +879,7 @@ fn saved_message(message: &Value) -> Vec<HarnessEvent> {
                 ToolOutcome::Done
             },
             images: images_of(&message["content"]),
+            ms: None,
         }],
         _ => vec![],
     }
@@ -1205,6 +1208,7 @@ mod tests {
             id: "a".into(),
             outcome: ToolOutcome::Done,
             images: vec![],
+            ms: None,
         };
         open.track(vec![ended]);
         assert_eq!(
@@ -1213,7 +1217,8 @@ mod tests {
                 HarnessEvent::ToolEnd {
                     id: "b".into(),
                     outcome: ToolOutcome::Stopped,
-                    images: vec![]
+                    images: vec![],
+                    ms: None,
                 },
                 HarnessEvent::State { running: false }
             ]
@@ -1228,13 +1233,14 @@ mod tests {
 
     #[test]
     fn a_failed_tool_call_ends_failed() {
-        let record = r#"{"type":"tool_execution_end","toolCallId":"c1","toolName":"bash","result":{},"isError":true}"#;
+        let record = r#"{"type":"tool_execution_end","toolCallId":"c1","toolName":"bash","result":{},"isError":true,"durationMs":55400}"#;
         assert_eq!(
             events(record),
             vec![HarnessEvent::ToolEnd {
                 id: "c1".into(),
                 outcome: ToolOutcome::Failed,
-                images: vec![]
+                images: vec![],
+                ms: Some(55400),
             }]
         );
     }
@@ -1250,7 +1256,8 @@ mod tests {
                 images: vec![Image {
                     data: "x".into(),
                     mime_type: "image/png".into()
-                }]
+                }],
+                ms: None,
             }]
         );
     }
@@ -1352,13 +1359,15 @@ mod tests {
                 HarnessEvent::ToolEnd {
                     id: "c1".into(),
                     outcome: ToolOutcome::Failed,
-                    images: vec![]
+                    images: vec![],
+                    ms: None,
                 },
                 HarnessEvent::Aborted,
                 HarnessEvent::ToolEnd {
                     id: "c2".into(),
                     outcome: ToolOutcome::Stopped,
-                    images: vec![]
+                    images: vec![],
+                    ms: None,
                 },
                 HarnessEvent::HistoryEnd,
             ]

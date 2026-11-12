@@ -161,6 +161,18 @@
   color: var(--ink-muted);
 }
 
+.chat-step-time {
+  flex: none;
+  margin-left: auto;
+  font-size: calc(11px * var(--text-scale));
+  color: var(--ink-disabled);
+  font-variant-numeric: tabular-nums;
+}
+
+.chat-steps-toggle .chat-step-time {
+  margin-left: 4px;
+}
+
 .chat-step-detail {
   min-width: 0;
   overflow: hidden;

@@ -121,11 +121,12 @@ pub enum HarnessEvent {
         title: String,
         detail: String,
     },
-    /// A tool call ended; `Stopped` means the run ended or was aborted before it reported. `images` are the ones the tool returned.
+    /// A tool call ended; `Stopped` means the run ended or was aborted before it reported. `images` are the ones the tool returned; `ms` is how long it ran, missing when the agent did not measure it.
     ToolEnd {
         id: String,
         outcome: ToolOutcome,
         images: Vec<Image>,
+        ms: Option<u32>,
     },
     /// The model the agent runs and, when that model reasons, its thinking level; sent when a session starts and after each pick.
     Model {
@@ -329,6 +330,7 @@ mod tests {
             id: "a".into(),
             outcome: ToolOutcome::Done,
             images: vec![],
+            ms: None,
         });
         assert_eq!(last_status(&events), Some(Status::Running));
     }

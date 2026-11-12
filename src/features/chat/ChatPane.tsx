@@ -19,7 +19,7 @@ import { steppedIndex } from "./dialog";
 import { completion, slashMenu, slashQuery } from "./slash";
 import { closeLightbox, lightboxes, openLightbox, stepLightbox } from "./viewing";
 import { answerDialog, attachFiles, attachments, attachPasted, chatOf, chats, closeSlash, drafts, openPicker, pickAttachments, removeAttachment, sendMessage, setDraft, slashClosed, startChat } from "./store";
-import { isStreaming, shownSteps, stepImages, stepsSummary, type Item, type Message, type StepGroup } from "./transcript";
+import { callTime, isStreaming, shownSteps, stepImages, stepsSummary, stepsTime, type Item, type Message, type StepGroup } from "./transcript";
 import "./chat.css";
 
 function StartButton({ worktree, pane }: { worktree: string; pane: string }) {
@@ -76,6 +76,7 @@ const StepsRow = memo(function StepsRow({ pane, group, running, fresh }: { pane:
   const [expanded, setExpanded] = useState(false);
   const shown = shownSteps(group.steps, running, expanded);
   const images = stepImages(group.steps);
+  const total = stepsTime(group.steps);
   return (
     <div className="chat-steps" data-fresh={fresh || undefined}>
       <button type="button" className="chat-steps-toggle" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
@@ -83,6 +84,7 @@ const StepsRow = memo(function StepsRow({ pane, group, running, fresh }: { pane:
           <ChevronIcon />
         </span>
         {stepsSummary(group.steps)}
+        {total && <span className="chat-step-time">{total}</span>}
       </button>
       {shown.map((step) =>
         step.kind === "thought" ? (
@@ -93,6 +95,7 @@ const StepsRow = memo(function StepsRow({ pane, group, running, fresh }: { pane:
           <div key={step.id} className="chat-step-call" data-state={step.state}>
             <span className="chat-step-title">{step.title}</span>
             <span className="chat-step-detail">{step.detail}</span>
+            {callTime(step) && <span className="chat-step-time">{callTime(step)}</span>}
           </div>
         ),
       )}
