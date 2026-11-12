@@ -1,12 +1,14 @@
 //! The pi adapter: runs `pi --mode rpc` and turns its records into harness events. The only file that knows pi's records.
 
+use std::collections::BTreeSet;
 use std::io::{BufRead, BufReader, ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::thread;
 
+use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::{Capability, HarnessEvent};
@@ -66,9 +68,7 @@ impl Session {
             let mut line = Vec::new();
             // Split on LF only: a JSON string may hold U+2028.
             while matches!(reader.read_until(b'\n', &mut line), Ok(read) if read > 0) {
-                if let Ok(record) = serde_json::from_slice::<Value>(&line) {
-                    events_from(&record).into_iter().for_each(&on_event);
-                }
+                events_from_line(&line).into_iter().for_each(&on_event);
                 line.clear();
             }
             // Only an agent that ended on its own is reported; a stopped one is already forgotten.
@@ -145,7 +145,14 @@ fn missing_pi(binary: &str) -> Error {
     }
 }
 
+static CHECKED: Mutex<BTreeSet<String>> = Mutex::new(BTreeSet::new());
+
+// A binary that passed is not asked again while the app runs: each ask costs a login shell and a pi start.
 fn check_version(binary: &str) -> Result<(), Error> {
+    let mut checked = CHECKED.lock().unwrap_or_else(PoisonError::into_inner);
+    if checked.contains(binary) {
+        return Ok(());
+    }
     let output = through_login_shell(binary, &["--version"])
         .output()
         .map_err(|e| spawn_error(binary, e))?;
@@ -159,7 +166,10 @@ fn check_version(binary: &str) -> Result<(), Error> {
             "pi {}.{}.{} is older than the tested {}.{}.{}. Upgrade it with: {INSTALL}",
             found.0, found.1, found.2, OLDEST_TESTED.0, OLDEST_TESTED.1, OLDEST_TESTED.2
         ))),
-        _ => Ok(()),
+        _ => {
+            checked.insert(binary.to_string());
+            Ok(())
+        }
     }
 }
 
@@ -170,6 +180,32 @@ fn parse_version(line: &str) -> Option<(u32, u32, u32)> {
         parts.next()?.ok()?,
         parts.next()?.ok()?,
     ))
+}
+
+#[derive(Deserialize)]
+struct Kind {
+    #[serde(rename = "type")]
+    kind: String,
+}
+
+const READ_KINDS: [&str; 5] = [
+    "agent_start",
+    "agent_settled",
+    "message_update",
+    "message_end",
+    "response",
+];
+
+// Tool output and turn summaries are large and unused, so only the records `events_from` reads get a full parse.
+fn events_from_line(line: &[u8]) -> Vec<HarnessEvent> {
+    match serde_json::from_slice::<Kind>(line) {
+        Ok(Kind { kind }) if READ_KINDS.contains(&kind.as_str()) => {
+            serde_json::from_slice::<Value>(line)
+                .map(|record| events_from(&record))
+                .unwrap_or_default()
+        }
+        _ => vec![],
+    }
 }
 
 fn events_from(record: &Value) -> Vec<HarnessEvent> {
@@ -235,7 +271,7 @@ mod tests {
     use super::*;
 
     fn events(record: &str) -> Vec<HarnessEvent> {
-        events_from(&serde_json::from_str(record).expect("valid json"))
+        events_from_line(record.as_bytes())
     }
 
     #[test]

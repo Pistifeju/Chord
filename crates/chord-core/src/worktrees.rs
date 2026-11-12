@@ -139,7 +139,7 @@ pub struct KeptBranch {
     pub reason: String,
 }
 
-/// Stops the worktree's agents, removes the worktree and deletes its branch when it is merged.
+/// Stops the worktree's agents, removes the worktree, forgets its panes and deletes its branch when it is merged.
 pub fn remove(
     sessions: &Sessions,
     project: &Project,
@@ -167,6 +167,7 @@ pub fn remove(
         }
         Err(other) => return Err(other),
     }
+    sessions.forget(path)?;
     let kept_branch = branch.and_then(|name| {
         let Err(Error::Message(message)) = git::run(&project.path, &["branch", "-d", &name]) else {
             return None;
@@ -293,7 +294,10 @@ mod tests {
                 "more",
             ],
         )?;
-        let sessions = Sessions::default();
+        let sessions = Sessions::new(
+            std::sync::Arc::new(crate::Store::open(root.join("state.json"))?),
+            root.join("sessions"),
+        );
         let merged_removal = remove(&sessions, &project, &made.path, false)?;
         let unmerged_removal = remove(&sessions, &project, &unmerged.path, false)?;
 

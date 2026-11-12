@@ -11,6 +11,15 @@ pub struct WorktreePanes {
     pub active: String,
 }
 
+impl WorktreePanes {
+    pub fn pane_ids(&self) -> Vec<String> {
+        self.sessions
+            .iter()
+            .flat_map(|session| session.layout.pane_ids())
+            .collect()
+    }
+}
+
 /// One session tab: its name, its split layout and the pane that has the focus.
 #[derive(Serialize, Deserialize, Type, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -33,6 +42,15 @@ pub enum Layout {
         sizes: Vec<f64>,
         children: Vec<Layout>,
     },
+}
+
+impl Layout {
+    fn pane_ids(&self) -> Vec<String> {
+        match self {
+            Layout::Pane { id } => vec![id.clone()],
+            Layout::Split { children, .. } => children.iter().flat_map(Layout::pane_ids).collect(),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Type, Clone, Copy, Debug, PartialEq)]

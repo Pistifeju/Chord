@@ -1,13 +1,15 @@
 // The New Worktree sheet: project picker, branch name with its live git check, Create.
 import type { FormEvent } from "react";
 import { tooltip } from "../../app/commands";
+import { sheet } from "../../app/sheet";
 import { CloseIcon } from "../../ui/icons";
 import { branchName, canCreate } from "./projects";
 import { closeNewWorktree, createWorktree, newWorktree, setBranch, setProject } from "./newWorktree";
 import { projects } from "./store";
 
 export function NewWorktreePopup() {
-  const { open, project, branch, problem, checked, creating, createError } = newWorktree.use();
+  const open = sheet.use()?.kind === "newWorktree";
+  const { project, branch, problem, checked, creating, createError } = newWorktree.use();
   const { list } = projects.use();
   if (!open) return null;
   const submit = (e: FormEvent) => {

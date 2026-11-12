@@ -1,19 +1,31 @@
-//! The running agents, one per pane: start, send, abort, stop.
+//! The running agents, one per pane: start, send, abort, stop, and the saved facts that follow them: the running flag and the session file.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use super::pi::{Session, session_file};
 use super::{Capability, HarnessEvent};
-use crate::Error;
+use crate::{Error, Store};
 
-#[derive(Default)]
-pub struct Sessions(Mutex<HashMap<String, (PathBuf, Session)>>);
+pub struct Sessions {
+    running: Mutex<HashMap<String, (PathBuf, Session)>>,
+    store: Arc<Store>,
+    dir: PathBuf,
+}
 
 impl Sessions {
+    /// `dir` holds one session file per pane.
+    pub fn new(store: Arc<Store>, dir: PathBuf) -> Sessions {
+        Sessions {
+            running: Mutex::default(),
+            store,
+            dir,
+        }
+    }
+
     fn sessions(&self) -> MutexGuard<'_, HashMap<String, (PathBuf, Session)>> {
-        self.0.lock().unwrap_or_else(PoisonError::into_inner)
+        self.running.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
     fn with(
@@ -27,25 +39,34 @@ impl Sessions {
         }
     }
 
-    /// Starts the pane's agent in the worktree and replaces the one the pane had.
+    /// Starts the pane's agent in the worktree, replaces the one the pane had, and saves the pane as running.
     pub fn start(
         &self,
         binary: &str,
         worktree: PathBuf,
         pane: String,
-        sessions_dir: &Path,
         on_event: impl Fn(HarnessEvent) + Send + 'static,
     ) -> Result<Vec<Capability>, Error> {
+        let store = Arc::clone(&self.store);
+        let exiting = pane.clone();
         let session = Session::start(
             binary,
             &worktree,
-            &session_file(sessions_dir, &pane)?,
-            on_event,
+            &session_file(&self.dir, &pane)?,
+            move |event| {
+                // An agent that ended on its own does not come back on launch.
+                if matches!(event, HarnessEvent::Exited) {
+                    let _ = store.update(|state| state.running_panes.remove(&exiting));
+                }
+                on_event(event);
+            },
         )?;
         let capabilities = session.capabilities();
         // The lock is free again before the old session drops: dropping kills pi and waits for it.
-        let replaced = self.sessions().insert(pane, (worktree, session));
+        let replaced = self.sessions().insert(pane.clone(), (worktree, session));
         drop(replaced);
+        self.store
+            .update(|state| state.running_panes.insert(pane))?;
         Ok(capabilities)
     }
 
@@ -57,18 +78,24 @@ impl Sessions {
         self.with(pane, Session::abort)
     }
 
-    pub fn stop_pane(&self, pane: &str) {
+    /// The pane is gone: its agent stops, it no longer starts on launch, and its session file goes.
+    pub fn stop_pane(&self, pane: &str) -> Result<(), Error> {
+        let file = session_file(&self.dir, pane)?;
         let session = self.sessions().remove(pane);
         drop(session);
+        self.store
+            .update(|state| state.running_panes.remove(pane))?;
+        let _ = std::fs::remove_file(file);
+        Ok(())
     }
 
-    /// Returns once every agent has ended, so none outlives the app.
+    /// Returns once every agent has ended, so none outlives the app. The panes stay saved as running.
     pub fn stop_all(&self) {
         let stopped = std::mem::take(&mut *self.sessions());
         drop(stopped);
     }
 
-    /// Returns once every agent in the worktree has ended, so git can remove its directory.
+    /// Returns once every agent in the worktree has ended, so git can remove its directory. Its saved panes stay, in case git refuses.
     pub fn stop(&self, worktree: &Path) {
         let mut stopped = Vec::new();
         {
@@ -81,5 +108,81 @@ impl Sessions {
             stopped.extend(panes.iter().filter_map(|pane| sessions.remove(pane)));
         }
         drop(stopped);
+    }
+
+    /// The worktree is gone: its layouts, running flags and session files go with it.
+    pub fn forget(&self, worktree: &Path) -> Result<(), Error> {
+        self.stop(worktree);
+        let panes = self.store.update(|state| {
+            let panes = state
+                .panes
+                .remove(worktree)
+                .map(|saved| saved.pane_ids())
+                .unwrap_or_default();
+            for pane in &panes {
+                state.running_panes.remove(pane);
+            }
+            panes
+        })?;
+        for pane in panes {
+            let _ = std::fs::remove_file(session_file(&self.dir, &pane)?);
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Layout, PaneSession, WorktreePanes};
+
+    #[test]
+    fn forgetting_a_worktree_drops_its_layout_running_flags_and_session_files() -> Result<(), Error>
+    {
+        let root = std::env::temp_dir().join(format!("chord-forget-{}", std::process::id()));
+        let dir = root.join("sessions");
+        std::fs::create_dir_all(&dir)?;
+        let store = Arc::new(Store::open(root.join("state.json"))?);
+        let pane = |id: &str| Layout::Pane { id: id.into() };
+        store.update(|state| {
+            state.panes.insert(
+                PathBuf::from("/w"),
+                WorktreePanes {
+                    sessions: vec![PaneSession {
+                        id: "s".into(),
+                        name: "Session 1".into(),
+                        layout: Layout::Split {
+                            direction: crate::Direction::Row,
+                            sizes: vec![0.5, 0.5],
+                            children: vec![pane("a"), pane("b")],
+                        },
+                        focused: "a".into(),
+                    }],
+                    active: "s".into(),
+                },
+            );
+            state
+                .running_panes
+                .extend(["a".to_string(), "other".to_string()]);
+        })?;
+        std::fs::write(dir.join("a.jsonl"), "")?;
+        std::fs::write(dir.join("other.jsonl"), "")?;
+
+        let sessions = Sessions::new(Arc::clone(&store), dir.clone());
+        sessions.forget(Path::new("/w"))?;
+
+        let state = store.get();
+        let left_files = (
+            dir.join("a.jsonl").exists(),
+            dir.join("other.jsonl").exists(),
+        );
+        let _ = std::fs::remove_dir_all(&root);
+        assert!(state.panes.is_empty());
+        assert_eq!(
+            state.running_panes.into_iter().collect::<Vec<_>>(),
+            ["other"]
+        );
+        assert_eq!(left_files, (false, true));
+        Ok(())
     }
 }

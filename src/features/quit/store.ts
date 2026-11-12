@@ -2,12 +2,10 @@
 import { listen } from "@tauri-apps/api/event";
 import { commands } from "../../ipc/bindings";
 import { chats } from "../chat/store";
-import { externalStore } from "../../ui/externalStore";
+import { closeSheet, openSheet } from "../../app/sheet";
 import { quitNeedsAsking } from "./rules";
 
-export const quitAsked = externalStore(false);
-
-export const cancelQuit = () => quitAsked.set(false);
+export const cancelQuit = () => closeSheet("quit");
 
 // The menu item and the window's close button reach the same ask.
 export const confirmQuit = () => {
@@ -15,7 +13,7 @@ export const confirmQuit = () => {
 };
 
 export const requestQuit = () => {
-  if (quitNeedsAsking(chats.get())) quitAsked.set(true);
+  if (quitNeedsAsking(chats.get())) openSheet({ kind: "quit" });
   else confirmQuit();
 };
 

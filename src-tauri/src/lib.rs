@@ -2,6 +2,8 @@
 
 mod commands;
 
+use std::sync::Arc;
+
 use chord_core::Store;
 use chord_core::harness::sessions::Sessions;
 use tauri::{Emitter, Manager};
@@ -35,8 +37,9 @@ pub fn run() {
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;
-            app.manage(Sessions::default());
-            app.manage(Store::open(dir.join("state.json"))?);
+            let store = Arc::new(Store::open(dir.join("state.json"))?);
+            app.manage(Sessions::new(Arc::clone(&store), dir.join("sessions")));
+            app.manage(store);
             Ok(())
         })
         .build(tauri::generate_context!())

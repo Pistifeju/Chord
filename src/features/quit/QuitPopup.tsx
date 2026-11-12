@@ -1,9 +1,10 @@
 // The sheet that confirms a quit while agents are working.
+import { sheet } from "../../app/sheet";
 import { ConfirmSheet } from "../../ui/ConfirmSheet";
-import { cancelQuit, confirmQuit, quitAsked } from "./store";
+import { cancelQuit, confirmQuit } from "./store";
 
 export function QuitPopup() {
-  if (!quitAsked.use()) return null;
+  if (sheet.use()?.kind !== "quit") return null;
   return (
     <ConfirmSheet
       title="Quit Chord?"

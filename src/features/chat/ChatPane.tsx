@@ -1,7 +1,8 @@
 // The chat of one pane: transcript, composer, and a Start button while no agent runs.
-import { useEffect, useLayoutEffect, useRef, type KeyboardEvent } from "react";
+import { memo, useEffect, useLayoutEffect, useRef, type KeyboardEvent } from "react";
 import { ArrowUpIcon } from "../../ui/icons";
 import { chatOf, chats, drafts, sendMessage, setDraft, startChat } from "./store";
+import type { Message } from "./transcript";
 import "./chat.css";
 
 function StartButton({ worktree, pane }: { worktree: string; pane: string }) {
@@ -12,9 +13,28 @@ function StartButton({ worktree, pane }: { worktree: string; pane: string }) {
   );
 }
 
-export function ChatPane({ worktree, pane, focused }: { worktree: string; pane: string; focused: boolean }) {
-  const chat = chatOf(chats.use(), pane);
-  const draft = drafts.use()[pane] ?? "";
+const MessageRow = memo(function MessageRow({ message }: { message: Message }) {
+  return (
+    <div className="chat-message" data-role={message.role}>
+      {message.text}
+    </div>
+  );
+});
+
+const Messages = memo(function Messages({ messages, running }: { messages: Message[]; running: boolean }) {
+  return (
+    <div className="chat-messages" data-selectable>
+      {messages.map((message, i) => (
+        <MessageRow key={i} message={message} />
+      ))}
+      {running && <div className="chat-working">Working</div>}
+    </div>
+  );
+});
+
+export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { worktree: string; pane: string; focused: boolean }) {
+  const chat = chats.usePart((all) => chatOf(all, pane));
+  const draft = drafts.usePart((all) => all[pane] ?? "");
   const composer = useRef<HTMLTextAreaElement>(null);
   const transcript = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
@@ -73,14 +93,7 @@ export function ChatPane({ worktree, pane, focused }: { worktree: string; pane: 
             <StartButton worktree={worktree} pane={pane} />
           </div>
         ) : (
-          <div className="chat-messages" data-selectable>
-            {chat.messages.map((message, i) => (
-              <div key={i} className="chat-message" data-role={message.role}>
-                {message.text}
-              </div>
-            ))}
-            {chat.running && <div className="chat-working">Working</div>}
-          </div>
+          <Messages messages={chat.messages} running={chat.running} />
         )}
       </div>
       {chat.notice && <p className="chat-notice">{chat.notice}</p>}
@@ -119,4 +132,4 @@ export function ChatPane({ worktree, pane, focused }: { worktree: string; pane: 
       )}
     </div>
   );
-}
+});

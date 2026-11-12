@@ -17,5 +17,7 @@ export function externalStore<T>(initial: T) {
       listeners.forEach((listener) => listener());
     },
     use: () => useSyncExternalStore(subscribe, get),
+    // The view renders again only when its part changes; `part` must return the same value for the same store value.
+    usePart: <P>(part: (value: T) => P) => useSyncExternalStore(subscribe, () => part(value)),
   };
 }

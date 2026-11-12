@@ -34,8 +34,8 @@ function dropAt(x: number, y: number): Drop | null {
 function SessionTabs({ worktree }: { worktree: string }) {
   shortcutChanges.use();
   const { hidden } = sidebar.use();
-  const all = chats.use();
   const current = panes.use()[worktree];
+  const working = chats.usePart((all) => (current?.sessions ?? []).filter((s) => paneIds(s.layout).some((pane) => all[pane]?.running)).map((s) => s.id).join("\n")).split("\n");
   const drag = useRef<TabDrag | null>(null);
   const suppressClick = useRef(false);
   const [dragging, setDragging] = useState<string | null>(null);
@@ -81,7 +81,6 @@ function SessionTabs({ worktree }: { worktree: string }) {
   return (
     <div ref={bar} className="tabbar" role="tablist" data-tauri-drag-region data-sidebar-hidden={hidden}>
       {current.sessions.map((session) => {
-        const working = paneIds(session.layout).some((pane) => all[pane]?.running);
         return (
           <div key={session.id} className="tab" data-selected={session.id === current.active} data-dragging={session.id === dragging}>
             <button
@@ -98,7 +97,7 @@ function SessionTabs({ worktree }: { worktree: string }) {
                 else selectSession(worktree, session.id);
               }}
             >
-              <span className="tab-status">{working ? <span className="tab-spinner" /> : <ChatIcon />}</span>
+              <span className="tab-status">{working.includes(session.id) ? <span className="tab-spinner" /> : <ChatIcon />}</span>
               <span className="tab-label">{session.name}</span>
             </button>
             {current.sessions.length > 1 && (

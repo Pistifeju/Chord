@@ -1,5 +1,6 @@
 // Connects the project rules to IPC: load, add by dialog or drop, remove, select, delete a worktree.
 import { commands, type Project } from "../../ipc/bindings";
+import { closeSheet, openSheet, sheet, sheetOf } from "../../app/sheet";
 import { externalStore } from "../../ui/externalStore";
 import { forgetPanes, forgetPanesExcept } from "../panes/store";
 import { settingsOpen } from "../settings/store";
@@ -80,22 +81,14 @@ export function selectWorktree(path: string) {
 }
 export const dismissError = () => update((p) => ({ ...p, error: null }));
 
-// The worktree git refused to remove, waiting for the user to confirm a forced removal.
-export const forceRemoval = externalStore<{ project: string; path: string; branch: string | null; reason: string } | null>(null);
-
-// The worktree the user asked to delete, waiting for the confirm sheet.
-export const deletion = externalStore<{ project: string; path: string; name: string } | null>(null);
-
 export function requestDelete(project: string, path: string) {
   const worktree = projects.get().worktrees[project]?.find((w) => w.path === path);
-  deletion.set({ project, path, name: worktree?.branch ?? path.split("/").pop() ?? path });
+  openSheet({ kind: "deleteWorktree", project, path, name: worktree?.branch ?? path.split("/").pop() ?? path });
 }
 
-export const cancelDeletion = () => deletion.set(null);
-
 export function confirmDeletion() {
-  const pending = deletion.get();
-  deletion.set(null);
+  const pending = sheetOf(sheet.get(), "deleteWorktree");
+  closeSheet("deleteWorktree");
   if (pending) void deleteWorktree(pending.project, pending.path);
 }
 
@@ -109,7 +102,7 @@ export async function deleteWorktree(project: string, path: string, force = fals
   try {
     const removal = await commands.removeWorktree(project, path, force);
     if (removal.NeedsForce) {
-      forceRemoval.set({ project, path, branch, reason: removal.NeedsForce.reason });
+      openSheet({ kind: "forceRemoval", project, path, branch, reason: removal.NeedsForce.reason });
       await refreshWorktrees(project);
       restore();
     } else {
@@ -127,9 +120,7 @@ export async function deleteWorktree(project: string, path: string, force = fals
 }
 
 export function confirmForceRemoval() {
-  const pending = forceRemoval.get();
-  forceRemoval.set(null);
+  const pending = sheetOf(sheet.get(), "forceRemoval");
+  closeSheet("forceRemoval");
   if (pending) void deleteWorktree(pending.project, pending.path, true);
 }
-
-export const cancelForceRemoval = () => forceRemoval.set(null);

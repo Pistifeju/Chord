@@ -1,12 +1,12 @@
-// The New Worktree popup's state: open flag, project, branch name and its live git check.
+// The New Worktree popup's form: project, branch name and its live git check.
 import { commands } from "../../ipc/bindings";
+import { closeSheet, openSheet } from "../../app/sheet";
 import { externalStore } from "../../ui/externalStore";
 import { startFocused } from "../panes/store";
 import { branchName, canCreate, defaultProject } from "./projects";
 import { fail, projects, refreshWorktrees, selectWorktree } from "./store";
 
 export type NewWorktree = {
-  open: boolean;
   project: string | null;
   branch: string;
   // null while the name is empty, being checked, or valid
@@ -17,7 +17,7 @@ export type NewWorktree = {
   createError: string | null;
 };
 
-const closed: NewWorktree = { open: false, project: null, branch: "", problem: null, checked: false, creating: false, createError: null };
+const closed: NewWorktree = { project: null, branch: "", problem: null, checked: false, creating: false, createError: null };
 
 export const newWorktree = externalStore(closed);
 
@@ -30,12 +30,14 @@ export function openNewWorktree() {
   const project = defaultProject(projects.get());
   if (!project) return;
   session++;
-  newWorktree.set({ ...closed, open: true, project });
+  newWorktree.set({ ...closed, project });
+  openSheet({ kind: "newWorktree" });
 }
 
 export function closeNewWorktree() {
   session++;
   newWorktree.set(closed);
+  closeSheet("newWorktree");
 }
 
 async function check() {

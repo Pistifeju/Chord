@@ -18,20 +18,32 @@ pub struct GitCounts {
 
 /// Counts for each folder; a folder git cannot read is left out.
 pub fn read_all(paths: &[PathBuf]) -> Result<Vec<GitCounts>, Error> {
+    // shortcut: one thread per folder, cap them once a window shows hundreds of worktrees.
+    let results: Vec<_> = std::thread::scope(|scope| {
+        let threads: Vec<_> = paths
+            .iter()
+            .map(|path| scope.spawn(move || read(path)))
+            .collect();
+        threads.into_iter().map(|thread| thread.join()).collect()
+    });
     let mut all = Vec::new();
-    for path in paths {
-        match read(path) {
-            Ok(counts) => all.push(counts),
-            Err(error @ Error::MissingTool { .. }) => return Err(error),
-            Err(_) => {}
+    for result in results {
+        match result {
+            Ok(Ok(counts)) => all.push(counts),
+            Ok(Err(error @ Error::MissingTool { .. })) => return Err(error),
+            _ => {}
         }
     }
     Ok(all)
 }
 
 fn read(dir: &Path) -> Result<GitCounts, Error> {
-    let changed = git::run(dir, &["status", "--porcelain"])?.lines().count() as u32;
-    let (behind, ahead) = match count_against(dir, "@{upstream}")? {
+    let status = git::run(
+        dir,
+        &["status", "--porcelain=v2", "--branch", "--ahead-behind"],
+    )?;
+    let (against_upstream, changed) = parse_status(&status);
+    let (behind, ahead) = match against_upstream {
         Some(sides) => Some(sides),
         None => match main_checkout_branch(dir)? {
             Some(base) => count_against(dir, &base)?,
@@ -45,6 +57,25 @@ fn read(dir: &Path) -> Result<GitCounts, Error> {
         behind,
         changed,
     })
+}
+
+/// The (behind, ahead) counts against the upstream when the branch has one, and the number of changed files.
+fn parse_status(output: &str) -> (Option<(u32, u32)>, u32) {
+    let mut sides = None;
+    let mut changed = 0;
+    for line in output.lines() {
+        match line.strip_prefix("# ") {
+            Some(header) => {
+                if let Some(counts) = header.strip_prefix("branch.ab +") {
+                    sides = counts.split_once(" -").and_then(|(ahead, behind)| {
+                        Some((behind.parse().ok()?, ahead.parse().ok()?))
+                    });
+                }
+            }
+            None => changed += 1,
+        }
+    }
+    (sides, changed)
 }
 
 /// None when git cannot compare, e.g. no upstream or a detached HEAD.
@@ -118,6 +149,16 @@ mod tests {
 
         assert_eq!((counts.ahead, counts.behind), (Some(1), Some(0)));
         Ok(())
+    }
+
+    #[test]
+    fn a_status_gives_the_upstream_sides_and_the_changed_files() {
+        let with_upstream = "# branch.oid 1111\n# branch.head main\n# branch.upstream origin/main\n# branch.ab +3 -5\n1 .M N... 100644 100644 100644 1111 1111 a.rs\n? b.rs\n";
+        assert_eq!(parse_status(with_upstream), (Some((5, 3)), 2));
+        assert_eq!(
+            parse_status("# branch.oid 1111\n# branch.head feat\n"),
+            (None, 0)
+        );
     }
 
     #[test]

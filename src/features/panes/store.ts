@@ -25,7 +25,18 @@ const save = (worktree: string) => commands.changeState({ panes: { worktree, pan
 
 const set = (worktree: string, next: WorktreePanes) => panes.set({ ...panes.get(), [worktree]: next });
 
-// Opening a worktree for the first time gives it one session with one pane.
+// Every pane change goes through here: a pane that appears starts its agent, a pane that goes forgets its chat.
+function commit(worktree: string, next: WorktreePanes | undefined, persist: boolean) {
+  const { [worktree]: before, ...rest } = panes.get();
+  panes.set(next ? { ...panes.get(), [worktree]: next } : rest);
+  if (persist) save(worktree);
+  const was = before ? allPaneIds(before) : [];
+  const now = next ? allPaneIds(next) : [];
+  for (const pane of now) if (!was.includes(pane)) void startChat(worktree, pane);
+  for (const pane of was) if (!now.includes(pane)) forgetChat(pane);
+}
+
+// Opening a worktree for the first time gives it one session with one pane, whose agent waits for Start.
 export function ensurePanes(worktree: string) {
   if (panes.get()[worktree]) return;
   set(worktree, firstPanes(newId(), newId()));
@@ -37,91 +48,50 @@ const panesOf = (worktree: string): WorktreePanes => {
   return panes.get()[worktree];
 };
 
+const change = (worktree: string, rule: (current: WorktreePanes) => WorktreePanes, persist = true) => {
+  const current = panesOf(worktree);
+  const next = rule(current);
+  if (next !== current) commit(worktree, next, persist);
+};
+
 // A new worktree's first pane starts its agent without a click on Start.
 export function startFocused(worktree: string) {
   void startChat(worktree, activeSession(panesOf(worktree)).focused);
 }
 
-export function splitFocused(worktree: string, direction: Direction) {
-  const pane = newId();
-  set(worktree, withSplitFocused(panesOf(worktree), pane, direction));
-  save(worktree);
-  void startChat(worktree, pane);
-}
+export const splitFocused = (worktree: string, direction: Direction) => change(worktree, (p) => withSplitFocused(p, newId(), direction));
 
-export function newSession(worktree: string) {
-  const pane = newId();
-  set(worktree, withNewSession(panesOf(worktree), newId(), pane));
-  save(worktree);
-  void startChat(worktree, pane);
-}
+export const newSession = (worktree: string) => change(worktree, (p) => withNewSession(p, newId(), newId()));
 
 export const closeFocused = (worktree: string) => closePane(worktree, activeSession(panesOf(worktree)).focused);
 
-export function closePane(worktree: string, pane: string) {
-  const current = panesOf(worktree);
-  const next = withoutPaneClosed(current, pane);
-  if (next === current) return;
-  set(worktree, next);
-  save(worktree);
-  forgetChat(pane);
-}
+export const closePane = (worktree: string, pane: string) => change(worktree, (p) => withoutPaneClosed(p, pane));
 
-export function closeSession(worktree: string, session: string) {
-  const current = panesOf(worktree);
-  const next = withSessionClosed(current, session);
-  if (next === current) return;
-  const gone = current.sessions.find((s) => s.id === session);
-  set(worktree, next);
-  save(worktree);
-  if (gone) paneIds(gone.layout).forEach(forgetChat);
-}
+export const closeSession = (worktree: string, session: string) => change(worktree, (p) => withSessionClosed(p, session));
 
-export function selectSession(worktree: string, session: string) {
-  set(worktree, withActiveSession(panesOf(worktree), session));
-  save(worktree);
-}
+export const selectSession = (worktree: string, session: string) => change(worktree, (p) => withActiveSession(p, session));
 
-export function dropSession(worktree: string, session: string, pane: string, edge: Edge) {
-  const current = panesOf(worktree);
-  const next = withSessionDropped(current, session, pane, edge);
-  if (next === current) return;
-  set(worktree, next);
-  save(worktree);
-}
+export const dropSession = (worktree: string, session: string, pane: string, edge: Edge) => change(worktree, (p) => withSessionDropped(p, session, pane, edge));
 
 // Focus stays in memory; the next layout save writes it.
-export function focusPane(worktree: string, pane: string) {
-  const current = panesOf(worktree);
-  const next = withFocus(current, pane);
-  if (next === current) return;
-  set(worktree, next);
-}
+export const focusPane = (worktree: string, pane: string) => change(worktree, (p) => withFocus(p, pane), false);
 
-const changeLayout = (worktree: string, session: string, change: (layout: Layout) => Layout) => {
-  const current = panesOf(worktree);
-  const target = current.sessions.find((s) => s.id === session);
-  if (target) set(worktree, withLayout(current, session, change(target.layout)));
+const withSessionLayout = (session: string, layoutChange: (layout: Layout) => Layout) => (p: WorktreePanes) => {
+  const target = p.sessions.find((s) => s.id === session);
+  return target ? withLayout(p, session, layoutChange(target.layout)) : p;
 };
 
 // A drag changes the layout many times and saves once, when it ends.
-export const resizeSplit = (worktree: string, session: string, path: number[], sizes: number[]) => changeLayout(worktree, session, (layout) => withSizes(layout, path, sizes));
+export const resizeSplit = (worktree: string, session: string, path: number[], sizes: number[]) =>
+  change(worktree, withSessionLayout(session, (layout) => withSizes(layout, path, sizes)), false);
 
 export const endResize = save;
 
-export function evenOutSplit(worktree: string, session: string, path: number[]) {
-  changeLayout(worktree, session, (layout) => withEvenSizes(layout, path));
-  save(worktree);
-}
+export const evenOutSplit = (worktree: string, session: string, path: number[]) => change(worktree, withSessionLayout(session, (layout) => withEvenSizes(layout, path)));
 
 // The worktree is gone: its agents stop and its layouts go.
 export function forgetPanes(worktree: string) {
-  const gone = panes.get()[worktree];
-  if (!gone) return;
-  const { [worktree]: removed, ...rest } = panes.get();
-  panes.set(rest);
-  allPaneIds(gone).forEach(forgetChat);
-  save(worktree);
+  if (panes.get()[worktree]) commit(worktree, undefined, true);
 }
 
 // Layouts of worktrees that are not in the known paths go, as when one was removed while the app was closed.

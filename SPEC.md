@@ -79,7 +79,6 @@ Edge cases:
 - [ ] D3 A finished pane shows a marker until you open it; its card too.
 - [ ] D4 macOS notification for done and waiting, naming project and branch; a click opens the worktree and focuses the pane.
 - [ ] D5 Settings row: keep the Mac awake while an agent runs (`caffeinate`).
-- [ ] D6 Menu bar icon with running / waiting counts.
 
 Edge cases:
 - A failure in status handling never breaks the agent.

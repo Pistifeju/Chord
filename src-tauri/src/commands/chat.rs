@@ -2,21 +2,13 @@
 
 use std::path::PathBuf;
 
-use chord_core::harness::pi::{DEFAULT_BINARY, session_file};
+use chord_core::harness::pi::DEFAULT_BINARY;
 use chord_core::harness::sessions::Sessions;
-use chord_core::{Capability, Error, HarnessEvent, Store};
+use chord_core::{Capability, HarnessEvent};
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager};
 
 use super::blocking;
-
-fn sessions_dir(app: &AppHandle) -> Result<PathBuf, Error> {
-    let dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| Error::Message(e.to_string()))?;
-    Ok(dir.join("sessions"))
-}
 
 #[tauri::command]
 #[specta::specta]
@@ -26,27 +18,11 @@ pub async fn start_chat(
     pane: String,
     on_event: Channel<HarnessEvent>,
 ) -> Result<Vec<Capability>, String> {
-    blocking(app, move |app, store| {
-        let dir = sessions_dir(app)?;
-        let handle = app.clone();
-        let exiting = pane.clone();
-        let capabilities = app.state::<Sessions>().start(
-            DEFAULT_BINARY,
-            worktree,
-            pane.clone(),
-            &dir,
-            move |event| {
-                // An agent that ended on its own does not come back on launch.
-                if matches!(event, HarnessEvent::Exited) {
-                    let _ = handle
-                        .state::<Store>()
-                        .update(|state| state.running_panes.remove(&exiting));
-                }
+    blocking(app, move |app, _| {
+        app.state::<Sessions>()
+            .start(DEFAULT_BINARY, worktree, pane, move |event| {
                 let _ = on_event.send(event);
-            },
-        )?;
-        store.update(|state| state.running_panes.insert(pane))?;
-        Ok(capabilities)
+            })
     })
     .await
 }
@@ -69,11 +45,5 @@ pub async fn abort_run(app: AppHandle, pane: String) -> Result<(), String> {
 #[tauri::command]
 #[specta::specta]
 pub async fn stop_chat(app: AppHandle, pane: String) -> Result<(), String> {
-    blocking(app, move |app, store| {
-        app.state::<Sessions>().stop_pane(&pane);
-        store.update(|state| state.running_panes.remove(&pane))?;
-        let _ = std::fs::remove_file(session_file(&sessions_dir(app)?, &pane)?);
-        Ok(())
-    })
-    .await
+    blocking(app, move |app, _| app.state::<Sessions>().stop_pane(&pane)).await
 }
