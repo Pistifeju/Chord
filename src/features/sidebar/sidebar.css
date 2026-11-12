@@ -3,7 +3,7 @@
   display: flex;
   flex-direction: column;
   flex: 0 0 var(--sidebar-width);
-  padding-top: 52px;
+  padding-top: var(--titlebar-height);
   border-right: 1px solid var(--line);
   background: var(--panel);
 }
@@ -64,13 +64,7 @@
 
 .project-chevron {
   flex: none;
-  display: inline-grid;
   color: var(--ink-muted);
-  transition: transform var(--t-fast) var(--ease-out);
-}
-
-.project-chevron[data-open="true"] {
-  transform: rotate(90deg);
 }
 
 .worktree-list {
@@ -115,12 +109,17 @@
 }
 
 .worktree-card[aria-current="true"] {
-  background: var(--selected);
   color: var(--ink);
 }
 
-.worktree-card[aria-current="true"] .worktree-counts,
-.worktree-card[aria-current="true"] .worktree-hint {
+/* One fill per tree: a focused pane row takes it from its card. */
+.worktree-card[aria-current="true"]:not([data-pane-selected]),
+.worktree-card:active {
+  background: var(--selected);
+}
+
+.worktree-card[aria-current="true"]:not([data-pane-selected]) .worktree-counts,
+.worktree-card[aria-current="true"]:not([data-pane-selected]) .worktree-hint {
   color: var(--ink-secondary);
 }
 
@@ -151,13 +150,14 @@
   color: var(--ink);
 }
 
-.pane-row[aria-current="true"] {
+.pane-row[aria-current="true"],
+.pane-row:active {
   background: var(--selected);
   color: var(--ink);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .project-chevron {
-    transition: none;
-  }
+
+.worktree-card:focus-visible,
+.pane-row:focus-visible {
+  outline-offset: -2px;
 }

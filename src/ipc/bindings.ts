@@ -72,6 +72,14 @@ export type HarnessEvent =
 { kind: "user_message_chunk"; text: string } | 
 /**  Text of the reply that is streaming now. */
 { kind: "message_chunk"; text: string } | 
+/**  The agent began a new block of reasoning. */
+{ kind: "thought_start" } | 
+/**  Text of the reasoning block that is streaming now. */
+{ kind: "thought_chunk"; text: string } | 
+/**  A tool call began; `title` is what it does (Read, Search, List, Run, Edit, Write, a tool's name) and `detail` its path, command or arguments. */
+{ kind: "tool_start"; id: string; title: string; detail: string } | 
+/**  A tool call ended; `Stopped` means the run ended or was aborted before it reported. */
+{ kind: "tool_end"; id: string; outcome: ToolOutcome } | 
 /**  The streaming reply is complete. */
 { kind: "message_end" } | 
 /**  The agent started or finished work. */
@@ -213,6 +221,8 @@ export type State_Serialize = {
 };
 
 export type Theme = "system" | "light" | "dark";
+
+export type ToolOutcome = "done" | "failed" | "stopped";
 
 export type Worktree = Worktree_Serialize | Worktree_Deserialize;
 

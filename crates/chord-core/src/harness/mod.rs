@@ -2,6 +2,7 @@
 
 pub mod pi;
 pub mod sessions;
+mod shell;
 
 use serde::Serialize;
 use specta::Type;
@@ -14,6 +15,14 @@ pub enum Capability {
     Chat,
 }
 
+#[derive(Serialize, Type, Debug, Clone, Copy, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum ToolOutcome {
+    Done,
+    Failed,
+    Stopped,
+}
+
 #[derive(Serialize, Type, Debug, Clone, PartialEq)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum HarnessEvent {
@@ -21,6 +30,18 @@ pub enum HarnessEvent {
     UserMessageChunk { text: String },
     /// Text of the reply that is streaming now.
     MessageChunk { text: String },
+    /// The agent began a new block of reasoning.
+    ThoughtStart,
+    /// Text of the reasoning block that is streaming now.
+    ThoughtChunk { text: String },
+    /// A tool call began; `title` is what it does (Read, Search, List, Run, Edit, Write, a tool's name) and `detail` its path, command or arguments.
+    ToolStart {
+        id: String,
+        title: String,
+        detail: String,
+    },
+    /// A tool call ended; `Stopped` means the run ended or was aborted before it reported.
+    ToolEnd { id: String, outcome: ToolOutcome },
     /// The streaming reply is complete.
     MessageEnd,
     /// The agent started or finished work.

@@ -9,11 +9,12 @@
   display: flex;
   align-items: stretch;
   flex: none;
-  height: 40px;
+  height: var(--titlebar-height);
   overflow-x: auto;
   position: relative;
   z-index: 2;
-  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  box-shadow: inset 0 -1px 0 var(--line);
 }
 
 .tabbar[data-sidebar-hidden="true"] {
@@ -26,6 +27,7 @@
   align-items: center;
   max-width: 220px;
   border-right: 1px solid var(--line);
+  box-shadow: inset 0 -1px 0 var(--line);
   color: var(--ink-muted);
 }
 
@@ -34,8 +36,10 @@
   color: var(--ink);
 }
 
+/* The open tab takes the pane's fill and drops the bar's bottom rule, so it joins the pane below. */
 .tab[data-selected="true"] {
-  background: var(--selected);
+  background: var(--canvas);
+  box-shadow: -1px 0 0 var(--line);
   color: var(--ink);
 }
 
@@ -84,15 +88,6 @@
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.tab-spinner {
-  width: 12px;
-  height: 12px;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  border-radius: 50%;
-  animation: spin 800ms linear infinite;
 }
 
 .tab-close {
@@ -171,7 +166,7 @@
   background: var(--accent);
   opacity: 0;
   transform: translateX(-50%) scaleX(0.3);
-  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
+  transition: opacity var(--t-med) var(--ease-out), transform var(--t-med) var(--ease-out);
   pointer-events: none;
 }
 
@@ -237,10 +232,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tab-spinner {
-    animation-duration: 2.4s;
-  }
-
   .pane[data-split]::before {
     transform: translateX(-50%);
   }

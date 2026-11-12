@@ -17,7 +17,7 @@ import "./sidebar.css";
 export function SidebarToggle() {
   shortcutChanges.use();
   return (
-    <button type="button" className="icon-button" title={tooltip("sidebar.toggle")} onClick={toggleSidebar}>
+    <button type="button" className="icon-button" title={tooltip("sidebar.toggle")} aria-label="Show or Hide Sidebar" onClick={toggleSidebar}>
       <SidebarIcon />
     </button>
   );
@@ -65,7 +65,7 @@ function ProjectGroup({ project }: { project: Project }) {
       <div className="project-header" onContextMenu={(e) => showMenu(e, "project.remove", project.path)}>
         <button type="button" className="project-name" aria-expanded={open} onClick={() => toggleFold(project.path)}>
           <span className="project-title">{project.name}</span>
-          <span className="project-chevron" data-open={open}>
+          <span className="project-chevron turn-chevron" data-open={open}>
             <ChevronIcon />
           </span>
         </button>
@@ -83,6 +83,7 @@ function ProjectGroup({ project }: { project: Project }) {
                   type="button"
                   className="worktree-card"
                   aria-current={worktree.path === selected}
+                  data-pane-selected={rows.some((row) => row.focused) || undefined}
                   title={worktree.path}
                   onClick={() => selectWorktree(worktree.path)}
                   onContextMenu={worktree.path === project.path ? undefined : (e) => showMenu(e, "worktree.delete", worktree.path)}

@@ -87,6 +87,17 @@ button:focus-visible {
   animation: spin 800ms linear infinite;
 }
 
+/* A 12px spinner in the line of text it sits in, in the text's color. */
+.spinner-inline {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 800ms linear infinite;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -128,7 +139,7 @@ button:focus-visible {
 
 .toast {
   position: fixed;
-  top: 10px;
+  top: 4px;
   left: 50%;
   z-index: 30;
   transform: translateX(-50%);
@@ -248,8 +259,22 @@ button:focus-visible {
   height: 32px;
 }
 
+.turn-chevron {
+  display: inline-grid;
+  transition: transform var(--t-fast) var(--ease-out);
+}
+
+.turn-chevron[data-open="true"] {
+  transform: rotate(90deg);
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .spinner {
+  .turn-chevron {
+    transition: none;
+  }
+
+  .spinner,
+  .spinner-inline {
     animation-duration: 2.4s;
   }
 

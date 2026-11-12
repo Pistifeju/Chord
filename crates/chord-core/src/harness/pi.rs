@@ -11,7 +11,8 @@ use std::thread;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use super::{Capability, HarnessEvent};
+use super::shell::read_only_title;
+use super::{Capability, HarnessEvent, ToolOutcome};
 use crate::Error;
 
 /// The binary to run when the user chose none.
@@ -66,11 +67,16 @@ impl Session {
         thread::spawn(move || {
             let mut reader = BufReader::new(stdout);
             let mut line = Vec::new();
+            let mut open_calls = OpenCalls::default();
             // Split on LF only: a JSON string may hold U+2028.
             while matches!(reader.read_until(b'\n', &mut line), Ok(read) if read > 0) {
-                events_from_line(&line).into_iter().for_each(&on_event);
+                open_calls
+                    .track(events_from_line(&line))
+                    .into_iter()
+                    .for_each(&on_event);
                 line.clear();
             }
+            open_calls.stop().into_iter().for_each(&on_event);
             // Only an agent that ended on its own is reported; a stopped one is already forgotten.
             if !reader_stopped.load(Ordering::SeqCst) {
                 on_event(HarnessEvent::Exited);
@@ -188,13 +194,45 @@ struct Kind {
     kind: String,
 }
 
-const READ_KINDS: [&str; 5] = [
+const READ_KINDS: [&str; 7] = [
     "agent_start",
     "agent_settled",
     "message_update",
     "message_end",
+    "tool_execution_start",
+    "tool_execution_end",
     "response",
 ];
+
+// A run that settles or dies leaves calls pi never closed; they end as stopped so none shows as running.
+#[derive(Default)]
+struct OpenCalls(Vec<String>);
+
+impl OpenCalls {
+    fn track(&mut self, events: Vec<HarnessEvent>) -> Vec<HarnessEvent> {
+        let mut out = Vec::new();
+        for event in events {
+            match &event {
+                HarnessEvent::ToolStart { id, .. } => self.0.push(id.clone()),
+                HarnessEvent::ToolEnd { id, .. } => self.0.retain(|open| open != id),
+                HarnessEvent::State { running: false } => out.extend(self.stop()),
+                _ => {}
+            }
+            out.push(event);
+        }
+        out
+    }
+
+    fn stop(&mut self) -> Vec<HarnessEvent> {
+        self.0
+            .drain(..)
+            .map(|id| HarnessEvent::ToolEnd {
+                id,
+                outcome: ToolOutcome::Stopped,
+            })
+            .collect()
+    }
+}
 
 // Tool output and turn summaries are large and unused, so only the records `events_from` reads get a full parse.
 fn events_from_line(line: &[u8]) -> Vec<HarnessEvent> {
@@ -218,9 +256,32 @@ fn events_from(record: &Value) -> Vec<HarnessEvent> {
                 (Some("text_delta"), Some(text)) => {
                     vec![HarnessEvent::MessageChunk { text: text.into() }]
                 }
+                (Some("thinking_start"), _) => vec![HarnessEvent::ThoughtStart],
+                (Some("thinking_delta"), Some(text)) => {
+                    vec![HarnessEvent::ThoughtChunk { text: text.into() }]
+                }
                 _ => vec![],
             }
         }
+        Some("tool_execution_start") => {
+            let (title, detail) = describe_tool(
+                record["toolName"].as_str().unwrap_or("tool"),
+                &record["args"],
+            );
+            vec![HarnessEvent::ToolStart {
+                id: record["toolCallId"].as_str().unwrap_or_default().into(),
+                title,
+                detail,
+            }]
+        }
+        Some("tool_execution_end") => vec![HarnessEvent::ToolEnd {
+            id: record["toolCallId"].as_str().unwrap_or_default().into(),
+            outcome: if record["isError"] == true {
+                ToolOutcome::Failed
+            } else {
+                ToolOutcome::Done
+            },
+        }],
         Some("message_end") => message_end(&record["message"]),
         Some("response") if record["success"] == false => vec![HarnessEvent::Notice {
             text: record["error"]
@@ -230,6 +291,52 @@ fn events_from(record: &Value) -> Vec<HarnessEvent> {
         }],
         _ => vec![],
     }
+}
+
+// A shell command that only reads shows as Read, Search or List; an unknown tool shows its name and argument values.
+fn describe_tool(name: &str, args: &Value) -> (String, String) {
+    let text = |key: &str| args[key].as_str().unwrap_or_default().to_string();
+    match name {
+        "read" => ("Read".into(), text("path")),
+        "grep" | "find" => ("Search".into(), text("pattern")),
+        "ls" => ("List".into(), text("path")),
+        "edit" => ("Edit".into(), text("path")),
+        "write" => ("Write".into(), text("path")),
+        "bash" => {
+            let command = text("command");
+            let title = read_only_title(&command).unwrap_or("Run");
+            (title.into(), command)
+        }
+        _ => (readable_name(name), argument_values(args)),
+    }
+}
+
+// "mcp__github__list_issues" reads as "Github list issues".
+fn readable_name(name: &str) -> String {
+    let words = name
+        .trim_start_matches("mcp__")
+        .split(['_', '-'])
+        .filter(|word| !word.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ");
+    let mut chars = words.chars();
+    match chars.next() {
+        Some(first) => first.to_uppercase().chain(chars).collect(),
+        None => "Tool".into(),
+    }
+}
+
+fn argument_values(args: &Value) -> String {
+    let Some(map) = args.as_object() else {
+        return String::new();
+    };
+    map.values()
+        .map(|value| match value {
+            Value::String(text) => text.clone(),
+            other => other.to_string(),
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 fn message_end(message: &Value) -> Vec<HarnessEvent> {
@@ -284,9 +391,82 @@ mod tests {
     }
 
     #[test]
-    fn a_thinking_delta_is_not_a_chunk() {
+    fn a_thinking_delta_becomes_a_thought() {
         let record = r#"{"type":"message_update","assistantMessageEvent":{"type":"thinking_delta","contentIndex":0,"delta":"hm"}}"#;
-        assert_eq!(events(record), vec![]);
+        assert_eq!(
+            events(record),
+            vec![HarnessEvent::ThoughtChunk { text: "hm".into() }]
+        );
+    }
+
+    #[test]
+    fn a_read_only_shell_command_is_titled_by_what_it_does() {
+        let record = r#"{"type":"tool_execution_start","toolCallId":"c1","toolName":"bash","args":{"command":"grep -rn foo src"}}"#;
+        assert_eq!(
+            events(record),
+            vec![HarnessEvent::ToolStart {
+                id: "c1".into(),
+                title: "Search".into(),
+                detail: "grep -rn foo src".into()
+            }]
+        );
+    }
+
+    #[test]
+    fn an_unknown_tool_shows_its_name_and_argument_values() {
+        let record = r#"{"type":"tool_execution_start","toolCallId":"c2","toolName":"mcp__github__list_issues","args":{"repo":"a/b"}}"#;
+        assert_eq!(
+            events(record),
+            vec![HarnessEvent::ToolStart {
+                id: "c2".into(),
+                title: "Github list issues".into(),
+                detail: "a/b".into()
+            }]
+        );
+    }
+
+    #[test]
+    fn a_settled_run_stops_the_calls_it_left_open() {
+        let mut open = OpenCalls::default();
+        let started = |id: &str| HarnessEvent::ToolStart {
+            id: id.into(),
+            title: "Run".into(),
+            detail: "sleep 9".into(),
+        };
+        assert_eq!(open.track(vec![started("a"), started("b")]).len(), 2);
+        let ended = HarnessEvent::ToolEnd {
+            id: "a".into(),
+            outcome: ToolOutcome::Done,
+        };
+        open.track(vec![ended]);
+        assert_eq!(
+            open.track(vec![HarnessEvent::State { running: false }]),
+            vec![
+                HarnessEvent::ToolEnd {
+                    id: "b".into(),
+                    outcome: ToolOutcome::Stopped
+                },
+                HarnessEvent::State { running: false }
+            ]
+        );
+    }
+
+    #[test]
+    fn a_thinking_start_begins_a_thought() {
+        let record = r#"{"type":"message_update","assistantMessageEvent":{"type":"thinking_start","contentIndex":0}}"#;
+        assert_eq!(events(record), vec![HarnessEvent::ThoughtStart]);
+    }
+
+    #[test]
+    fn a_failed_tool_call_ends_failed() {
+        let record = r#"{"type":"tool_execution_end","toolCallId":"c1","toolName":"bash","result":{},"isError":true}"#;
+        assert_eq!(
+            events(record),
+            vec![HarnessEvent::ToolEnd {
+                id: "c1".into(),
+                outcome: ToolOutcome::Failed
+            }]
+        );
     }
 
     #[test]

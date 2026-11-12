@@ -2,6 +2,7 @@
 .app {
   --sidebar-width: 240px;
   --sidebar-inset: 8px;
+  --titlebar-height: 40px;
   display: flex;
   height: 100vh;
 }
@@ -14,23 +15,25 @@
   z-index: 1;
   display: flex;
   align-items: center;
-  height: 52px;
+  height: var(--titlebar-height);
 }
 
 .titlebar-sidebar {
   position: absolute;
-  left: calc(var(--sidebar-width) - var(--sidebar-inset) - 28px);
+  left: 92px;
 }
 
-.titlebar-sidebar[data-hidden="true"] {
-  left: 92px;
-  top: 10px;
+/* The tab bar sits above the title bar; lift only its toggle area so the toggle stays clickable. */
+.app:has(.panes) .titlebar:has([data-hidden="true"]) {
+  z-index: 3;
+  right: auto;
+  width: 132px;
 }
 
 .main {
   flex: 1;
   min-width: 0;
-  padding-top: 52px;
+  padding-top: var(--titlebar-height);
   overflow-y: auto;
 }
 

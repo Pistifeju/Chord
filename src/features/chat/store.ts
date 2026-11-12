@@ -25,7 +25,11 @@ export async function startChat(worktree: string, pane: string) {
   starts.set(pane, start);
   const channel = new Channel<HarnessEvent>();
   channel.onmessage = (event) => {
-    if (starts.get(pane) === start) update(pane, (chat) => chatAfter(chat, event));
+    if (starts.get(pane) !== start) return;
+    update(pane, (chat) => {
+      const next = chatAfter(chat, event);
+      return next.running && !chat.running ? { ...next, since: Date.now() } : next;
+    });
   };
   update(pane, (chat) => ({ ...chat, agent: "starting", notice: null }));
   try {

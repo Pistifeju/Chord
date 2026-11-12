@@ -1,5 +1,5 @@
 // The panes of one worktree: the session tab bar and the split layout of the open session.
-import { Fragment, useEffect, useRef, useState, type PointerEvent, type RefObject } from "react";
+import { Fragment, useEffect, useRef, useState, type PointerEvent, type RefObject, type SyntheticEvent } from "react";
 import type { Direction, Layout } from "../../ipc/bindings";
 import { tooltip } from "../../app/commands";
 import { ChatPane } from "../chat/ChatPane";
@@ -97,7 +97,7 @@ function SessionTabs({ worktree }: { worktree: string }) {
                 else selectSession(worktree, session.id);
               }}
             >
-              <span className="tab-status">{working.includes(session.id) ? <span className="tab-spinner" /> : <ChatIcon />}</span>
+              <span className="tab-status">{working.includes(session.id) ? <span className="spinner-inline" /> : <ChatIcon />}</span>
               <span className="tab-label">{session.name}</span>
             </button>
             {current.sessions.length > 1 && (
@@ -174,8 +174,12 @@ function LayoutView({ layout, path, place }: { layout: Layout; path: number[]; p
   const container = useRef<HTMLDivElement>(null);
   if (layout.kind === "pane") {
     const { id } = layout;
+    // A press on the pane's close button keeps the focus where it was.
+    const focusUnlessClose = (e: SyntheticEvent) => {
+      if (!(e.target as Element).closest(".pane-close")) focusPane(place.worktree, id);
+    };
     return (
-      <div className="pane" data-pane={id} data-split={place.split || undefined} data-focused={id === place.focused || undefined} onPointerDownCapture={() => focusPane(place.worktree, id)} onFocusCapture={() => focusPane(place.worktree, id)}>
+      <div className="pane" data-pane={id} data-split={place.split || undefined} data-focused={id === place.focused || undefined} onPointerDownCapture={focusUnlessClose} onFocusCapture={focusUnlessClose}>
         <ChatPane worktree={place.worktree} pane={id} focused={id === place.focused} />
         {place.split && (
           <button type="button" className="pane-close" title={tooltip("pane.close")} aria-label="Close Pane" onClick={() => closePane(place.worktree, id)}>
