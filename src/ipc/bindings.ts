@@ -134,6 +134,8 @@ export type HarnessEvent_Deserialize =
 { kind: "commands"; commands: SlashCommand_Deserialize[] } | 
 /**  The subscription usage windows of the account, shortest first; the whole list each time, empty when none applies. */
 { kind: "usage"; windows: UsageWindow_Deserialize[] } | 
+/**  An extension set or cleared its status text; `text` is none when cleared. */
+{ kind: "status_text"; key: string; text?: string | null } | 
 /**  The steering messages the agent has not taken in yet, oldest first; the whole queue each time. */
 { kind: "queue"; steering: string[] } | 
 /**  The agent started or finished work. */
@@ -182,6 +184,8 @@ export type HarnessEvent_Serialize =
 { kind: "commands"; commands: SlashCommand_Serialize[] } | 
 /**  The subscription usage windows of the account, shortest first; the whole list each time, empty when none applies. */
 { kind: "usage"; windows: UsageWindow_Serialize[] } | 
+/**  An extension set or cleared its status text; `text` is none when cleared. */
+{ kind: "status_text"; key: string; text: string | null } | 
 /**  The steering messages the agent has not taken in yet, oldest first; the whole queue each time. */
 { kind: "queue"; steering: string[] } | 
 /**  The agent started or finished work. */

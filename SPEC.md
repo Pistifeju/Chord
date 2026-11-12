@@ -103,7 +103,7 @@ Edge cases:
 - [x] E10 harness(context): context meter with a limit warning; `/new` resets it.
 - [x] E11 harness(usage): subscription usage (5h, weekly) in the status bar, with the reset as a clock time; stale windows hidden. The windows come from the pi-powerbar extension; without it the bar never shows.
 - [x] E15 harness(chat): a slow (5 s or more) or failed call shows its run time ("55.4 s"); a step group shows its total. Live runs only; pi saves no run time in the session.
-- [ ] E12 harness(status-line): extension status texts in the composer bar.
+- [x] E12 harness(status-line): extension status texts in the composer bar.
 - [ ] E13 harness(widgets): background subagent runs as a lineage card over the composer. The pi adapter reads the snapshot a pi subagent extension writes. Without such an extension the card never shows.
 - [ ] E14 core: branch button in the composer: local branches newest first, switch, New Branch; branches another worktree holds stay disabled; locked while the agent runs.
 

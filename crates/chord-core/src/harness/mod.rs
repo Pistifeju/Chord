@@ -150,6 +150,8 @@ pub enum HarnessEvent {
     Commands { commands: Vec<SlashCommand> },
     /// The subscription usage windows of the account, shortest first; the whole list each time, empty when none applies.
     Usage { windows: Vec<UsageWindow> },
+    /// An extension set or cleared its status text; `text` is none when cleared.
+    StatusText { key: String, text: Option<String> },
     /// The steering messages the agent has not taken in yet, oldest first; the whole queue each time.
     Queue { steering: Vec<String> },
     /// The agent started or finished work.

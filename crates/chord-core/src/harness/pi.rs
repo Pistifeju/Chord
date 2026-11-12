@@ -967,13 +967,33 @@ fn package_name(source_info: &Value) -> Option<String> {
     (!name.is_empty()).then(|| name.to_string())
 }
 
-// Select, confirm and input wait for an answer; the editor text goes in the composer; the usage status is read; notify and the other status methods are not.
+// Extensions colour their status with the terminal theme; the bar shows plain text.
+fn without_ansi(text: &str) -> String {
+    let mut plain = String::with_capacity(text.len());
+    let mut chars = text.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c != '\u{1b}' {
+            plain.push(c);
+        } else if chars.next_if_eq(&'[').is_some() {
+            while chars.next().is_some_and(|c| !('@'..='~').contains(&c)) {}
+        }
+    }
+    plain
+}
+
+// Select, confirm and input wait for an answer; the editor text goes in the composer; the usage status is read; the other status texts go to the composer bar; notify is not.
 fn ui_request(record: &Value) -> Option<HarnessEvent> {
     let text = |key: &str| record[key].as_str().unwrap_or_default().to_string();
     let ask = match record["method"].as_str()? {
         "setStatus" if record["statusKey"] == USAGE_STATUS => {
             return Some(HarnessEvent::Usage {
                 windows: usage_windows(record["statusText"].as_str().unwrap_or("[]")),
+            });
+        }
+        "setStatus" => {
+            return Some(HarnessEvent::StatusText {
+                key: text("statusKey"),
+                text: record["statusText"].as_str().map(without_ansi),
             });
         }
         "set_editor_text" => return Some(HarnessEvent::Draft { text: text("text") }),
@@ -1599,7 +1619,30 @@ mod tests {
             vec![HarnessEvent::Usage { windows: vec![] }]
         );
         let other = r#"{"type":"extension_ui_request","id":"u3","method":"setStatus","statusKey":"other","statusText":"x"}"#;
-        assert_eq!(events(other), vec![]);
+        assert_eq!(
+            events(other),
+            vec![HarnessEvent::StatusText {
+                key: "other".into(),
+                text: Some("x".into())
+            }]
+        );
+        let colored = r#"{"type":"extension_ui_request","id":"u5","method":"setStatus","statusKey":"other","statusText":"\u001b[32m●\u001b[39m\u001b[2m Turn 3\u001b[0m"}"#;
+        assert_eq!(
+            events(colored),
+            vec![HarnessEvent::StatusText {
+                key: "other".into(),
+                text: Some("● Turn 3".into())
+            }]
+        );
+        let other_cleared =
+            r#"{"type":"extension_ui_request","id":"u4","method":"setStatus","statusKey":"other"}"#;
+        assert_eq!(
+            events(other_cleared),
+            vec![HarnessEvent::StatusText {
+                key: "other".into(),
+                text: None
+            }]
+        );
     }
 
     #[test]

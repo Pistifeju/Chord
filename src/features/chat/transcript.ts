@@ -43,6 +43,8 @@ export type Chat = {
   context: ContextFill | null;
   /** The commands the agent offers after a slash; none until it lists them. */
   commands: SlashCommand[];
+  /** The status texts extensions set, by their key. */
+  statusTexts: Record<string, string>;
   /** Steering messages the agent has not taken in yet. */
   queued: string[];
   /** The status Rust reported; null until the first run. */
@@ -51,7 +53,14 @@ export type Chat = {
   historyLength: number;
 };
 
-export const emptyChat: Chat = { agent: "idle", items: [], running: false, since: null, capabilities: null, notice: null, dialog: null, model: null, context: null, commands: [], queued: [], report: null, historyLength: 0 };
+export const emptyChat: Chat = { agent: "idle", items: [], running: false, since: null, capabilities: null, notice: null, dialog: null, model: null, context: null, commands: [], statusTexts: {}, queued: [], report: null, historyLength: 0 };
+
+/** The extensions' status texts in key order, as the composer bar shows them; empty when none is set. */
+export const statusLine = (chat: Chat): string =>
+  Object.keys(chat.statusTexts)
+    .sort()
+    .map((key) => chat.statusTexts[key])
+    .join("  ·  ");
 
 export const isStreaming = (item: Item) => item.role !== "steps" && item.role !== "stopped" && item.streaming;
 
@@ -167,6 +176,10 @@ function applied(chat: Chat, event: HarnessEvent, now: number): Chat {
       return { ...chat, context: event.window == null ? null : { tokens: event.tokens ?? null, window: event.window } };
     case "commands":
       return { ...chat, commands: event.commands };
+    case "status_text": {
+      const { [event.key]: _, ...rest } = chat.statusTexts;
+      return { ...chat, statusTexts: event.text ? { ...rest, [event.key]: event.text } : rest };
+    }
     case "queue":
       return { ...chat, queued: event.steering };
     case "message_end":
@@ -196,6 +209,6 @@ function applied(chat: Chat, event: HarnessEvent, now: number): Chat {
     case "usage":
       return chat;
     case "exited":
-      return { ...chat, agent: "idle", running: false, queued: [], context: null, items: closed(chat.items) };
+      return { ...chat, agent: "idle", running: false, queued: [], context: null, statusTexts: {}, items: closed(chat.items) };
   }
 }

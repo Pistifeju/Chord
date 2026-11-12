@@ -19,7 +19,7 @@ import { steppedIndex } from "./dialog";
 import { completion, slashMenu, slashQuery } from "./slash";
 import { closeLightbox, lightboxes, openLightbox, stepLightbox } from "./viewing";
 import { answerDialog, attachFiles, attachments, attachPasted, chatOf, chats, closeSlash, drafts, openPicker, pickAttachments, removeAttachment, sendMessage, setDraft, slashClosed, startChat } from "./store";
-import { callTime, isStreaming, shownSteps, stepImages, stepsSummary, stepsTime, type Item, type Message, type StepGroup } from "./transcript";
+import { callTime, isStreaming, shownSteps, statusLine, stepImages, stepsSummary, stepsTime, type Item, type Message, type StepGroup } from "./transcript";
 import "./chat.css";
 
 function StartButton({ worktree, pane }: { worktree: string; pane: string }) {
@@ -168,6 +168,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
   const slashAt = Math.min(slashActive, slashRows.length - 1);
   const labels = modelLabels(chat);
   const context = contextMeter(chat);
+  const statusText = statusLine(chat);
   const canSend = ready && (!chat.running || steers);
   const textPercent = appearance.usePart((a) => a.textPercent);
   const dialogOpen = chat.dialog !== null;
@@ -365,6 +366,11 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
                 <button type="button" className="icon-button" title={tooltip("chat.attach")} aria-label="Attach Images" disabled={!ready} onClick={() => pickAttachments(pane)}>
                   <PaperclipIcon />
                 </button>
+              )}
+              {statusText && (
+                <span className="chat-status-text" title={statusText}>
+                  {statusText}
+                </span>
               )}
               {labels && (
                 <div className="chat-pickers">

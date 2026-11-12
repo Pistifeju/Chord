@@ -523,6 +523,18 @@
   justify-content: space-between;
 }
 
+.chat-status-text {
+  flex-grow: 1;
+  flex-shrink: 100;
+  min-width: 0;
+  padding: 0 8px;
+  overflow: hidden;
+  font-size: calc(12px * var(--text-scale));
+  color: var(--ink-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .chat-pickers {
   display: flex;
   min-width: 0;
