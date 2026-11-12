@@ -4,7 +4,14 @@
   --sidebar-inset: 8px;
   --titlebar-height: 40px;
   display: flex;
+  flex-direction: column;
   height: 100vh;
+}
+
+.app-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
 }
 
 .app-content {
@@ -43,4 +50,22 @@
 
 .main:has(> .panes) {
   padding-top: 0;
+}
+
+.statusbar {
+  display: flex;
+  align-items: center;
+  flex: none;
+  min-height: 24px;
+  padding: 0 12px;
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+  font-size: calc(12px * var(--text-scale));
+  color: var(--ink-muted);
+}
+
+.statusbar-usage {
+  margin-left: auto;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }

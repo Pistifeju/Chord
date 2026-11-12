@@ -258,7 +258,7 @@ Sizes multiply by `--text-scale`, which the text size setting changes (⌘=, ⌘
 
 ## Layout
 
-- One window, minimum 900 × 600. A flex row: the sidebar (280px) and the main area.
+- One window, minimum 900 × 600. A flex row: the sidebar (280px) and the main area, with the status bar under both.
 - The title bar row is 40px tall (`--titlebar-height`), transparent, and drags the window. The sidebar toggle sits right after the traffic lights, whether the sidebar shows or not. The traffic lights, the toggle and the tabs share the row's center line. On a worktree the tab bar takes the row over the work area, at the same height.
 - The toast shows 4px below the window's top edge, centered over the title bar row.
 - The transcript and the composer share a centered column, 720px at most, with 20px side padding. The composer card and a dialog fill the column's inner width, and the user's message bubble ends on the card's right edge. Transcript text, the Working row and the notice sit 15px further in (the card's border, padding and input padding), so they start where the draft text starts, at every pane width.
@@ -355,6 +355,10 @@ The status roles keep the app's values, so a card shows a status in the same col
 - **Focused pane:** with the session split, the focused pane shows a 28×3px `accent` bar, fully rounded, centered 6px below its top edge. On a focus change the old bar shrinks out and the new one grows from its center while fading in, over 200ms with `--ease-out`; with reduced motion it only fades. A single pane shows none.
 - **Divider:** a 1px `line` rule between panes with a 9px grab area. Hover and drag step it to `line-strong`. Double-click evens the split out. A pane keeps 10% at least.
 - **Pane close:** in a split, each pane has an 18px close button 8px from its top-right corner, with a 14px X, smaller than the tab's. `ink-muted` at rest; hover takes `raised` and `ink`. Its tooltip shows the Close Pane shortcut.
+
+### Status bar
+
+A 24px (at least) strip at the window's bottom on `panel`, with a 1px `line` top edge and 12px side padding. Its items sit at the right in meta text (12px `ink-muted`, tabular figures). It shows only while it has an item. Subscription usage reads `5h 42% (resets 14:30)`, windows joined by a middle dot with two spaces each side; a reset a day or more away carries its weekday, and a window past its reset is hidden.
 
 ### Chat
 

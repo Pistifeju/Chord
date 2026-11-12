@@ -25,6 +25,13 @@ pub enum Capability {
     Context,
 }
 
+/// One subscription usage window: its label, e.g. "5h 42%", and when it resets, in ms since the epoch; none when the harness does not say.
+#[derive(Serialize, Type, Debug, Clone, PartialEq)]
+pub struct UsageWindow {
+    pub label: String,
+    pub resets_at: Option<f64>,
+}
+
 /// An image in a message: base64 data and its MIME type.
 #[derive(Serialize, Deserialize, Type, Debug, Clone, PartialEq)]
 pub struct Image {
@@ -140,6 +147,8 @@ pub enum HarnessEvent {
     },
     /// The commands the agent offers after a slash.
     Commands { commands: Vec<SlashCommand> },
+    /// The subscription usage windows of the account, shortest first; the whole list each time, empty when none applies.
+    Usage { windows: Vec<UsageWindow> },
     /// The steering messages the agent has not taken in yet, oldest first; the whole queue each time.
     Queue { steering: Vec<String> },
     /// The agent started or finished work.

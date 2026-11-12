@@ -1,4 +1,4 @@
-// The extension Chord loads into pi: the session commands RPC lacks, a pick of a session to resume and of a point in the session tree.
+// The extension Chord loads into pi: the session commands RPC lacks, a pick of a session to resume and of a point in the session tree, and the subscription usage windows.
 import { SessionManager, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 type Content = string | { type: string; text?: string }[];
@@ -19,7 +19,43 @@ const indent = "\u00a0\u00a0\u00a0\u00a0";
 // Options are numbered, so two with the same text stay apart and the pick is found by its place.
 const numbered = (labels: string[]): string[] => labels.map((label, i) => `${i + 1}. ${label}`);
 
+const USAGE_STATUS = "chord-usage";
+const usageIds = ["sub-hourly", "sub-weekly"];
+const unitMs: Record<string, number> = { d: 86400000, h: 3600000, m: 60000 };
+
+type UsageWindow = { label: string; resetsAt: number | null };
+
+// A reset left as a point in time stays right between updates; a window already reset is stale and left out.
+function usageWindow(update: { text?: string; suffix?: string }): UsageWindow | undefined {
+  const text = String(update.text ?? "");
+  const left = text.match(/(?:^|\s)(now|\d+[dhm](?:\d+[hm])*)$/);
+  const label = `${(left ? text.slice(0, left.index) : text).trim()} ${update.suffix ?? ""}`.trim();
+  if (!left) return { label, resetsAt: null };
+  if (left[1] === "now") return undefined;
+  const ms = [...left[1].matchAll(/(\d+)([dhm])/g)].reduce((total, [, n, unit]) => total + Number(n) * unitMs[unit], 0);
+  return { label, resetsAt: Date.now() + ms };
+}
+
 export default function (pi: ExtensionAPI) {
+  // RPC drops the usage bar's TUI component, so the windows travel as a status text the adapter reads.
+  const usage: Record<string, UsageWindow> = {};
+  let ui: { setStatus(key: string, text: string | undefined): void } | undefined;
+  const showUsage = () => {
+    const windows = usageIds.flatMap((id) => (usage[id] ? [usage[id]] : []));
+    ui?.setStatus(USAGE_STATUS, windows.length > 0 ? JSON.stringify(windows) : undefined);
+  };
+  pi.events.on("powerbar:update", (update: any) => {
+    if (!usageIds.includes(update?.id)) return;
+    const window = update.text || update.bar !== undefined ? usageWindow(update) : undefined;
+    if (window) usage[update.id] = window;
+    else delete usage[update.id];
+    showUsage();
+  });
+  pi.on("session_start", (_event, ctx) => {
+    ui = ctx.hasUI ? ctx.ui : undefined;
+    showUsage();
+  });
+
   pi.registerCommand("chord-resume", {
     description: "Open another session of this worktree",
     handler: async (args, ctx) => {

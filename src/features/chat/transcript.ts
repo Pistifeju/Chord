@@ -176,6 +176,7 @@ function applied(chat: Chat, event: HarnessEvent, now: number): Chat {
     case "session_info":
     case "draft":
     case "exported":
+    case "usage":
       return chat;
     case "exited":
       return { ...chat, agent: "idle", running: false, queued: [], context: null, items: closed(chat.items) };

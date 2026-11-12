@@ -3,6 +3,7 @@ import { Channel } from "@tauri-apps/api/core";
 import { commands, type DialogAnswer, type HarnessEvent, type Image } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
 import { paneNames, type PaneNames } from "../panes/sessions";
+import { usage } from "../usage/store";
 import { notify } from "../worktrees/store";
 import { fileName, imageExtensions, imageMime, type Attachment } from "./attachments";
 import { chatAfter, emptyChat, type Chat } from "./transcript";
@@ -35,6 +36,7 @@ const replays = new Map<string, HarnessEvent[]>();
 
 function received(pane: string, event: HarnessEvent) {
   if (event.kind === "draft") setDraft(pane, event.text);
+  if (event.kind === "usage") usage.set(event.windows);
   if (event.kind === "exported") notify(`Exported to ${event.path}`);
   if (event.kind === "history_start") replays.set(pane, []);
   const replay = replays.get(pane);

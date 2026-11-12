@@ -17,6 +17,7 @@ import { ProjectDrop } from "../features/worktrees/ProjectDrop";
 import { watchGitCounts } from "../features/worktrees/gitCountsRefresh";
 import { dismissError, projects } from "../features/worktrees/store";
 import { WarningToast } from "../ui/Toast";
+import { StatusBar } from "./StatusBar";
 import { runShortcut } from "./commands";
 import { sheet } from "./sheet";
 import { launch } from "./launch";
@@ -54,8 +55,11 @@ export default function App() {
             <SidebarToggle />
           </span>
         </div>
-        <Sidebar />
-        <main className="main">{list.length === 0 ? <NoProjects /> : selected && <PaneArea key={selected} worktree={selected} />}</main>
+        <div className="app-body">
+          <Sidebar />
+          <main className="main">{list.length === 0 ? <NoProjects /> : selected && <PaneArea key={selected} worktree={selected} />}</main>
+        </div>
+        <StatusBar />
       </div>
       {settings && <SettingsPage />}
       <ProjectDrop />

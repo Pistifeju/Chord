@@ -16,6 +16,7 @@ use serde_json::{Value, json};
 use super::shell::read_only_title;
 use super::{
     Capability, DialogAnswer, DialogAsk, HarnessEvent, Image, SlashCommand, SlashKind, ToolOutcome,
+    UsageWindow,
 };
 use crate::Error;
 
@@ -24,11 +25,13 @@ pub const DEFAULT_BINARY: &str = "pi";
 const INSTALL: &str = "npm install -g @earendil-works/pi-coding-agent";
 const OLDEST_TESTED: (u32, u32, u32) = (1, 5, 0);
 
-/// The extension Chord ships: the session commands RPC lacks.
+/// The extension Chord ships: the session commands RPC lacks, and the subscription usage windows.
 const EXTENSION: &str = include_str!("pi_extension.ts");
 const EXTENSION_FILE: &str = "chord-extension.ts";
 /// The commands the extension adds start with this; the slash menu lists Chord's own names for them.
 const EXTENSION_PREFIX: &str = "chord-";
+/// The status key the extension reports the usage windows under.
+const USAGE_STATUS: &str = "chord-usage";
 /// The request id of a prompt that runs one of the extension's commands; its response means the session may have changed.
 const SESSION_PROMPT: &str = "chord-session";
 /// A fork dialog's id starts with this; the ids of the entries it lists follow, comma-separated, in the order of its options.
@@ -961,10 +964,15 @@ fn package_name(source_info: &Value) -> Option<String> {
     (!name.is_empty()).then(|| name.to_string())
 }
 
-// Select, confirm and input wait for an answer; the editor text goes in the composer; notify and the status methods are not read.
+// Select, confirm and input wait for an answer; the editor text goes in the composer; the usage status is read; notify and the other status methods are not.
 fn ui_request(record: &Value) -> Option<HarnessEvent> {
     let text = |key: &str| record[key].as_str().unwrap_or_default().to_string();
     let ask = match record["method"].as_str()? {
+        "setStatus" if record["statusKey"] == USAGE_STATUS => {
+            return Some(HarnessEvent::Usage {
+                windows: usage_windows(record["statusText"].as_str().unwrap_or("[]")),
+            });
+        }
         "set_editor_text" => return Some(HarnessEvent::Draft { text: text("text") }),
         "select" => DialogAsk::Select {
             options: record["options"]
@@ -988,6 +996,20 @@ fn ui_request(record: &Value) -> Option<HarnessEvent> {
         title: text("title"),
         ask,
     })
+}
+
+// The extension writes the windows as JSON; text that does not parse shows no usage.
+fn usage_windows(text: &str) -> Vec<UsageWindow> {
+    let windows: Vec<Value> = serde_json::from_str(text).unwrap_or_default();
+    windows
+        .iter()
+        .filter_map(|window| {
+            Some(UsageWindow {
+                label: window["label"].as_str()?.into(),
+                resets_at: window["resetsAt"].as_f64(),
+            })
+        })
+        .collect()
 }
 
 fn message_update(update: &Value) -> Vec<HarnessEvent> {
@@ -1542,6 +1564,33 @@ mod tests {
         };
         assert_eq!(current(models), Some("anthropic/sonnet-4".into()));
         assert_eq!(current(levels), Some("Medium".into()));
+    }
+
+    #[test]
+    fn a_usage_status_becomes_the_usage_windows() {
+        let status = r#"{"type":"extension_ui_request","id":"u1","method":"setStatus","statusKey":"chord-usage","statusText":"[{\"label\":\"5h 42%\",\"resetsAt\":1700000000000},{\"label\":\"week 10%\",\"resetsAt\":null}]"}"#;
+        assert_eq!(
+            events(status),
+            vec![HarnessEvent::Usage {
+                windows: vec![
+                    UsageWindow {
+                        label: "5h 42%".into(),
+                        resets_at: Some(1700000000000.0)
+                    },
+                    UsageWindow {
+                        label: "week 10%".into(),
+                        resets_at: None
+                    }
+                ]
+            }]
+        );
+        let cleared = r#"{"type":"extension_ui_request","id":"u2","method":"setStatus","statusKey":"chord-usage"}"#;
+        assert_eq!(
+            events(cleared),
+            vec![HarnessEvent::Usage { windows: vec![] }]
+        );
+        let other = r#"{"type":"extension_ui_request","id":"u3","method":"setStatus","statusKey":"other","statusText":"x"}"#;
+        assert_eq!(events(other), vec![]);
     }
 
     #[test]

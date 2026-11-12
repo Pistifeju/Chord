@@ -132,6 +132,8 @@ export type HarnessEvent_Deserialize =
 { kind: "dialog"; id: string; title: string; ask: DialogAsk_Deserialize } | 
 /**  The commands the agent offers after a slash. */
 { kind: "commands"; commands: SlashCommand_Deserialize[] } | 
+/**  The subscription usage windows of the account, shortest first; the whole list each time, empty when none applies. */
+{ kind: "usage"; windows: UsageWindow_Deserialize[] } | 
 /**  The steering messages the agent has not taken in yet, oldest first; the whole queue each time. */
 { kind: "queue"; steering: string[] } | 
 /**  The agent started or finished work. */
@@ -178,6 +180,8 @@ export type HarnessEvent_Serialize =
 { kind: "dialog"; id: string; title: string; ask: DialogAsk_Serialize } | 
 /**  The commands the agent offers after a slash. */
 { kind: "commands"; commands: SlashCommand_Serialize[] } | 
+/**  The subscription usage windows of the account, shortest first; the whole list each time, empty when none applies. */
+{ kind: "usage"; windows: UsageWindow_Serialize[] } | 
 /**  The steering messages the agent has not taken in yet, oldest first; the whole queue each time. */
 { kind: "queue"; steering: string[] } | 
 /**  The agent started or finished work. */
@@ -375,6 +379,21 @@ export type Status_Serialize = { kind: "running" } |
 export type Theme = "system" | "light" | "dark";
 
 export type ToolOutcome = "done" | "failed" | "stopped";
+
+/**  One subscription usage window: its label, e.g. "5h 42%", and when it resets, in ms since the epoch; none when the harness does not say. */
+export type UsageWindow = UsageWindow_Serialize | UsageWindow_Deserialize;
+
+/**  One subscription usage window: its label, e.g. "5h 42%", and when it resets, in ms since the epoch; none when the harness does not say. */
+export type UsageWindow_Deserialize = {
+	label: string,
+	resets_at?: number | null,
+};
+
+/**  One subscription usage window: its label, e.g. "5h 42%", and when it resets, in ms since the epoch; none when the harness does not say. */
+export type UsageWindow_Serialize = {
+	label: string,
+	resets_at: number | null,
+};
 
 export type Worktree = Worktree_Serialize | Worktree_Deserialize;
 
