@@ -18,6 +18,10 @@ pub fn ipc() -> tauri_specta::Builder<tauri::Wry> {
         commands::projects::create_worktree,
         commands::projects::remove_worktree,
         commands::projects::read_git_counts,
+        commands::chat::start_chat,
+        commands::chat::send_message,
+        commands::chat::abort_run,
+        commands::chat::stop_chat,
         commands::sidebar::set_sidebar_hidden,
         commands::sidebar::set_project_folded,
         commands::appearance::set_theme,
@@ -34,6 +38,7 @@ pub fn run() {
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;
+            app.manage(commands::chat::Chats::default());
             app.manage(Store::open(dir.join("state.json"))?);
             Ok(())
         })

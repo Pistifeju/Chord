@@ -1,14 +1,18 @@
 // The commands table: every feature's commands, the shortcuts that run them, their menu accelerators and tooltips.
 import { commands } from "../ipc/bindings";
+import { chatCommands } from "../features/chat/commands";
 import { settingsCommands } from "../features/settings/commands";
 import { shortcutChanges } from "../features/settings/store";
 import { sidebarCommands } from "../features/sidebar/commands";
 import { worktreeCommands } from "../features/worktrees/commands";
 import { changedShortcut, currentShortcuts, loadedChanges, pressMatches, type Shortcut, type ShortcutChanges, type ShortcutMap } from "./shortcuts";
 
-export type AppCommand = { id: string; title: string; shortcut?: Shortcut; run: (target?: string) => void };
+export type AppCommand = { id: string; title: string; shortcut?: Shortcut; run: (target?: string) => void;
+  /** Escape and other keys shared by commands: the first one whose condition holds runs. */
+  when?: () => boolean;
+};
 
-const table: AppCommand[] = [...sidebarCommands, ...settingsCommands, ...worktreeCommands];
+const table: AppCommand[] = [...sidebarCommands, ...settingsCommands, ...chatCommands, ...worktreeCommands];
 
 const defaultShortcuts: ShortcutMap = Object.fromEntries(table.map((c) => [c.id, c.shortcut]));
 
@@ -33,7 +37,7 @@ export const commandTitles = table.map(({ id, title }) => ({ id, title }));
 
 export function runShortcut(e: KeyboardEvent) {
   const current = currentShortcuts(defaultShortcuts, shortcutChanges.get());
-  const command = table.find((c) => current[c.id] && pressMatches(current[c.id]!, e));
+  const command = table.find((c) => current[c.id] && pressMatches(current[c.id]!, e) && (c.when?.() ?? true));
   if (!command || e.repeat) return;
   e.preventDefault();
   command.run();

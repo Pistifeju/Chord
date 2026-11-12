@@ -48,6 +48,7 @@ The pi side of ACP:
 One trait in `chord-core`, one implementation per harness. The frontend gets Chord events and never a harness record.
 
 - **Events** (adapter to UI), named after ACP's session updates so the ACP adapter maps one to one: `message_chunk`, `thought_chunk`, `tool_call`, `tool_call_update`, `state` (running, waiting, idle with a stop reason), `commands`, `config_options`, `session_info`, `usage`, `notice`, `dialog`.
+- **Adapter lifecycle events**, no ACP equivalent: `message_end` (the streaming reply is complete) and `exited` (the harness process ended). A user's message arrives as `user_message_chunk`.
 - **Chord-only events**, behind capabilities: `status_line`, `widget`, `queue`, `plan_usage`.
 - **Commands** (UI to adapter): `prompt`, `cancel`, `answer_dialog`, `set_config_option`, `new_session`, `list_sessions`, `resume_session`; behind capabilities: `steer`, `fork`, `tree`, `compact`, `export`.
 - **Capabilities**: the adapter returns the list at start. The UI hides a control whose capability is missing. The names are the table in `SPEC.md` section 12.

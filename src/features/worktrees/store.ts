@@ -1,6 +1,7 @@
 // Connects the project rules to IPC: load, add by dialog or drop, remove, select, delete a worktree.
 import { commands, type Project } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
+import { forgetChat, stopChat } from "../chat/store";
 import { settingsOpen } from "../settings/store";
 import { sidebar, toggleFold } from "../sidebar/store";
 import { noProjects, withProject, withoutProject, withoutWorktree, withSavedSelection, withSelectionRestored, withWorktrees, type Projects } from "./projects";
@@ -18,6 +19,8 @@ const notify = (text: string) => update((p) => ({ ...p, error: text, errorIsNoti
 
 export async function refreshWorktrees(project: string) {
   const list = await commands.listWorktrees(project);
+  // A worktree that vanished outside Chord takes its agent with it.
+  for (const gone of projects.get().worktrees[project] ?? []) if (!list.some((w) => w.path === gone.path)) forgetChat(gone.path);
   update((p) => withWorktrees(p, project, list));
 }
 
@@ -55,6 +58,7 @@ export async function addFolders(folders: string[]) {
 export async function removeProject(path: string) {
   try {
     await commands.removeProject(path);
+    for (const gone of projects.get().worktrees[path] ?? []) forgetChat(gone.path);
     update((p) => withoutProject(p, path));
   } catch (error) {
     fail(error);
@@ -97,14 +101,18 @@ export async function deleteWorktree(project: string, path: string, force = fals
   const afterDelete = projects.get().selected;
   const restore = () => update((p) => withSelectionRestored(p, path, before, afterDelete));
   try {
+    await stopChat(path);
     const removal = await commands.removeWorktree(project, path, force);
     if (removal.NeedsForce) {
       forceRemoval.set({ project, path, branch, reason: removal.NeedsForce.reason });
       await refreshWorktrees(project);
       restore();
-    } else if (removal.Removed?.kept_branch) {
-      const { name, reason } = removal.Removed.kept_branch;
-      notify(`Kept branch ${name}: ${reason}`);
+    } else {
+      forgetChat(path);
+      if (removal.Removed?.kept_branch) {
+        const { name, reason } = removal.Removed.kept_branch;
+        notify(`Kept branch ${name}: ${reason}`);
+      }
     }
   } catch (error) {
     fail(error);

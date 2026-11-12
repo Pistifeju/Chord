@@ -1,0 +1,119 @@
+/* The chat pane: transcript column, composer, empty state. Rules: DESIGN.md. */
+.chat {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  height: 100%;
+  outline: none;
+}
+
+.chat-transcript {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.chat-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-sizing: border-box;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px 20px;
+}
+
+.chat-message {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.chat-message[data-role="user"] {
+  align-self: flex-end;
+  max-width: 85%;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: var(--surface-muted);
+}
+
+.chat-working,
+.chat-hint {
+  font-size: calc(11px * var(--text-scale));
+  color: var(--ink-muted);
+}
+
+.chat-notice {
+  box-sizing: border-box;
+  width: min(720px, 100%);
+  margin: 0 auto;
+  padding: 0 20px 8px;
+  color: var(--danger);
+  font-size: calc(11px * var(--text-scale));
+}
+
+.chat-composer,
+.chat-restart {
+  box-sizing: border-box;
+  width: min(720px, 100% - 40px);
+  margin: 0 auto 20px;
+}
+
+.chat-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  background: var(--surface-cream);
+}
+
+.chat-input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 4px 6px;
+  border: none;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  resize: none;
+}
+
+.chat-input:focus-visible {
+  outline: none;
+}
+
+.chat-composer-bar,
+.chat-restart {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.chat-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+}
+
+.chat-empty-title {
+  margin: 0 0 4px;
+  font-size: calc(14px * var(--text-scale));
+  font-weight: 500;
+}
+
+.chat-empty-text {
+  margin: 0 0 16px;
+  color: var(--ink-muted);
+}
+
+.chat-composer:focus-within {
+  border-color: var(--focus-ring);
+}
+
+.chat-input::placeholder {
+  color: var(--ink-muted);
+}

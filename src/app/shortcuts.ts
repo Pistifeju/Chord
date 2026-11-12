@@ -30,15 +30,16 @@ export function currentShortcuts(defaults: ShortcutMap, changes: ShortcutChanges
   return current;
 }
 
-function hasTwoCommandsOnOneKey(map: ShortcutMap) {
-  const keys = Object.values(map).filter((s) => s !== undefined);
-  return keys.some((s, i) => keys.findIndex((other) => sameShortcut(s, other)) !== i);
+// Commands may share a default key (they run in different contexts); a changed key must be unique.
+function hasTwoCommandsOnOneKey(defaults: ShortcutMap, map: ShortcutMap) {
+  const ids = Object.keys(map).filter((id) => map[id] !== undefined);
+  return ids.some((id, i) => ids.some((other, j) => j !== i && sameShortcut(map[id], map[other]) && !(sameShortcut(map[id], defaults[id]) && sameShortcut(map[other], defaults[other]))));
 }
 
 // Saved changes for commands that exist. If they put two commands on one key, none of them load.
 export function loadedChanges(defaults: ShortcutMap, saved: ShortcutChanges): ShortcutChanges {
   const known = Object.fromEntries(Object.entries(saved).filter(([id]) => id in defaults));
-  return hasTwoCommandsOnOneKey(currentShortcuts(defaults, known)) ? {} : known;
+  return hasTwoCommandsOnOneKey(defaults, currentShortcuts(defaults, known)) ? {} : known;
 }
 
 // Gives a command a key, or null for no key. The command that held the key loses it and is named in `lost`.

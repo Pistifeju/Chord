@@ -1,5 +1,6 @@
 // The window's layout. Each feature adds its own region.
 import { useEffect } from "react";
+import { ChatPane } from "../features/chat/ChatPane";
 import { SettingsPage } from "../features/settings/SettingsPage";
 import { settingsOpen } from "../features/settings/store";
 import { Sidebar, SidebarToggle } from "../features/sidebar/Sidebar";
@@ -17,7 +18,7 @@ import { launch } from "./launch";
 import "./app.css";
 
 export default function App() {
-  const { list, error, errorIsNotice } = projects.use();
+  const { list, selected, error, errorIsNotice } = projects.use();
   const { hidden } = sidebar.use();
   const settings = settingsOpen.use();
   useEffect(() => {
@@ -37,7 +38,7 @@ export default function App() {
         </span>
       </div>
       <Sidebar />
-      <main className="main">{settings ? <SettingsPage /> : list.length === 0 && <NoProjects />}</main>
+      <main className="main">{settings ? <SettingsPage /> : list.length === 0 ? <NoProjects /> : selected && <ChatPane key={selected} worktree={selected} />}</main>
       <ProjectDrop />
       <NewWorktreePopup />
       <DeleteWorktreePopup />
