@@ -1,7 +1,7 @@
 // The New Worktree popup's state: open flag, project, branch name and its live git check.
 import { commands } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
-import { startChat } from "../chat/store";
+import { startFocused } from "../panes/store";
 import { branchName, canCreate, defaultProject } from "./projects";
 import { fail, projects, refreshWorktrees, selectWorktree } from "./store";
 
@@ -77,6 +77,6 @@ export async function createWorktree() {
   }
   await refreshWorktrees(project!).catch(fail);
   selectWorktree(path);
-  void startChat(path);
+  void startFocused(path);
   if (mine === session) closeNewWorktree();
 }

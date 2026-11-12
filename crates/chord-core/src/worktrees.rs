@@ -139,7 +139,7 @@ pub struct KeptBranch {
     pub reason: String,
 }
 
-/// Stops the worktree's agent, removes the worktree and deletes its branch when it is merged.
+/// Stops the worktree's agents, removes the worktree and deletes its branch when it is merged.
 pub fn remove(
     sessions: &Sessions,
     project: &Project,

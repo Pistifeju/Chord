@@ -36,14 +36,6 @@ export function defaultProject(projects: Projects): string | null {
 
 export const worktreeName = (worktree: Worktree): string => worktree.branch ?? worktree.path.split("/").pop() ?? worktree.path;
 
-export function selectedNames(projects: Projects): { project: string; worktree: string } | null {
-  for (const project of projects.list) {
-    const worktree = projects.worktrees[project.path]?.find((w) => w.path === projects.selected);
-    if (worktree) return { project: project.name, worktree: worktreeName(worktree) };
-  }
-  return null;
-}
-
 // Whitespace in a typed branch name becomes a dash; this is the name git sees.
 export function branchName(typed: string): string {
   return typed.trim().replace(/\s+/g, "-");

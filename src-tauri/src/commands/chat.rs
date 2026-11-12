@@ -1,4 +1,4 @@
-//! Commands for a worktree's chat: start the agent, send a message, abort the run, stop the agent.
+//! Commands for a pane's chat: start its agent, send a message, abort the run, stop the agent.
 
 use std::path::PathBuf;
 
@@ -15,11 +15,12 @@ use super::blocking;
 pub async fn start_chat(
     app: AppHandle,
     worktree: PathBuf,
+    pane: String,
     on_event: Channel<HarnessEvent>,
 ) -> Result<Vec<Capability>, String> {
     blocking(app, move |app, _| {
         app.state::<Sessions>()
-            .start(DEFAULT_BINARY, worktree, move |event| {
+            .start(DEFAULT_BINARY, worktree, pane, move |event| {
                 let _ = on_event.send(event);
             })
     })
@@ -28,24 +29,24 @@ pub async fn start_chat(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn send_message(app: AppHandle, worktree: PathBuf, text: String) -> Result<(), String> {
+pub async fn send_message(app: AppHandle, pane: String, text: String) -> Result<(), String> {
     blocking(app, move |app, _| {
-        app.state::<Sessions>().send(&worktree, &text)
+        app.state::<Sessions>().send(&pane, &text)
     })
     .await
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn abort_run(app: AppHandle, worktree: PathBuf) -> Result<(), String> {
-    blocking(app, move |app, _| app.state::<Sessions>().abort(&worktree)).await
+pub async fn abort_run(app: AppHandle, pane: String) -> Result<(), String> {
+    blocking(app, move |app, _| app.state::<Sessions>().abort(&pane)).await
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn stop_chat(app: AppHandle, worktree: PathBuf) -> Result<(), String> {
+pub async fn stop_chat(app: AppHandle, pane: String) -> Result<(), String> {
     blocking(app, move |app, _| {
-        app.state::<Sessions>().stop(&worktree);
+        app.state::<Sessions>().stop_pane(&pane);
         Ok(())
     })
     .await

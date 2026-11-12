@@ -3,6 +3,8 @@ import { Menu } from "@tauri-apps/api/menu";
 import type { MouseEvent } from "react";
 import type { Project } from "../../ipc/bindings";
 import { menuItem, shortcutLabel, tooltip } from "../../app/commands";
+import { paneRows } from "../panes/sessions";
+import { focusPane, panes } from "../panes/store";
 import { shortcutChanges } from "../settings/store";
 import { ChevronIcon, PlusIcon, SidebarIcon } from "../../ui/icons";
 import { countsLabel, countsTitle } from "../worktrees/gitCounts";
@@ -55,6 +57,7 @@ function ProjectGroup({ project }: { project: Project }) {
   const { worktrees, selected } = state;
   const order = worktreeOrder(state);
   const counts = gitCounts.use();
+  const allPanes = panes.use();
   shortcutChanges.use();
   const open = !folded.includes(project.path);
   return (
@@ -73,6 +76,7 @@ function ProjectGroup({ project }: { project: Project }) {
             const hint = shortcutLabel(`worktree.select.${order.indexOf(worktree.path) + 1}`);
             const countsText = countsLabel(counts[worktree.path]);
             const countsHint = countsTitle(counts[worktree.path]);
+            const rows = paneRows(allPanes[worktree.path], worktree.path === selected);
             return (
               <li key={worktree.path}>
                 <button
@@ -87,6 +91,25 @@ function ProjectGroup({ project }: { project: Project }) {
                   {countsText && <span className="worktree-counts" title={countsHint}>{countsText}</span>}
                   {hint && <span className="worktree-hint">{hint}</span>}
                 </button>
+                {rows.length > 0 && (
+                  <ul className="pane-list">
+                    {rows.map(({ pane, label, focused }) => (
+                      <li key={pane}>
+                        <button
+                          type="button"
+                          className="pane-row"
+                          aria-current={focused}
+                          onClick={() => {
+                            selectWorktree(worktree.path);
+                            focusPane(worktree.path, pane);
+                          }}
+                        >
+                          {label}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </li>
             );
           })}

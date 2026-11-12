@@ -34,6 +34,12 @@ export const PlusIcon = () => (
   </Icon>
 );
 
+export const ChatIcon = () => (
+  <Icon>
+    <path d="M3.5 2.75h9a1.75 1.75 0 0 1 1.75 1.75v5a1.75 1.75 0 0 1-1.75 1.75H8L5 13.5v-2.25H3.5A1.75 1.75 0 0 1 1.75 9.5v-5A1.75 1.75 0 0 1 3.5 2.75z" />
+  </Icon>
+);
+
 export const CloseIcon = () => (
   <Icon>
     <path d="M4 4l8 8M12 4l-8 8" />

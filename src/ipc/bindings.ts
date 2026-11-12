@@ -15,10 +15,10 @@ export const commands = {
 	createWorktree: (project: string, branch: string) => __TAURI_INVOKE<Worktree_Serialize>("create_worktree", { project, branch }),
 	removeWorktree: (project: string, worktree: string, force: boolean) => __TAURI_INVOKE<Removal_Serialize>("remove_worktree", { project, worktree, force }),
 	readGitCounts: (worktrees: string[]) => __TAURI_INVOKE<GitCounts_Serialize[]>("read_git_counts", { worktrees }),
-	startChat: (worktree: string, onEvent: Channel<HarnessEvent>) => __TAURI_INVOKE<Capability[]>("start_chat", { worktree, onEvent }),
-	sendMessage: (worktree: string, text: string) => __TAURI_INVOKE<null>("send_message", { worktree, text }),
-	abortRun: (worktree: string) => __TAURI_INVOKE<null>("abort_run", { worktree }),
-	stopChat: (worktree: string) => __TAURI_INVOKE<null>("stop_chat", { worktree }),
+	startChat: (worktree: string, pane: string, onEvent: Channel<HarnessEvent>) => __TAURI_INVOKE<Capability[]>("start_chat", { worktree, pane, onEvent }),
+	sendMessage: (pane: string, text: string) => __TAURI_INVOKE<null>("send_message", { pane, text }),
+	abortRun: (pane: string) => __TAURI_INVOKE<null>("abort_run", { pane }),
+	stopChat: (pane: string) => __TAURI_INVOKE<null>("stop_chat", { pane }),
 };
 
 /* Types */
@@ -40,6 +40,12 @@ export type Appearance_Serialize = {
 export type Capability = 
 /**  Streaming replies, a composer, steering and stopping a run. */
 "chat";
+
+export type Direction = 
+/**  Children sit side by side. */
+"row" | 
+/**  Children sit one above the other. */
+"column";
 
 export type GitCounts = GitCounts_Serialize | GitCounts_Deserialize;
 
@@ -76,6 +82,18 @@ export type HarnessEvent =
 export type KeptBranch = {
 	name: string,
 	reason: string,
+};
+
+export type Layout = { kind: "pane"; id: string } | { kind: "split"; direction: Direction; 
+/**  Each child's share of the split; they add up to 1. */
+sizes: (number | null)[]; children: Layout[] };
+
+/**  One session tab: its name, its split layout and the pane that has the focus. */
+export type PaneSession = {
+	id: string,
+	name: string,
+	layout: Layout,
+	focused: string,
 };
 
 export type Project = {
@@ -143,16 +161,26 @@ export type State = State_Serialize | State_Deserialize;
 export type StateChange = StateChange_Serialize | StateChange_Deserialize;
 
 /**  One change the frontend saves. */
-export type StateChange_Deserialize = ({ selectedWorktree?: string | null }) & { projectFolded?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ sidebarHidden: boolean }) & { projectFolded?: never; selectedWorktree?: never; shortcuts?: never; textPercent?: never; theme?: never } | ({ projectFolded: {
+export type StateChange_Deserialize = ({ selectedWorktree?: string | null }) & { panes?: never; projectFolded?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ sidebarHidden: boolean }) & { panes?: never; projectFolded?: never; selectedWorktree?: never; shortcuts?: never; textPercent?: never; theme?: never } | ({ projectFolded: {
 	project: string,
 	folded: boolean,
-} }) & { selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ theme: Theme }) & { projectFolded?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never } | ({ textPercent: number }) & { projectFolded?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; theme?: never } | ({ shortcuts: { [key in string]: Shortcut_Deserialize | null } }) & { projectFolded?: never; selectedWorktree?: never; sidebarHidden?: never; textPercent?: never; theme?: never };
+} }) & { panes?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ theme: Theme }) & { panes?: never; projectFolded?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never } | ({ textPercent: number }) & { panes?: never; projectFolded?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; theme?: never } | ({ shortcuts: { [key in string]: Shortcut_Deserialize | null } }) & { panes?: never; projectFolded?: never; selectedWorktree?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | 
+/**  `None` forgets the worktree's layouts. */
+({ panes: {
+	worktree: string,
+	panes?: WorktreePanes | null,
+} }) & { projectFolded?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never; theme?: never };
 
 /**  One change the frontend saves. */
-export type StateChange_Serialize = ({ selectedWorktree: string | null }) & { projectFolded?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ sidebarHidden: boolean }) & { projectFolded?: never; selectedWorktree?: never; shortcuts?: never; textPercent?: never; theme?: never } | ({ projectFolded: {
+export type StateChange_Serialize = ({ selectedWorktree: string | null }) & { panes?: never; projectFolded?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ sidebarHidden: boolean }) & { panes?: never; projectFolded?: never; selectedWorktree?: never; shortcuts?: never; textPercent?: never; theme?: never } | ({ projectFolded: {
 	project: string,
 	folded: boolean,
-} }) & { selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ theme: Theme }) & { projectFolded?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never } | ({ textPercent: number }) & { projectFolded?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; theme?: never } | ({ shortcuts: { [key in string]: Shortcut_Serialize | null } }) & { projectFolded?: never; selectedWorktree?: never; sidebarHidden?: never; textPercent?: never; theme?: never };
+} }) & { panes?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ theme: Theme }) & { panes?: never; projectFolded?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never } | ({ textPercent: number }) & { panes?: never; projectFolded?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; theme?: never } | ({ shortcuts: { [key in string]: Shortcut_Serialize | null } }) & { panes?: never; projectFolded?: never; selectedWorktree?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | 
+/**  `None` forgets the worktree's layouts. */
+({ panes: {
+	worktree: string,
+	panes: WorktreePanes | null,
+} }) & { projectFolded?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never; theme?: never };
 
 export type State_Deserialize = {
 	projects?: Project[],
@@ -162,6 +190,8 @@ export type State_Deserialize = {
 	shortcuts?: { [key in string]: Shortcut_Deserialize | null },
 	/**  The worktree open when the app last ran. */
 	selected?: string | null,
+	/**  Each worktree's session tabs and split layouts. */
+	panes?: { [key in string]: WorktreePanes },
 };
 
 export type State_Serialize = {
@@ -172,11 +202,19 @@ export type State_Serialize = {
 	shortcuts: { [key in string]: Shortcut_Serialize | null },
 	/**  The worktree open when the app last ran. */
 	selected: string | null,
+	/**  Each worktree's session tabs and split layouts. */
+	panes: { [key in string]: WorktreePanes },
 };
 
 export type Theme = "system" | "light" | "dark";
 
 export type Worktree = Worktree_Serialize | Worktree_Deserialize;
+
+export type WorktreePanes = {
+	sessions: PaneSession[],
+	/**  The id of the session whose tab is open. */
+	active: string,
+};
 
 export type Worktree_Deserialize = {
 	path: string,

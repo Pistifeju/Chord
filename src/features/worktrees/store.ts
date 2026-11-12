@@ -1,7 +1,7 @@
 // Connects the project rules to IPC: load, add by dialog or drop, remove, select, delete a worktree.
 import { commands, type Project } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
-import { forgetChat } from "../chat/store";
+import { forgetPanes, forgetPanesExcept } from "../panes/store";
 import { settingsOpen } from "../settings/store";
 import { sidebar, toggleFold } from "../sidebar/store";
 import { noProjects, withProject, withoutProject, withoutWorktree, withSavedSelection, withSelectionRestored, withWorktrees, type Projects } from "./projects";
@@ -20,7 +20,7 @@ const notify = (text: string) => update((p) => ({ ...p, error: text, errorIsNoti
 export async function refreshWorktrees(project: string) {
   const list = await commands.listWorktrees(project);
   // A worktree that vanished outside Chord takes its agent with it.
-  for (const gone of projects.get().worktrees[project] ?? []) if (!list.some((w) => w.path === gone.path)) forgetChat(gone.path);
+  for (const gone of projects.get().worktrees[project] ?? []) if (!list.some((w) => w.path === gone.path)) forgetPanes(gone.path);
   update((p) => withWorktrees(p, project, list));
 }
 
@@ -31,9 +31,15 @@ function show(project: Project) {
 
 // The saved worktree comes back once its project's list has loaded; one that no longer exists stays unselected.
 export function loadProjects(list: Project[], saved: string | null) {
-  for (const project of list) {
-    void show(project).then(() => update((p) => withSavedSelection(p, saved)));
-  }
+  const loaded = list.map((project) => show(project).then(() => update((p) => withSavedSelection(p, saved))));
+  void Promise.all(loaded).then(pruneVanishedPanes);
+}
+
+// Only when every project's list loaded and none is empty: a failed load must not wipe saved layouts.
+function pruneVanishedPanes() {
+  const { list, worktrees } = projects.get();
+  if (list.some((p) => !worktrees[p.path]?.length)) return;
+  forgetPanesExcept(new Set(list.flatMap((p) => worktrees[p.path].map((w) => w.path))));
 }
 
 export async function pickProject() {
@@ -58,7 +64,7 @@ export async function addFolders(folders: string[]) {
 export async function removeProject(path: string) {
   try {
     await commands.removeProject(path);
-    for (const gone of projects.get().worktrees[path] ?? []) forgetChat(gone.path);
+    for (const gone of projects.get().worktrees[path] ?? []) forgetPanes(gone.path);
     update((p) => withoutProject(p, path));
   } catch (error) {
     fail(error);
@@ -107,7 +113,7 @@ export async function deleteWorktree(project: string, path: string, force = fals
       await refreshWorktrees(project);
       restore();
     } else {
-      forgetChat(path);
+      forgetPanes(path);
       if (removal.Removed?.kept_branch) {
         const { name, reason } = removal.Removed.kept_branch;
         notify(`Kept branch ${name}: ${reason}`);

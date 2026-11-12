@@ -1,20 +1,20 @@
-// The chat of one worktree: transcript, composer, and a Start button while no agent runs.
-import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
+// The chat of one pane: transcript, composer, and a Start button while no agent runs.
+import { useEffect, useLayoutEffect, useRef, type KeyboardEvent } from "react";
 import { ArrowUpIcon } from "../../ui/icons";
-import { chatOf, chats, sendMessage, startChat } from "./store";
+import { chatOf, chats, drafts, sendMessage, setDraft, startChat } from "./store";
 import "./chat.css";
 
-function StartButton({ worktree }: { worktree: string }) {
+function StartButton({ worktree, pane }: { worktree: string; pane: string }) {
   return (
-    <button type="button" className="button-primary" onClick={() => startChat(worktree)}>
+    <button type="button" className="button-primary" onClick={() => startChat(worktree, pane)}>
       Start
     </button>
   );
 }
 
-export function ChatPane({ worktree }: { worktree: string }) {
-  const chat = chatOf(chats.use(), worktree);
-  const [draft, setDraft] = useState("");
+export function ChatPane({ worktree, pane, focused }: { worktree: string; pane: string; focused: boolean }) {
+  const chat = chatOf(chats.use(), pane);
+  const draft = drafts.use()[pane] ?? "";
   const composer = useRef<HTMLTextAreaElement>(null);
   const transcript = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
@@ -22,8 +22,8 @@ export function ChatPane({ worktree }: { worktree: string }) {
   const hasChat = chat.capabilities === null || chat.capabilities.includes("chat");
 
   useEffect(() => {
-    if (ready) composer.current?.focus();
-  }, [ready]);
+    if (ready && focused) composer.current?.focus();
+  }, [ready, focused]);
 
   // Follow the reply while the reader sits at the bottom; reading further up pauses it.
   useLayoutEffect(() => {
@@ -34,9 +34,9 @@ export function ChatPane({ worktree }: { worktree: string }) {
   const send = () => {
     const text = draft.trim();
     if (!text) return;
-    setDraft("");
+    setDraft(pane, "");
     pinned.current = true;
-    sendMessage(worktree, text);
+    sendMessage(pane, text);
     composer.current?.focus();
   };
 
@@ -63,7 +63,7 @@ export function ChatPane({ worktree }: { worktree: string }) {
           <div className="chat-empty">
             <h1 className="chat-empty-title">No chat yet</h1>
             <p className="chat-empty-text">Start an agent in this worktree.</p>
-            <StartButton worktree={worktree} />
+            <StartButton worktree={worktree} pane={pane} />
           </div>
         ) : (
           <div className="chat-messages" data-selectable>
@@ -80,7 +80,7 @@ export function ChatPane({ worktree }: { worktree: string }) {
       {chat.agent === "idle" && chat.messages.length > 0 && (
         <div className="chat-restart">
           <span className="chat-hint">The agent stopped.</span>
-          <StartButton worktree={worktree} />
+          <StartButton worktree={worktree} pane={pane} />
         </div>
       )}
       {chat.agent !== "idle" && (
@@ -92,7 +92,7 @@ export function ChatPane({ worktree }: { worktree: string }) {
             disabled={!ready}
             value={draft}
             placeholder={chat.running ? "Steer the agent" : "Message the agent"}
-            onChange={(e) => setDraft(e.target.value)}
+            onChange={(e) => setDraft(pane, e.target.value)}
             onKeyDown={onComposerKey}
           />
           <div className="chat-composer-bar">

@@ -262,7 +262,7 @@ Sizes multiply by `--text-scale`, which the text size setting changes (⌘=, ⌘
 ## Layout
 
 - One window, minimum 900 × 600. A flex row: the sidebar (240px) and the main area.
-- The title bar row is 52px tall, transparent, and drags the window. It holds the sidebar toggle and the title: project name, a slash, the worktree name. The title hides on the Settings page. With the sidebar hidden, the toggle sits after the traffic lights and the title follows it.
+- The title bar row is 52px tall, transparent, and drags the window. It holds the sidebar toggle. With the sidebar hidden, the toggle sits after the traffic lights. On a worktree the session tabs fill the row.
 - The toast shows in the title bar row, centered, so it covers no content.
 - The transcript and the composer share a centered column, 720px at most, with 20px side padding.
 - The Settings page is a centered column, 560px at most.
@@ -326,6 +326,14 @@ No pills. A circle appears only as the Working dot and the spinner.
 - **Project header:** name at 13px/600, then the chevron right after it. A long name truncates; the chevron stays. Right-click opens the project menu.
 - **Worktree row:** 30px tall, three slots in a fixed order: name, git counts, shortcut hint. The name truncates with an ellipsis; the two meta slots never shrink.
 - **States:** hover takes `raised`, the open worktree takes `selected` and `ink`.
+- **Pane rows:** a worktree with more than one pane shows one row per pane under its card: 24px tall, 11px `ink-muted` session name (numbered, "Session 1 · 2", when the session has several panes), indented past the card's name. Hover and the focused pane take the card's states.
+
+### Tab bar and panes
+
+- **Tab bar:** the 40px row at the top of the work area with a 1px `line` bottom edge. One tab per session, then a plus icon button. With the sidebar hidden it starts after the sidebar toggle.
+- **Tab:** flat, full bar height, 220px wide at most, no radius, a 1px `line` rule on its right edge. A 16px chat icon, or a spinner while an agent of the session runs, then the name (truncates), then a 20px close icon button. The close button hides when one session is left. `ink-muted` text; hover takes `raised`; the open tab takes `selected` and `ink`. The bar scrolls sideways when tabs overflow.
+- **Divider:** a 1px `line` rule between panes with a 9px grab area. Hover and drag step it to `line-strong`. Double-click evens the split out. A pane keeps 10% at least.
+- **Focused pane:** with a split, a 1px `line-strong` inset edge marks the pane that takes the shortcuts.
 
 ### Chat
 

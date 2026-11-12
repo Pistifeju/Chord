@@ -59,9 +59,9 @@ Edge cases:
 
 ## 3. Panes and tabs (core, needs E1)
 
-- [ ] C1 Split right (⌘D), split down (⌘⇧D), close pane (⌘⇧W); every pane runs its own agent in the worktree. A split worktree's card shows one row per pane with its session name.
-- [ ] C2 Drag dividers to resize, double-click evens out, sizes persist.
-- [ ] C3 Session tabs in the tab bar: one per chat session of the worktree, each its own split layout; a + after them opens a new one (⌘⇧T).
+- [x] C1 Split right (⌘D), split down (⌘⇧D), close pane (⌘⇧W); every pane runs its own agent in the worktree. A split worktree's card shows one row per pane with its session name.
+- [x] C2 Drag dividers to resize, double-click evens out, sizes persist.
+- [x] C3 Session tabs in the tab bar: one per chat session of the worktree, each its own split layout; a + after them opens a new one (⌘⇧T).
 - [ ] C4 Drag a session tab onto a pane edge to split there.
 - [ ] C5 harness(sessions): agents that ran at quit come back on launch in their exact session.
 - [ ] C6 Quit asks while agents run.

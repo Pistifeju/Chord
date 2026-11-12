@@ -9,7 +9,7 @@ use std::sync::{Mutex, PoisonError};
 use serde::{Deserialize, Deserializer, Serialize};
 use specta::Type;
 
-use crate::{Error, Project};
+use crate::{Error, Project, WorktreePanes};
 
 #[derive(Serialize, Deserialize, Type, Clone, Debug, Default, PartialEq)]
 #[serde(default, rename_all = "camelCase")]
@@ -23,6 +23,8 @@ pub struct State {
     pub shortcuts: BTreeMap<String, Option<Shortcut>>,
     /// The worktree open when the app last ran.
     pub selected: Option<PathBuf>,
+    /// Each worktree's session tabs and split layouts.
+    pub panes: BTreeMap<PathBuf, WorktreePanes>,
 }
 
 /// One change the frontend saves.
@@ -31,10 +33,18 @@ pub struct State {
 pub enum StateChange {
     SelectedWorktree(Option<PathBuf>),
     SidebarHidden(bool),
-    ProjectFolded { project: PathBuf, folded: bool },
+    ProjectFolded {
+        project: PathBuf,
+        folded: bool,
+    },
     Theme(Theme),
     TextPercent(u8),
     Shortcuts(BTreeMap<String, Option<Shortcut>>),
+    /// `None` forgets the worktree's layouts.
+    Panes {
+        worktree: PathBuf,
+        panes: Option<WorktreePanes>,
+    },
 }
 
 impl State {
@@ -48,6 +58,14 @@ impl State {
             StateChange::Theme(theme) => self.appearance.theme = theme,
             StateChange::TextPercent(percent) => self.appearance.set_text_percent(percent),
             StateChange::Shortcuts(shortcuts) => self.shortcuts = shortcuts,
+            StateChange::Panes { worktree, panes } => match panes {
+                Some(panes) => {
+                    self.panes.insert(worktree, panes);
+                }
+                None => {
+                    self.panes.remove(&worktree);
+                }
+            },
         }
     }
 }

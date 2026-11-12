@@ -1,12 +1,16 @@
 // The chat's commands for the commands table.
 import type { AppCommand } from "../../app/commands";
+import { activeSession } from "../panes/sessions";
+import { panes } from "../panes/store";
 import { settingsOpen } from "../settings/store";
 import { projects } from "../worktrees/store";
 import { abortRun, chatOf, chats } from "./store";
 
-const runningWorktree = (): string | null => {
+const runningPane = (): string | null => {
   const { selected } = projects.get();
-  return selected && !settingsOpen.get() && chatOf(chats.get(), selected).running ? selected : null;
+  const open = selected ? panes.get()[selected] : undefined;
+  const pane = open && activeSession(open).focused;
+  return pane && !settingsOpen.get() && chatOf(chats.get(), pane).running ? pane : null;
 };
 
 export const chatCommands: AppCommand[] = [
@@ -14,10 +18,10 @@ export const chatCommands: AppCommand[] = [
     id: "chat.stop",
     title: "Stop Agent",
     shortcut: { key: "escape" },
-    when: () => runningWorktree() !== null,
+    when: () => runningPane() !== null,
     run: () => {
-      const worktree = runningWorktree();
-      if (worktree) abortRun(worktree);
+      const pane = runningPane();
+      if (pane) abortRun(pane);
     },
   },
 ];
