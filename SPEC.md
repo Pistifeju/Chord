@@ -17,7 +17,7 @@ Tags:
 - [x] A1 Sidebar: one group per project, one card per worktree, fold per project, show/hide, remembered.
 - [x] A2 Worktree card: branch name, ⌘1-9 hint. Other features add to it: git counts (B6), pane rows (C1), status (D2).
 - [x] A3 One commands table drives shortcuts, menu accelerators and tooltips.
-- [ ] A5 Light / dark / system theme; text size (⌘=, ⌘-, ⌘0). Settings rows for both.
+- [x] A5 Light / dark / system theme; text size (⌘=, ⌘-, ⌘0). Settings rows for both.
 - [x] A6 Restores the open project and worktree on launch.
 
 Containers. The first feature that puts something in one builds it:
@@ -173,7 +173,7 @@ Edge cases:
 
 ## 11. Settings and onboarding
 
-- [ ] K1 shortcut editor in Settings: every command's shortcut; the recorder says which command lost its key; bad saved shortcuts load as defaults.
+- [x] K1 shortcut editor in Settings: every command's shortcut; the recorder says which command lost its key; bad saved shortcuts load as defaults.
 - [ ] K2 onboarding: find the harness, show its install step when it is missing, check its version, add the first project. A missing `git` shows its install step.
 - [ ] K3 Copy diagnostics (versions of Chord, macOS, Xcode, harness) and a log file.
 

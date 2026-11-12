@@ -1,11 +1,12 @@
 //! The saved app state and the store that writes it to `state.json`.
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::io::ErrorKind;
 use std::path::PathBuf;
 use std::sync::{Mutex, PoisonError};
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use specta::Type;
 
 use crate::{Error, Project};
@@ -15,6 +16,11 @@ use crate::{Error, Project};
 pub struct State {
     pub projects: Vec<Project>,
     pub sidebar: Sidebar,
+    pub appearance: Appearance,
+    /// Shortcuts the user changed, by command id. `None` means the command lost its key.
+    #[serde(deserialize_with = "valid_shortcuts")]
+    #[specta(type = BTreeMap<String, Option<Shortcut>>)]
+    pub shortcuts: BTreeMap<String, Option<Shortcut>>,
     /// The worktree open when the app last ran.
     pub selected: Option<PathBuf>,
 }
@@ -34,6 +40,83 @@ impl Sidebar {
         }
         self.folded.clone()
     }
+}
+
+#[derive(Serialize, Deserialize, Type, Clone, Copy, Debug, Default, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum Theme {
+    #[default]
+    System,
+    Light,
+    Dark,
+}
+
+#[derive(Serialize, Deserialize, Type, Clone, Debug, PartialEq)]
+#[serde(default, rename_all = "camelCase")]
+pub struct Appearance {
+    pub theme: Theme,
+    /// Text size as a percent of the default.
+    pub text_percent: u8,
+}
+
+impl Appearance {
+    pub const MIN_TEXT_PERCENT: u8 = 80;
+    pub const MAX_TEXT_PERCENT: u8 = 150;
+
+    pub fn set_text_percent(&mut self, percent: u8) -> u8 {
+        self.text_percent = percent.clamp(Self::MIN_TEXT_PERCENT, Self::MAX_TEXT_PERCENT);
+        self.text_percent
+    }
+}
+
+impl Default for Appearance {
+    fn default() -> Self {
+        Appearance {
+            theme: Theme::default(),
+            text_percent: 100,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Type, Clone, Debug, Default, PartialEq)]
+#[serde(default)]
+pub struct Shortcut {
+    /// The lowercase `KeyboardEvent.key`.
+    pub key: String,
+    pub cmd: bool,
+    pub ctrl: bool,
+    pub alt: bool,
+    pub shift: bool,
+}
+
+impl Shortcut {
+    /// A key that is not typing: a lowercase, visible key with cmd, ctrl or alt, or escape alone.
+    fn is_valid(&self) -> bool {
+        let named = !self.key.is_empty()
+            && self.key == self.key.to_lowercase()
+            && !self.key.chars().any(char::is_whitespace);
+        named && (self.cmd || self.ctrl || self.alt || self.key == "escape")
+    }
+}
+
+/// Entries that are not valid shortcuts are dropped, so those commands load with their defaults.
+fn valid_shortcuts<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<BTreeMap<String, Option<Shortcut>>, D::Error> {
+    let value = serde_json::Value::deserialize(deserializer)?;
+    let serde_json::Value::Object(entries) = value else {
+        return Ok(BTreeMap::new());
+    };
+    Ok(entries
+        .into_iter()
+        .filter_map(|(id, saved)| {
+            let shortcut: Option<Shortcut> = serde_json::from_value(saved).ok()?;
+            shortcut
+                .as_ref()
+                .is_none_or(Shortcut::is_valid)
+                .then_some((id, shortcut))
+        })
+        .collect())
 }
 
 pub struct Store {
@@ -75,5 +158,29 @@ impl Store {
         fs::rename(&temp, &self.file)?;
         *state = next;
         Ok(result)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bad_saved_shortcuts_are_dropped_and_good_ones_kept() {
+        let state: State = serde_json::from_str(
+            r#"{"shortcuts":{
+                "a":{"key":"k","cmd":true},
+                "b":{"key":"K","cmd":true},
+                "c":{"key":"k"},
+                "d":{"key":"k","cmd":"yes"},
+                "e":null,
+                "f":"cmd+k"
+            }}"#,
+        )
+        .unwrap();
+        let ids: Vec<_> = state.shortcuts.keys().cloned().collect();
+        assert_eq!(ids, ["a", "e"]);
+        let state: State = serde_json::from_str(r#"{"shortcuts":[1]}"#).unwrap();
+        assert!(state.shortcuts.is_empty());
     }
 }

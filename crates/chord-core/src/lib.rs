@@ -10,5 +10,5 @@ pub mod worktrees;
 pub use error::Error;
 pub use git_counts::GitCounts;
 pub use projects::Project;
-pub use state::{Sidebar, State, Store};
+pub use state::{Appearance, Shortcut, Sidebar, State, Store, Theme};
 pub use worktrees::{KeptBranch, Removal, Worktree};

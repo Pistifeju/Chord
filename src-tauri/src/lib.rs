@@ -20,6 +20,9 @@ pub fn ipc() -> tauri_specta::Builder<tauri::Wry> {
         commands::projects::read_git_counts,
         commands::sidebar::set_sidebar_hidden,
         commands::sidebar::set_project_folded,
+        commands::appearance::set_theme,
+        commands::appearance::set_text_percent,
+        commands::shortcuts::set_shortcuts,
     ])
 }
 

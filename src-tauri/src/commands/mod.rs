@@ -1,6 +1,8 @@
 //! Tauri commands, one file per feature area, and the thread they run core calls on.
 
+pub mod appearance;
 pub mod projects;
+pub mod shortcuts;
 pub mod sidebar;
 
 use chord_core::{Error, Store};

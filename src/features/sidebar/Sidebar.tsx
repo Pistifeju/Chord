@@ -3,6 +3,7 @@ import { Menu } from "@tauri-apps/api/menu";
 import type { MouseEvent } from "react";
 import type { Project } from "../../ipc/bindings";
 import { menuItem, shortcutLabel, tooltip } from "../../app/commands";
+import { shortcutChanges } from "../settings/store";
 import { ChevronIcon, EllipsisIcon, PlusIcon, SidebarIcon } from "../../ui/icons";
 import { countsLabel, countsTitle } from "../worktrees/gitCounts";
 import { gitCounts } from "../worktrees/gitCountsRefresh";
@@ -12,6 +13,7 @@ import { sidebar, toggleFold, toggleSidebar } from "./store";
 import "./sidebar.css";
 
 export function SidebarToggle() {
+  shortcutChanges.use();
   return (
     <button type="button" className="icon-button" title={tooltip("sidebar.toggle")} onClick={toggleSidebar}>
       <SidebarIcon />
@@ -21,6 +23,7 @@ export function SidebarToggle() {
 
 export function Sidebar() {
   const { hidden } = sidebar.use();
+  shortcutChanges.use();
   const { list } = projects.use();
   if (hidden) return null;
   return (
@@ -52,6 +55,7 @@ function ProjectGroup({ project }: { project: Project }) {
   const { worktrees, selected } = state;
   const order = worktreeOrder(state);
   const counts = gitCounts.use();
+  shortcutChanges.use();
   const open = !folded.includes(project.path);
   return (
     <section className="project-group">

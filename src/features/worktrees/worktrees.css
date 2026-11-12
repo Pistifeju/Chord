@@ -29,7 +29,7 @@
 
 .no-projects-title {
   margin: 12px 0 4px;
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale));
   font-weight: 500;
 }
 

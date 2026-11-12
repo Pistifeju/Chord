@@ -31,4 +31,5 @@
   flex: 1;
   min-width: 0;
   padding-top: 52px;
+  overflow-y: auto;
 }

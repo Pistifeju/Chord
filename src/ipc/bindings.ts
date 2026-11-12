@@ -17,9 +17,26 @@ export const commands = {
 	readGitCounts: (worktrees: string[]) => __TAURI_INVOKE<GitCounts_Serialize[]>("read_git_counts", { worktrees }),
 	setSidebarHidden: (hidden: boolean) => __TAURI_INVOKE<null>("set_sidebar_hidden", { hidden }),
 	setProjectFolded: (project: string, folded: boolean) => __TAURI_INVOKE<string[]>("set_project_folded", { project, folded }),
+	setTheme: (theme: Theme) => __TAURI_INVOKE<null>("set_theme", { theme }),
+	setTextPercent: (percent: number) => __TAURI_INVOKE<number>("set_text_percent", { percent }),
+	setShortcuts: (shortcuts: { [key in string]: Shortcut_Deserialize | null }) => __TAURI_INVOKE<null>("set_shortcuts", { shortcuts }),
 };
 
 /* Types */
+export type Appearance = Appearance_Serialize | Appearance_Deserialize;
+
+export type Appearance_Deserialize = {
+	theme?: Theme,
+	/**  Text size as a percent of the default. */
+	textPercent?: number,
+};
+
+export type Appearance_Serialize = {
+	theme: Theme,
+	/**  Text size as a percent of the default. */
+	textPercent: number,
+};
+
 export type GitCounts = GitCounts_Serialize | GitCounts_Deserialize;
 
 export type GitCounts_Deserialize = {
@@ -70,6 +87,26 @@ export type Removal_Serialize =
 	reason: string,
 } }) & { Removed?: never };
 
+export type Shortcut = Shortcut_Serialize | Shortcut_Deserialize;
+
+export type Shortcut_Deserialize = {
+	/**  The lowercase `KeyboardEvent.key`. */
+	key?: string,
+	cmd?: boolean,
+	ctrl?: boolean,
+	alt?: boolean,
+	shift?: boolean,
+};
+
+export type Shortcut_Serialize = {
+	/**  The lowercase `KeyboardEvent.key`. */
+	key: string,
+	cmd: boolean,
+	ctrl: boolean,
+	alt: boolean,
+	shift: boolean,
+};
+
 export type Sidebar = Sidebar_Serialize | Sidebar_Deserialize;
 
 export type Sidebar_Deserialize = {
@@ -87,6 +124,9 @@ export type State = State_Serialize | State_Deserialize;
 export type State_Deserialize = {
 	projects?: Project[],
 	sidebar?: Sidebar_Deserialize,
+	appearance?: Appearance_Deserialize,
+	/**  Shortcuts the user changed, by command id. `None` means the command lost its key. */
+	shortcuts?: { [key in string]: Shortcut_Deserialize | null },
 	/**  The worktree open when the app last ran. */
 	selected?: string | null,
 };
@@ -94,9 +134,14 @@ export type State_Deserialize = {
 export type State_Serialize = {
 	projects: Project[],
 	sidebar: Sidebar_Serialize,
+	appearance: Appearance_Serialize,
+	/**  Shortcuts the user changed, by command id. `None` means the command lost its key. */
+	shortcuts: { [key in string]: Shortcut_Serialize | null },
 	/**  The worktree open when the app last ran. */
 	selected: string | null,
 };
+
+export type Theme = "system" | "light" | "dark";
 
 export type Worktree = Worktree_Serialize | Worktree_Deserialize;
 

@@ -1,22 +1,39 @@
 // The commands table: every feature's commands, the shortcuts that run them, their menu accelerators and tooltips.
+import { commands } from "../ipc/bindings";
+import { settingsCommands } from "../features/settings/commands";
+import { shortcutChanges } from "../features/settings/store";
 import { sidebarCommands } from "../features/sidebar/commands";
 import { worktreeCommands } from "../features/worktrees/commands";
-
-export type Shortcut = { key: string; cmd?: boolean; ctrl?: boolean; alt?: boolean; shift?: boolean };
+import { changedShortcut, currentShortcuts, loadedChanges, pressMatches, type Shortcut, type ShortcutChanges, type ShortcutMap } from "./shortcuts";
 
 export type AppCommand = { id: string; title: string; shortcut?: Shortcut; run: (target?: string) => void };
 
-const table: AppCommand[] = [...sidebarCommands, ...worktreeCommands];
+const table: AppCommand[] = [...sidebarCommands, ...settingsCommands, ...worktreeCommands];
 
-const matches = (s: Shortcut, e: KeyboardEvent) =>
-  e.key.toLowerCase() === s.key &&
-  e.metaKey === !!s.cmd &&
-  e.ctrlKey === !!s.ctrl &&
-  e.altKey === !!s.alt &&
-  e.shiftKey === !!s.shift;
+const defaultShortcuts: ShortcutMap = Object.fromEntries(table.map((c) => [c.id, c.shortcut]));
+
+// The key a command has now: its default, or the one the user chose.
+export const shortcutOf = (id: string): Shortcut | undefined => currentShortcuts(defaultShortcuts, shortcutChanges.get())[id];
+
+export function loadShortcutChanges(saved: ShortcutChanges) {
+  shortcutChanges.set(loadedChanges(defaultShortcuts, saved));
+}
+
+// Returns the title of the command that lost the key, if one did.
+export function changeShortcut(id: string, shortcut: Shortcut | null): string | undefined {
+  const { changes, lost } = changedShortcut(defaultShortcuts, shortcutChanges.get(), id, shortcut);
+  shortcutChanges.set(changes);
+  commands.setShortcuts(changes).catch(console.error);
+  return table.find((c) => c.id === lost)?.title;
+}
+
+export const resetShortcut = (id: string) => changeShortcut(id, defaultShortcuts[id] ?? null);
+
+export const commandTitles = table.map(({ id, title }) => ({ id, title }));
 
 export function runShortcut(e: KeyboardEvent) {
-  const command = table.find((c) => c.shortcut && matches(c.shortcut, e));
+  const current = currentShortcuts(defaultShortcuts, shortcutChanges.get());
+  const command = table.find((c) => current[c.id] && pressMatches(current[c.id]!, e));
   if (!command || e.repeat) return;
   e.preventDefault();
   command.run();
@@ -32,7 +49,7 @@ const modifiers = [
 const keyParts = (s: Shortcut, form: 1 | 2) => [...modifiers.filter(([flag]) => s[flag]).map((m) => m[form]), s.key.toUpperCase()];
 
 export function shortcutLabel(id: string): string | undefined {
-  const s = table.find((c) => c.id === id)?.shortcut;
+  const s = shortcutOf(id);
   return s && keyParts(s, 1).join("");
 }
 
@@ -47,7 +64,7 @@ const accelerator = (s: Shortcut) => keyParts(s, 2).join("+");
 // A context-menu item that runs a command on the item it was opened for.
 export function menuItem(id: string, target: string) {
   const command = table.find((c) => c.id === id);
-  const shortcut = command?.shortcut;
+  const shortcut = shortcutOf(id);
   return {
     id,
     text: command?.title ?? id,

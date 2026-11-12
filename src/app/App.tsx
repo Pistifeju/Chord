@@ -1,5 +1,7 @@
 // The window's layout. Each feature adds its own region.
 import { useEffect } from "react";
+import { SettingsPage } from "../features/settings/SettingsPage";
+import { settingsOpen } from "../features/settings/store";
 import { Sidebar, SidebarToggle } from "../features/sidebar/Sidebar";
 import { sidebar } from "../features/sidebar/store";
 import { NoProjects } from "../features/worktrees/NoProjects";
@@ -17,6 +19,7 @@ import "./app.css";
 export default function App() {
   const { list, error, errorIsNotice } = projects.use();
   const { hidden } = sidebar.use();
+  const settings = settingsOpen.use();
   useEffect(() => {
     launch().catch(console.error);
     window.addEventListener("keydown", runShortcut);
@@ -34,7 +37,7 @@ export default function App() {
         </span>
       </div>
       <Sidebar />
-      <main className="main">{list.length === 0 && <NoProjects />}</main>
+      <main className="main">{settings ? <SettingsPage /> : list.length === 0 && <NoProjects />}</main>
       <ProjectDrop />
       <NewWorktreePopup />
       <DeleteWorktreePopup />

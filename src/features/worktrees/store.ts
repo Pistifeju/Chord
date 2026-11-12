@@ -1,6 +1,7 @@
 // Connects the project rules to IPC: load, add by dialog or drop, remove, select, delete a worktree.
 import { commands, type Project } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
+import { settingsOpen } from "../settings/store";
 import { sidebar, toggleFold } from "../sidebar/store";
 import { noProjects, withProject, withoutProject, withoutWorktree, withSavedSelection, withSelectionRestored, withWorktrees, type Projects } from "./projects";
 
@@ -64,6 +65,7 @@ export function selectWorktree(path: string) {
   const { list, worktrees } = projects.get();
   const owner = list.find((p) => worktrees[p.path]?.some((w) => w.path === path));
   if (owner && sidebar.get().folded.includes(owner.path)) toggleFold(owner.path);
+  settingsOpen.set(false);
   update((p) => ({ ...p, selected: path }));
 }
 export const dismissError = () => update((p) => ({ ...p, error: null }));
