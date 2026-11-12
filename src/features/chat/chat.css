@@ -139,6 +139,11 @@
   min-width: 0;
 }
 
+.chat-steps > .chat-thumbs {
+  margin-top: 4px;
+  padding-left: 18px;
+}
+
 .chat-step-title {
   flex: none;
   color: var(--ink-secondary);
@@ -193,9 +198,9 @@
   color: var(--ink-secondary);
 }
 
-/* New items, the Working row and the notice rise 4px into place while they fade in. */
+/* New items, the Working row and the notice rise 4px into place while they fade in; the image row is skipped so an image arriving mid-run does not replay it. */
 .chat-message[data-fresh],
-.chat-steps[data-fresh] > *,
+.chat-steps[data-fresh] > :not(.chat-thumbs),
 .chat-working,
 .chat-find,
 .chat-notice {
@@ -592,7 +597,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .chat-message[data-fresh],
-  .chat-steps[data-fresh] > *,
+  .chat-steps[data-fresh] > :not(.chat-thumbs),
   .chat-working,
   .chat-find,
   .chat-notice {

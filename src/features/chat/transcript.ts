@@ -6,7 +6,7 @@ export type Message = { role: "user" | "assistant"; text: string; streaming: boo
 
 export type Step =
   | { kind: "thought"; /** Its place in the group; steps only append, so it stays stable. */ id: number; text: string }
-  | { kind: "call"; id: string; title: string; detail: string; state: "running" | "done" | "failed" | "stopped" };
+  | { kind: "call"; id: string; title: string; detail: string; state: "running" | "done" | "failed" | "stopped"; /** The images the tool returned. */ images?: Image[] };
 
 /** The thoughts and tool calls between two messages, folded into one row. */
 export type StepGroup = { role: "steps"; steps: Step[] };
@@ -55,6 +55,11 @@ export function shownSteps(steps: Step[], running: boolean, expanded: boolean): 
   return steps.filter((_, i) => shown.has(i));
 }
 
+/** Every image the group's tools returned, in call order. */
+export function stepImages(steps: Step[]): Image[] {
+  return steps.flatMap((step) => (step.kind === "call" ? (step.images ?? []) : []));
+}
+
 export function stepsSummary(steps: Step[]): string {
   const calls = steps.filter((step) => step.kind === "call").length;
   const thoughts = steps.length - calls;
@@ -88,7 +93,7 @@ export function chatAfter(chat: Chat, event: HarnessEvent, now: number): Chat {
     case "tool_start":
       return { ...chat, items: withStep(chat.items, (steps) => [...steps, { kind: "call", id: event.id, title: event.title, detail: event.detail, state: "running" }]) };
     case "tool_end": {
-      const ended = (step: Step): Step => (step.kind === "call" && step.id === event.id ? { ...step, state: event.outcome } : step);
+      const ended = (step: Step): Step => (step.kind === "call" && step.id === event.id ? { ...step, state: event.outcome, images: event.images } : step);
       // The call is almost always in the last group.
       for (let i = chat.items.length - 1; i >= 0; i--) {
         const item = chat.items[i];

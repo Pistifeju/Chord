@@ -51,8 +51,12 @@ pub enum HarnessEvent {
         title: String,
         detail: String,
     },
-    /// A tool call ended; `Stopped` means the run ended or was aborted before it reported.
-    ToolEnd { id: String, outcome: ToolOutcome },
+    /// A tool call ended; `Stopped` means the run ended or was aborted before it reported. `images` are the ones the tool returned.
+    ToolEnd {
+        id: String,
+        outcome: ToolOutcome,
+        images: Vec<Image>,
+    },
     /// The streaming reply is complete; `failed` when it ended in an error.
     MessageEnd { failed: bool },
     /// The agent opened a dialog and waits for an answer.
@@ -212,6 +216,7 @@ mod tests {
         events.push(HarnessEvent::ToolEnd {
             id: "a".into(),
             outcome: ToolOutcome::Done,
+            images: vec![],
         });
         assert_eq!(last_status(&events), Some(Status::Running));
     }

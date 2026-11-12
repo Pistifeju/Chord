@@ -93,8 +93,8 @@ export type HarnessEvent_Deserialize =
 { kind: "thought_chunk"; text: string } | 
 /**  A tool call began; `title` is what it does (Read, Search, List, Run, Edit, Write, a tool's name) and `detail` its path, command or arguments. */
 { kind: "tool_start"; id: string; title: string; detail: string } | 
-/**  A tool call ended; `Stopped` means the run ended or was aborted before it reported. */
-{ kind: "tool_end"; id: string; outcome: ToolOutcome } | 
+/**  A tool call ended; `Stopped` means the run ended or was aborted before it reported. `images` are the ones the tool returned. */
+{ kind: "tool_end"; id: string; outcome: ToolOutcome; images: Image[] } | 
 /**  The streaming reply is complete; `failed` when it ended in an error. */
 { kind: "message_end"; failed: boolean } | 
 /**  The agent opened a dialog and waits for an answer. */
@@ -121,8 +121,8 @@ export type HarnessEvent_Serialize =
 { kind: "thought_chunk"; text: string } | 
 /**  A tool call began; `title` is what it does (Read, Search, List, Run, Edit, Write, a tool's name) and `detail` its path, command or arguments. */
 { kind: "tool_start"; id: string; title: string; detail: string } | 
-/**  A tool call ended; `Stopped` means the run ended or was aborted before it reported. */
-{ kind: "tool_end"; id: string; outcome: ToolOutcome } | 
+/**  A tool call ended; `Stopped` means the run ended or was aborted before it reported. `images` are the ones the tool returned. */
+{ kind: "tool_end"; id: string; outcome: ToolOutcome; images: Image[] } | 
 /**  The streaming reply is complete; `failed` when it ended in an error. */
 { kind: "message_end"; failed: boolean } | 
 /**  The agent opened a dialog and waits for an answer. */

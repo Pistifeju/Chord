@@ -2,6 +2,7 @@
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { memo, useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
 import { tooltip } from "../../app/commands";
+import type { Image } from "../../ipc/bindings";
 import { ArrowDownIcon, ArrowUpIcon, ChevronIcon, CloseIcon, PaperclipIcon, SparkleIcon } from "../../ui/icons";
 import { imageMime, imageUrl, isImageType, type Attachment } from "./attachments";
 import { FindBar } from "./FindBar";
@@ -10,7 +11,7 @@ import { Markdown } from "./MarkdownView";
 import { Lightbox } from "./Lightbox";
 import { closeLightbox, lightboxes, openLightbox, stepLightbox } from "./viewing";
 import { attachFiles, attachments, attachPasted, chatOf, chats, drafts, pickAttachments, removeAttachment, sendMessage, setDraft, startChat } from "./store";
-import { shownSteps, stepsSummary, type Item, type Message, type StepGroup } from "./transcript";
+import { shownSteps, stepImages, stepsSummary, type Item, type Message, type StepGroup } from "./transcript";
 import "./chat.css";
 
 function StartButton({ worktree, pane }: { worktree: string; pane: string }) {
@@ -41,27 +42,32 @@ function Working({ since }: { since: number }) {
   );
 }
 
+function Thumbs({ pane, images }: { pane: string; images: Image[] }) {
+  return (
+    <div className="chat-thumbs">
+      {images.map((image, i) => (
+        <button key={i} type="button" className="chat-thumb" aria-label={`Open image ${i + 1} of ${images.length}`} onClick={() => openLightbox(pane, images, i)}>
+          <img src={imageUrl(image)} alt="" />
+        </button>
+      ))}
+    </div>
+  );
+}
+
 const MessageRow = memo(function MessageRow({ pane, message, fresh }: { pane: string; message: Message; fresh: boolean }) {
   const images = message.images ?? [];
   return (
     <div className="chat-message" data-role={message.role} data-fresh={fresh || undefined}>
       {message.role === "user" ? message.text : <Markdown text={message.text} />}
-      {images.length > 0 && (
-        <div className="chat-thumbs">
-          {images.map((image, i) => (
-            <button key={i} type="button" className="chat-thumb" aria-label={`Open image ${i + 1} of ${images.length}`} onClick={() => openLightbox(pane, images, i)}>
-              <img src={imageUrl(image)} alt="" />
-            </button>
-          ))}
-        </div>
-      )}
+      {images.length > 0 && <Thumbs pane={pane} images={images} />}
     </div>
   );
 });
 
-const StepsRow = memo(function StepsRow({ group, running, fresh }: { group: StepGroup; running: boolean; fresh: boolean }) {
+const StepsRow = memo(function StepsRow({ pane, group, running, fresh }: { pane: string; group: StepGroup; running: boolean; fresh: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const shown = shownSteps(group.steps, running, expanded);
+  const images = stepImages(group.steps);
   return (
     <div className="chat-steps" data-fresh={fresh || undefined}>
       <button type="button" className="chat-steps-toggle" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
@@ -82,6 +88,7 @@ const StepsRow = memo(function StepsRow({ group, running, fresh }: { group: Step
           </div>
         ),
       )}
+      {images.length > 0 && <Thumbs pane={pane} images={images} />}
     </div>
   );
 });
@@ -100,7 +107,7 @@ const Messages = memo(function Messages({ pane, items, running, queued }: { pane
     <div className="chat-messages" data-selectable>
       {items.map((item, i) =>
         item.role === "steps" ? (
-          <StepsRow key={i} group={item} running={running && i === items.length - 1} fresh={i >= loaded.current} />
+          <StepsRow key={i} pane={pane} group={item} running={running && i === items.length - 1} fresh={i >= loaded.current} />
         ) : item.streaming ? null : (
           <MessageRow key={i} pane={pane} message={item} fresh={i >= loaded.current} />
         ),

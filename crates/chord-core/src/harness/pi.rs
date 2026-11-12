@@ -264,6 +264,7 @@ impl OpenCalls {
             .map(|id| HarnessEvent::ToolEnd {
                 id,
                 outcome: ToolOutcome::Stopped,
+                images: vec![],
             })
             .collect()
     }
@@ -307,6 +308,7 @@ fn events_from(record: &Value) -> Vec<HarnessEvent> {
             } else {
                 ToolOutcome::Done
             },
+            images: images_of(&record["result"]["content"]),
         }],
         Some("message_end") => message_end(&record["message"]),
         Some("queue_update") => vec![HarnessEvent::Queue {
@@ -511,6 +513,7 @@ mod tests {
         let ended = HarnessEvent::ToolEnd {
             id: "a".into(),
             outcome: ToolOutcome::Done,
+            images: vec![],
         };
         open.track(vec![ended]);
         assert_eq!(
@@ -518,7 +521,8 @@ mod tests {
             vec![
                 HarnessEvent::ToolEnd {
                     id: "b".into(),
-                    outcome: ToolOutcome::Stopped
+                    outcome: ToolOutcome::Stopped,
+                    images: vec![]
                 },
                 HarnessEvent::State { running: false }
             ]
@@ -538,7 +542,24 @@ mod tests {
             events(record),
             vec![HarnessEvent::ToolEnd {
                 id: "c1".into(),
-                outcome: ToolOutcome::Failed
+                outcome: ToolOutcome::Failed,
+                images: vec![]
+            }]
+        );
+    }
+
+    #[test]
+    fn a_tool_result_keeps_its_images() {
+        let record = r#"{"type":"tool_execution_end","toolCallId":"c1","toolName":"read","result":{"content":[{"type":"text","text":"Read image"},{"type":"image","data":"x","mimeType":"image/png"}]},"isError":false}"#;
+        assert_eq!(
+            events(record),
+            vec![HarnessEvent::ToolEnd {
+                id: "c1".into(),
+                outcome: ToolOutcome::Done,
+                images: vec![Image {
+                    data: "x".into(),
+                    mime_type: "image/png".into()
+                }]
             }]
         );
     }
