@@ -310,7 +310,7 @@ export type SlashCommand_Serialize = {
 
 /**  Where a slash command is defined. */
 export type SlashKind = "skill" | "prompt" | "extension" | 
-/**  A command of the harness itself that acts on the pane's session: model, thinking, new, resume, fork, clone, tree, export. */
+/**  A command of the harness itself that acts on the pane's session: model, thinking, new, resume, fork, clone, tree, reload, export. */
 "session";
 
 export type State = State_Serialize | State_Deserialize;

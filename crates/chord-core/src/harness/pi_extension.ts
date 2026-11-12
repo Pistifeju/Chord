@@ -72,6 +72,13 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
+  pi.registerCommand("chord-reload", {
+    description: "Reload extensions, skills, prompts and context files",
+    handler: async (_args, ctx) => {
+      await ctx.reload();
+    },
+  });
+
   pi.registerCommand("chord-tree", {
     description: "Go back to an earlier point of this session",
     handler: async (_args, ctx) => {

@@ -46,7 +46,7 @@ pub enum SlashKind {
     Skill,
     Prompt,
     Extension,
-    /// A command of the harness itself that acts on the pane's session: model, thinking, new, resume, fork, clone, tree, export.
+    /// A command of the harness itself that acts on the pane's session: model, thinking, new, resume, fork, clone, tree, reload, export.
     Session,
 }
 

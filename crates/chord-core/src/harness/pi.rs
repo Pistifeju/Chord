@@ -73,7 +73,7 @@ impl Picker {
 }
 
 /// What pi offers after a slash in its own terminal and RPC does not list: each name and its description.
-const SESSION_COMMANDS: [(&str, &str); 8] = [
+const SESSION_COMMANDS: [(&str, &str); 9] = [
     ("model", "Pick the model"),
     ("thinking", "Pick the thinking level"),
     ("new", "Start a new session"),
@@ -81,6 +81,10 @@ const SESSION_COMMANDS: [(&str, &str); 8] = [
     ("fork", "Start a new session from an earlier message"),
     ("clone", "Copy this session into a new one"),
     ("tree", "Go back to an earlier point of this session"),
+    (
+        "reload",
+        "Reload extensions, skills, prompts and context files",
+    ),
     (
         "export",
         "Write this session to an HTML file, optionally at a path",
@@ -326,6 +330,7 @@ fn session_command(text: &str, held_elsewhere: &[PathBuf]) -> Option<Value> {
         "/fork" => json!({ "type": "get_fork_messages" }),
         "/clone" => json!({ "type": "clone" }),
         "/tree" => extension("tree"),
+        "/reload" => extension("reload"),
         _ => return None,
     })
 }
@@ -706,8 +711,11 @@ fn requests_after(record: &Value) -> Vec<Value> {
         (Some("response"), Some("new_session" | "fork" | "clone")) if changed => {
             session_requests().into()
         }
+        // A reload can add or drop commands, so the slash menu is read again too.
         (Some("response"), Some("prompt")) if changed && record["id"] == SESSION_PROMPT => {
-            session_requests().into()
+            let mut requests = session_requests().to_vec();
+            requests.push(json!({ "type": "get_commands" }));
+            requests
         }
         // A new model can change the thinking level and the context window too.
         (Some("response"), Some("set_model" | "set_thinking_level")) if changed => {
@@ -1479,7 +1487,7 @@ mod tests {
             read(
                 r#"{"id":"chord-session","type":"response","command":"prompt","success":true,"data":{"disposition":"handled"}}"#
             ),
-            again
+            [again.clone(), vec![json!({ "type": "get_commands" })]].concat()
         );
         assert_eq!(
             read(

@@ -99,6 +99,7 @@ Edge cases:
 - [x] E6 harness(dialogs): extension dialogs (select, confirm, input) over the composer; a select marks the current option and shows its filter row.
 - [x] E7 harness(commands): slash menu with the typed part marked; a bubble shows `/skill:name`, not the expanded skill.
 - [x] E8 **hard** harness(sessions): resume, fork, clone, tree, export, new; the session's name on its tab; history on restart.
+- [x] E16 harness(sessions): `/reload` reloads extensions, skills, prompts and context files in the running agent, without a restart; the slash menu reads the commands again.
 - [x] E9 harness(models): model picker with search; thinking level picker.
 - [x] E10 harness(context): context meter with a limit warning; `/new` resets it.
 - [x] E11 harness(usage): subscription usage (5h, weekly) in the status bar, with the reset as a clock time; stale windows hidden. The windows come from the pi-powerbar extension; without it the bar never shows.
@@ -205,7 +206,7 @@ A harness that lacks one hides the features tagged with it.
 | attachments, tool-images | E4, E5, I3 | RPC |
 | dialogs | E6 | RPC extension UI requests |
 | commands | E7 | RPC |
-| sessions | E8, C5 | RPC plus two commands from the extension Chord ships |
+| sessions | E8, E16, C5 | RPC plus three commands from the extension Chord ships |
 | models | E9 | RPC |
 | context, usage, status-line | E10-E12 | RPC; usage comes from a pi extension that reports it |
 | widgets | E13 | a pi subagent extension |
