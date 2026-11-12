@@ -12,6 +12,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  mask-image: linear-gradient(to bottom, transparent, black 16px, black calc(100% - 16px), transparent);
 }
 
 .chat-messages {
