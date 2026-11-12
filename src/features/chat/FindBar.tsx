@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type RefObject } from "react";
 import { tooltip } from "../../app/commands";
 import { ArrowDownIcon, ArrowUpIcon, CloseIcon } from "../../ui/icons";
+import { useOutsidePointer } from "../../ui/outsidePointer";
 import { closeFind, setFindQuery, type Find } from "./find";
 import { clearFind, matchesIn, paintFind } from "./findMatches";
 import type { Item } from "./transcript";
@@ -10,6 +11,8 @@ const reveal = (range: Range | undefined) => range?.startContainer.parentElement
 
 export function FindBar({ pane, find, transcript, items }: { pane: string; find: Find; transcript: RefObject<HTMLDivElement | null>; items: Item[] }) {
   const input = useRef<HTMLInputElement>(null);
+  const bar = useRef<HTMLDivElement>(null);
+  useOutsidePointer(bar, () => closeFind(pane));
   const [matches, setMatches] = useState<Range[]>([]);
   const count = matches.length;
   const revealed = useRef<string | null>(null);
@@ -55,7 +58,7 @@ export function FindBar({ pane, find, transcript, items }: { pane: string; find:
   };
 
   return (
-    <div className="chat-find">
+    <div className="chat-find" ref={bar}>
       <input
         ref={input}
         className="chat-find-input"

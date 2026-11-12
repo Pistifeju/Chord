@@ -5,7 +5,7 @@ import { tooltip } from "../../app/commands";
 import type { Image, SlashCommand } from "../../ipc/bindings";
 import { ArrowDownIcon, ArrowUpIcon, ChevronIcon, CloseIcon, PaperclipIcon, SparkleIcon } from "../../ui/icons";
 import { imageMime, imageUrl, isImageType, type Attachment } from "./attachments";
-import { DialogPanel } from "./DialogPanel";
+import { DialogMenu, DialogPanel } from "./DialogPanel";
 import { modelLabels } from "./model";
 import { FindBar } from "./FindBar";
 import { finds } from "./find";
@@ -15,7 +15,7 @@ import { SlashMenu } from "./SlashMenu";
 import { steppedIndex } from "./dialog";
 import { completion, slashMenu, slashQuery } from "./slash";
 import { closeLightbox, lightboxes, openLightbox, stepLightbox } from "./viewing";
-import { attachFiles, attachments, attachPasted, chatOf, chats, drafts, openPicker, pickAttachments, removeAttachment, sendMessage, setDraft, slashClosed, startChat } from "./store";
+import { answerDialog, attachFiles, attachments, attachPasted, chatOf, chats, closeSlash, drafts, openPicker, pickAttachments, removeAttachment, sendMessage, setDraft, slashClosed, startChat } from "./store";
 import { isStreaming, shownSteps, stepImages, stepsSummary, type Item, type Message, type StepGroup } from "./transcript";
 import "./chat.css";
 
@@ -175,10 +175,20 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
     return () => void unlisten.then((stop) => stop());
   }, [canAttach, pane]);
 
+  // The composer grows with its draft up to the CSS max-height, then scrolls inside.
+  useLayoutEffect(() => {
+    const el = composer.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [draft]);
+
   const dialogOpen = chat.dialog !== null;
+  const menu = chat.dialog?.ask.kind === "menu" ? { dialog: chat.dialog, ask: chat.dialog.ask } : null;
   useEffect(() => {
-    if (ready && focused) composer.current?.focus();
+    if (ready && focused && !dialogOpen) composer.current?.focus();
   }, [ready, focused, dialogOpen]);
+  const togglePicker = (command: "/model" | "/thinking") => (menu ? answerDialog(pane, menu.dialog.id, { kind: "cancelled" }) : openPicker(pane, command));
 
   // Follow the reply while the reader sits at the bottom; reading further up pauses it. A session that opens starts the transcript over and shows its end.
   const firstItem = useRef(chat.items[0]);
@@ -288,10 +298,11 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
           <StartButton worktree={worktree} pane={pane} />
         </div>
       )}
-      {chat.dialog && <DialogPanel key={chat.dialog.id} pane={pane} dialog={chat.dialog} />}
-      {chat.agent !== "idle" && !chat.dialog && (
+      {chat.dialog && !menu && <DialogPanel key={chat.dialog.id} pane={pane} dialog={chat.dialog} />}
+      {chat.agent !== "idle" && (!chat.dialog || menu) && (
         <div className="chat-composer-anchor">
-          {slashRows.length > 0 && <SlashMenu commands={slashRows} query={slashQuery(draft) ?? ""} active={slashAt} onActive={setSlashActive} onPick={pickSlash} />}
+          {menu && <DialogMenu key={menu.dialog.id} pane={pane} dialog={menu.dialog} options={menu.ask.options} current={menu.ask.current ?? null} filter={menu.ask.filter} />}
+          {!menu && slashRows.length > 0 && <SlashMenu commands={slashRows} query={slashQuery(draft) ?? ""} active={slashAt} onActive={setSlashActive} onPick={pickSlash} onDismiss={() => closeSlash(pane, draft)} />}
           <div className="chat-composer">
             {waiting.length > 0 && (
               <div className="chat-attachments">
@@ -310,7 +321,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
             <textarea
               ref={composer}
               className="chat-input"
-              rows={2}
+              rows={1}
               disabled={!ready}
               value={draft}
               placeholder={steers ? "Steer the agent" : "Message the agent"}
@@ -329,11 +340,11 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
               )}
               {labels && (
                 <div className="chat-pickers">
-                  <button type="button" className="chat-picker" title="Model" disabled={!ready} onClick={() => openPicker(pane, "/model")}>
+                  <button type="button" className="chat-picker" title="Model" disabled={!ready} data-menu-toggle onClick={() => togglePicker("/model")}>
                     {labels.name}
                   </button>
                   {labels.thinking && (
-                    <button type="button" className="chat-picker" title="Thinking Level" disabled={!ready} onClick={() => openPicker(pane, "/thinking")}>
+                    <button type="button" className="chat-picker" title="Thinking Level" disabled={!ready} data-menu-toggle onClick={() => togglePicker("/thinking")}>
                       {labels.thinking}
                     </button>
                   )}

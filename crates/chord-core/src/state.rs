@@ -39,10 +39,6 @@ pub struct State {
 pub enum StateChange {
     SelectedWorktree(Option<PathBuf>),
     SidebarHidden(bool),
-    ProjectFolded {
-        project: PathBuf,
-        folded: bool,
-    },
     Theme(Theme),
     TextPercent(u8),
     Shortcuts(BTreeMap<String, Option<Shortcut>>),
@@ -58,9 +54,6 @@ impl State {
         match change {
             StateChange::SelectedWorktree(worktree) => self.selected = worktree,
             StateChange::SidebarHidden(hidden) => self.sidebar.hidden = hidden,
-            StateChange::ProjectFolded { project, folded } => {
-                self.sidebar.set_folded(project, folded)
-            }
             StateChange::Theme(theme) => self.appearance.theme = theme,
             StateChange::TextPercent(percent) => self.appearance.set_text_percent(percent),
             StateChange::Shortcuts(shortcuts) => self.shortcuts = shortcuts,
@@ -80,16 +73,6 @@ impl State {
 #[serde(default, rename_all = "camelCase")]
 pub struct Sidebar {
     pub hidden: bool,
-    pub folded: Vec<PathBuf>,
-}
-
-impl Sidebar {
-    fn set_folded(&mut self, project: PathBuf, folded: bool) {
-        self.folded.retain(|path| *path != project);
-        if folded {
-            self.folded.push(project);
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize, Type, Clone, Copy, Debug, Default, PartialEq)]

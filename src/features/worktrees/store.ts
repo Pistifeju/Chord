@@ -4,7 +4,6 @@ import { closeSheet, openSheet, sheet, sheetOf } from "../../app/sheet";
 import { externalStore } from "../../ui/externalStore";
 import { forgetPanes, forgetPanesExcept } from "../panes/store";
 import { settingsOpen } from "../settings/store";
-import { sidebar, toggleFold } from "../sidebar/store";
 import { noProjects, withProject, withoutProject, withoutWorktree, withSavedSelection, withSelectionRestored, withWorktrees, worktreeOrder, type Projects } from "./projects";
 
 export const projects = externalStore(noProjects);
@@ -73,9 +72,6 @@ export async function removeProject(path: string) {
 }
 
 export function selectWorktree(path: string) {
-  const { list, worktrees } = projects.get();
-  const owner = list.find((p) => worktrees[p.path]?.some((w) => w.path === path));
-  if (owner && sidebar.get().folded.includes(owner.path)) toggleFold(owner.path);
   settingsOpen.set(false);
   update((p) => ({ ...p, selected: path }));
 }

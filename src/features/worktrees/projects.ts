@@ -36,6 +36,13 @@ export function defaultProject(projects: Projects): string | null {
 
 export const worktreeName = (worktree: Worktree): string => worktree.branch ?? worktree.path.split("/").pop() ?? worktree.path;
 
+// The two letters on a project's badge: the first letters of its first two words, or its first two characters.
+export function projectInitials(name: string): string {
+  const words = name.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  const letters = words.length > 1 ? words[0][0] + words[1][0] : (words[0] ?? name).slice(0, 2);
+  return letters.toUpperCase();
+}
+
 // Whitespace in a typed branch name becomes a dash; this is the name git sees.
 export function branchName(typed: string): string {
   return typed.trim().replace(/\s+/g, "-");
@@ -68,7 +75,7 @@ export function withSavedSelection(projects: Projects, saved: string | null): Pr
   return worktreeOrder(projects).includes(saved) ? { ...projects, selected: saved } : projects;
 }
 
-// Worktree paths in sidebar order, folded projects included; the first ones take the select shortcuts.
+// Worktree paths in sidebar order; the first ones take the select shortcuts.
 export function worktreeOrder(projects: Projects): string[] {
   return projects.list.flatMap((p) => (projects.worktrees[p.path] ?? []).map((w) => w.path));
 }

@@ -70,12 +70,16 @@ export type DialogAsk = DialogAsk_Serialize | DialogAsk_Deserialize;
 /**  What a dialog asks. */
 export type DialogAsk_Deserialize = 
 /**  `current` is the option now in effect, which the dialog marks. */
-{ kind: "select"; options: string[]; current?: string | null } | { kind: "confirm"; message: string } | { kind: "input"; placeholder: string };
+{ kind: "select"; options: string[]; current?: string | null } | 
+/**  A select the user opened from the composer bar; it floats over the composer as a menu, with a filter row only when `filter`. */
+{ kind: "menu"; options: string[]; current?: string | null; filter: boolean } | { kind: "confirm"; message: string } | { kind: "input"; placeholder: string };
 
 /**  What a dialog asks. */
 export type DialogAsk_Serialize = 
 /**  `current` is the option now in effect, which the dialog marks. */
-{ kind: "select"; options: string[]; current: string | null } | { kind: "confirm"; message: string } | { kind: "input"; placeholder: string };
+{ kind: "select"; options: string[]; current: string | null } | 
+/**  A select the user opened from the composer bar; it floats over the composer as a menu, with a filter row only when `filter`. */
+{ kind: "menu"; options: string[]; current: string | null; filter: boolean } | { kind: "confirm"; message: string } | { kind: "input"; placeholder: string };
 
 export type Direction = 
 /**  Children sit side by side. */
@@ -265,12 +269,10 @@ export type Sidebar = Sidebar_Serialize | Sidebar_Deserialize;
 
 export type Sidebar_Deserialize = {
 	hidden?: boolean,
-	folded?: string[],
 };
 
 export type Sidebar_Serialize = {
 	hidden: boolean,
-	folded: string[],
 };
 
 /**  A command the user can type after a slash; `name` has no slash. `origin` names the package it comes from; it is empty for a local file. */
@@ -303,26 +305,20 @@ export type State = State_Serialize | State_Deserialize;
 export type StateChange = StateChange_Serialize | StateChange_Deserialize;
 
 /**  One change the frontend saves. */
-export type StateChange_Deserialize = ({ selectedWorktree?: string | null }) & { panes?: never; projectFolded?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ sidebarHidden: boolean }) & { panes?: never; projectFolded?: never; selectedWorktree?: never; shortcuts?: never; textPercent?: never; theme?: never } | ({ projectFolded: {
-	project: string,
-	folded: boolean,
-} }) & { panes?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ theme: Theme }) & { panes?: never; projectFolded?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never } | ({ textPercent: number }) & { panes?: never; projectFolded?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; theme?: never } | ({ shortcuts: { [key in string]: Shortcut_Deserialize | null } }) & { panes?: never; projectFolded?: never; selectedWorktree?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | 
+export type StateChange_Deserialize = ({ selectedWorktree?: string | null }) & { panes?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ sidebarHidden: boolean }) & { panes?: never; selectedWorktree?: never; shortcuts?: never; textPercent?: never; theme?: never } | ({ theme: Theme }) & { panes?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never } | ({ textPercent: number }) & { panes?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; theme?: never } | ({ shortcuts: { [key in string]: Shortcut_Deserialize | null } }) & { panes?: never; selectedWorktree?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | 
 /**  `None` forgets the worktree's layouts. */
 ({ panes: {
 	worktree: string,
 	panes?: WorktreePanes | null,
-} }) & { projectFolded?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never; theme?: never };
+} }) & { selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never; theme?: never };
 
 /**  One change the frontend saves. */
-export type StateChange_Serialize = ({ selectedWorktree: string | null }) & { panes?: never; projectFolded?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ sidebarHidden: boolean }) & { panes?: never; projectFolded?: never; selectedWorktree?: never; shortcuts?: never; textPercent?: never; theme?: never } | ({ projectFolded: {
-	project: string,
-	folded: boolean,
-} }) & { panes?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ theme: Theme }) & { panes?: never; projectFolded?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never } | ({ textPercent: number }) & { panes?: never; projectFolded?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; theme?: never } | ({ shortcuts: { [key in string]: Shortcut_Serialize | null } }) & { panes?: never; projectFolded?: never; selectedWorktree?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | 
+export type StateChange_Serialize = ({ selectedWorktree: string | null }) & { panes?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ sidebarHidden: boolean }) & { panes?: never; selectedWorktree?: never; shortcuts?: never; textPercent?: never; theme?: never } | ({ theme: Theme }) & { panes?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never } | ({ textPercent: number }) & { panes?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; theme?: never } | ({ shortcuts: { [key in string]: Shortcut_Serialize | null } }) & { panes?: never; selectedWorktree?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | 
 /**  `None` forgets the worktree's layouts. */
 ({ panes: {
 	worktree: string,
 	panes: WorktreePanes | null,
-} }) & { projectFolded?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never; theme?: never };
+} }) & { selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never; theme?: never };
 
 export type State_Deserialize = {
 	projects?: Project[],

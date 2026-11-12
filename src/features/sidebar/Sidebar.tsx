@@ -1,4 +1,4 @@
-// The sidebar: one foldable group per project, one card per worktree, and its show/hide button.
+// The sidebar: one card per worktree across all projects, and its show/hide button.
 import { Menu } from "@tauri-apps/api/menu";
 import { useEffect, useState, type MouseEvent } from "react";
 import type { GitCounts_Serialize as GitCounts, Project, Worktree_Serialize as Worktree } from "../../ipc/bindings";
@@ -10,12 +10,12 @@ import { focusPane, panes } from "../panes/store";
 import { shortcutChanges } from "../settings/store";
 import { finished } from "../status/store";
 import { ageLabel, statusLabel, urgentReport } from "../status/status";
-import { ChevronIcon, PlusIcon, SidebarIcon } from "../../ui/icons";
+import { CheckIcon, PlusIcon, SidebarIcon } from "../../ui/icons";
 import { countsLabel, countsTitle } from "../worktrees/gitCounts";
 import { gitCounts } from "../worktrees/gitCountsRefresh";
-import { worktreeName, worktreeOrder } from "../worktrees/projects";
+import { projectInitials, worktreeName, worktreeOrder } from "../worktrees/projects";
 import { pickProject, projects, selectWorktree } from "../worktrees/store";
-import { sidebar, toggleFold, toggleSidebar } from "./store";
+import { sidebar, toggleSidebar } from "./store";
 import "./sidebar.css";
 
 export function SidebarToggle() {
@@ -30,8 +30,11 @@ export function SidebarToggle() {
 export function Sidebar() {
   const { hidden } = sidebar.use();
   shortcutChanges.use();
-  const { list } = projects.use();
+  const state = projects.use();
+  const counts = gitCounts.use();
+  const finishedPanes = finished.use();
   if (hidden) return null;
+  const order = worktreeOrder(state);
   return (
     <nav className="sidebar" aria-label="Projects">
       <div className="sidebar-header">
@@ -40,16 +43,26 @@ export function Sidebar() {
           <PlusIcon />
         </button>
       </div>
-      <div className="sidebar-list">
-        {list.map((project) => (
-          <ProjectGroup key={project.path} project={project} />
-        ))}
-      </div>
+      <ul className="worktree-list">
+        {state.list.flatMap((project) =>
+          (state.worktrees[project.path] ?? []).map((worktree) => (
+            <WorktreeCard
+              key={worktree.path}
+              project={project}
+              worktree={worktree}
+              selected={worktree.path === state.selected}
+              hint={shortcutLabel(`worktree.select.${order.indexOf(worktree.path) + 1}`)}
+              counts={counts[worktree.path]}
+              finishedPanes={finishedPanes}
+            />
+          )),
+        )}
+      </ul>
     </nav>
   );
 }
 
-// The status of the worktree's most urgent pane: its last message and how long ago the status began.
+// The top-right slot: "Done" for a finish nobody opened, the status word while an agent needs attention or runs, otherwise the age of the last status.
 function WorktreeStatus({ paneIdList, unseenDone }: { paneIdList: string[]; unseenDone: boolean }) {
   const report = chats.usePart((all) => urgentReport(paneIdList.map((pane) => all[pane]?.report)));
   const [now, setNow] = useState(Date.now);
@@ -57,66 +70,30 @@ function WorktreeStatus({ paneIdList, unseenDone }: { paneIdList: string[]; unse
     const timer = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(timer);
   }, []);
-  if (!report) {
-    if (!unseenDone) return null;
+  const kind = report?.status.kind;
+  if (unseenDone && (kind === undefined || kind === "done")) {
     return (
-      <span className="worktree-status">
-        <span className="status-dot" data-status="done" data-finished role="img" aria-label="Done" title="Done" />
+      <span className="worktree-status" data-status="done">
+        <CheckIcon />
+        Done
       </span>
     );
   }
+  if (!report) return null;
+  if (kind === "done") return <span className="worktree-age">{ageLabel(report.since, now)}</span>;
   const label = statusLabel(report.status);
   return (
-    <span className="worktree-status">
-      <span className="status-dot" data-status={report.status.kind} data-finished={unseenDone || undefined} role="img" aria-label={label} title={label} />
-      <span className="worktree-last-message">{report.lastMessage.trim() || label}</span>
-      <span className="worktree-age">{ageLabel(report.since, now)}</span>
+    <span className="worktree-status" data-status={kind} title={report.lastMessage.trim() || label}>
+      <span className="status-dot" />
+      {label}
     </span>
   );
 }
 
-async function showMenu(event: MouseEvent, commandId: string, target: string) {
+async function showMenu(event: MouseEvent, items: [commandId: string, target: string][]) {
   event.preventDefault();
-  const menu = await Menu.new({ items: [menuItem(commandId, target)] });
+  const menu = await Menu.new({ items: items.map(([id, target]) => menuItem(id, target)) });
   await menu.popup();
-}
-
-function ProjectGroup({ project }: { project: Project }) {
-  const { folded } = sidebar.use();
-  const state = projects.use();
-  const { worktrees, selected } = state;
-  const order = worktreeOrder(state);
-  const counts = gitCounts.use();
-  const finishedPanes = finished.use();
-  shortcutChanges.use();
-  const open = !folded.includes(project.path);
-  return (
-    <section className="project-group">
-      <div className="project-header" onContextMenu={(e) => showMenu(e, "project.remove", project.path)}>
-        <button type="button" className="project-name" aria-expanded={open} onClick={() => toggleFold(project.path)}>
-          <span className="project-title">{project.name}</span>
-          <span className="project-chevron turn-chevron" data-open={open}>
-            <ChevronIcon />
-          </span>
-        </button>
-      </div>
-      {open && (
-        <ul className="worktree-list">
-          {(worktrees[project.path] ?? []).map((worktree) => (
-            <WorktreeCard
-              key={worktree.path}
-              project={project}
-              worktree={worktree}
-              selected={worktree.path === selected}
-              hint={shortcutLabel(`worktree.select.${order.indexOf(worktree.path) + 1}`)}
-              counts={counts[worktree.path]}
-              finishedPanes={finishedPanes}
-            />
-          ))}
-        </ul>
-      )}
-    </section>
-  );
 }
 
 // Reads only its own worktree's panes, so a resize or a focus in another worktree leaves it alone.
@@ -141,6 +118,10 @@ function WorktreeCard({
   const paneIdList = allPaneIds(saved);
   const names = usePaneNames(paneIdList);
   const rows = paneRows(saved, selected, names);
+  const branch = worktreeName(worktree);
+  const title = paneIdList.map((pane) => names[pane]).find(Boolean);
+  const unseenDone = paneIdList.some((pane) => finishedPanes.includes(pane));
+  const menu: [string, string][] = worktree.path === project.path ? [] : [["worktree.delete", worktree.path]];
   return (
     <li>
       <button
@@ -148,17 +129,23 @@ function WorktreeCard({
         className="worktree-card"
         aria-current={selected}
         data-pane-selected={rows.some((row) => row.focused) || undefined}
-        data-finished={paneIdList.some((pane) => finishedPanes.includes(pane)) || undefined}
         title={worktree.path}
         onClick={() => selectWorktree(worktree.path)}
-        onContextMenu={worktree.path === project.path ? undefined : (e) => showMenu(e, "worktree.delete", worktree.path)}
+        onContextMenu={(e) => showMenu(e, [...menu, ["project.remove", project.path]])}
       >
         <span className="worktree-line">
-          <span className="worktree-name">{worktreeName(worktree)}</span>
-          {countsText && <span className="worktree-counts" title={countsHint}>{countsText}</span>}
-          {hint && <span className="worktree-hint">{hint}</span>}
+          <span className="project-badge" aria-hidden="true">{projectInitials(project.name)}</span>
+          <span className="worktree-project">{project.name}</span>
+          <WorktreeStatus paneIdList={paneIdList} unseenDone={unseenDone} />
         </span>
-        <WorktreeStatus paneIdList={paneIdList} unseenDone={paneIdList.some((pane) => finishedPanes.includes(pane))} />
+        <span className="worktree-title">{title ?? branch}</span>
+        {(title || countsText || hint) && (
+          <span className="worktree-line">
+            <span className="worktree-branch">{title && branch}</span>
+            {countsText && <span className="worktree-counts" title={countsHint}>{countsText}</span>}
+            {hint && <span className="worktree-hint">{hint}</span>}
+          </span>
+        )}
       </button>
       {rows.length > 0 && (
         <ul className="pane-list">

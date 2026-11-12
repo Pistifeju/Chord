@@ -16,7 +16,7 @@
 
 .no-projects-title {
   margin: 12px 0 4px;
-  font-size: calc(15px * var(--text-scale));
+  font-size: calc(16px * var(--text-scale));
   font-weight: 600;
 }
 

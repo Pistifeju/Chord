@@ -1,13 +1,5 @@
 // Rules for which worktree cards get git counts, how fresh results merge in, and how a card shows them.
 import type { GitCounts_Serialize as GitCounts } from "../../ipc/bindings";
-import { worktreeOrder, type Projects } from "./projects";
-
-// Worktrees of expanded projects, plus the selected one wherever it sits.
-export function visibleWorktrees(projects: Projects, folded: string[]): string[] {
-  const shown = worktreeOrder({ ...projects, list: projects.list.filter((p) => !folded.includes(p.path)) });
-  const selected = projects.selected;
-  return selected !== null && !shown.includes(selected) && worktreeOrder(projects).includes(selected) ? [...shown, selected] : shown;
-}
 
 export function gainsPath(before: string[], after: string[]): boolean {
   return after.some((path) => !before.includes(path));

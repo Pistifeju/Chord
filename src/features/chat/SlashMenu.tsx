@@ -2,12 +2,14 @@
 import { useEffect, useRef } from "react";
 import type { SlashCommand } from "../../ipc/bindings";
 import { ChatIcon, ExtensionIcon, PromptIcon, SkillIcon } from "../../ui/icons";
+import { useOutsidePointer } from "../../ui/outsidePointer";
 import { commandSource, commandTitle, markedTitle } from "./slash";
 
 const kindIcon = { skill: SkillIcon, prompt: PromptIcon, extension: ExtensionIcon, session: ChatIcon };
 
-export function SlashMenu({ commands, query, active, onActive, onPick }: { commands: SlashCommand[]; query: string; active: number; onActive: (index: number) => void; onPick: (command: SlashCommand) => void }) {
+export function SlashMenu({ commands, query, active, onActive, onPick, onDismiss }: { commands: SlashCommand[]; query: string; active: number; onActive: (index: number) => void; onPick: (command: SlashCommand) => void; onDismiss: () => void }) {
   const list = useRef<HTMLDivElement>(null);
+  useOutsidePointer(list, onDismiss);
   useEffect(() => {
     list.current?.querySelector("[data-active]")?.scrollIntoView({ block: "nearest" });
   }, [active]);

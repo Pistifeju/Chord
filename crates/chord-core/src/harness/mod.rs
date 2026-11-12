@@ -59,6 +59,12 @@ pub enum DialogAsk {
         options: Vec<String>,
         current: Option<String>,
     },
+    /// A select the user opened from the composer bar; it floats over the composer as a menu, with a filter row only when `filter`.
+    Menu {
+        options: Vec<String>,
+        current: Option<String>,
+        filter: bool,
+    },
     Confirm {
         message: String,
     },

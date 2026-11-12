@@ -418,9 +418,10 @@ fn picker_dialog(picker: Picker, options: Vec<String>, nothing_to_pick: &str) ->
             Picker::Thinking => "Thinking Level",
         }
         .into(),
-        ask: DialogAsk::Select {
+        ask: DialogAsk::Menu {
             options,
             current: None,
+            filter: matches!(picker, Picker::Model),
         },
     }
 }
@@ -644,7 +645,7 @@ impl ShownSession {
     fn with_current(&self, mut event: HarnessEvent) -> HarnessEvent {
         if let HarnessEvent::Dialog {
             id,
-            ask: DialogAsk::Select { current, .. },
+            ask: DialogAsk::Menu { current, .. },
             ..
         } = &mut event
         {
@@ -1430,12 +1431,13 @@ mod tests {
             vec![HarnessEvent::Dialog {
                 id: "chord-model".into(),
                 title: "Model".into(),
-                ask: DialogAsk::Select {
+                ask: DialogAsk::Menu {
                     options: vec![
                         "anthropic/sonnet-4".into(),
                         "openrouter/openai/gpt-5".into()
                     ],
-                    current: None
+                    current: None,
+                    filter: true
                 },
             }]
         );
@@ -1459,9 +1461,10 @@ mod tests {
             vec![HarnessEvent::Dialog {
                 id: "chord-thinking".into(),
                 title: "Thinking Level".into(),
-                ask: DialogAsk::Select {
+                ask: DialogAsk::Menu {
                     options: ["Off", "Low", "High"].map(String::from).into(),
-                    current: None
+                    current: None,
+                    filter: false
                 },
             }]
         );
@@ -1511,10 +1514,10 @@ mod tests {
         let mut current = |record: &str| match read_line(record.as_bytes(), &mut shown).events.pop()
         {
             Some(HarnessEvent::Dialog {
-                ask: DialogAsk::Select { current, .. },
+                ask: DialogAsk::Menu { current, .. },
                 ..
             }) => current,
-            other => panic!("not a select: {other:?}"),
+            other => panic!("not a menu: {other:?}"),
         };
         assert_eq!(current(models), Some("anthropic/sonnet-4".into()));
         assert_eq!(current(levels), Some("Medium".into()));

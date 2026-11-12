@@ -1,8 +1,7 @@
 // Keeps the cards' git counts fresh: on window focus, when a card appears, then every 10 seconds while the window is visible.
 import { commands, type GitCounts_Serialize as GitCounts } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
-import { sidebar } from "../sidebar/store";
-import { gainsPath, nextCounts, visibleWorktrees } from "./gitCounts";
+import { gainsPath, nextCounts } from "./gitCounts";
 import { worktreeOrder } from "./projects";
 import { fail, projects } from "./store";
 
@@ -16,7 +15,7 @@ export function watchGitCounts(): () => void {
   let pending = false;
   let stopped = false;
   let queried: string[] = [];
-  const visible = () => visibleWorktrees(projects.get(), sidebar.get().folded);
+  const visible = () => worktreeOrder(projects.get());
 
   async function refresh() {
     if (running) return;
@@ -56,12 +55,12 @@ export function watchGitCounts(): () => void {
   };
 
   if (document.visibilityState === "visible") start();
-  const unsubscribe = [projects.subscribe(onChange), sidebar.subscribe(onChange)];
+  const unsubscribe = projects.subscribe(onChange);
   window.addEventListener("focus", start);
   document.addEventListener("visibilitychange", onVisibility);
   return () => {
     stop();
-    unsubscribe.forEach((off) => off());
+    unsubscribe();
     window.removeEventListener("focus", start);
     document.removeEventListener("visibilitychange", onVisibility);
   };

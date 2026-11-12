@@ -24,10 +24,7 @@ pub fn add(store: &Store, folder: &Path) -> Result<Project, Error> {
 }
 
 pub fn remove(store: &Store, path: &Path) -> Result<(), Error> {
-    store.update(|state| {
-        state.projects.retain(|p| p.path != path);
-        state.sidebar.folded.retain(|p| p != path);
-    })
+    store.update(|state| state.projects.retain(|p| p.path != path))
 }
 
 pub fn find(store: &Store, path: &Path) -> Result<Project, Error> {

@@ -1,12 +1,13 @@
-// The dialog an agent's extension opens, shown in place of the composer: a select with its filter row, a confirm or an input.
+// The dialog an agent's extension opens, shown in place of the composer: a select with its filter row, a confirm or an input; and the menu a composer bar picker floats above it.
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { DialogAnswer } from "../../ipc/bindings";
 import { CheckIcon } from "../../ui/icons";
+import { useOutsidePointer } from "../../ui/outsidePointer";
 import { matchingOptions, startIndex, steppedIndex } from "./dialog";
 import { answerDialog } from "./store";
 import type { OpenDialog } from "./transcript";
 
-function Select({ options, current, answer }: { options: string[]; current: string | null; answer: (answer: DialogAnswer) => void }) {
+function Select({ options, current, answer, filter = true }: { options: string[]; current: string | null; answer: (answer: DialogAnswer) => void; filter?: boolean }) {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(() => startIndex(options, current));
   const list = useRef<HTMLDivElement>(null);
@@ -28,18 +29,21 @@ function Select({ options, current, answer }: { options: string[]; current: stri
   };
 
   return (
-    <div className="chat-dialog-select" onKeyDown={onKey}>
-      <input
-        autoFocus
-        className="input"
-        value={query}
-        placeholder="Filter"
-        aria-label="Filter Options"
-        onChange={(e) => {
-          setQuery(e.target.value);
-          setActive(0);
-        }}
-      />
+    // Without a filter row the list itself takes the focus, so the arrows and Return still reach it.
+    <div className="chat-dialog-select" onKeyDown={onKey} tabIndex={filter ? undefined : -1} autoFocus={!filter}>
+      {filter && (
+        <input
+          autoFocus
+          className="input"
+          value={query}
+          placeholder="Filter"
+          aria-label="Filter Options"
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setActive(0);
+          }}
+        />
+      )}
       <div className="chat-dialog-options" role="listbox" ref={list}>
         {shown.map((option, i) => (
           <div
@@ -89,6 +93,17 @@ function Input({ placeholder, answer }: { placeholder: string; answer: (answer: 
         </button>
       </div>
     </>
+  );
+}
+
+export function DialogMenu({ pane, dialog, options, current, filter }: { pane: string; dialog: OpenDialog; options: string[]; current: string | null; filter: boolean }) {
+  const menu = useRef<HTMLDivElement>(null);
+  const answer = (given: DialogAnswer) => answerDialog(pane, dialog.id, given);
+  useOutsidePointer(menu, () => answer({ kind: "cancelled" }));
+  return (
+    <div className="chat-slash-menu chat-dialog-menu" role="dialog" aria-label={dialog.title} ref={menu}>
+      <Select options={options} current={current} answer={answer} filter={filter} />
+    </div>
   );
 }
 
