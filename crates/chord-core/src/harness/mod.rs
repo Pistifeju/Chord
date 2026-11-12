@@ -19,6 +19,8 @@ pub enum Capability {
     Attachments,
     /// A message sent while the agent runs steers the run.
     Steer,
+    /// The model and the thinking level can be read and picked.
+    Models,
 }
 
 /// An image in a message: base64 data and its MIME type.
@@ -35,7 +37,7 @@ pub enum SlashKind {
     Skill,
     Prompt,
     Extension,
-    /// A command of the harness itself that acts on the pane's session: new, resume, fork, clone, tree, export.
+    /// A command of the harness itself that acts on the pane's session: model, thinking, new, resume, fork, clone, tree, export.
     Session,
 }
 
@@ -52,9 +54,17 @@ pub struct SlashCommand {
 #[derive(Serialize, Type, Debug, Clone, PartialEq)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum DialogAsk {
-    Select { options: Vec<String> },
-    Confirm { message: String },
-    Input { placeholder: String },
+    /// `current` is the option now in effect, which the dialog marks.
+    Select {
+        options: Vec<String>,
+        current: Option<String>,
+    },
+    Confirm {
+        message: String,
+    },
+    Input {
+        placeholder: String,
+    },
 }
 
 /// The user's answer to a dialog.
@@ -101,6 +111,11 @@ pub enum HarnessEvent {
         id: String,
         outcome: ToolOutcome,
         images: Vec<Image>,
+    },
+    /// The model the agent runs and, when that model reasons, its thinking level; sent when a session starts and after each pick.
+    Model {
+        name: String,
+        thinking: Option<String>,
     },
     /// The streaming reply is complete; `failed` when it ended in an error.
     MessageEnd { failed: bool },

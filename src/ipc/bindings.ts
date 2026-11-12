@@ -55,7 +55,9 @@ export type Capability =
 /**  Images sent with a message. */
 "attachments" | 
 /**  A message sent while the agent runs steers the run. */
-"steer";
+"steer" | 
+/**  The model and the thinking level can be read and picked. */
+"models";
 
 /**  The user's answer to a dialog. */
 export type DialogAnswer = 
@@ -63,7 +65,17 @@ export type DialogAnswer =
 { kind: "value"; value: string } | { kind: "confirmed"; confirmed: boolean } | { kind: "cancelled" };
 
 /**  What a dialog asks. */
-export type DialogAsk = { kind: "select"; options: string[] } | { kind: "confirm"; message: string } | { kind: "input"; placeholder: string };
+export type DialogAsk = DialogAsk_Serialize | DialogAsk_Deserialize;
+
+/**  What a dialog asks. */
+export type DialogAsk_Deserialize = 
+/**  `current` is the option now in effect, which the dialog marks. */
+{ kind: "select"; options: string[]; current?: string | null } | { kind: "confirm"; message: string } | { kind: "input"; placeholder: string };
+
+/**  What a dialog asks. */
+export type DialogAsk_Serialize = 
+/**  `current` is the option now in effect, which the dialog marks. */
+{ kind: "select"; options: string[]; current: string | null } | { kind: "confirm"; message: string } | { kind: "input"; placeholder: string };
 
 export type Direction = 
 /**  Children sit side by side. */
@@ -104,10 +116,12 @@ export type HarnessEvent_Deserialize =
 { kind: "tool_start"; id: string; title: string; detail: string } | 
 /**  A tool call ended; `Stopped` means the run ended or was aborted before it reported. `images` are the ones the tool returned. */
 { kind: "tool_end"; id: string; outcome: ToolOutcome; images: Image[] } | 
+/**  The model the agent runs and, when that model reasons, its thinking level; sent when a session starts and after each pick. */
+{ kind: "model"; name: string; thinking?: string | null } | 
 /**  The streaming reply is complete; `failed` when it ended in an error. */
 { kind: "message_end"; failed: boolean } | 
 /**  The agent opened a dialog and waits for an answer; `id` goes back with it. */
-{ kind: "dialog"; id: string; title: string; ask: DialogAsk } | 
+{ kind: "dialog"; id: string; title: string; ask: DialogAsk_Deserialize } | 
 /**  The commands the agent offers after a slash. */
 { kind: "commands"; commands: SlashCommand_Deserialize[] } | 
 /**  The steering messages the agent has not taken in yet, oldest first; the whole queue each time. */
@@ -146,10 +160,12 @@ export type HarnessEvent_Serialize =
 { kind: "tool_start"; id: string; title: string; detail: string } | 
 /**  A tool call ended; `Stopped` means the run ended or was aborted before it reported. `images` are the ones the tool returned. */
 { kind: "tool_end"; id: string; outcome: ToolOutcome; images: Image[] } | 
+/**  The model the agent runs and, when that model reasons, its thinking level; sent when a session starts and after each pick. */
+{ kind: "model"; name: string; thinking: string | null } | 
 /**  The streaming reply is complete; `failed` when it ended in an error. */
 { kind: "message_end"; failed: boolean } | 
 /**  The agent opened a dialog and waits for an answer; `id` goes back with it. */
-{ kind: "dialog"; id: string; title: string; ask: DialogAsk } | 
+{ kind: "dialog"; id: string; title: string; ask: DialogAsk_Serialize } | 
 /**  The commands the agent offers after a slash. */
 { kind: "commands"; commands: SlashCommand_Serialize[] } | 
 /**  The steering messages the agent has not taken in yet, oldest first; the whole queue each time. */
@@ -278,7 +294,7 @@ export type SlashCommand_Serialize = {
 
 /**  Where a slash command is defined. */
 export type SlashKind = "skill" | "prompt" | "extension" | 
-/**  A command of the harness itself that acts on the pane's session: new, resume, fork, clone, tree, export. */
+/**  A command of the harness itself that acts on the pane's session: model, thinking, new, resume, fork, clone, tree, export. */
 "session";
 
 export type State = State_Serialize | State_Deserialize;

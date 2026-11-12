@@ -124,6 +124,11 @@ export function answerDialog(pane: string, id: string, answer: DialogAnswer) {
   commands.answerDialog(pane, id, answer).catch((error) => noticeOf(pane, error));
 }
 
+// The picker opens as a dialog; a refusal shows as a notice.
+export function openPicker(pane: string, command: "/model" | "/thinking") {
+  commands.sendMessage(pane, command, []).catch((error) => noticeOf(pane, error));
+}
+
 export function abortRun(pane: string) {
   commands.abortRun(pane).catch(console.error);
 }

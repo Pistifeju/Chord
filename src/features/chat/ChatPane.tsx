@@ -6,6 +6,7 @@ import type { Image, SlashCommand } from "../../ipc/bindings";
 import { ArrowDownIcon, ArrowUpIcon, ChevronIcon, CloseIcon, PaperclipIcon, SparkleIcon } from "../../ui/icons";
 import { imageMime, imageUrl, isImageType, type Attachment } from "./attachments";
 import { DialogPanel } from "./DialogPanel";
+import { modelLabels } from "./model";
 import { FindBar } from "./FindBar";
 import { finds } from "./find";
 import { Markdown } from "./MarkdownView";
@@ -14,7 +15,7 @@ import { SlashMenu } from "./SlashMenu";
 import { steppedIndex } from "./dialog";
 import { completion, slashMenu, slashQuery } from "./slash";
 import { closeLightbox, lightboxes, openLightbox, stepLightbox } from "./viewing";
-import { attachFiles, attachments, attachPasted, chatOf, chats, drafts, pickAttachments, removeAttachment, sendMessage, setDraft, slashClosed, startChat } from "./store";
+import { attachFiles, attachments, attachPasted, chatOf, chats, drafts, openPicker, pickAttachments, removeAttachment, sendMessage, setDraft, slashClosed, startChat } from "./store";
 import { isStreaming, shownSteps, stepImages, stepsSummary, type Item, type Message, type StepGroup } from "./transcript";
 import "./chat.css";
 
@@ -154,6 +155,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
   const steers = chat.running && chat.capabilities?.includes("steer") === true;
   const slashRows = slashMenu(chat.commands, draft, closedOn);
   const slashAt = Math.min(slashActive, slashRows.length - 1);
+  const labels = modelLabels(chat);
   const canSend = ready && (!chat.running || steers);
 
   // The pane under the pointer takes the dropped images.
@@ -324,6 +326,18 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
                 <button type="button" className="icon-button" title={tooltip("chat.attach")} aria-label="Attach Images" disabled={!ready} onClick={() => pickAttachments(pane)}>
                   <PaperclipIcon />
                 </button>
+              )}
+              {labels && (
+                <div className="chat-pickers">
+                  <button type="button" className="chat-picker" title="Model" disabled={!ready} onClick={() => openPicker(pane, "/model")}>
+                    {labels.name}
+                  </button>
+                  {labels.thinking && (
+                    <button type="button" className="chat-picker" title="Thinking Level" disabled={!ready} onClick={() => openPicker(pane, "/thinking")}>
+                      {labels.thinking}
+                    </button>
+                  )}
+                </div>
               )}
               <button
                 type="button"

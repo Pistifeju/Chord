@@ -33,9 +33,46 @@ const EXTENSION_PREFIX: &str = "chord-";
 const SESSION_PROMPT: &str = "chord-session";
 /// A fork dialog's id starts with this; the ids of the entries it lists follow, comma-separated, in the order of its options.
 const FORK_DIALOG: &str = "chord-fork:";
+/// The id of the model dialog; its options are `provider/model`.
+const MODEL_DIALOG: &str = "chord-model";
+/// The id of the thinking level dialog; its options are the levels, capitalized.
+const THINKING_DIALOG: &str = "chord-thinking";
+
+/// A dialog the adapter opens to change the session's model or thinking level.
+#[derive(Clone, Copy)]
+enum Picker {
+    Model,
+    Thinking,
+}
+
+impl Picker {
+    fn from_id(id: &str) -> Option<Self> {
+        match id {
+            MODEL_DIALOG => Some(Self::Model),
+            THINKING_DIALOG => Some(Self::Thinking),
+            _ => None,
+        }
+    }
+
+    fn id(self) -> &'static str {
+        match self {
+            Self::Model => MODEL_DIALOG,
+            Self::Thinking => THINKING_DIALOG,
+        }
+    }
+
+    fn command(self, answer: &DialogAnswer) -> Option<Value> {
+        match self {
+            Self::Model => model_command(answer),
+            Self::Thinking => thinking_command(answer),
+        }
+    }
+}
 
 /// What pi offers after a slash in its own terminal and RPC does not list: each name and its description.
-const SESSION_COMMANDS: [(&str, &str); 6] = [
+const SESSION_COMMANDS: [(&str, &str); 8] = [
+    ("model", "Pick the model"),
+    ("thinking", "Pick the thinking level"),
     ("new", "Start a new session"),
     ("resume", "Open another session of this worktree"),
     ("fork", "Start a new session from an earlier message"),
@@ -133,9 +170,10 @@ impl Session {
                     }
                     on_event(event);
                 }
-                // A `/tree` pi refused mid-run left the session as it was; reading it again would restart the live transcript.
-                if !reader_running.load(Ordering::SeqCst) {
-                    for request in requests {
+                // A `/tree` pi refused mid-run left the session as it was, so reading it again would restart the live transcript; only the state, which is read-only, goes out mid-run.
+                let running = reader_running.load(Ordering::SeqCst);
+                for request in requests {
+                    if !running || request["type"] == "get_state" {
                         let _ = write_to(&reader_stdin, &request);
                     }
                 }
@@ -165,7 +203,12 @@ impl Session {
     }
 
     pub fn capabilities(&self) -> Vec<Capability> {
-        vec![Capability::Chat, Capability::Attachments, Capability::Steer]
+        vec![
+            Capability::Chat,
+            Capability::Attachments,
+            Capability::Steer,
+            Capability::Models,
+        ]
     }
 
     /// Sends a message; while the agent runs, pi queues it as a steer. A session command runs instead of being sent; `/resume` leaves out `held_elsewhere`, the session files other panes hold, so no two agents write one file.
@@ -178,8 +221,11 @@ impl Session {
         let Some(command) = session_command(text.trim(), held_elsewhere) else {
             return self.write(&prompt_command(text, images));
         };
-        // pi aborts the run to open another session; `/tree` mid-run it refuses itself and `/export` leaves the run alone.
-        let keeps_run = matches!(command_name(text.trim()), "/tree" | "/export");
+        // pi aborts the run to open another session; `/tree` mid-run it refuses itself and `/export` leaves the run alone; `/model` and `/thinking` only open a picker, and pi's refusal of the pick shows as a notice.
+        let keeps_run = matches!(
+            command_name(text.trim()),
+            "/tree" | "/export" | "/model" | "/thinking"
+        );
         if self.running.load(Ordering::SeqCst) && !keeps_run {
             return Err(Error::Message(
                 "Wait for the agent to finish, then change the session".into(),
@@ -199,6 +245,9 @@ impl Session {
 
     /// Answers the dialog pi asked with `id`; a fork dialog is the adapter's own, so its answer becomes the fork.
     pub fn answer_dialog(&self, id: &str, answer: &DialogAnswer) -> Result<(), Error> {
+        if let Some(picker) = Picker::from_id(id) {
+            return self.write_if_picked(picker.command(answer));
+        }
         match id.strip_prefix(FORK_DIALOG) {
             Some(entries) => match fork_command(entries, answer) {
                 Some(command) => self.write(&command),
@@ -206,6 +255,10 @@ impl Session {
             },
             None => self.write(&dialog_response(id, answer)),
         }
+    }
+
+    fn write_if_picked(&self, command: Option<Value>) -> Result<(), Error> {
+        command.map_or(Ok(()), |command| self.write(&command))
     }
 
     fn write(&self, command: &Value) -> Result<(), Error> {
@@ -259,6 +312,8 @@ fn session_command(text: &str, held_elsewhere: &[PathBuf]) -> Option<Value> {
                 .collect();
             extension(&format!("resume {}", json!(held)))
         }
+        "/model" => json!({ "type": "get_available_models" }),
+        "/thinking" => json!({ "type": "get_available_thinking_levels" }),
         "/fork" => json!({ "type": "get_fork_messages" }),
         "/clone" => json!({ "type": "clone" }),
         "/tree" => extension("tree"),
@@ -280,12 +335,102 @@ fn session_requests() -> [Value; 2] {
 
 // The picked option starts with its number in the list; `entries` holds the entry ids in that order.
 fn fork_command(entries: &str, answer: &DialogAnswer) -> Option<Value> {
-    let DialogAnswer::Value { value } = answer else {
-        return None;
-    };
-    let number: usize = value.split_once('.')?.0.parse().ok()?;
+    let number: usize = picked_value(answer)?.split_once('.')?.0.parse().ok()?;
     let entry = entries.split(',').nth(number.checked_sub(1)?)?;
     Some(json!({ "type": "fork", "entryId": entry }))
+}
+
+// The option is `provider/model`; a model id may hold slashes, a provider name does not.
+fn model_command(answer: &DialogAnswer) -> Option<Value> {
+    let (provider, model) = picked_value(answer)?.split_once('/')?;
+    Some(json!({ "type": "set_model", "provider": provider, "modelId": model }))
+}
+
+// The dialog lists the levels capitalized; pi takes them lowercase.
+fn thinking_command(answer: &DialogAnswer) -> Option<Value> {
+    Some(json!({ "type": "set_thinking_level", "level": picked_value(answer)?.to_lowercase() }))
+}
+
+fn picked_value(answer: &DialogAnswer) -> Option<&str> {
+    match answer {
+        DialogAnswer::Value { value } => Some(value),
+        _ => None,
+    }
+}
+
+// The model label shows pi's name for the model; the thinking level shows only for a model that reasons.
+fn chosen_model(state: &Value) -> Option<HarnessEvent> {
+    let model = &state["model"];
+    let name = model["name"].as_str().or_else(|| model["id"].as_str())?;
+    let thinking = if model["reasoning"] == true {
+        state["thinkingLevel"].as_str().map(String::from)
+    } else {
+        None
+    };
+    Some(HarnessEvent::Model {
+        name: name.into(),
+        thinking,
+    })
+}
+
+fn model_dialog(models: &Value) -> HarnessEvent {
+    let options = models
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|model| {
+            Some(format!(
+                "{}/{}",
+                model["provider"].as_str()?,
+                model["id"].as_str()?
+            ))
+        })
+        .collect();
+    picker_dialog(
+        Picker::Model,
+        options,
+        "No model is available. Log in to a provider in pi",
+    )
+}
+
+// pi lists only the levels the current model supports, and just "off" for one that does not think.
+fn thinking_dialog(levels: &Value) -> HarnessEvent {
+    let options = levels
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|level| level.as_str().map(capitalized))
+        .collect();
+    picker_dialog(Picker::Thinking, options, "The model does not think")
+}
+
+// A list with nothing to pick (no option, or only "Off") is a notice instead.
+fn picker_dialog(picker: Picker, options: Vec<String>, nothing_to_pick: &str) -> HarnessEvent {
+    if options.iter().all(|option| option == "Off") {
+        return HarnessEvent::Notice {
+            text: nothing_to_pick.into(),
+        };
+    }
+    HarnessEvent::Dialog {
+        id: picker.id().into(),
+        title: match picker {
+            Picker::Model => "Model",
+            Picker::Thinking => "Thinking Level",
+        }
+        .into(),
+        ask: DialogAsk::Select {
+            options,
+            current: None,
+        },
+    }
+}
+
+fn capitalized(word: &str) -> String {
+    let mut chars = word.chars();
+    chars
+        .next()
+        .map(|first| first.to_uppercase().chain(chars).collect())
+        .unwrap_or_default()
 }
 
 fn dialog_response(id: &str, answer: &DialogAnswer) -> Value {
@@ -444,11 +589,14 @@ struct Read {
     requests: Vec<Value>,
 }
 
-/// The session the chat shows: its file and a hash of its messages.
+/// The session the chat shows: its file, a hash of its messages, its model and thinking level.
 #[derive(Default)]
 struct ShownSession {
     file: Option<String>,
     messages: Option<u64>,
+    /// The current model as `provider/id` and the current thinking level, so a picker marks them.
+    model: Option<String>,
+    thinking: Option<String>,
 }
 
 impl ShownSession {
@@ -459,7 +607,8 @@ impl ShownSession {
         }
         match record["command"].as_str() {
             Some("get_state") => {
-                self.file = record["data"]["sessionFile"].as_str().map(String::from);
+                let data = &record["data"];
+                self.file = data["sessionFile"].as_str().map(String::from);
                 false
             }
             Some("get_messages") => {
@@ -470,6 +619,42 @@ impl ShownSession {
             }
             _ => false,
         }
+    }
+
+    // The state names the model and level a picker marks.
+    fn remember_choice(&mut self, record: &Value) {
+        if record["type"] != "response"
+            || record["success"] != true
+            || record["command"] != "get_state"
+        {
+            return;
+        }
+        let data = &record["data"];
+        self.model = match (
+            data["model"]["provider"].as_str(),
+            data["model"]["id"].as_str(),
+        ) {
+            (Some(provider), Some(id)) => Some(format!("{provider}/{id}")),
+            _ => None,
+        };
+        self.thinking = data["thinkingLevel"].as_str().map(capitalized);
+    }
+
+    // A picker's list is built from a response that does not know the current choice.
+    fn with_current(&self, mut event: HarnessEvent) -> HarnessEvent {
+        if let HarnessEvent::Dialog {
+            id,
+            ask: DialogAsk::Select { current, .. },
+            ..
+        } = &mut event
+        {
+            match Picker::from_id(id) {
+                Some(Picker::Model) => *current = self.model.clone(),
+                Some(Picker::Thinking) => *current = self.thinking.clone(),
+                None => {}
+            }
+        }
+        event
     }
 }
 
@@ -483,9 +668,13 @@ fn read_line(line: &[u8], shown: &mut ShownSession) -> Read {
         Ok(Kind { kind, .. }) if READ_KINDS.contains(&kind.as_str()) => {
             serde_json::from_slice::<Value>(line)
                 .ok()
+                .inspect(|record| shown.remember_choice(record))
                 .filter(|record| !shown.repeats(record))
                 .map(|record| Read {
-                    events: events_from(&record),
+                    events: events_from(&record)
+                        .into_iter()
+                        .map(|event| shown.with_current(event))
+                        .collect(),
                     requests: requests_after(&record),
                 })
                 .unwrap_or_default()
@@ -503,6 +692,10 @@ fn requests_after(record: &Value) -> Vec<Value> {
         }
         (Some("response"), Some("prompt")) if changed && record["id"] == SESSION_PROMPT => {
             session_requests().into()
+        }
+        // A new model can change the thinking level too, so the state tells both.
+        (Some("response"), Some("set_model" | "set_thinking_level")) if changed => {
+            vec![json!({ "type": "get_state" })]
         }
         _ => vec![],
     }
@@ -607,8 +800,11 @@ fn response(command: Option<&str>, data: &Value) -> Vec<HarnessEvent> {
             .as_str()
             .map(|file| HarnessEvent::SessionInfo { file: file.into() })
             .into_iter()
+            .chain(chosen_model(data))
             .collect(),
         Some("get_messages") => history(&data["messages"]),
+        Some("get_available_models") => vec![model_dialog(&data["models"])],
+        Some("get_available_thinking_levels") => vec![thinking_dialog(&data["levels"])],
         Some("get_fork_messages") => vec![fork_dialog(&data["messages"])],
         Some("fork") => data["text"]
             .as_str()
@@ -718,6 +914,7 @@ fn fork_dialog(messages: &Value) -> HarnessEvent {
                 .enumerate()
                 .map(|(i, (_, text))| format!("{}. {}", i + 1, first_line(text)))
                 .collect(),
+            current: None,
         },
     }
 }
@@ -755,6 +952,7 @@ fn ui_request(record: &Value) -> Option<HarnessEvent> {
                 .flatten()
                 .filter_map(|option| option.as_str().map(String::from))
                 .collect(),
+            current: None,
         },
         "confirm" => DialogAsk::Confirm {
             message: text("message"),
@@ -1225,6 +1423,119 @@ mod tests {
     }
 
     #[test]
+    fn the_model_list_becomes_a_dialog_and_the_pick_sets_the_model() {
+        let record = r#"{"type":"response","command":"get_available_models","success":true,"data":{"models":[{"id":"sonnet-4","provider":"anthropic"},{"id":"openai/gpt-5","provider":"openrouter"}]}}"#;
+        assert_eq!(
+            events(record),
+            vec![HarnessEvent::Dialog {
+                id: "chord-model".into(),
+                title: "Model".into(),
+                ask: DialogAsk::Select {
+                    options: vec![
+                        "anthropic/sonnet-4".into(),
+                        "openrouter/openai/gpt-5".into()
+                    ],
+                    current: None
+                },
+            }]
+        );
+        let picked = DialogAnswer::Value {
+            value: "openrouter/openai/gpt-5".into(),
+        };
+        assert_eq!(
+            model_command(&picked),
+            Some(
+                json!({ "type": "set_model", "provider": "openrouter", "modelId": "openai/gpt-5" })
+            )
+        );
+        assert_eq!(model_command(&DialogAnswer::Cancelled), None);
+    }
+
+    #[test]
+    fn the_thinking_levels_open_for_a_model_that_thinks_and_the_pick_sets_the_level() {
+        let thinks = r#"{"type":"response","command":"get_available_thinking_levels","success":true,"data":{"levels":["off","low","high"]}}"#;
+        assert_eq!(
+            events(thinks),
+            vec![HarnessEvent::Dialog {
+                id: "chord-thinking".into(),
+                title: "Thinking Level".into(),
+                ask: DialogAsk::Select {
+                    options: ["Off", "Low", "High"].map(String::from).into(),
+                    current: None
+                },
+            }]
+        );
+        let plain = r#"{"type":"response","command":"get_available_thinking_levels","success":true,"data":{"levels":["off"]}}"#;
+        assert_eq!(
+            events(plain),
+            vec![HarnessEvent::Notice {
+                text: "The model does not think".into()
+            }]
+        );
+        let picked = DialogAnswer::Value {
+            value: "High".into(),
+        };
+        assert_eq!(
+            thinking_command(&picked),
+            Some(json!({ "type": "set_thinking_level", "level": "high" }))
+        );
+    }
+
+    #[test]
+    fn the_state_tells_the_model_and_a_picker_marks_it() {
+        let mut shown = ShownSession::default();
+        let state = r#"{"type":"response","command":"get_state","success":true,"data":{"sessionFile":"a.jsonl","thinkingLevel":"medium","model":{"id":"sonnet-4","provider":"anthropic","name":"Sonnet 4","reasoning":true}}}"#;
+        assert_eq!(
+            read_line(state.as_bytes(), &mut shown).events,
+            vec![
+                HarnessEvent::SessionInfo {
+                    file: "a.jsonl".into()
+                },
+                HarnessEvent::Model {
+                    name: "Sonnet 4".into(),
+                    thinking: Some("medium".into())
+                },
+            ]
+        );
+        let plain = r#"{"type":"response","command":"get_state","success":true,"data":{"thinkingLevel":"off","model":{"id":"small","provider":"local","reasoning":false}}}"#;
+        assert_eq!(
+            events(plain),
+            vec![HarnessEvent::Model {
+                name: "small".into(),
+                thinking: None
+            }]
+        );
+        read_line(state.as_bytes(), &mut shown);
+        let models = r#"{"type":"response","command":"get_available_models","success":true,"data":{"models":[{"id":"sonnet-4","provider":"anthropic"}]}}"#;
+        let levels = r#"{"type":"response","command":"get_available_thinking_levels","success":true,"data":{"levels":["off","medium"]}}"#;
+        let mut current = |record: &str| match read_line(record.as_bytes(), &mut shown).events.pop()
+        {
+            Some(HarnessEvent::Dialog {
+                ask: DialogAsk::Select { current, .. },
+                ..
+            }) => current,
+            other => panic!("not a select: {other:?}"),
+        };
+        assert_eq!(current(models), Some("anthropic/sonnet-4".into()));
+        assert_eq!(current(levels), Some("Medium".into()));
+    }
+
+    #[test]
+    fn a_pick_reads_the_state_again() {
+        let set = r#"{"type":"response","command":"set_model","success":true,"data":{}}"#;
+        let refused = r#"{"type":"response","command":"set_thinking_level","success":false}"#;
+        assert_eq!(
+            read_line(set.as_bytes(), &mut ShownSession::default()).requests,
+            vec![json!({ "type": "get_state" })]
+        );
+        assert!(
+            read_line(refused.as_bytes(), &mut ShownSession::default())
+                .requests
+                .is_empty()
+        );
+    }
+
+    #[test]
     fn a_fork_asks_which_message_and_forks_from_the_picked_one() {
         let record = r#"{"type":"response","command":"get_fork_messages","success":true,"data":{"messages":[{"entryId":"a1","text":"Fix the login\nand the logout"},{"entryId":"b2","text":"Fix the login"}]}}"#;
         assert_eq!(
@@ -1233,7 +1544,8 @@ mod tests {
                 id: "chord-fork:a1,b2".into(),
                 title: "Fork From".into(),
                 ask: DialogAsk::Select {
-                    options: vec!["1. Fix the login".into(), "2. Fix the login".into()]
+                    options: vec!["1. Fix the login".into(), "2. Fix the login".into()],
+                    current: None
                 },
             }]
         );
@@ -1295,7 +1607,8 @@ mod tests {
                 id: "u1".into(),
                 title: "Pick".into(),
                 ask: DialogAsk::Select {
-                    options: vec!["a".into()]
+                    options: vec!["a".into()],
+                    current: None
                 },
             }]
         );

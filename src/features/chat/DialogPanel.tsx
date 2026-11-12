@@ -1,22 +1,17 @@
-// The dialog an agent's extension opens, shown in place of the composer: a select (filtered when long), a confirm or an input.
+// The dialog an agent's extension opens, shown in place of the composer: a select with its filter row, a confirm or an input.
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { DialogAnswer } from "../../ipc/bindings";
-import { filters, matchingOptions, steppedIndex } from "./dialog";
+import { CheckIcon } from "../../ui/icons";
+import { matchingOptions, startIndex, steppedIndex } from "./dialog";
 import { answerDialog } from "./store";
 import type { OpenDialog } from "./transcript";
 
-function Select({ options, answer }: { options: string[]; answer: (answer: DialogAnswer) => void }) {
+function Select({ options, current, answer }: { options: string[]; current: string | null; answer: (answer: DialogAnswer) => void }) {
   const [query, setQuery] = useState("");
-  const [active, setActive] = useState(0);
+  const [active, setActive] = useState(() => startIndex(options, current));
   const list = useRef<HTMLDivElement>(null);
-  const root = useRef<HTMLDivElement>(null);
   const shown = matchingOptions(options, query);
   const choose = (value: string) => answer({ kind: "value", value });
-
-  // Without a filter field the list takes the keys.
-  useEffect(() => {
-    if (!filters(options)) root.current?.focus();
-  }, [options]);
 
   useEffect(() => {
     list.current?.querySelector("[data-active]")?.scrollIntoView({ block: "nearest" });
@@ -33,20 +28,18 @@ function Select({ options, answer }: { options: string[]; answer: (answer: Dialo
   };
 
   return (
-    <div className="chat-dialog-select" ref={root} tabIndex={-1} onKeyDown={onKey}>
-      {filters(options) && (
-        <input
-          autoFocus
-          className="input"
-          value={query}
-          placeholder="Filter"
-          aria-label="Filter Options"
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setActive(0);
-          }}
-        />
-      )}
+    <div className="chat-dialog-select" onKeyDown={onKey}>
+      <input
+        autoFocus
+        className="input"
+        value={query}
+        placeholder="Filter"
+        aria-label="Filter Options"
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setActive(0);
+        }}
+      />
       <div className="chat-dialog-options" role="listbox" ref={list}>
         {shown.map((option, i) => (
           <div
@@ -59,6 +52,11 @@ function Select({ options, answer }: { options: string[]; answer: (answer: Dialo
             onClick={() => choose(option)}
           >
             {option}
+            {option === current && (
+              <span className="chat-dialog-current" role="img" aria-label="Current">
+                <CheckIcon />
+              </span>
+            )}
           </div>
         ))}
         {shown.length === 0 && <p className="chat-dialog-empty">No matches</p>}
@@ -100,7 +98,7 @@ export function DialogPanel({ pane, dialog }: { pane: string; dialog: OpenDialog
   return (
     <div className="chat-composer chat-dialog" role="dialog" aria-label={dialog.title} tabIndex={-1}>
       <h2 className="chat-dialog-title">{dialog.title}</h2>
-      {ask.kind === "select" && <Select options={ask.options} answer={answer} />}
+      {ask.kind === "select" && <Select options={ask.options} current={ask.current ?? null} answer={answer} />}
       {ask.kind === "input" && <Input placeholder={ask.placeholder} answer={answer} />}
       {ask.kind === "confirm" && (
         <>

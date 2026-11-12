@@ -19,6 +19,9 @@ export type Item = Message | StepGroup | StopMark;
 /** A dialog the agent waits on; `id` goes back with the answer. */
 export type OpenDialog = { id: string; title: string; ask: DialogAsk };
 
+/** A model's name and, when it reasons, its thinking level. */
+export type ModelChoice = { name: string; thinking: string | null };
+
 export type Chat = {
   /** idle: no agent runs (the Start button shows); starting: the process is coming up; ready: it takes messages. */
   agent: "idle" | "starting" | "ready";
@@ -31,6 +34,8 @@ export type Chat = {
   notice: string | null;
   /** The dialog the agent waits on, shown over the composer. */
   dialog: OpenDialog | null;
+  /** The model the agent runs; null until the agent tells. */
+  model: ModelChoice | null;
   /** The commands the agent offers after a slash; none until it lists them. */
   commands: SlashCommand[];
   /** Steering messages the agent has not taken in yet. */
@@ -41,7 +46,7 @@ export type Chat = {
   historyLength: number;
 };
 
-export const emptyChat: Chat = { agent: "idle", items: [], running: false, since: null, capabilities: null, notice: null, dialog: null, commands: [], queued: [], report: null, historyLength: 0 };
+export const emptyChat: Chat = { agent: "idle", items: [], running: false, since: null, capabilities: null, notice: null, dialog: null, model: null, commands: [], queued: [], report: null, historyLength: 0 };
 
 export const isStreaming = (item: Item) => item.role !== "steps" && item.role !== "stopped" && item.streaming;
 
@@ -134,6 +139,8 @@ function applied(chat: Chat, event: HarnessEvent, now: number): Chat {
     }
     case "dialog":
       return { ...chat, dialog: { id: event.id, title: event.title, ask: event.ask } };
+    case "model":
+      return { ...chat, model: { name: event.name, thinking: event.thinking ?? null } };
     case "commands":
       return { ...chat, commands: event.commands };
     case "queue":
