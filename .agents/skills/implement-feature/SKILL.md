@@ -61,7 +61,8 @@ Answer in this order:
 1. Verdict: did the reviewer find anything? Yes or no, with the count per axis, and how many it fixed.
 2. What now works: the ticket's behavior in concrete terms, and the changed files.
 3. Each step: done, skipped (why) or failed (why), and the `npm run check` result of every editing step.
-4. The reviewer's findings, ranked, each with file, line and final status: `fixed` (by B or C) or `needs decision` (with the decision). Fixes from C had no review: say so.
-5. Findings from polish and animations that nobody fixed.
+4. Decisions needed: every `needs decision` finding under its own heading, ranked, the top one first. Give each its id, file and line, the question, then 2-3 lines that explain it to someone who has not read the code: what the code does now, what each answer would change for the user, and which ticket or behavior it blocks (an unticked or early-ticked `SPEC.md` row, for example). Close each with your recommendation in one line.
+5. Fixed findings: a separate short list, ranked, each with id, file, line and who fixed it (B or C), plus any known flaw of the fix. Fixes from C had no review: say so once, above the list.
+6. Findings from polish and animations that nobody fixed.
 
 Do not fix findings yourself. Do not commit. Offer one next action: decide the top `needs decision` finding, or commit.
