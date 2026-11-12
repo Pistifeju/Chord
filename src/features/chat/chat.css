@@ -181,6 +181,7 @@
 }
 
 .chat-working,
+.chat-subagent,
 .chat-hint,
 .chat-stopped {
   font-size: calc(12px * var(--text-scale));
@@ -756,6 +757,30 @@
   border-radius: var(--radius-card);
   background: var(--panel);
   box-shadow: var(--shadow-popover);
+}
+
+.chat-subagent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.chat-subagent-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-subagent-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chat-subagent-list .chat-subagent {
+  padding-left: calc(18px * var(--depth));
 }
 
 .chat-slash-list {

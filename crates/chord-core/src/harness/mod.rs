@@ -23,6 +23,8 @@ pub enum Capability {
     Models,
     /// The size of the model's context window and how much of it the session fills.
     Context,
+    /// Background subagent runs, reported as a lineage.
+    Subagents,
 }
 
 /// One subscription usage window: its label, e.g. "5h 42%", and when it resets, in ms since the epoch; none when the harness does not say.
@@ -30,6 +32,29 @@ pub enum Capability {
 pub struct UsageWindow {
     pub label: String,
     pub resets_at: Option<f64>,
+}
+
+#[derive(Serialize, Type, Debug, Clone, Copy, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum SubagentState {
+    Running,
+    Done,
+    Error,
+}
+
+/// One row of the subagent lineage: a background run, or a step or agent inside it; `depth` is 0 for a run, 1 for what it holds, and so on.
+#[derive(Serialize, Type, Debug, Clone, PartialEq)]
+pub struct SubagentNode {
+    pub id: String,
+    pub depth: u32,
+    pub name: String,
+    pub state: SubagentState,
+    /// The tool it runs right now.
+    pub tool: Option<String>,
+    /// Epoch milliseconds.
+    pub started_at: Option<f64>,
+    /// Epoch milliseconds, set once it ended.
+    pub ended_at: Option<f64>,
 }
 
 /// An image in a message: base64 data and its MIME type.
@@ -150,6 +175,8 @@ pub enum HarnessEvent {
     Commands { commands: Vec<SlashCommand> },
     /// The subscription usage windows of the account, shortest first; the whole list each time, empty when none applies.
     Usage { windows: Vec<UsageWindow> },
+    /// The background subagent runs as a lineage, each node before its children; the whole list each time, empty when none applies.
+    Subagents { nodes: Vec<SubagentNode> },
     /// An extension set or cleared its status text; `text` is none when cleared.
     StatusText { key: String, text: Option<String> },
     /// The steering messages the agent has not taken in yet, oldest first; the whole queue each time.

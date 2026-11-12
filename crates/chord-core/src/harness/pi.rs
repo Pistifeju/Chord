@@ -15,8 +15,8 @@ use serde_json::{Value, json};
 
 use super::shell::read_only_title;
 use super::{
-    Capability, DialogAnswer, DialogAsk, HarnessEvent, Image, SlashCommand, SlashKind, ToolOutcome,
-    UsageWindow,
+    Capability, DialogAnswer, DialogAsk, HarnessEvent, Image, SlashCommand, SlashKind,
+    SubagentNode, SubagentState, ToolOutcome, UsageWindow,
 };
 use crate::Error;
 
@@ -32,6 +32,8 @@ const EXTENSION_FILE: &str = "chord-extension.ts";
 const EXTENSION_PREFIX: &str = "chord-";
 /// The status key the extension reports the usage windows under.
 const USAGE_STATUS: &str = "chord-usage";
+/// A subagent extension's widget carries its background runs as one line with this prefix, then a JSON snapshot.
+const SUBAGENTS_PREFIX: &str = "PI_SUBAGENT_ASYNC_JSON:";
 /// The request id of a prompt that runs one of the extension's commands; its response means the session may have changed.
 const SESSION_PROMPT: &str = "chord-session";
 /// A fork dialog's id starts with this; the ids of the entries it lists follow, comma-separated, in the order of its options.
@@ -221,6 +223,7 @@ impl Session {
             Capability::Steer,
             Capability::Models,
             Capability::Context,
+            Capability::Subagents,
         ]
     }
 
@@ -558,8 +561,10 @@ struct Kind {
     update: Option<Value>,
 }
 
-const READ_KINDS: [&str; 10] = [
+const READ_KINDS: [&str; 12] = [
     "extension_ui_request",
+    "compaction_start",
+    "compaction_end",
     "extension_error",
     "agent_start",
     "agent_settled",
@@ -610,7 +615,7 @@ struct Read {
     requests: Vec<Value>,
 }
 
-/// The session the chat shows: its file, a hash of its messages, its model and thinking level.
+/// The session the chat shows: its file, a hash of its messages, its model and thinking level, the widget that carries the subagent lineage and whether an automatic compaction runs.
 #[derive(Default)]
 struct ShownSession {
     file: Option<String>,
@@ -618,9 +623,51 @@ struct ShownSession {
     /// The current model as `provider/id` and the current thinking level, so a picker marks them.
     model: Option<String>,
     thinking: Option<String>,
+    /// The widget key that last carried a subagent snapshot, so clearing it empties the lineage.
+    subagents_widget: Option<String>,
+    /// An automatic compaction is running; the subagent extension clears its widget for it and redraws after.
+    compacting_automatically: bool,
 }
 
 impl ShownSession {
+    fn track_compaction(&mut self, record: &Value) {
+        match (record["type"].as_str(), record["reason"].as_str()) {
+            (Some("compaction_start"), Some(reason)) => {
+                self.compacting_automatically = reason != "manual"
+            }
+            (Some("compaction_end"), _) => self.compacting_automatically = false,
+            _ => {}
+        }
+    }
+
+    // A widget line with the snapshot prefix sets the lineage; the same widget cleared, or sent without one, empties it, except while an automatic compaction runs.
+    fn subagents(&mut self, record: &Value) -> Option<HarnessEvent> {
+        if record["type"] != "extension_ui_request" || record["method"] != "setWidget" {
+            return None;
+        }
+        let key = record["widgetKey"].as_str()?;
+        let snapshot = record["widgetLines"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .find_map(|line| line.strip_prefix(SUBAGENTS_PREFIX));
+        match snapshot {
+            Some(snapshot) => {
+                self.subagents_widget = Some(key.into());
+                Some(HarnessEvent::Subagents {
+                    nodes: subagent_nodes(snapshot),
+                })
+            }
+            // The clear is only the extension hiding its widget while the context compacts; it redraws the true list after.
+            None if self.compacting_automatically => None,
+            None if self.subagents_widget.as_deref() == Some(key) => {
+                Some(HarnessEvent::Subagents { nodes: vec![] })
+            }
+            None => None,
+        }
+    }
+
     // A cancelled or failed `/resume` or `/tree` still reads the session again; the same file and messages leave the transcript and status alone.
     fn repeats(&mut self, record: &Value) -> bool {
         if record["type"] != "response" || record["success"] != true {
@@ -690,10 +737,13 @@ fn read_line(line: &[u8], shown: &mut ShownSession) -> Read {
             serde_json::from_slice::<Value>(line)
                 .ok()
                 .inspect(|record| shown.remember_choice(record))
+                .inspect(|record| shown.track_compaction(record))
                 .filter(|record| !shown.repeats(record))
                 .map(|record| Read {
-                    events: events_from(&record)
+                    events: shown
+                        .subagents(&record)
                         .into_iter()
+                        .chain(events_from(&record))
                         .map(|event| shown.with_current(event))
                         .collect(),
                     requests: requests_after(&record),
@@ -1041,6 +1091,65 @@ fn usage_windows(text: &str) -> Vec<UsageWindow> {
             })
         })
         .collect()
+}
+
+// A snapshot that does not parse holds no runs.
+fn subagent_nodes(snapshot: &str) -> Vec<SubagentNode> {
+    fn state_of(state: &str) -> SubagentState {
+        match state {
+            "complete" => SubagentState::Done,
+            "failed" | "partial" | "stopped" | "rejected" => SubagentState::Error,
+            _ => SubagentState::Running,
+        }
+    }
+    fn row(node: &Value, depth: u32) -> Option<SubagentNode> {
+        Some(SubagentNode {
+            id: node["id"].as_str()?.into(),
+            depth,
+            name: node["label"].as_str()?.into(),
+            state: state_of(node["state"].as_str()?),
+            tool: node["activity"]["currentTool"].as_str().map(String::from),
+            started_at: node["startedAt"].as_f64(),
+            ended_at: node["endedAt"].as_f64(),
+        })
+    }
+    // A run, its step and a nested summary of one agent repeat its name down a chain of single children; they are one row, in one state: running while any of them runs, else failed if any failed, else done.
+    fn walk(node: &Value, depth: u32, nodes: &mut Vec<SubagentNode>) {
+        let Some(mut merged) = row(node, depth) else {
+            return;
+        };
+        let mut last = node;
+        while let [only] = last["children"].as_array().map_or(&[][..], Vec::as_slice) {
+            let Some(next) = row(only, depth).filter(|next| next.name == merged.name) else {
+                break;
+            };
+            merged.state = match (next.state, merged.state) {
+                (SubagentState::Running, _) | (_, SubagentState::Running) => SubagentState::Running,
+                (SubagentState::Error, _) | (_, SubagentState::Error) => SubagentState::Error,
+                _ => SubagentState::Done,
+            };
+            merged.tool = next.tool.or(merged.tool);
+            merged.started_at = match (merged.started_at, next.started_at) {
+                (Some(a), Some(b)) => Some(a.min(b)),
+                (a, b) => a.or(b),
+            };
+            merged.ended_at = next.ended_at.or(merged.ended_at);
+            last = only;
+        }
+        if merged.state == SubagentState::Running {
+            merged.ended_at = None;
+        }
+        nodes.push(merged);
+        for child in last["children"].as_array().into_iter().flatten() {
+            walk(child, depth + 1, nodes);
+        }
+    }
+    let snapshot: Value = serde_json::from_str(snapshot).unwrap_or_default();
+    let mut nodes = vec![];
+    for run in snapshot["runs"].as_array().into_iter().flatten() {
+        walk(run, 0, &mut nodes);
+    }
+    nodes
 }
 
 fn message_update(update: &Value) -> Vec<HarnessEvent> {
@@ -1601,6 +1710,155 @@ mod tests {
         };
         assert_eq!(current(models), Some("anthropic/sonnet-4".into()));
         assert_eq!(current(levels), Some("Medium".into()));
+    }
+
+    fn node(
+        id: &str,
+        depth: u32,
+        name: &str,
+        state: SubagentState,
+        tool: Option<&str>,
+        started_at: Option<f64>,
+        ended_at: Option<f64>,
+    ) -> SubagentNode {
+        SubagentNode {
+            id: id.into(),
+            depth,
+            name: name.into(),
+            state,
+            tool: tool.map(String::from),
+            started_at,
+            ended_at,
+        }
+    }
+
+    #[test]
+    fn a_subagents_widget_becomes_the_lineage() {
+        let widget = r#"{"type":"extension_ui_request","id":"w1","method":"setWidget","widgetKey":"jobs","widgetLines":["PI_SUBAGENT_ASYNC_JSON:{\"runs\":[{\"id\":\"r1\",\"kind\":\"workflow\",\"label\":\"chain\",\"state\":\"running\",\"startedAt\":1000,\"children\":[{\"id\":\"r1:0\",\"kind\":\"step\",\"label\":\"scout\",\"state\":\"complete\",\"startedAt\":1000,\"endedAt\":4000},{\"id\":\"r1:1\",\"kind\":\"step\",\"label\":\"build\",\"state\":\"running\",\"startedAt\":4000,\"activity\":{\"currentTool\":\"bash\"},\"children\":[{\"id\":\"r1:1:0\",\"kind\":\"step\",\"label\":\"lint\",\"state\":\"stopped\"}]}]},{\"id\":\"r2\",\"kind\":\"subagent\",\"label\":\"worker\",\"state\":\"running\",\"startedAt\":2000,\"activity\":{\"currentTool\":\"read\"},\"children\":[{\"id\":\"r2:0\",\"kind\":\"step\",\"label\":\"worker\",\"state\":\"running\",\"activity\":{\"currentTool\":\"read\"}}]},{\"id\":\"r3\",\"kind\":\"subagent\",\"label\":\"worker\",\"state\":\"running\",\"children\":[{\"id\":\"r3:0\",\"kind\":\"step\",\"label\":\"worker\",\"state\":\"running\",\"activity\":{\"currentTool\":\"bash\"}}]},{\"id\":\"r4\",\"kind\":\"subagent\",\"label\":\"worker\",\"state\":\"running\",\"children\":[{\"id\":\"r4:0\",\"kind\":\"step\",\"label\":\"worker\",\"state\":\"failed\"}]}]}"]}"#;
+        let mut shown = ShownSession::default();
+        assert_eq!(
+            read_line(widget.as_bytes(), &mut shown).events,
+            vec![HarnessEvent::Subagents {
+                nodes: vec![
+                    node(
+                        "r1",
+                        0,
+                        "chain",
+                        SubagentState::Running,
+                        None,
+                        Some(1000.0),
+                        None
+                    ),
+                    node(
+                        "r1:0",
+                        1,
+                        "scout",
+                        SubagentState::Done,
+                        None,
+                        Some(1000.0),
+                        Some(4000.0)
+                    ),
+                    node(
+                        "r1:1",
+                        1,
+                        "build",
+                        SubagentState::Running,
+                        Some("bash"),
+                        Some(4000.0),
+                        None
+                    ),
+                    node("r1:1:0", 2, "lint", SubagentState::Error, None, None, None),
+                    node(
+                        "r2",
+                        0,
+                        "worker",
+                        SubagentState::Running,
+                        Some("read"),
+                        Some(2000.0),
+                        None
+                    ),
+                    node(
+                        "r3",
+                        0,
+                        "worker",
+                        SubagentState::Running,
+                        Some("bash"),
+                        None,
+                        None
+                    ),
+                    node("r4", 0, "worker", SubagentState::Running, None, None, None),
+                ]
+            }]
+        );
+        let other =
+            r#"{"type":"extension_ui_request","id":"w2","method":"setWidget","widgetKey":"other"}"#;
+        assert_eq!(read_line(other.as_bytes(), &mut shown).events, vec![]);
+        let cleared =
+            r#"{"type":"extension_ui_request","id":"w3","method":"setWidget","widgetKey":"jobs"}"#;
+        assert_eq!(
+            read_line(cleared.as_bytes(), &mut shown).events,
+            vec![HarnessEvent::Subagents { nodes: vec![] }]
+        );
+    }
+
+    #[test]
+    fn a_clear_during_an_automatic_compaction_keeps_the_lineage() {
+        let mut shown = ShownSession::default();
+        let widget = r#"{"type":"extension_ui_request","id":"w1","method":"setWidget","widgetKey":"jobs","widgetLines":["PI_SUBAGENT_ASYNC_JSON:{\"runs\":[{\"id\":\"r1\",\"kind\":\"subagent\",\"label\":\"worker\",\"state\":\"running\"}]}"]}"#;
+        assert_eq!(read_line(widget.as_bytes(), &mut shown).events.len(), 1);
+        let cleared =
+            r#"{"type":"extension_ui_request","id":"w2","method":"setWidget","widgetKey":"jobs"}"#;
+        let start = r#"{"type":"compaction_start","reason":"threshold"}"#;
+        read_line(start.as_bytes(), &mut shown);
+        assert_eq!(read_line(cleared.as_bytes(), &mut shown).events, vec![]);
+        let end =
+            r#"{"type":"compaction_end","reason":"threshold","aborted":false,"willRetry":false}"#;
+        read_line(end.as_bytes(), &mut shown);
+        assert_eq!(
+            read_line(cleared.as_bytes(), &mut shown).events,
+            vec![HarnessEvent::Subagents { nodes: vec![] }]
+        );
+    }
+
+    #[test]
+    fn one_agent_repeated_down_a_chain_is_one_subagent_row() {
+        let widget = r#"{"type":"extension_ui_request","id":"w1","method":"setWidget","widgetKey":"jobs","widgetLines":["PI_SUBAGENT_ASYNC_JSON:{\"runs\":[{\"id\":\"a\",\"kind\":\"subagent\",\"label\":\"worker\",\"state\":\"complete\",\"startedAt\":1000,\"endedAt\":18000,\"children\":[{\"id\":\"a:0\",\"kind\":\"step\",\"label\":\"worker\",\"state\":\"complete\",\"startedAt\":1200,\"children\":[{\"id\":\"a:0:0\",\"kind\":\"subagent\",\"label\":\"worker\",\"state\":\"running\",\"startedAt\":1500,\"activity\":{\"currentTool\":\"bash\"}}]}]},{\"id\":\"b\",\"kind\":\"workflow\",\"label\":\"worker\",\"state\":\"running\",\"startedAt\":2000,\"children\":[{\"id\":\"b:0\",\"kind\":\"step\",\"label\":\"worker\",\"state\":\"running\",\"children\":[{\"id\":\"b:0:0\",\"kind\":\"step\",\"label\":\"scout\",\"state\":\"running\"},{\"id\":\"b:0:1\",\"kind\":\"step\",\"label\":\"lint\",\"state\":\"failed\"}]}]}]}"]}"#;
+        let mut shown = ShownSession::default();
+        assert_eq!(
+            read_line(widget.as_bytes(), &mut shown).events,
+            vec![HarnessEvent::Subagents {
+                nodes: vec![
+                    node(
+                        "a",
+                        0,
+                        "worker",
+                        SubagentState::Running,
+                        Some("bash"),
+                        Some(1000.0),
+                        None
+                    ),
+                    node(
+                        "b",
+                        0,
+                        "worker",
+                        SubagentState::Running,
+                        None,
+                        Some(2000.0),
+                        None
+                    ),
+                    node(
+                        "b:0:0",
+                        1,
+                        "scout",
+                        SubagentState::Running,
+                        None,
+                        None,
+                        None
+                    ),
+                    node("b:0:1", 1, "lint", SubagentState::Error, None, None, None),
+                ]
+            }]
+        );
     }
 
     #[test]

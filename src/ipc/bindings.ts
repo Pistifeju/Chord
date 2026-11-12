@@ -59,7 +59,9 @@ export type Capability =
 /**  The model and the thinking level can be read and picked. */
 "models" | 
 /**  The size of the model's context window and how much of it the session fills. */
-"context";
+"context" | 
+/**  Background subagent runs, reported as a lineage. */
+"subagents";
 
 /**  The user's answer to a dialog. */
 export type DialogAnswer = 
@@ -134,6 +136,8 @@ export type HarnessEvent_Deserialize =
 { kind: "commands"; commands: SlashCommand_Deserialize[] } | 
 /**  The subscription usage windows of the account, shortest first; the whole list each time, empty when none applies. */
 { kind: "usage"; windows: UsageWindow_Deserialize[] } | 
+/**  The background subagent runs as a lineage, each node before its children; the whole list each time, empty when none applies. */
+{ kind: "subagents"; nodes: SubagentNode_Deserialize[] } | 
 /**  An extension set or cleared its status text; `text` is none when cleared. */
 { kind: "status_text"; key: string; text?: string | null } | 
 /**  The steering messages the agent has not taken in yet, oldest first; the whole queue each time. */
@@ -184,6 +188,8 @@ export type HarnessEvent_Serialize =
 { kind: "commands"; commands: SlashCommand_Serialize[] } | 
 /**  The subscription usage windows of the account, shortest first; the whole list each time, empty when none applies. */
 { kind: "usage"; windows: UsageWindow_Serialize[] } | 
+/**  The background subagent runs as a lineage, each node before its children; the whole list each time, empty when none applies. */
+{ kind: "subagents"; nodes: SubagentNode_Serialize[] } | 
 /**  An extension set or cleared its status text; `text` is none when cleared. */
 { kind: "status_text"; key: string; text: string | null } | 
 /**  The steering messages the agent has not taken in yet, oldest first; the whole queue each time. */
@@ -379,6 +385,39 @@ export type Status_Deserialize = { kind: "running" } |
 export type Status_Serialize = { kind: "running" } | 
 /**  A dialog is open, or the last message ends with a question. */
 { kind: "waiting" } | { kind: "done" } | { kind: "error" } | { kind: "exited"; code: number | null };
+
+/**  One row of the subagent lineage: a background run, or a step or agent inside it; `depth` is 0 for a run, 1 for what it holds, and so on. */
+export type SubagentNode = SubagentNode_Serialize | SubagentNode_Deserialize;
+
+/**  One row of the subagent lineage: a background run, or a step or agent inside it; `depth` is 0 for a run, 1 for what it holds, and so on. */
+export type SubagentNode_Deserialize = {
+	id: string,
+	depth: number,
+	name: string,
+	state: SubagentState,
+	/**  The tool it runs right now. */
+	tool?: string | null,
+	/**  Epoch milliseconds. */
+	started_at?: number | null,
+	/**  Epoch milliseconds, set once it ended. */
+	ended_at?: number | null,
+};
+
+/**  One row of the subagent lineage: a background run, or a step or agent inside it; `depth` is 0 for a run, 1 for what it holds, and so on. */
+export type SubagentNode_Serialize = {
+	id: string,
+	depth: number,
+	name: string,
+	state: SubagentState,
+	/**  The tool it runs right now. */
+	tool: string | null,
+	/**  Epoch milliseconds. */
+	started_at: number | null,
+	/**  Epoch milliseconds, set once it ended. */
+	ended_at: number | null,
+};
+
+export type SubagentState = "running" | "done" | "error";
 
 export type Theme = "system" | "light" | "dark";
 

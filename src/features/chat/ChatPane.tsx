@@ -1,12 +1,14 @@
 // The chat of one pane: transcript, composer, and a Start button while no agent runs.
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import { memo, useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
+import { memo, useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type CSSProperties, type KeyboardEvent } from "react";
 import { tooltip } from "../../app/commands";
-import type { Image, SlashCommand } from "../../ipc/bindings";
+import type { Image, SlashCommand, SubagentNode } from "../../ipc/bindings";
 import { ArrowDownIcon, ArrowUpIcon, ChevronIcon, CloseIcon, PaperclipIcon } from "../../ui/icons";
 import { imageMime, imageUrl, isImageType, type Attachment } from "./attachments";
 import { DialogMenu, DialogPanel } from "./DialogPanel";
 import { contextMeter } from "./context";
+import { useClock } from "./clock";
+import { elapsedText } from "./elapsed";
 import { modelLabels } from "./model";
 import { appearance } from "../settings/store";
 import { StatusMark } from "../status/StatusMark";
@@ -16,11 +18,43 @@ import { Markdown } from "./MarkdownView";
 import { Lightbox } from "./Lightbox";
 import { SlashMenu } from "./SlashMenu";
 import { steppedIndex } from "./dialog";
+import { isTicking, subagentLine, subagentSummary } from "./subagents";
 import { completion, slashMenu, slashQuery } from "./slash";
 import { closeLightbox, lightboxes, openLightbox, stepLightbox } from "./viewing";
 import { answerDialog, attachFiles, attachments, attachPasted, chatOf, chats, closeSlash, drafts, openPicker, pickAttachments, removeAttachment, sendMessage, setDraft, slashClosed, startChat } from "./store";
 import { callTime, isStreaming, shownSteps, statusLine, stepImages, stepsSummary, stepsTime, type Item, type Message, type StepGroup } from "./transcript";
 import "./chat.css";
+
+function SubagentLine({ mark, text }: { mark: SubagentNode["state"]; text: string }) {
+  return (
+    <>
+      <StatusMark kind={mark} />
+      <span className="chat-subagent-text">{text}</span>
+    </>
+  );
+}
+
+function SubagentLines({ nodes }: { nodes: SubagentNode[] }) {
+  const now = useClock(isTicking(nodes));
+  const summary = subagentSummary(nodes, now);
+  const indent = summary ? 1 : 0;
+  return (
+    <section aria-label="Subagents">
+      {summary && (
+        <div className="chat-subagent">
+          <SubagentLine mark={summary.mark} text={summary.text} />
+        </div>
+      )}
+      <ul className="chat-subagent-list">
+        {nodes.map((node) => (
+          <li key={node.id} className="chat-subagent" style={{ "--depth": node.depth + indent } as CSSProperties}>
+            <SubagentLine mark={node.state} text={subagentLine(node, now)} />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
 
 function StartButton({ worktree, pane }: { worktree: string; pane: string }) {
   return (
@@ -34,17 +68,12 @@ const VERBS = ["Cooking", "Locking in", "Hold my beer", "Going feral"];
 
 // The start time picks the verb, so a remount keeps it.
 function Working({ since }: { since: number }) {
-  const [now, setNow] = useState(Date.now);
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-  const s = Math.max(0, Math.floor((now - since) / 1000));
+  const now = useClock(true);
   return (
     <div className="chat-working">
       <StatusMark kind="running" />
       <span className="chat-working-verb">{VERBS[since % VERBS.length]}</span>
-      <span>{s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`}</span>
+      <span>{elapsedText(now - since)}</span>
       <span>esc stops</span>
     </div>
   );
@@ -105,11 +134,11 @@ const StepsRow = memo(function StepsRow({ pane, group, running, fresh }: { pane:
 });
 
 // A streaming reply renders nothing, so its chunks leave the rows as they are.
-type Rows = { items: Item[]; running: boolean; queued: string[]; /** How many items are the session's history. */ historyLength: number };
+type Rows = { items: Item[]; running: boolean; queued: string[]; subagents: SubagentNode[]; /** How many items are the session's history. */ historyLength: number };
 const sameItems = (a: Item[], b: Item[]) => a.length === b.length && a.every((item, i) => item === b[i] || (isStreaming(item) && isStreaming(b[i])));
-const sameRows = (a: Rows, b: Rows) => a.running === b.running && a.historyLength === b.historyLength && a.queued === b.queued && sameItems(a.items, b.items);
+const sameRows = (a: Rows, b: Rows) => a.running === b.running && a.historyLength === b.historyLength && a.queued === b.queued && a.subagents === b.subagents && sameItems(a.items, b.items);
 
-const Messages = memo(function Messages({ pane, items, running, queued, historyLength }: { pane: string } & Rows) {
+const Messages = memo(function Messages({ pane, items, running, queued, subagents, historyLength }: { pane: string } & Rows) {
   // Only items that arrive live while the pane is open animate in; reopening a long chat and a session's history stay still.
   const loaded = useRef(items.length);
   // A session that opens with fewer items than the pane held: what arrives after its history is live.
@@ -135,11 +164,13 @@ const Messages = memo(function Messages({ pane, items, running, queued, historyL
           {text}
         </div>
       ))}
+      {subagents.length > 0 && <SubagentLines nodes={subagents} />}
     </div>
   );
 }, sameRows);
 
 const noAttachments: Attachment[] = [];
+const noSubagents: SubagentNode[] = [];
 
 function fitComposer(el: HTMLTextAreaElement) {
   el.style.height = "auto";
@@ -221,12 +252,13 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
   // Find searches again only when the shown rows change, not on each chunk of a streaming reply.
   const shownItems = useRef(chat.items);
   if (!sameItems(shownItems.current, chat.items)) shownItems.current = chat.items;
+  const subagentRows = chat.capabilities?.includes("subagents") ? chat.subagents : noSubagents;
   useLayoutEffect(() => {
     const el = transcript.current;
     if (chat.items[0] !== firstItem.current) pinned.current = true;
     firstItem.current = chat.items[0];
     if (el && pinned.current) el.scrollTop = el.scrollHeight;
-  }, [chat.items, chat.running, chat.queued]);
+  }, [chat.items, chat.running, chat.queued, subagentRows]);
 
   const jumpToEnd = () => {
     const el = transcript.current;
@@ -305,7 +337,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
               <StartButton worktree={worktree} pane={pane} />
             </div>
           ) : (
-            <Messages pane={pane} items={chat.items} running={chat.running} queued={chat.queued} historyLength={chat.historyLength} />
+            <Messages pane={pane} items={chat.items} running={chat.running} queued={chat.queued} subagents={subagentRows} historyLength={chat.historyLength} />
           )}
         </div>
         <button type="button" className="chat-jump" data-shown={away || undefined} title="Jump to Latest" aria-label="Jump to Latest" onClick={jumpToEnd}>

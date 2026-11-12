@@ -1,5 +1,5 @@
 // Rules for a chat's transcript: how each harness event changes the messages, the run flag, the notice and the status report.
-import type { Capability, DialogAsk, HarnessEvent, Image, SlashCommand } from "../../ipc/bindings";
+import type { Capability, DialogAsk, HarnessEvent, Image, SlashCommand, SubagentNode } from "../../ipc/bindings";
 import { stampedReport, type StatusReport } from "../status/status.ts";
 
 export type Message = { role: "user" | "assistant"; text: string; streaming: boolean; /** The images a user message carried. */ images?: Image[] };
@@ -45,6 +45,8 @@ export type Chat = {
   commands: SlashCommand[];
   /** The status texts extensions set, by their key. */
   statusTexts: Record<string, string>;
+  /** The background subagent runs and what each holds, each node before its children; none without a subagent extension. */
+  subagents: SubagentNode[];
   /** Steering messages the agent has not taken in yet. */
   queued: string[];
   /** The status Rust reported; null until the first run. */
@@ -53,7 +55,7 @@ export type Chat = {
   historyLength: number;
 };
 
-export const emptyChat: Chat = { agent: "idle", items: [], running: false, since: null, capabilities: null, notice: null, dialog: null, model: null, context: null, commands: [], statusTexts: {}, queued: [], report: null, historyLength: 0 };
+export const emptyChat: Chat = { agent: "idle", items: [], running: false, since: null, capabilities: null, notice: null, dialog: null, model: null, context: null, commands: [], statusTexts: {}, subagents: [], queued: [], report: null, historyLength: 0 };
 
 /** The extensions' status texts in key order, as the composer bar shows them; empty when none is set. */
 export const statusLine = (chat: Chat): string =>
@@ -180,6 +182,8 @@ function applied(chat: Chat, event: HarnessEvent, now: number): Chat {
       const { [event.key]: _, ...rest } = chat.statusTexts;
       return { ...chat, statusTexts: event.text ? { ...rest, [event.key]: event.text } : rest };
     }
+    case "subagents":
+      return { ...chat, subagents: event.nodes };
     case "queue":
       return { ...chat, queued: event.steering };
     case "message_end":
@@ -197,7 +201,7 @@ function applied(chat: Chat, event: HarnessEvent, now: number): Chat {
       return { ...chat, report: stampedReport(chat.report, { status: event.status, lastMessage: event.last_message, since: now }, now) };
     case "notice":
       return { ...chat, notice: event.text };
-    // Rust's `status_for` starts the status over here too.
+    // The lineage is not cleared here: the extension empties it itself on a new session, and a snapshot it restores arrives before this event. Rust's `status_for` starts the status over here.
     case "history_start":
       return { ...chat, items: [], queued: [], report: null, historyLength: 0 };
     case "history_end":
@@ -209,6 +213,6 @@ function applied(chat: Chat, event: HarnessEvent, now: number): Chat {
     case "usage":
       return chat;
     case "exited":
-      return { ...chat, agent: "idle", running: false, queued: [], context: null, statusTexts: {}, items: closed(chat.items) };
+      return { ...chat, agent: "idle", running: false, queued: [], context: null, statusTexts: {}, subagents: [], items: closed(chat.items) };
   }
 }
