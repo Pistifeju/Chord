@@ -234,8 +234,15 @@ impl StatusTracker {
     }
 }
 
+/// A status to report. A message end reports the status again for its fresh last message; `changed` is false then.
+#[derive(Debug, PartialEq)]
+pub struct StatusReport {
+    pub status: Status,
+    pub changed: bool,
+}
+
 /// Folds an event into the agent's status; the status to report, or none when nothing changed. The only function that decides a status.
-pub fn status_for(tracker: &mut StatusTracker, event: &HarnessEvent) -> Option<Status> {
+pub fn status_for(tracker: &mut StatusTracker, event: &HarnessEvent) -> Option<StatusReport> {
     match event {
         HarnessEvent::State { running: true } => {
             tracker.running = true;
@@ -270,9 +277,12 @@ pub fn status_for(tracker: &mut StatusTracker, event: &HarnessEvent) -> Option<S
         _ => return None,
     }
     let current = tracker.current();
-    let report = current != tracker.reported || matches!(event, HarnessEvent::MessageEnd { .. });
+    let changed = current != tracker.reported;
+    let report = changed || matches!(event, HarnessEvent::MessageEnd { .. });
     tracker.reported = current;
-    current.filter(|_| report)
+    current
+        .filter(|_| report)
+        .map(|status| StatusReport { status, changed })
 }
 
 #[cfg(test)]
@@ -281,9 +291,11 @@ mod tests {
 
     fn last_status(events: &[HarnessEvent]) -> Option<Status> {
         let mut tracker = StatusTracker::default();
-        events
-            .iter()
-            .fold(None, |last, event| status_for(&mut tracker, event).or(last))
+        events.iter().fold(None, |last, event| {
+            status_for(&mut tracker, event)
+                .map(|report| report.status)
+                .or(last)
+        })
     }
 
     fn reply(text: &str) -> [HarnessEvent; 2] {
@@ -363,6 +375,26 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(replayed, vec![]);
         assert_eq!(tracker.last_message(), "An older reply?");
+    }
+
+    #[test]
+    fn a_status_repeated_at_a_message_end_is_not_a_change() {
+        let mut tracker = StatusTracker::default();
+        let reports = run(reply("Fixed.").into())
+            .into_iter()
+            .chain([HarnessEvent::MessageEnd { failed: false }])
+            .filter_map(|event| status_for(&mut tracker, &event))
+            .map(|report| (report.status, report.changed))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            reports,
+            vec![
+                (Status::Running, true),
+                (Status::Running, false),
+                (Status::Done, true),
+                (Status::Done, false),
+            ]
+        );
     }
 
     #[test]

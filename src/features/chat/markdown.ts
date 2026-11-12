@@ -85,7 +85,9 @@ function listFrom(lines: string[], start: number): [Block, number] {
     while (i < lines.length) {
       const line = lines[i];
       if (isBlank(line)) {
-        const next = lines.slice(i).find((l) => !isBlank(l));
+        let k = i;
+        while (k < lines.length && isBlank(lines[k])) k++;
+        const next = lines[k];
         if (next === undefined || indentOf(next) < contentIndent) break;
         body.push("");
       } else if (indentOf(line) >= contentIndent) body.push(line.slice(contentIndent));

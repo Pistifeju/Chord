@@ -1,7 +1,7 @@
 // Tests for the session tab rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { activeSession, firstPanes, paneNames, tabName, withFocus, withNewSession, withoutPaneClosed, withSplitFocused } from "./sessions.ts";
+import { activeSession, firstPanes, paneNames, shownSession, tabName, withFocus, withNewSession, withoutPaneClosed, withSplitFocused } from "./sessions.ts";
 
 test("a new session is named after the highest number and opens", () => {
   const two = withNewSession(firstPanes("s1", "p1"), "s2", "p2");
@@ -48,4 +48,12 @@ test("a tab shows the first user message of the pane's session, cut to 30 charac
   assert.deepEqual(names, { p2: "Fix the login form so it accep" });
   assert.equal(tabName(split.sessions[0], names), "Fix the login form so it accep");
   assert.equal(tabName(split.sessions[0], {}), "Session 1");
+});
+
+test("the window shows the selected worktree's open tab, and none under Settings", () => {
+  const all = { "/w": withNewSession(firstPanes("s1", "p1"), "s2", "p2") };
+  assert.equal(shownSession(all, "/w", false)?.focused, "p2");
+  assert.equal(shownSession(all, "/w", true), null);
+  assert.equal(shownSession(all, null, false), null);
+  assert.equal(shownSession(all, "/other", false), null);
 });

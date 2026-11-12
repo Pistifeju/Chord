@@ -1,6 +1,6 @@
 // The chat's commands for the commands table.
 import type { AppCommand } from "../../app/commands";
-import { activeSession } from "../panes/sessions";
+import { shownSession } from "../panes/sessions";
 import { panes } from "../panes/store";
 import { settingsOpen } from "../settings/store";
 import { projects } from "../worktrees/store";
@@ -10,12 +10,7 @@ import { closeLightbox, lightboxes, stepLightbox } from "./viewing";
 import { slashMenu } from "./slash";
 import { abortRun, answerDialog, chatOf, chats, closeSlash, drafts, pickAttachments, slashClosed } from "./store";
 
-const focusedPane = (): string | null => {
-  const { selected } = projects.get();
-  const open = selected ? panes.get()[selected] : undefined;
-  const pane = open && activeSession(open).focused;
-  return pane && !settingsOpen.get() ? pane : null;
-};
+const focusedPane = (): string | null => shownSession(panes.get(), projects.get().selected, settingsOpen.get())?.focused || null;
 
 const runningPane = (): string | null => {
   const pane = focusedPane();

@@ -1,7 +1,6 @@
 //! Commands for a pane's chat: start its agent, send a message, abort the run, stop the agent.
 
 use std::path::PathBuf;
-use std::sync::Mutex;
 
 use chord_core::harness::pi::DEFAULT_BINARY;
 use chord_core::harness::sessions::Sessions;
@@ -23,33 +22,26 @@ pub async fn start_chat(
 ) -> Result<Vec<Capability>, String> {
     blocking(app, move |app, _| {
         let (notified_worktree, notified_pane) = (worktree.clone(), pane.clone());
-        // Rust reports the status again at every message end; notify once per change.
-        let last_notified = Mutex::new(None);
-        app.state::<Sessions>()
-            .start(DEFAULT_BINARY, worktree, pane, {
+        app.state::<Sessions>().start(
+            DEFAULT_BINARY,
+            worktree,
+            pane,
+            move |event| {
+                let _ = on_event.send(event);
+            },
+            {
                 let app = app.clone();
-                move |event| {
-                    if let HarnessEvent::Status {
-                        status,
+                move |status, last_message| {
+                    notifications::announce(
+                        &app,
+                        notified_worktree.clone(),
+                        notified_pane.clone(),
+                        &status,
                         last_message,
-                    } = &event
-                    {
-                        let changed = last_notified
-                            .lock()
-                            .map_or(true, |mut last| last.replace(*status) != Some(*status));
-                        if changed {
-                            notifications::announce(
-                                &app,
-                                notified_worktree.clone(),
-                                notified_pane.clone(),
-                                status,
-                                last_message,
-                            );
-                        }
-                    }
-                    let _ = on_event.send(event);
+                    );
                 }
-            })
+            },
+        )
     })
     .await
 }

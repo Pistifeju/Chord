@@ -15,7 +15,12 @@ export const usePaneNames = (panes: string[]): PaneNames => JSON.parse(chats.use
 
 export const chatOf = (all: Record<string, Chat>, pane: string): Chat => all[pane] ?? emptyChat;
 
-const update = (pane: string, change: (chat: Chat) => Chat) => chats.set({ ...chats.get(), [pane]: change(chatOf(chats.get(), pane)) });
+// An event that leaves the chat as it was wakes no view.
+function update(pane: string, change: (chat: Chat) => Chat) {
+  const before = chatOf(chats.get(), pane);
+  const after = change(before);
+  if (after !== before) chats.set({ ...chats.get(), [pane]: after });
+}
 
 // The unsent composer text of each pane, so it survives a split and a worktree switch.
 export const drafts = externalStore<Record<string, string>>({});

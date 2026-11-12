@@ -106,8 +106,8 @@ const StepsRow = memo(function StepsRow({ pane, group, running, fresh }: { pane:
 
 // A streaming reply renders nothing, so its chunks leave the rows as they are.
 type Rows = { items: Item[]; running: boolean; queued: string[]; /** How many items are the session's history. */ historyLength: number };
-const sameRows = (a: Rows, b: Rows) =>
-  a.running === b.running && a.historyLength === b.historyLength && a.queued === b.queued && a.items.length === b.items.length && a.items.every((item, i) => item === b.items[i] || (isStreaming(item) && isStreaming(b.items[i])));
+const sameItems = (a: Item[], b: Item[]) => a.length === b.length && a.every((item, i) => item === b[i] || (isStreaming(item) && isStreaming(b[i])));
+const sameRows = (a: Rows, b: Rows) => a.running === b.running && a.historyLength === b.historyLength && a.queued === b.queued && sameItems(a.items, b.items);
 
 const Messages = memo(function Messages({ pane, items, running, queued, historyLength }: { pane: string } & Rows) {
   // Only items that arrive live while the pane is open animate in; reopening a long chat and a session's history stay still.
@@ -217,6 +217,9 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
 
   // Follow the reply while the reader sits at the bottom; reading further up pauses it. A session that opens starts the transcript over and shows its end.
   const firstItem = useRef(chat.items[0]);
+  // Find searches again only when the shown rows change, not on each chunk of a streaming reply.
+  const shownItems = useRef(chat.items);
+  if (!sameItems(shownItems.current, chat.items)) shownItems.current = chat.items;
   useLayoutEffect(() => {
     const el = transcript.current;
     if (chat.items[0] !== firstItem.current) pinned.current = true;
@@ -307,7 +310,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
         <button type="button" className="chat-jump" data-shown={away || undefined} title="Jump to Latest" aria-label="Jump to Latest" onClick={jumpToEnd}>
           <ArrowDownIcon />
         </button>
-        {find && <FindBar pane={pane} find={find} transcript={transcript} items={chat.items} />}
+        {find && <FindBar pane={pane} find={find} transcript={transcript} items={shownItems.current} />}
         {chat.running && <Working since={chat.since ?? Date.now()} />}
       </div>
       {viewing && <Lightbox images={viewing.images} index={viewing.index} onStep={(by) => stepLightbox(pane, by)} onClose={() => closeLightbox(pane)} />}

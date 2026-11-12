@@ -10,6 +10,12 @@ export const firstPanes = (session: string, pane: string): WorktreePanes => ({
 
 export const activeSession = (panes: WorktreePanes): PaneSession => panes.sessions.find((s) => s.id === panes.active) ?? panes.sessions[0];
 
+// The session the window shows: the selected worktree's open tab, none while Settings covers the window.
+export function shownSession(all: Record<string, WorktreePanes>, selected: string | null, settingsOpen: boolean): PaneSession | null {
+  const open = selected && !settingsOpen ? all[selected] : undefined;
+  return open ? activeSession(open) : null;
+}
+
 const nextName = (sessions: PaneSession[]): string => {
   const numbers = sessions.map((s) => Number(/^Session (\d+)$/.exec(s.name)?.[1] ?? 0));
   return `Session ${Math.max(0, ...numbers) + 1}`;
@@ -54,7 +60,14 @@ export type PaneNames = Record<string, string | undefined>;
 // A session is named after its first user message, on one line and cut to 30 characters.
 export function sessionName(items: Item[]): string | undefined {
   const first = items.find((item) => item.role === "user");
-  return (first?.role === "user" && first.text.split(/\s+/).join(" ").trim().slice(0, 30)) || undefined;
+  if (first?.role !== "user") return undefined;
+  // Every chunk asks again, so only the words that reach 30 characters are read.
+  let name = "";
+  for (const [word] of first.text.matchAll(/\S+/g)) {
+    name += name ? ` ${word}` : word;
+    if (name.length >= 30) break;
+  }
+  return name.slice(0, 30) || undefined;
 }
 
 export const paneNames = (chats: Record<string, { items: Item[] } | undefined>, panes: string[]): PaneNames =>

@@ -4,7 +4,7 @@ import { commands } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
 import { chats } from "../chat/store";
 import { paneIds } from "../panes/layout";
-import { activeSession } from "../panes/sessions";
+import { shownSession } from "../panes/sessions";
 import { focusPane, panes } from "../panes/store";
 import { settingsOpen } from "../settings/store";
 import { projects, selectWorktree } from "../worktrees/store";
@@ -16,10 +16,8 @@ const kindsNow = (): PaneKinds =>
   Object.fromEntries(Object.entries(chats.get()).flatMap(([pane, chat]) => (chat.report ? [[pane, chat.report.status.kind]] : [])));
 
 function openPanes(): string[] {
-  const { selected } = projects.get();
-  const shown = selected && panes.get()[selected];
-  if (!shown || settingsOpen.get()) return [];
-  return paneIds(activeSession(shown).layout);
+  const shown = shownSession(panes.get(), projects.get().selected, settingsOpen.get());
+  return shown ? paneIds(shown.layout) : [];
 }
 
 export function watchFinished(): () => void {

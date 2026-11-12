@@ -3,15 +3,14 @@ import type { AppCommand } from "../../app/commands";
 import { settingsOpen } from "../settings/store";
 import { chatOf, chats } from "../chat/store";
 import { projects } from "../worktrees/store";
-import { activeSession, canClosePane } from "./sessions";
+import { canClosePane, shownSession } from "./sessions";
 import { closeFocused, newSession, panes, splitFocused } from "./store";
 
 const openWorktree = (): string | null => (settingsOpen.get() ? null : projects.get().selected);
 
 const hasChat = (): boolean => {
-  const worktree = openWorktree();
-  const current = worktree && panes.get()[worktree];
-  return !!current && chatOf(chats.get(), activeSession(current).focused).agent !== "idle";
+  const shown = shownSession(panes.get(), projects.get().selected, settingsOpen.get());
+  return !!shown && chatOf(chats.get(), shown.focused).agent !== "idle";
 };
 
 const onWorktree = (act: (worktree: string) => void) => () => {
