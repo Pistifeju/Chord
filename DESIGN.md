@@ -362,6 +362,10 @@ One surface in the title bar row, 32px tall at least, 560px wide at most. It clo
 
 While the user drags a folder over the window, a 2px dashed `accent-ink` outline sits 12px inside the window over the scrim, with its label on a small `sheet` chip.
 
+### Scrollbars
+
+One global style in `tokens.css`: a fixed 4×24px `ink-disabled` pill with rounded ends, centered in the thumb inside a 10px gutter, `ink-muted` on hover. The pill keeps its length whatever the content length; the track keeps 6px from the scroll area's edges. No track fill and no rule along the edge.
+
 ### Icons
 
 Line icons drawn in `src/ui/icons.tsx` on a 16px grid with a 1.3px stroke, in the current text color. Add a new icon there in the same stroke. No text glyph stands in for an icon.

@@ -117,3 +117,27 @@ html, body { overflow: hidden; overscroll-behavior: none; }
 body { margin: 0; -webkit-user-select: none; user-select: none; }
 input, textarea, [data-selectable] { -webkit-user-select: text; user-select: text; }
 ::selection { background: var(--accent-wash); }
+::-webkit-scrollbar { width: 10px; height: 10px; background: transparent; }
+::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-track { margin: 6px; }
+/* WebKit sizes the thumb from the content, so a fixed 24px pill is drawn centered inside it. */
+::-webkit-scrollbar-thumb {
+  --pill: var(--ink-disabled);
+  --cap: radial-gradient(circle closest-side, var(--pill) 90%, transparent);
+  --bar: linear-gradient(var(--pill), var(--pill));
+  min-height: 32px;
+  min-width: 32px;
+}
+::-webkit-scrollbar-thumb:hover { --pill: var(--ink-muted); }
+::-webkit-scrollbar-thumb:vertical {
+  background:
+    var(--cap) center calc(50% - 10px) / 4px 4px no-repeat,
+    var(--cap) center calc(50% + 10px) / 4px 4px no-repeat,
+    var(--bar) center / 4px 20px no-repeat;
+}
+::-webkit-scrollbar-thumb:horizontal {
+  background:
+    var(--cap) calc(50% - 10px) center / 4px 4px no-repeat,
+    var(--cap) calc(50% + 10px) center / 4px 4px no-repeat,
+    var(--bar) center / 20px 4px no-repeat;
+}
