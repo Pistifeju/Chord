@@ -1,10 +1,10 @@
 ---
 name: implement-feature
-description: "Implement one ticket end to end with a fixed chain of subagents: implement with polish-ui and improve-animations, then code-review. Use when the user names a ticket and where to implement it from."
+description: "Implement one ticket end to end with a fixed chain of subagents: implement with polish-ui and improve-animations, code-review, then one fix round. Use when the user names a ticket and where to implement it from."
 disable-model-invocation: true
 ---
 
-You are the main agent. You write no code yourself. You run two subagents one after another and report to the user. The user names the ticket and its source (a file, a `SPEC.md` row, an issue text, a link).
+You are the main agent. You write no code yourself. You run three subagent steps one after another and report to the user. The user names the ticket and its source (a file, a `SPEC.md` row, an issue text, a link).
 
 ## 1. Pin the ticket
 
@@ -30,6 +30,7 @@ Rules for every subagent:
 |------|------|-------------------|-------------|-------|
 | Writer (A) | Sonnet, medium effort | agent `worker`, model `anthropic/claude-sonnet-5-5:medium`, `async: false` | Task tool, `general-purpose`, model `sonnet` | spawn an agent, model `gpt-6-luna`, reasoning effort `medium` |
 | Reviewer (B) | Opus, medium effort | agent `worker`, model `anthropic/claude-opus-5-5:medium`, `async: false` | Task tool, `general-purpose`, model `opus` | spawn an agent, model `gpt-6.1-sol`, reasoning effort `medium` |
+| Fixer (C) | same as Writer (A) | same as Writer (A) | same as Writer (A) | same as Writer (A) |
 
 Another harness: pick its closest equivalent of the tier. The reviewer needs shell and edit tools, because it fixes what it finds. In pi the `reviewer` agent is read-only, so step B uses `worker`. The `code-review` skill asks for two sub-agents, one per axis: where the reviewer cannot start subagents, it runs both axes itself, one after the other.
 
@@ -47,6 +48,12 @@ Another harness: pick its closest equivalent of the tier. The reviewer needs she
 - Reviewer.
 - Task: read `.agents/skills/code-review/SKILL.md` and run it on the uncommitted changes, with the ticket text and source path as the spec. Then fix only the trivial findings: a one-line, mechanical fix with no behavior change (an unused import, a stray comment, a naming rule, a leftover debug line). Leave every other finding untouched, and list it. Run `npm run check` after the fixes. Return every finding on both axes (Standards, Spec), each with file and line and the status `fixed` or `open`, plus the `npm run check` result.
 
+### C. Fix the open findings
+
+- No `open` finding: skip C and name the skip.
+- Fixer, one launch. Task: the ticket text and source path, then every `open` finding from B verbatim, with file, line and axis. Fix each one. A finding that needs a product or scope decision (a new behavior the ticket does not name, a choice between two designs): leave it open and name the decision. Run `npm run check` at the end. Return each finding with the status `fixed` or `needs decision` (with the decision), the changed files, and the `npm run check` result.
+- Done when: every `open` finding from B carries a C status.
+
 ## 3. Report to the user
 
 Answer in this order:
@@ -54,7 +61,7 @@ Answer in this order:
 1. Verdict: did the reviewer find anything? Yes or no, with the count per axis, and how many it fixed.
 2. What now works: the ticket's behavior in concrete terms, and the changed files.
 3. Each step: done, skipped (why) or failed (why), and the `npm run check` result of every editing step.
-4. The reviewer's findings, ranked, each with file, line and status (`fixed` or `open`).
+4. The reviewer's findings, ranked, each with file, line and final status: `fixed` (by B or C) or `needs decision` (with the decision). Fixes from C had no review: say so.
 5. Findings from polish and animations that nobody fixed.
 
-Do not fix findings yourself. Do not commit. Offer one next action: decide the top `open` finding, or commit.
+Do not fix findings yourself. Do not commit. Offer one next action: decide the top `needs decision` finding, or commit.
