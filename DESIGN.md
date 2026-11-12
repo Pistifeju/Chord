@@ -255,7 +255,9 @@ Sizes multiply by `--text-scale`, which the text size setting changes (⌘=, ⌘
 
 **The Tabular Rule.** Numbers that change in place use `font-variant-numeric: tabular-nums`: git counts, shortcut hints, the text size percentage.
 
-**The Title Case Rule.** Buttons, menu items and sheet titles use title case ("New Worktree", "Add Project…"). Sentences in the canvas use sentence case.
+**The Title Case Rule.** Buttons, menu items and sheet titles use title case ("New Worktree", "Add Project"). Sentences in the canvas use sentence case.
+
+**The No Ellipsis Rule.** Text never ends with "…" or "...": no button, menu item, title, placeholder or status line. Write "Add Project", "Press keys", "Loading".
 
 ## Layout
 
@@ -316,7 +318,7 @@ No pills. A circle appears only as the Working dot and the spinner.
 - **Field** (`.input`): 30px tall, `canvas` fill, 1px `line-strong` border. The label sits above at 11px/500; the hint sits below at 11px muted and reserves its line so the sheet keeps its height.
 - **Focus:** no visual change. The caret shows where you type. No outline, no blue border, no halo.
 - **Segmented control** (`.segmented`): a `raised` track with 2px padding. The selected segment is a `control-selected` chip with the control shadow.
-- **Shortcut recorder:** a secondary button that shows the shortcut, or "None" in muted ink. While recording it gets a `canvas` fill, a 1px `accent-ink` inset border and a 3px `accent-wash` halo, and reads "Press keys…".
+- **Shortcut recorder:** a secondary button that shows the shortcut, or "None" in muted ink. While recording it gets a `canvas` fill, a 1px `accent-ink` inset border and a 3px `accent-wash` halo, and reads "Press keys".
 
 ### Sidebar
 
@@ -371,3 +373,4 @@ Line icons drawn in `src/ui/icons.tsx` on a 16px grid with a 1.3px stroke, in th
 - **Don't** add a hover color to the primary button.
 - **Don't** make chrome text selectable.
 - **Don't** put a raw hex color in a component.
+- **Don't** end a label, title or status with "…" or "...".

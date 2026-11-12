@@ -29,8 +29,8 @@ const selectCommands: AppCommand[] = Array.from({ length: 9 }, (_, i) => ({
 }));
 
 export const worktreeCommands: AppCommand[] = [
-  { id: "project.add", title: "Add Project…", shortcut: { key: "o", cmd: true }, run: pickProject },
-  { id: "worktree.new", title: "New Worktree…", shortcut: { key: "n", cmd: true }, run: openNewWorktree },
+  { id: "project.add", title: "Add Project", shortcut: { key: "o", cmd: true }, run: pickProject },
+  { id: "worktree.new", title: "New Worktree", shortcut: { key: "n", cmd: true }, run: openNewWorktree },
   { id: "project.remove", title: "Remove Project", run: (path) => path && void removeProject(path) },
   { id: "worktree.delete", title: "Delete Worktree", run: deleteWorktreeAt },
   { id: "sheet.close", title: "Close", shortcut: { key: "escape" }, when: sheetOpen, run: closeSheets },

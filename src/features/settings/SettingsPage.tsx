@@ -63,7 +63,7 @@ function ShortcutRows() {
                 if (recording === id) button?.focus();
               }}
             >
-              {recording === id ? "Press keys…" : (shortcutLabel(id) ?? "None")}
+              {recording === id ? "Press keys" : (shortcutLabel(id) ?? "None")}
             </button>
           </div>
         </div>
