@@ -36,10 +36,10 @@
   color: var(--ink);
 }
 
-/* The open tab takes the pane's fill and drops the bar's bottom rule, so it joins the pane below. */
+/* The open tab takes the pane's fill and keeps the bottom rule, so it reads as one tab with the bar. */
 .tab[data-selected="true"] {
   background: var(--canvas);
-  box-shadow: -1px 0 0 var(--line);
+  box-shadow: -1px 0 0 var(--line), inset 0 -1px 0 var(--line);
   color: var(--ink);
 }
 
@@ -82,6 +82,10 @@
   flex: none;
   width: 16px;
   height: 16px;
+}
+
+.tab-status:has(> .status-dot, > .spinner-inline) {
+  width: 12px;
 }
 
 .tab-label {
