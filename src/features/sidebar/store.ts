@@ -7,13 +7,13 @@ export const sidebar = externalStore<Sidebar>({ hidden: false, folded: [] });
 export function toggleSidebar() {
   const hidden = !sidebar.get().hidden;
   sidebar.set({ ...sidebar.get(), hidden });
-  commands.setSidebarHidden(hidden).catch(console.error);
+  commands.changeState({ sidebarHidden: hidden }).catch(console.error);
 }
 
 export function toggleFold(project: string) {
   const fold = !sidebar.get().folded.includes(project);
   commands
-    .setProjectFolded(project, fold)
-    .then((folded) => sidebar.set({ ...sidebar.get(), folded }))
+    .changeState({ projectFolded: { project, folded: fold } })
+    .then((state) => sidebar.set({ ...sidebar.get(), folded: state.sidebar.folded }))
     .catch(console.error);
 }

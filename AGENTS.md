@@ -2,7 +2,7 @@
 
 A macOS workspace for coding agents: one git worktree per task, each with its own agent chats. Tauri 2, Rust, React/TS.
 
-- Scope: `SPEC.md`. Architecture: `ARCHITECTURE.md`. UI rules: `DESIGN.md` and `design/`.
+- Scope: `SPEC.md`. Architecture: `ARCHITECTURE.md`. UI rules: `DESIGN.md`.
 - Module map: `find src crates src-tauri \( -name '*.ts*' -o -name '*.rs' \) | xargs head -1`. Line 1 of every source file says what the file holds.
 
 ## Boundaries
@@ -21,7 +21,7 @@ A macOS workspace for coding agents: one git worktree per task, each with its ow
 - Build nothing before a feature needs it: no empty container, no option nobody asked for.
 - Before you write new logic at any scale, search the repo for the same thing. Extend or generalize it instead of building a parallel version.
 - State rules live in a pure module outside React.
-- Every UI change follows `DESIGN.md` and the `design/<group>.md` of its component group.
+- Every UI change follows `DESIGN.md`, including its `Components` section for the control you touch.
 - CSS variables from `src/ui/tokens.css`. No raw hex in components.
 - Name a file, folder or module after the domain concept it holds. Never `utils`, `helpers`, `common`, `misc` or `shared`. Reaching for one of those means the file holds two jobs: split it, or find the name in what its functions operate on.
 - Write a comment only where the code cannot say it: one line, the why, never the how.
@@ -50,7 +50,7 @@ Never test copy, CSS classes, constants, third-party libraries, private state, t
 
 ## Done
 
-- `npm run check` passes. Never report a check you did not run.
+- `npm run check` passes. Run it once as `npm run check > /tmp/check.log 2>&1; echo exit=$?` and read the log only when the exit is not 0. Never report a check you did not run.
 - Skip visual checks: no screenshots, no launching the app to look at the UI. The user checks it.
 - `SPEC.md` ticks the feature in the same commit.
 - Commit messages: `type(area): what changed`, lower case. Types: `feat`, `fix`, `perf`, `refactor`, `test`, `docs`, `chore`. The area is a feature folder (`sidebar`, `chat`, `ios`, ...) and may be left out: `docs: add the harness contract`.

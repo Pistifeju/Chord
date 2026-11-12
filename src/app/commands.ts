@@ -27,7 +27,7 @@ export function loadShortcutChanges(saved: ShortcutChanges) {
 export function changeShortcut(id: string, shortcut: Shortcut | null): string | undefined {
   const { changes, lost } = changedShortcut(defaultShortcuts, shortcutChanges.get(), id, shortcut);
   shortcutChanges.set(changes);
-  commands.setShortcuts(changes).catch(console.error);
+  commands.changeState({ shortcuts: changes }).catch(console.error);
   return table.find((c) => c.id === lost)?.title;
 }
 

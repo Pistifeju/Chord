@@ -25,6 +25,33 @@ pub struct State {
     pub selected: Option<PathBuf>,
 }
 
+/// One change the frontend saves.
+#[derive(Deserialize, Type, Debug)]
+#[serde(rename_all = "camelCase")]
+pub enum StateChange {
+    SelectedWorktree(Option<PathBuf>),
+    SidebarHidden(bool),
+    ProjectFolded { project: PathBuf, folded: bool },
+    Theme(Theme),
+    TextPercent(u8),
+    Shortcuts(BTreeMap<String, Option<Shortcut>>),
+}
+
+impl State {
+    pub fn apply(&mut self, change: StateChange) {
+        match change {
+            StateChange::SelectedWorktree(worktree) => self.selected = worktree,
+            StateChange::SidebarHidden(hidden) => self.sidebar.hidden = hidden,
+            StateChange::ProjectFolded { project, folded } => {
+                self.sidebar.set_folded(project, folded)
+            }
+            StateChange::Theme(theme) => self.appearance.theme = theme,
+            StateChange::TextPercent(percent) => self.appearance.set_text_percent(percent),
+            StateChange::Shortcuts(shortcuts) => self.shortcuts = shortcuts,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Type, Clone, Debug, Default, PartialEq)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Sidebar {
@@ -33,12 +60,11 @@ pub struct Sidebar {
 }
 
 impl Sidebar {
-    pub fn set_folded(&mut self, project: PathBuf, folded: bool) -> Vec<PathBuf> {
+    fn set_folded(&mut self, project: PathBuf, folded: bool) {
         self.folded.retain(|path| *path != project);
         if folded {
             self.folded.push(project);
         }
-        self.folded.clone()
     }
 }
 
@@ -63,9 +89,8 @@ impl Appearance {
     pub const MIN_TEXT_PERCENT: u8 = 80;
     pub const MAX_TEXT_PERCENT: u8 = 150;
 
-    pub fn set_text_percent(&mut self, percent: u8) -> u8 {
+    fn set_text_percent(&mut self, percent: u8) {
         self.text_percent = percent.clamp(Self::MIN_TEXT_PERCENT, Self::MAX_TEXT_PERCENT);
-        self.text_percent
     }
 }
 

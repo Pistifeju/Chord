@@ -40,13 +40,10 @@ export function abortRun(worktree: string) {
   commands.abortRun(worktree).catch(console.error);
 }
 
-// Resolves once the agent's process has ended, so git can remove its directory.
-export const stopChat = (worktree: string) => commands.stopChat(worktree).catch(console.error);
-
 // The worktree is gone: its agent stops and its transcript goes.
 export function forgetChat(worktree: string) {
   starts.delete(worktree);
   const { [worktree]: gone, ...rest } = chats.get();
   chats.set(rest);
-  void stopChat(worktree);
+  commands.stopChat(worktree).catch(console.error);
 }

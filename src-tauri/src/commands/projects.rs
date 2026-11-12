@@ -1,32 +1,15 @@
-//! Commands for projects and their worktrees: load, save the selected worktree, add, remove, list, create, delete, git counts.
+//! Commands for projects and their worktrees: add, remove, list, create, delete, git counts.
 
 use std::path::PathBuf;
 
+use chord_core::harness::sessions::Sessions;
 use chord_core::{
-    Error, GitCounts, Project, Removal, State, Worktree, git_counts, projects, worktrees,
+    Error, GitCounts, Project, Removal, Worktree, git_counts, projects, worktrees,
 };
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 use tauri_plugin_dialog::DialogExt;
 
 use super::blocking;
-
-#[tauri::command]
-#[specta::specta]
-pub async fn load_state(app: AppHandle) -> Result<State, String> {
-    blocking(app, |_, store| Ok(store.get())).await
-}
-
-#[tauri::command]
-#[specta::specta]
-pub async fn set_selected_worktree(
-    app: AppHandle,
-    worktree: Option<PathBuf>,
-) -> Result<(), String> {
-    blocking(app, move |_, store| {
-        store.update(|state| state.selected = worktree)
-    })
-    .await
-}
 
 #[tauri::command]
 #[specta::specta]
@@ -103,8 +86,13 @@ pub async fn remove_worktree(
     worktree: PathBuf,
     force: bool,
 ) -> Result<Removal, String> {
-    blocking(app, move |_, store| {
-        worktrees::remove(&projects::find(store, &project)?, &worktree, force)
+    blocking(app, move |app, store| {
+        worktrees::remove(
+            &app.state::<Sessions>(),
+            &projects::find(store, &project)?,
+            &worktree,
+            force,
+        )
     })
     .await
 }

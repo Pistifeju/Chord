@@ -1,7 +1,7 @@
 // Connects the project rules to IPC: load, add by dialog or drop, remove, select, delete a worktree.
 import { commands, type Project } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
-import { forgetChat, stopChat } from "../chat/store";
+import { forgetChat } from "../chat/store";
 import { settingsOpen } from "../settings/store";
 import { sidebar, toggleFold } from "../sidebar/store";
 import { noProjects, withProject, withoutProject, withoutWorktree, withSavedSelection, withSelectionRestored, withWorktrees, type Projects } from "./projects";
@@ -12,7 +12,7 @@ const update = (change: (p: Projects) => Projects) => {
   const before = projects.get().selected;
   projects.set(change(projects.get()));
   const { selected } = projects.get();
-  if (selected !== before) commands.setSelectedWorktree(selected).catch(console.error);
+  if (selected !== before) commands.changeState({ selectedWorktree: selected }).catch(console.error);
 };
 export const fail = (error: unknown) => update((p) => ({ ...p, error: String(error), errorIsNotice: false }));
 const notify = (text: string) => update((p) => ({ ...p, error: text, errorIsNotice: true }));
@@ -101,7 +101,6 @@ export async function deleteWorktree(project: string, path: string, force = fals
   const afterDelete = projects.get().selected;
   const restore = () => update((p) => withSelectionRestored(p, path, before, afterDelete));
   try {
-    await stopChat(path);
     const removal = await commands.removeWorktree(project, path, force);
     if (removal.NeedsForce) {
       forceRemoval.set({ project, path, branch, reason: removal.NeedsForce.reason });

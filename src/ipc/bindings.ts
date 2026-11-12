@@ -6,7 +6,7 @@ import { invoke as __TAURI_INVOKE, Channel } from "@tauri-apps/api/core";
 /** Commands */
 export const commands = {
 	loadState: () => __TAURI_INVOKE<State_Serialize>("load_state"),
-	setSelectedWorktree: (worktree: string | null) => __TAURI_INVOKE<null>("set_selected_worktree", { worktree }),
+	changeState: (change: StateChange_Deserialize) => __TAURI_INVOKE<State_Serialize>("change_state", { change }),
 	pickProject: () => __TAURI_INVOKE<Project | null>("pick_project"),
 	addProject: (folder: string) => __TAURI_INVOKE<Project>("add_project", { folder }),
 	removeProject: (project: string) => __TAURI_INVOKE<null>("remove_project", { project }),
@@ -19,11 +19,6 @@ export const commands = {
 	sendMessage: (worktree: string, text: string) => __TAURI_INVOKE<null>("send_message", { worktree, text }),
 	abortRun: (worktree: string) => __TAURI_INVOKE<null>("abort_run", { worktree }),
 	stopChat: (worktree: string) => __TAURI_INVOKE<null>("stop_chat", { worktree }),
-	setSidebarHidden: (hidden: boolean) => __TAURI_INVOKE<null>("set_sidebar_hidden", { hidden }),
-	setProjectFolded: (project: string, folded: boolean) => __TAURI_INVOKE<string[]>("set_project_folded", { project, folded }),
-	setTheme: (theme: Theme) => __TAURI_INVOKE<null>("set_theme", { theme }),
-	setTextPercent: (percent: number) => __TAURI_INVOKE<number>("set_text_percent", { percent }),
-	setShortcuts: (shortcuts: { [key in string]: Shortcut_Deserialize | null }) => __TAURI_INVOKE<null>("set_shortcuts", { shortcuts }),
 };
 
 /* Types */
@@ -143,6 +138,21 @@ export type Sidebar_Serialize = {
 };
 
 export type State = State_Serialize | State_Deserialize;
+
+/**  One change the frontend saves. */
+export type StateChange = StateChange_Serialize | StateChange_Deserialize;
+
+/**  One change the frontend saves. */
+export type StateChange_Deserialize = ({ selectedWorktree?: string | null }) & { projectFolded?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ sidebarHidden: boolean }) & { projectFolded?: never; selectedWorktree?: never; shortcuts?: never; textPercent?: never; theme?: never } | ({ projectFolded: {
+	project: string,
+	folded: boolean,
+} }) & { selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ theme: Theme }) & { projectFolded?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never } | ({ textPercent: number }) & { projectFolded?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; theme?: never } | ({ shortcuts: { [key in string]: Shortcut_Deserialize | null } }) & { projectFolded?: never; selectedWorktree?: never; sidebarHidden?: never; textPercent?: never; theme?: never };
+
+/**  One change the frontend saves. */
+export type StateChange_Serialize = ({ selectedWorktree: string | null }) & { projectFolded?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ sidebarHidden: boolean }) & { projectFolded?: never; selectedWorktree?: never; shortcuts?: never; textPercent?: never; theme?: never } | ({ projectFolded: {
+	project: string,
+	folded: boolean,
+} }) & { selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ theme: Theme }) & { projectFolded?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never } | ({ textPercent: number }) & { projectFolded?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; theme?: never } | ({ shortcuts: { [key in string]: Shortcut_Serialize | null } }) & { projectFolded?: never; selectedWorktree?: never; sidebarHidden?: never; textPercent?: never; theme?: never };
 
 export type State_Deserialize = {
 	projects?: Project[],

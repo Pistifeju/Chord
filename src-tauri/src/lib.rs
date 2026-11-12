@@ -3,13 +3,14 @@
 mod commands;
 
 use chord_core::Store;
+use chord_core::harness::sessions::Sessions;
 use tauri::Manager;
 use tauri_specta::collect_commands;
 
 pub fn ipc() -> tauri_specta::Builder<tauri::Wry> {
     tauri_specta::Builder::new().commands(collect_commands![
-        commands::projects::load_state,
-        commands::projects::set_selected_worktree,
+        commands::state::load_state,
+        commands::state::change_state,
         commands::projects::pick_project,
         commands::projects::add_project,
         commands::projects::remove_project,
@@ -22,11 +23,6 @@ pub fn ipc() -> tauri_specta::Builder<tauri::Wry> {
         commands::chat::send_message,
         commands::chat::abort_run,
         commands::chat::stop_chat,
-        commands::sidebar::set_sidebar_hidden,
-        commands::sidebar::set_project_folded,
-        commands::appearance::set_theme,
-        commands::appearance::set_text_percent,
-        commands::shortcuts::set_shortcuts,
     ])
 }
 
@@ -38,7 +34,7 @@ pub fn run() {
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;
-            app.manage(commands::chat::Chats::default());
+            app.manage(Sessions::default());
             app.manage(Store::open(dir.join("state.json"))?);
             Ok(())
         })

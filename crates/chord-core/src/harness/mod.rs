@@ -1,6 +1,7 @@
 //! What a harness tells the chat: the events every adapter emits.
 
 pub mod pi;
+pub mod sessions;
 
 use serde::Serialize;
 use specta::Type;

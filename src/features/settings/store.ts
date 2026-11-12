@@ -26,13 +26,13 @@ export function loadAppearance(saved: Appearance) {
 
 export function setTheme(theme: Theme) {
   loadAppearance({ ...appearance.get(), theme });
-  commands.setTheme(theme).catch(console.error);
+  commands.changeState({ theme }).catch(console.error);
 }
 
 export function changeTextSize(direction: "larger" | "smaller" | "reset") {
   const textPercent = steppedTextPercent(appearance.get().textPercent, direction);
   loadAppearance({ ...appearance.get(), textPercent });
-  commands.setTextPercent(textPercent).catch(console.error);
+  commands.changeState({ textPercent }).catch(console.error);
 }
 
 export function openSettings() {

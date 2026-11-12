@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 use specta::Type;
 
-use crate::{Error, git, projects::Project};
+use crate::{Error, git, harness::sessions::Sessions, projects::Project};
 
 #[derive(Serialize, Type, Clone, Debug, PartialEq)]
 pub struct Worktree {
@@ -139,8 +139,14 @@ pub struct KeptBranch {
     pub reason: String,
 }
 
-/// Removes a worktree and deletes its branch when it is merged.
-pub fn remove(project: &Project, path: &Path, force: bool) -> Result<Removal, Error> {
+/// Stops the worktree's agent, removes the worktree and deletes its branch when it is merged.
+pub fn remove(
+    sessions: &Sessions,
+    project: &Project,
+    path: &Path,
+    force: bool,
+) -> Result<Removal, Error> {
+    sessions.stop(path);
     // git lists real paths, so a path through a symlink must resolve before it is compared.
     let real = path.canonicalize()?;
     let branch = entries(&project.path)?
@@ -287,8 +293,9 @@ mod tests {
                 "more",
             ],
         )?;
-        let merged_removal = remove(&project, &made.path, false)?;
-        let unmerged_removal = remove(&project, &unmerged.path, false)?;
+        let sessions = Sessions::default();
+        let merged_removal = remove(&sessions, &project, &made.path, false)?;
+        let unmerged_removal = remove(&sessions, &project, &unmerged.path, false)?;
 
         assert_eq!(merged_removal, Removal::Removed { kept_branch: None });
         assert_eq!(
@@ -302,7 +309,7 @@ mod tests {
         );
         assert!(!made.path.exists());
         assert!(matches!(
-            remove(&project, &repo, false),
+            remove(&sessions, &project, &repo, false),
             Err(Error::Message(_))
         ));
         assert!(
