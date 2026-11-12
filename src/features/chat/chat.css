@@ -166,7 +166,8 @@
 }
 
 .chat-working,
-.chat-hint {
+.chat-hint,
+.chat-stopped {
   font-size: calc(11px * var(--text-scale));
   color: var(--ink-muted);
 }
@@ -200,6 +201,7 @@
 
 /* New items, the Working row and the notice rise 4px into place while they fade in; the image row is skipped so an image arriving mid-run does not replay it. */
 .chat-message[data-fresh],
+.chat-stopped[data-fresh],
 .chat-steps[data-fresh] > :not(.chat-thumbs),
 .chat-working,
 .chat-find,
@@ -602,6 +604,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .chat-message[data-fresh],
+  .chat-stopped[data-fresh],
   .chat-steps[data-fresh] > :not(.chat-thumbs),
   .chat-working,
   .chat-find,

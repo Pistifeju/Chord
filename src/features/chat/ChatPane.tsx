@@ -15,7 +15,7 @@ import { steppedIndex } from "./dialog";
 import { completion, slashMenu, slashQuery } from "./slash";
 import { closeLightbox, lightboxes, openLightbox, stepLightbox } from "./viewing";
 import { attachFiles, attachments, attachPasted, chatOf, chats, drafts, pickAttachments, removeAttachment, sendMessage, setDraft, slashClosed, startChat } from "./store";
-import { shownSteps, stepImages, stepsSummary, type Item, type Message, type StepGroup } from "./transcript";
+import { isStreaming, shownSteps, stepImages, stepsSummary, type Item, type Message, type StepGroup } from "./transcript";
 import "./chat.css";
 
 function StartButton({ worktree, pane }: { worktree: string; pane: string }) {
@@ -97,8 +97,6 @@ const StepsRow = memo(function StepsRow({ pane, group, running, fresh }: { pane:
   );
 });
 
-const isStreaming = (item: Item) => item.role !== "steps" && item.streaming;
-
 // A streaming reply renders nothing, so its chunks leave the rows as they are.
 type Rows = { items: Item[]; running: boolean; queued: string[] };
 const sameRows = (a: Rows, b: Rows) =>
@@ -112,6 +110,10 @@ const Messages = memo(function Messages({ pane, items, running, queued }: { pane
       {items.map((item, i) =>
         item.role === "steps" ? (
           <StepsRow key={i} pane={pane} group={item} running={running && i === items.length - 1} fresh={i >= loaded.current} />
+        ) : item.role === "stopped" ? (
+          <div key={i} className="chat-stopped" data-fresh={i >= loaded.current || undefined}>
+            Stopped
+          </div>
         ) : item.streaming ? null : (
           <MessageRow key={i} pane={pane} message={item} fresh={i >= loaded.current} />
         ),

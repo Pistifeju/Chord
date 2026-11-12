@@ -114,6 +114,8 @@ export type HarnessEvent_Deserialize =
 { kind: "queue"; steering: string[] } | 
 /**  The agent started or finished work. */
 { kind: "state"; running: boolean } | 
+/**  The user stopped the run; follows the run's `State { running: false }`. */
+{ kind: "aborted" } | 
 /**  Something the user should read: a refused command or a failed reply. */
 { kind: "notice"; text: string } | 
 /**  The harness process ended; `code` is missing when a signal ended it. */
@@ -144,6 +146,8 @@ export type HarnessEvent_Serialize =
 { kind: "queue"; steering: string[] } | 
 /**  The agent started or finished work. */
 { kind: "state"; running: boolean } | 
+/**  The user stopped the run; follows the run's `State { running: false }`. */
+{ kind: "aborted" } | 
 /**  Something the user should read: a refused command or a failed reply. */
 { kind: "notice"; text: string } | 
 /**  The harness process ended; `code` is missing when a signal ended it. */

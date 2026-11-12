@@ -11,7 +11,10 @@ export type Step =
 /** The thoughts and tool calls between two messages, folded into one row. */
 export type StepGroup = { role: "steps"; steps: Step[] };
 
-export type Item = Message | StepGroup;
+/** Marks where the user stopped a run. */
+export type StopMark = { role: "stopped" };
+
+export type Item = Message | StepGroup | StopMark;
 
 /** A dialog the agent waits on; `id` goes back with the answer. */
 export type OpenDialog = { id: string; title: string; ask: DialogAsk };
@@ -38,7 +41,9 @@ export type Chat = {
 
 export const emptyChat: Chat = { agent: "idle", items: [], running: false, since: null, capabilities: null, notice: null, dialog: null, commands: [], queued: [], report: null };
 
-const closed = (items: Item[]): Item[] => items.map((item) => (item.role !== "steps" && item.streaming ? { ...item, streaming: false } : item));
+export const isStreaming = (item: Item) => item.role !== "steps" && item.role !== "stopped" && item.streaming;
+
+const closed = (items: Item[]): Item[] => items.map((item) => (item.role !== "steps" && item.role !== "stopped" && item.streaming ? { ...item, streaming: false } : item));
 
 // One copy of the list instead of the two a spread of a slice makes; it runs on every chunk.
 const withLast = <T,>(list: T[], last: T): T[] => {
@@ -140,6 +145,8 @@ function applied(chat: Chat, event: HarnessEvent, now: number): Chat {
         since: event.running && !chat.running ? now : chat.since,
         items: event.running ? chat.items : closed(chat.items),
       };
+    case "aborted":
+      return { ...chat, items: [...chat.items, { role: "stopped" }] };
     case "status":
       return { ...chat, report: stampedReport(chat.report, { status: event.status, lastMessage: event.last_message, since: now }, now) };
     case "notice":

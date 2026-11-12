@@ -308,6 +308,12 @@ fn events_from_line(line: &[u8]) -> Vec<HarnessEvent> {
 fn events_from(record: &Value) -> Vec<HarnessEvent> {
     match record["type"].as_str() {
         Some("agent_start") => vec![HarnessEvent::State { running: true }],
+        Some("agent_settled") if record["aborted"] == true => {
+            vec![
+                HarnessEvent::State { running: false },
+                HarnessEvent::Aborted,
+            ]
+        }
         Some("agent_settled") => vec![HarnessEvent::State { running: false }],
         Some("message_update") => message_update(&record["assistantMessageEvent"]),
         Some("tool_execution_start") => {
@@ -813,8 +819,15 @@ mod tests {
             vec![HarnessEvent::State { running: true }]
         );
         assert_eq!(
-            events(r#"{"type":"agent_settled","aborted":true}"#),
+            events(r#"{"type":"agent_settled","aborted":false}"#),
             vec![HarnessEvent::State { running: false }]
+        );
+        assert_eq!(
+            events(r#"{"type":"agent_settled","aborted":true}"#),
+            vec![
+                HarnessEvent::State { running: false },
+                HarnessEvent::Aborted
+            ]
         );
     }
 

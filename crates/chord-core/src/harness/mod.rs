@@ -112,6 +112,8 @@ pub enum HarnessEvent {
     Queue { steering: Vec<String> },
     /// The agent started or finished work.
     State { running: bool },
+    /// The user stopped the run; follows the run's `State { running: false }`.
+    Aborted,
     /// Something the user should read: a refused command or a failed reply.
     Notice { text: String },
     /// The harness process ended; `code` is missing when a signal ended it.
