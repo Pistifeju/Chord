@@ -19,6 +19,8 @@ export const commands = {
 	sendMessage: (pane: string, text: string) => __TAURI_INVOKE<null>("send_message", { pane, text }),
 	abortRun: (pane: string) => __TAURI_INVOKE<null>("abort_run", { pane }),
 	stopChat: (pane: string) => __TAURI_INVOKE<null>("stop_chat", { pane }),
+	/**  Tells Rust which panes the window shows, so a notification skips a pane the user is looking at. */
+	showPanes: (panes: string[]) => __TAURI_INVOKE<void>("show_panes", { panes }),
 	/**  Stops every agent and ends the app once the user confirmed the quit. Panes stay saved as running, so they start again on launch. */
 	quitApp: () => __TAURI_INVOKE<null>("quit_app"),
 };

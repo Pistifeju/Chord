@@ -7,6 +7,7 @@ import { SettingsPage } from "../features/settings/SettingsPage";
 import { settingsOpen } from "../features/settings/store";
 import { Sidebar, SidebarToggle } from "../features/sidebar/Sidebar";
 import { sidebar } from "../features/sidebar/store";
+import { watchFinished, watchNotificationClicks, watchShownPanes } from "../features/status/store";
 import { NoProjects } from "../features/worktrees/NoProjects";
 import { DeleteWorktreePopup } from "../features/worktrees/DeleteWorktreePopup";
 import { ForceRemovalPopup } from "../features/worktrees/ForceRemovalPopup";
@@ -29,10 +30,16 @@ export default function App() {
     window.addEventListener("keydown", runShortcut);
     const unwatch = watchGitCounts();
     const unwatchQuit = watchQuit();
+    const unwatchFinished = watchFinished();
+    const unwatchClicks = watchNotificationClicks();
+    const unwatchShown = watchShownPanes();
     return () => {
       window.removeEventListener("keydown", runShortcut);
       unwatch();
       unwatchQuit();
+      unwatchFinished();
+      unwatchClicks();
+      unwatchShown();
     };
   }, []);
   return (

@@ -164,6 +164,17 @@
   color: var(--ink-secondary);
 }
 
+/* A finished agent nobody opened yet: its dot takes a ring and its text turns up. */
+.worktree-card[data-finished] {
+  color: var(--ink);
+}
+
+.worktree-card[data-finished] .status-dot[data-finished],
+.pane-row[data-finished]::before {
+  outline: 1px solid currentColor;
+  outline-offset: 2px;
+}
+
 .pane-list {
   margin: 0;
   padding: 0;
@@ -171,6 +182,7 @@
 }
 
 .pane-row {
+  position: relative;
   display: block;
   width: 100%;
   height: 24px;
@@ -184,6 +196,22 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.pane-row[data-finished] {
+  color: var(--ink);
+}
+
+.pane-row[data-finished]::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  color: var(--status-done);
+  background: currentColor;
 }
 
 .pane-row:hover {

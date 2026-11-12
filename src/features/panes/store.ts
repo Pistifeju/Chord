@@ -10,7 +10,7 @@ export const panes = externalStore<Record<string, WorktreePanes>>({});
 export const loadPanes = (saved: Record<string, WorktreePanes>) => panes.set(saved);
 
 // Agents that ran at quit start again; each opens its pane's saved session.
-const allPaneIds = (saved: WorktreePanes) => saved.sessions.flatMap((session) => paneIds(session.layout));
+export const allPaneIds = (saved: WorktreePanes | undefined): string[] => (saved?.sessions ?? []).flatMap((session) => paneIds(session.layout));
 
 // Only worktrees that still exist.
 export function resumeAgents(running: string[], existing: Set<string>) {
@@ -30,8 +30,8 @@ function commit(worktree: string, next: WorktreePanes | undefined, persist: bool
   const { [worktree]: before, ...rest } = panes.get();
   panes.set(next ? { ...panes.get(), [worktree]: next } : rest);
   if (persist) save(worktree);
-  const was = before ? allPaneIds(before) : [];
-  const now = next ? allPaneIds(next) : [];
+  const was = allPaneIds(before);
+  const now = allPaneIds(next);
   for (const pane of now) if (!was.includes(pane)) void startChat(worktree, pane);
   for (const pane of was) if (!now.includes(pane)) forgetChat(pane);
 }

@@ -1,14 +1,16 @@
 //! Commands for a pane's chat: start its agent, send a message, abort the run, stop the agent.
 
 use std::path::PathBuf;
+use std::sync::Mutex;
 
 use chord_core::harness::pi::DEFAULT_BINARY;
 use chord_core::harness::sessions::Sessions;
 use chord_core::{Capability, HarnessEvent};
 use tauri::ipc::Channel;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, State};
 
 use super::blocking;
+use crate::notifications::{self, ShownPanes};
 
 #[tauri::command]
 #[specta::specta]
@@ -19,9 +21,33 @@ pub async fn start_chat(
     on_event: Channel<HarnessEvent>,
 ) -> Result<Vec<Capability>, String> {
     blocking(app, move |app, _| {
+        let (notified_worktree, notified_pane) = (worktree.clone(), pane.clone());
+        // Rust reports the status again at every message end; notify once per change.
+        let last_notified = Mutex::new(None);
         app.state::<Sessions>()
-            .start(DEFAULT_BINARY, worktree, pane, move |event| {
-                let _ = on_event.send(event);
+            .start(DEFAULT_BINARY, worktree, pane, {
+                let app = app.clone();
+                move |event| {
+                    if let HarnessEvent::Status {
+                        status,
+                        last_message,
+                    } = &event
+                    {
+                        let changed = last_notified
+                            .lock()
+                            .map_or(true, |mut last| last.replace(*status) != Some(*status));
+                        if changed {
+                            notifications::announce(
+                                &app,
+                                notified_worktree.clone(),
+                                notified_pane.clone(),
+                                status,
+                                last_message,
+                            );
+                        }
+                    }
+                    let _ = on_event.send(event);
+                }
             })
     })
     .await
@@ -46,4 +72,13 @@ pub async fn abort_run(app: AppHandle, pane: String) -> Result<(), String> {
 #[specta::specta]
 pub async fn stop_chat(app: AppHandle, pane: String) -> Result<(), String> {
     blocking(app, move |app, _| app.state::<Sessions>().stop_pane(&pane)).await
+}
+
+/// Tells Rust which panes the window shows, so a notification skips a pane the user is looking at.
+#[tauri::command]
+#[specta::specta]
+pub fn show_panes(shown: State<ShownPanes>, panes: Vec<String>) {
+    if let Ok(mut current) = shown.0.lock() {
+        *current = panes;
+    }
 }

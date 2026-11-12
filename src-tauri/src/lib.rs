@@ -1,6 +1,7 @@
 //! App entry: builds the Tauri app, lists its commands and runs it.
 
 mod commands;
+mod notifications;
 
 use std::sync::Arc;
 
@@ -25,6 +26,7 @@ pub fn ipc() -> tauri_specta::Builder<tauri::Wry> {
         commands::chat::send_message,
         commands::chat::abort_run,
         commands::chat::stop_chat,
+        commands::chat::show_panes,
         commands::app::quit_app,
     ])
 }
@@ -33,6 +35,7 @@ pub fn run() {
     let ipc = ipc();
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .invoke_handler(ipc.invoke_handler())
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
@@ -40,6 +43,8 @@ pub fn run() {
             let store = Arc::new(Store::open(dir.join("state.json"))?);
             app.manage(Sessions::new(Arc::clone(&store), dir.join("sessions")));
             app.manage(store);
+            app.manage(notifications::ShownPanes::default());
+            notifications::listen_for_clicks(app.handle())?;
             Ok(())
         })
         .build(tauri::generate_context!())
