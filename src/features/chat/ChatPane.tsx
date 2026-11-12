@@ -76,7 +76,7 @@ const Messages = memo(function Messages({ items, running }: { items: Item[]; run
       {items.map((item, i) =>
         item.role === "steps" ? (
           <StepsRow key={i} group={item} running={running && i === items.length - 1} fresh={i >= loaded.current} />
-        ) : (
+        ) : item.streaming ? null : (
           <MessageRow key={i} message={item} fresh={i >= loaded.current} />
         ),
       )}
