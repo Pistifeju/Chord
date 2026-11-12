@@ -1,0 +1,156 @@
+/* The agent's Markdown inside a chat message. Rules: DESIGN.md, Chat. */
+.md {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-wrap: anywhere;
+}
+
+.md p,
+.md ul,
+.md ol,
+.md blockquote,
+.md hr,
+.md h1,
+.md h2,
+.md h3,
+.md h4,
+.md h5,
+.md h6 {
+  margin: 0;
+}
+
+.md .md-heading {
+  font-size: calc(13px * var(--text-scale));
+  font-weight: 600;
+}
+
+.md strong {
+  font-weight: 600;
+}
+
+.md a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--ink-disabled);
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.md a:hover {
+  text-decoration-color: currentColor;
+}
+
+.md ul,
+.md ol {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 20px;
+}
+
+.md li > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.md li[data-task] {
+  display: flex;
+  gap: 8px;
+  margin-left: -20px;
+  list-style: none;
+}
+
+.md-task {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  margin-top: calc((1.5em - 14px) / 2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-inset);
+  color: var(--ink-secondary);
+}
+
+.md-task svg {
+  width: 12px;
+  height: 12px;
+}
+
+.md blockquote {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-left: 12px;
+  border-left: 2px solid var(--line-strong);
+  color: var(--ink-secondary);
+}
+
+.md hr {
+  border: none;
+  border-top: 1px solid var(--line);
+}
+
+.md code {
+  font-family: var(--font-mono);
+  font-size: calc(12px * var(--text-scale));
+}
+
+.md :not(pre) > code {
+  padding: 0 4px;
+  border-radius: var(--radius-inset);
+  background: var(--raised);
+}
+
+.md-code {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  position: relative;
+}
+
+.md-code-copy {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  opacity: 0;
+  transition: opacity var(--t-fast) var(--ease-out);
+}
+
+.md-code:hover .md-code-copy,
+.md-code-copy:focus-visible {
+  opacity: 1;
+}
+
+.md-code pre {
+  margin: 0;
+  padding: 12px;
+  overflow-x: auto;
+  white-space: pre;
+  line-height: 1.45;
+}
+
+.md-table {
+  overflow-x: auto;
+}
+
+.md table {
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.md th,
+.md td {
+  padding: 4px 12px;
+  border: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.md th {
+  background: var(--panel);
+  font-weight: 600;
+}

@@ -1,6 +1,9 @@
 // The chat of one pane: transcript, composer, and a Start button while no agent runs.
 import { memo, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { ArrowDownIcon, ArrowUpIcon, ChevronIcon, SparkleIcon } from "../../ui/icons";
+import { FindBar } from "./FindBar";
+import { finds } from "./find";
+import { Markdown } from "./MarkdownView";
 import { chatOf, chats, drafts, sendMessage, setDraft, startChat } from "./store";
 import { shownSteps, stepsSummary, type Item, type Message, type StepGroup } from "./transcript";
 import "./chat.css";
@@ -36,7 +39,7 @@ function Working({ since }: { since: number }) {
 const MessageRow = memo(function MessageRow({ message, fresh }: { message: Message; fresh: boolean }) {
   return (
     <div className="chat-message" data-role={message.role} data-fresh={fresh || undefined}>
-      {message.text}
+      {message.role === "user" ? message.text : <Markdown text={message.text} />}
     </div>
   );
 });
@@ -93,6 +96,7 @@ const Messages = memo(function Messages({ items, running }: { items: Item[]; run
 export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { worktree: string; pane: string; focused: boolean }) {
   const chat = chats.usePart((all) => chatOf(all, pane));
   const draft = drafts.usePart((all) => all[pane] ?? "");
+  const find = finds.usePart((all) => all[pane]);
   const composer = useRef<HTMLTextAreaElement>(null);
   const transcript = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
@@ -168,6 +172,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
         <button type="button" className="chat-jump" data-shown={away || undefined} data-running={chat.running || undefined} title="Jump to Latest" aria-label="Jump to Latest" onClick={jumpToEnd}>
           {chat.running ? <SparkleIcon /> : <ArrowDownIcon />}
         </button>
+        {find && <FindBar pane={pane} find={find} transcript={transcript} items={chat.items} />}
         {chat.running && <Working since={chat.since ?? Date.now()} />}
       </div>
       {chat.notice && <p className="chat-notice">{chat.notice}</p>}

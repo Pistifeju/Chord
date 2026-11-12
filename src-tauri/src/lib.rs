@@ -29,6 +29,7 @@ pub fn ipc() -> tauri_specta::Builder<tauri::Wry> {
         commands::chat::show_panes,
         commands::app::quit_app,
         commands::app::set_keep_awake,
+        commands::app::open_link,
     ])
 }
 

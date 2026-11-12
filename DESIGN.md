@@ -227,7 +227,7 @@ Every color, shadow and radius lives in `src/ui/tokens.css` as a CSS variable na
 
 ### Named Rules
 
-**The One Blue Rule.** A view fills one control with `accent`: its primary action. Selection stays gray (`selected`). Links and focus use `accent-ink`.
+**The One Blue Rule.** A view fills one control with `accent`: its primary action. Selection stays gray (`selected`). Focus uses `accent-ink`; a link in chat keeps the text color.
 
 **The Text-Only Semantic Rule.** Red and green color text and small icons. No red or green fill.
 
@@ -249,6 +249,7 @@ Sizes multiply by `--text-scale`, which the text size setting changes (⌘=, ⌘
 - **Heading** (600, 13px): section headings, sheet titles, project names.
 - **Body** (400, 13px, 1.45): descriptions, row labels, tab names. The transcript runs at 1.5.
 - **Label** (500, 13px): buttons, segments, the worktree name in the title bar.
+- **Code** (400, 12px, mono): inline code, code blocks and tables of the agent's Markdown take the Body line height.
 - **Meta** (400, 11px, muted): git counts, shortcut hints, helper and notice text. The sidebar title and field labels use 11px at 500.
 
 ### Named Rules
@@ -291,7 +292,7 @@ Popover and sheet shadows include a 1px ring: black at 8% in light, white at 10%
 
 - A sheet fades in and rises 8px over 200ms; its scrim fades with it. The toast drops 8px into place over 200ms. Both use `--ease-out`.
 - The project chevron and a step group's chevron turn in 120ms.
-- In the chat, a message, a step row, the Working row and the notice fade in and rise 4px over 200ms with `--ease-out` when they arrive. A chat that opens with history shows it still.
+- In the chat, a message, a step row, the Working row, the find bar and the notice fade in and rise 4px over 200ms with `--ease-out` when they arrive. A chat that opens with history shows it still.
 - The send button changes color over 120ms and presses to 97% scale.
 - Under Reduce Motion the sheet, scrim, toast and chevrons skip their animation, chat items only fade, the send button and the jump button do not move or scale, the jump scrolls instantly, its sparkle only fades, its comet stands still, its halo stays off and spinners turn at a third of their speed.
 
@@ -313,6 +314,7 @@ No pills. A circle appears only as the spinner and the status dot.
 - **Secondary** (`.button-secondary`): `raised` fill with a 1px `line-strong` inner border. Pressed steps to `selected`.
 - **Destructive** (`.button-destructive`): a secondary button with a `danger` label.
 - **Icon button** (`.icon-button`): 28px square, no fill at rest, `raised` on hover, `selected` when pressed. Each has a tooltip with its shortcut.
+- **Icon button disabled:** `ink-disabled` glyph, no hover fill.
 - **Focus:** a 2px `focus-ring` outline, 2px outside the control.
 
 ### Inputs
@@ -342,7 +344,10 @@ No pills. A circle appears only as the spinner and the status dot.
 
 ### Chat
 
-- **User message:** right-aligned, 85% wide at most, on a `raised` card. The agent's message is plain text on the canvas.
+- **User message:** right-aligned, 85% wide at most, on a `raised` card. The agent's message is Markdown on the canvas; the user's stays plain text.
+- **Markdown:** blocks stack 8px apart. Headings take the Heading row at every level. Lists indent 20px; a task shows a 14px `line-strong` box, with a check once done. A quote has a 2px `line-strong` rule on its left and `ink-secondary` text. A link is underlined in `ink-disabled`, in the text color (`ink` underline on hover); a click opens it in the default app, and only web and mail links open. A table has 1px `line` borders, a `panel` header row and scrolls sideways when wide. Inline code sits on a `raised` chip with the Inset radius.
+- **Code block:** a `panel` card with a 1px `line` border and the Control radius. No language label. The copy icon button sits 4px from the top and right edges and shows only on hover or keyboard focus; it shows a check for 1.5s after it copied. The code scrolls sideways and never wraps.
+- **Find:** ⌘F opens a bar floating at the transcript's top right (`--shadow-popover`, on `canvas` with a 1px `line-strong` border and the Control radius): a field, the position ("2 of 7", "No results"; meta, tabular), previous and next icon buttons (disabled without matches) and a close icon button. Return steps to the next match, Shift-Return to the previous, Esc closes. Matches take an `editor-match` background; the current one adds a 2px `accent-ink` underline and scrolls to the middle.
 - **Step group:** thoughts and tool calls between two messages, one row in meta text: a toggle with a chevron and a count ("1 thought, 3 calls"), folded when the run is past it. While it runs it keeps the last thought (three lines at most) and the last three calls open; the toggle opens all steps. A call is its title (`ink-secondary`, `danger` when it failed) and its detail in mono on one line. A call the run left unfinished (stopped with Esc) has an `ink-muted` title.
 - **Working:** a row of meta text right above the composer while the agent runs. It floats over the foot of the transcript, so a run's start resizes nothing; the transcript's bottom fade moves up to end at the row's top, and the text under the row hides; while it shows, the transcript ends that much lower. The row holds a 10px `accent-ink` spinner, a verb in `ink-secondary` ("Cooking…", "Locking in…", "Hold my beer…", "Going feral…"), the time since the run started ("14s", "2m 5s") and "esc stops". The run's start time picks the verb, so it holds for the whole run.
 - **Notice:** one line of `danger` meta text above the composer.

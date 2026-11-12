@@ -76,3 +76,16 @@ export const WarningIcon = () => (
     <path d="M8 6.5v3M8 11.25h.01" />
   </Icon>
 );
+
+export const CopyIcon = () => (
+  <Icon>
+    <rect x="5.75" y="5.75" width="8" height="8" rx="1.75" />
+    <path d="M10.25 3.5V3.25A1.5 1.5 0 0 0 8.75 1.75h-5a1.5 1.5 0 0 0-1.5 1.5v5a1.5 1.5 0 0 0 1.5 1.5H4" />
+  </Icon>
+);
+
+export const CheckIcon = () => (
+  <Icon>
+    <path d="M3 8.5l3.5 3.5L13 4.5" />
+  </Icon>
+);
