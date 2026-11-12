@@ -7,6 +7,8 @@ import { chats, usePaneNames } from "../chat/store";
 import { shortcutChanges } from "../settings/store";
 import type { Status } from "../../ipc/bindings";
 import { statusLabel, urgentReport } from "../status/status";
+import { StatusMark } from "../status/StatusMark";
+import { finished } from "../status/store";
 import { sidebar } from "../sidebar/store";
 import { ChatIcon, CloseIcon, PlusIcon } from "../../ui/icons";
 import { dropEdge, dropPreview, paneIds, resizedSizes, type Box, type Edge } from "./layout";
@@ -42,6 +44,7 @@ function SessionTabs({ worktree }: { worktree: string }) {
   );
   const statuses: (Status | null)[] = JSON.parse(statusesJson);
   const names = usePaneNames((current?.sessions ?? []).map((s) => s.focused));
+  const finishedPanes = finished.use();
   const drag = useRef<TabDrag | null>(null);
   const suppressClick = useRef(false);
   const [dragging, setDragging] = useState<string | null>(null);
@@ -87,7 +90,10 @@ function SessionTabs({ worktree }: { worktree: string }) {
   return (
     <div ref={bar} className="tabbar" role="tablist" data-tauri-drag-region data-sidebar-hidden={hidden}>
       {current.sessions.map((session, i) => {
-        const status = statuses[i];
+        // The open session's panes show their own Working row, so its tab shows no status; a done you already saw shows none either.
+        const report = session.id === current.active ? null : statuses[i];
+        const unseenDone = paneIds(session.layout).some((pane) => finishedPanes.includes(pane));
+        const status = report?.kind === "done" && !unseenDone ? null : report;
         return (
           <div key={session.id} className="tab" data-selected={session.id === current.active} data-dragging={session.id === dragging}>
             <button
@@ -105,7 +111,7 @@ function SessionTabs({ worktree }: { worktree: string }) {
               }}
             >
               <span className="tab-status" data-status={status?.kind} title={status ? statusLabel(status) : undefined}>
-                {status?.kind === "running" ? <span className="spinner-inline" /> : status ? <span className="status-dot" /> : <ChatIcon />}
+                {status ? <StatusMark kind={status.kind} /> : <ChatIcon />}
               </span>
               <span className="tab-label">{tabName(session, names)}</span>
             </button>
@@ -192,7 +198,7 @@ function LayoutView({ layout, path, place }: { layout: Layout; path: number[]; p
         <ChatPane worktree={place.worktree} pane={id} focused={id === place.focused} />
         {place.split && (
           <button type="button" className="pane-close" title={tooltip("pane.close")} aria-label="Close Pane" onClick={() => closePane(place.worktree, id)}>
-            <CloseIcon size={14} />
+            <CloseIcon size={15} />
           </button>
         )}
       </div>

@@ -1,7 +1,7 @@
 // Tests for the project list rules.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { branchName, projectInitials, noProjects, withProject, withoutProject, withoutWorktree, withSavedSelection, withSelectionRestored, withWorktrees } from "./projects.ts";
+import { branchName, noProjects, withProject, withoutProject, withoutWorktree, withSavedSelection, withSelectionRestored, withWorktrees } from "./projects.ts";
 
 test("removing a project clears the selection only when it held the selected worktree", () => {
   let projects = withProject(withProject(noProjects, { path: "/a", name: "a" }), { path: "/b", name: "b" });
@@ -45,8 +45,3 @@ test("the saved worktree is selected only if it still exists and nothing is sele
   assert.equal(withSavedSelection({ ...projects, selected: "/a" }, "/a-one").selected, "/a");
 });
 
-test("a project badge takes the first letters of two words, or the first two characters of one", () => {
-  assert.equal(projectInitials("post-plan"), "PP");
-  assert.equal(projectInitials("My App"), "MA");
-  assert.equal(projectInitials("x"), "X");
-});

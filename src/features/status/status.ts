@@ -27,13 +27,13 @@ export function stampedReport(previous: StatusReport | null, next: StatusReport,
 export function statusLabel(status: Status): string {
   switch (status.kind) {
     case "running":
-      return "Running";
+      return "Working";
     case "waiting":
-      return "Waiting for input";
+      return "Awaiting input";
     case "done":
       return "Done";
     case "error":
-      return "Error";
+      return "Failed";
     case "exited":
       return status.code == null ? "Exited" : `Exited with code ${status.code}`;
   }

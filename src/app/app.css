@@ -1,6 +1,6 @@
 /* The window's layout: title bar row, sidebar, main area. */
 .app {
-  --sidebar-width: 240px;
+  --sidebar-width: 280px;
   --sidebar-inset: 8px;
   --titlebar-height: 40px;
   display: flex;

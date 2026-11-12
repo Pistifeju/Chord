@@ -55,7 +55,7 @@ pub fn listen_for_clicks(app: &AppHandle) -> tauri_plugin_notification::Result<(
 pub fn announce(app: &AppHandle, worktree: PathBuf, pane: String, status: &Status, message: &str) {
     let headline = match status {
         Status::Done => "Done",
-        Status::Waiting => "Waiting for input",
+        Status::Waiting => "Awaiting input",
         _ => return,
     };
     if is_watched(app, &pane) {

@@ -3,10 +3,12 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { memo, useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
 import { tooltip } from "../../app/commands";
 import type { Image, SlashCommand } from "../../ipc/bindings";
-import { ArrowDownIcon, ArrowUpIcon, ChevronIcon, CloseIcon, PaperclipIcon, SparkleIcon } from "../../ui/icons";
+import { ArrowDownIcon, ArrowUpIcon, ChevronIcon, CloseIcon, PaperclipIcon } from "../../ui/icons";
 import { imageMime, imageUrl, isImageType, type Attachment } from "./attachments";
 import { DialogMenu, DialogPanel } from "./DialogPanel";
 import { modelLabels } from "./model";
+import { appearance } from "../settings/store";
+import { StatusMark } from "../status/StatusMark";
 import { FindBar } from "./FindBar";
 import { finds } from "./find";
 import { Markdown } from "./MarkdownView";
@@ -39,7 +41,7 @@ function Working({ since }: { since: number }) {
   const s = Math.max(0, Math.floor((now - since) / 1000));
   return (
     <div className="chat-working">
-      <span className="spinner-inline" />
+      <StatusMark kind="running" />
       <span className="chat-working-verb">{VERBS[since % VERBS.length]}</span>
       <span>{s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`}</span>
       <span>esc stops</span>
@@ -135,6 +137,11 @@ const Messages = memo(function Messages({ pane, items, running, queued, historyL
 
 const noAttachments: Attachment[] = [];
 
+function fitComposer(el: HTMLTextAreaElement) {
+  el.style.height = "auto";
+  el.style.height = `${el.scrollHeight}px`;
+}
+
 export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { worktree: string; pane: string; focused: boolean }) {
   const chat = chats.usePart((all) => chatOf(all, pane));
   const draft = drafts.usePart((all) => all[pane] ?? "");
@@ -157,6 +164,10 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
   const slashAt = Math.min(slashActive, slashRows.length - 1);
   const labels = modelLabels(chat);
   const canSend = ready && (!chat.running || steers);
+  const textPercent = appearance.usePart((a) => a.textPercent);
+  const dialogOpen = chat.dialog !== null;
+  const menu = chat.dialog?.ask.kind === "menu" ? { dialog: chat.dialog, ask: chat.dialog.ask } : null;
+  const composerShown = chat.agent !== "idle" && (!chat.dialog || menu !== null);
 
   // The pane under the pointer takes the dropped images.
   useEffect(() => {
@@ -177,14 +188,23 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
 
   // The composer grows with its draft up to the CSS max-height, then scrolls inside.
   useLayoutEffect(() => {
+    if (composer.current) fitComposer(composer.current);
+  }, [draft, textPercent, composerShown]);
+
+  // A new pane width wraps the draft anew.
+  useEffect(() => {
     const el = composer.current;
     if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
-  }, [draft]);
+    let width = el.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (el.clientWidth === width) return;
+      width = el.clientWidth;
+      fitComposer(el);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [composerShown]);
 
-  const dialogOpen = chat.dialog !== null;
-  const menu = chat.dialog?.ask.kind === "menu" ? { dialog: chat.dialog, ask: chat.dialog.ask } : null;
   useEffect(() => {
     if (ready && focused && !dialogOpen) composer.current?.focus();
   }, [ready, focused, dialogOpen]);
@@ -279,8 +299,8 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
             <Messages pane={pane} items={chat.items} running={chat.running} queued={chat.queued} historyLength={chat.historyLength} />
           )}
         </div>
-        <button type="button" className="chat-jump" data-shown={away || undefined} data-running={chat.running || undefined} title="Jump to Latest" aria-label="Jump to Latest" onClick={jumpToEnd}>
-          {chat.running ? <SparkleIcon /> : <ArrowDownIcon />}
+        <button type="button" className="chat-jump" data-shown={away || undefined} title="Jump to Latest" aria-label="Jump to Latest" onClick={jumpToEnd}>
+          <ArrowDownIcon />
         </button>
         {find && <FindBar pane={pane} find={find} transcript={transcript} items={chat.items} />}
         {chat.running && <Working since={chat.since ?? Date.now()} />}
@@ -299,7 +319,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
         </div>
       )}
       {chat.dialog && !menu && <DialogPanel key={chat.dialog.id} pane={pane} dialog={chat.dialog} />}
-      {chat.agent !== "idle" && (!chat.dialog || menu) && (
+      {composerShown && (
         <div className="chat-composer-anchor">
           {menu && <DialogMenu key={menu.dialog.id} pane={pane} dialog={menu.dialog} options={menu.ask.options} current={menu.ask.current ?? null} filter={menu.ask.filter} />}
           {!menu && slashRows.length > 0 && <SlashMenu commands={slashRows} query={slashQuery(draft) ?? ""} active={slashAt} onActive={setSlashActive} onPick={pickSlash} onDismiss={() => closeSlash(pane, draft)} />}

@@ -17,12 +17,11 @@ export function nextCounts(current: Record<string, GitCounts>, known: string[], 
   return unchanged ? current : next;
 }
 
-// Zero counts and a missing base branch show nothing: "↑2 ↓1 · 3 changed".
-export function countsLabel(counts: GitCounts | undefined): string {
-  if (!counts) return "";
+// Zero counts and a missing base branch show nothing: "↑2 ↓1" and "~3", the changed files apart so the card can color them.
+export function countsLabel(counts: GitCounts | undefined): { sides: string; changed: string } {
+  if (!counts) return { sides: "", changed: "" };
   const sides = [counts.ahead ? `↑${counts.ahead}` : "", counts.behind ? `↓${counts.behind}` : ""].filter(Boolean).join(" ");
-  const changed = counts.changed ? `${counts.changed} changed` : "";
-  return [sides, changed].filter(Boolean).join(" · ");
+  return { sides, changed: counts.changed ? `~${counts.changed}` : "" };
 }
 
 export function countsTitle(counts: GitCounts | undefined): string {

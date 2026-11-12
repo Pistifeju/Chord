@@ -160,7 +160,6 @@
 .chat-step-detail {
   min-width: 0;
   overflow: hidden;
-  font-family: var(--font-mono);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -186,13 +185,6 @@
   margin: 0 auto;
   padding: 0 8px 8px;
   font-variant-numeric: tabular-nums;
-}
-
-.chat-working .spinner-inline {
-  width: 10px;
-  height: 10px;
-  border-width: 1.5px;
-  color: var(--accent-ink);
 }
 
 .chat-working-verb {
@@ -267,7 +259,7 @@
 /* Visibility waits for the fade-out, so the hidden button leaves the tab order after it has faded. */
 .chat-jump {
   position: absolute;
-  bottom: calc(12px + var(--working-height));
+  bottom: calc(4px + var(--working-height));
   left: 50%;
   display: inline-grid;
   place-items: center;
@@ -300,71 +292,6 @@
 
 .chat-jump[data-shown]:active {
   transform: translate(-50%, 0) scale(0.94);
-}
-
-/* While the agent writes, a comet runs around the rim, a halo breathes out and a sparkle turns in place of the arrow. */
-.chat-jump > svg {
-  animation: chat-fade var(--t-med) var(--ease-out);
-}
-
-.chat-jump[data-running] {
-  color: var(--accent-ink);
-}
-
-.chat-jump[data-running] > svg {
-  animation: chat-fade var(--t-med) var(--ease-out), chat-sparkle 2.4s ease-in-out infinite;
-}
-
-.chat-jump[data-running]::before,
-.chat-jump[data-running]::after {
-  content: "";
-  position: absolute;
-  inset: -1px;
-  border-radius: 50%;
-  pointer-events: none;
-}
-
-.chat-jump[data-running]::before {
-  background: conic-gradient(transparent 0 55%, var(--accent-ink));
-  mask: radial-gradient(farthest-side, transparent calc(100% - 1.5px), black calc(100% - 1px));
-  animation: chat-comet 1.2s linear infinite;
-}
-
-.chat-jump[data-running]::after {
-  animation: chat-halo 1.8s var(--ease-out) infinite;
-}
-
-@keyframes chat-comet {
-  to {
-    transform: rotate(1turn);
-  }
-}
-
-@keyframes chat-halo {
-  from {
-    box-shadow: 0 0 0 0 var(--accent-wash);
-  }
-  to {
-    box-shadow: 0 0 0 8px transparent;
-  }
-}
-
-@keyframes chat-sparkle {
-  0% {
-    transform: rotate(0) scale(0.75);
-  }
-  50% {
-    transform: rotate(90deg) scale(1.05);
-  }
-  100% {
-    transform: rotate(180deg) scale(0.75);
-  }
-}
-
-@keyframes chat-sparkle-fade {
-  50% {
-    opacity: 0.5;
-  }
 }
 
 @keyframes chat-in {
@@ -429,12 +356,16 @@
   padding: 0;
   border: 0;
   background: none;
-  cursor: pointer;
+  cursor: zoom-in;
 }
 
 .chat-attachment img {
   border: 1px solid var(--line);
   border-radius: var(--radius-control);
+}
+
+.chat-attachment-open:hover img {
+  border-color: var(--line-strong);
 }
 
 .chat-attachment-remove {
@@ -562,6 +493,10 @@
   color: var(--ink-muted);
 }
 
+.chat-input:disabled::placeholder {
+  color: var(--ink-disabled);
+}
+
 .chat-composer-bar,
 .chat-restart {
   display: flex;
@@ -592,13 +527,8 @@
   text-overflow: ellipsis;
 }
 
-.chat-picker:has(+ .chat-picker) {
-  padding-right: 3px;
-}
-
 .chat-picker + .chat-picker {
   flex: none;
-  padding-left: 3px;
   color: var(--ink-muted);
 }
 
@@ -608,40 +538,6 @@
 }
 
 .chat-picker + .chat-picker:hover:not(:disabled) {
-  color: var(--ink-secondary);
-}
-
-.chat-picker:active:not(:disabled) {
-  background: var(--selected);
-}
-
-.chat-picker:disabled {
-  color: var(--ink-disabled);
-}
-
-.chat-send {
-  margin-left: 4px;
-}
-
-.chat-picker {
-  min-width: 0;
-  height: 28px;
-  padding: 0 8px;
-  border: none;
-  border-radius: var(--radius-control);
-  background: transparent;
-  color: var(--ink-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.chat-picker + .chat-picker {
-  flex: none;
-}
-
-.chat-picker:hover:not(:disabled) {
-  background: var(--raised);
   color: var(--ink-secondary);
 }
 
@@ -703,18 +599,6 @@
 
   .lightbox,
   .lightbox-image {
-    animation: none;
-  }
-
-  .chat-jump[data-running] > svg {
-    animation-name: chat-fade, chat-sparkle-fade;
-  }
-
-  .chat-jump[data-running]::before {
-    animation: none;
-  }
-
-  .chat-jump[data-running]::after {
     animation: none;
   }
 
@@ -787,21 +671,22 @@
   bottom: calc(100% + 6px);
   left: 0;
   z-index: 1;
+  display: flex;
+  flex-direction: column;
   box-sizing: border-box;
   max-height: 372px;
   padding: 6px;
-  overflow-y: auto;
-  scroll-padding: 6px;
+  overflow: hidden;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-card);
   background: var(--panel);
   box-shadow: var(--shadow-popover);
 }
 
-.chat-dialog-menu {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+.chat-slash-list {
+  min-height: 0;
+  overflow-y: auto;
+  scroll-padding: 6px;
 }
 
 .chat-dialog-menu .chat-dialog-select {
@@ -846,7 +731,6 @@
   flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
-  font-size: calc(14px * var(--text-scale));
   text-overflow: ellipsis;
   white-space: nowrap;
 }

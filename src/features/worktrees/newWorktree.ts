@@ -26,8 +26,9 @@ let latestCheck = 0;
 // Bumped on every open and close, so a create that outlives its popup cannot touch the next one.
 let session = 0;
 
-export function openNewWorktree() {
-  const project = defaultProject(projects.get());
+// A project's menu passes the project; the shortcut takes the selected worktree's.
+export function openNewWorktree(target?: string) {
+  const project = target ?? defaultProject(projects.get());
   if (!project) return;
   session++;
   newWorktree.set({ ...closed, project });

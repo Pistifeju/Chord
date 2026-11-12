@@ -92,18 +92,84 @@ button:focus-visible {
   animation: spin 800ms linear infinite;
 }
 
-/* A 12px spinner in the line of text it sits in, in the text's color. */
-.spinner-inline {
+/* The running mark: two dots circle a shared center, seen from the side, so the near one grows and the far one fades. In the text's color. */
+.status-orbit {
+  position: relative;
   flex: none;
-  width: 12px;
-  height: 12px;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  border-radius: 50%;
-  animation: spin 800ms linear infinite;
+  width: 10px;
+  height: 10px;
 }
 
-/* An 8px agent status mark; the element's data-status sets the color of the dot and of a spinner beside it. */
+.status-orbit::before,
+.status-orbit::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: status-orbit-x 1.4s infinite, status-orbit-depth 1.4s infinite;
+}
+
+.status-orbit::after {
+  animation-delay: -0.7s;
+}
+
+/* A circle seen edge-on: the dots move sideways fastest as they cross the center, where they are nearest (largest) or farthest (faintest). */
+@keyframes status-orbit-x {
+  0% {
+    translate: -3px 0;
+    animation-timing-function: cubic-bezier(0.12, 0, 0.39, 0);
+  }
+  25% {
+    translate: 0 0;
+    animation-timing-function: cubic-bezier(0.61, 1, 0.88, 1);
+  }
+  50% {
+    translate: 3px 0;
+    animation-timing-function: cubic-bezier(0.12, 0, 0.39, 0);
+  }
+  75% {
+    translate: 0 0;
+    animation-timing-function: cubic-bezier(0.61, 1, 0.88, 1);
+  }
+  100% {
+    translate: -3px 0;
+  }
+}
+
+@keyframes status-orbit-depth {
+  0% {
+    scale: 0.8;
+    opacity: 0.75;
+    animation-timing-function: cubic-bezier(0.61, 1, 0.88, 1);
+  }
+  25% {
+    scale: 1.15;
+    opacity: 1;
+    z-index: 1;
+    animation-timing-function: cubic-bezier(0.12, 0, 0.39, 0);
+  }
+  50% {
+    scale: 0.8;
+    opacity: 0.75;
+    animation-timing-function: cubic-bezier(0.61, 1, 0.88, 1);
+  }
+  75% {
+    scale: 0.5;
+    opacity: 0.4;
+    z-index: 0;
+    animation-timing-function: cubic-bezier(0.12, 0, 0.39, 0);
+  }
+  100% {
+    scale: 0.8;
+    opacity: 0.75;
+  }
+}
+
+/* An 8px agent status mark; the element's data-status sets the color of the dot and of the orbit beside it. */
 .status-dot {
   flex: none;
   width: 8px;
@@ -325,9 +391,17 @@ button:focus-visible {
     transition: none;
   }
 
-  .spinner,
-  .spinner-inline {
+  .spinner {
     animation-duration: 2.4s;
+  }
+
+  .status-orbit::before,
+  .status-orbit::after {
+    animation-duration: 4.2s;
+  }
+
+  .status-orbit::after {
+    animation-delay: -2.1s;
   }
 
   .toast,

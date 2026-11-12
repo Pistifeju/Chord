@@ -14,35 +14,37 @@ export function SlashMenu({ commands, query, active, onActive, onPick, onDismiss
     list.current?.querySelector("[data-active]")?.scrollIntoView({ block: "nearest" });
   }, [active]);
   return (
-    <div className="chat-slash-menu" role="listbox" aria-label="Commands" ref={list}>
-      {commands.map((command, i) => {
-        const { before, typed, after } = markedTitle(commandTitle(command.name), query);
-        const KindIcon = kindIcon[command.kind];
-        return (
-          <div
-            key={command.name}
-            role="option"
-            aria-selected={i === active}
-            data-active={i === active || undefined}
-            className="chat-slash-option"
-            // The composer keeps focus through a click.
-            onMouseDown={(e) => e.preventDefault()}
-            onMouseMove={() => i !== active && onActive(i)}
-            onClick={() => onPick(command)}
-          >
-            <span className="chat-slash-icon">
-              <KindIcon />
-            </span>
-            <span className="chat-slash-name">
-              {before}
-              <span className="chat-slash-typed">{typed}</span>
-              {after}
-            </span>
-            <span className="chat-slash-description">{command.description}</span>
-            <span className="chat-slash-source">{commandSource(command)}</span>
-          </div>
-        );
-      })}
+    <div className="chat-slash-menu" ref={list}>
+      <div className="chat-slash-list" role="listbox" aria-label="Commands">
+        {commands.map((command, i) => {
+          const { before, typed, after } = markedTitle(commandTitle(command.name), query);
+          const KindIcon = kindIcon[command.kind];
+          return (
+            <div
+              key={command.name}
+              role="option"
+              aria-selected={i === active}
+              data-active={i === active || undefined}
+              className="chat-slash-option"
+              // The composer keeps focus through a click.
+              onMouseDown={(e) => e.preventDefault()}
+              onMouseMove={() => i !== active && onActive(i)}
+              onClick={() => onPick(command)}
+            >
+              <span className="chat-slash-icon">
+                <KindIcon />
+              </span>
+              <span className="chat-slash-name">
+                {before}
+                <span className="chat-slash-typed">{typed}</span>
+                {after}
+              </span>
+              <span className="chat-slash-description">{command.description}</span>
+              <span className="chat-slash-source">{commandSource(command)}</span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

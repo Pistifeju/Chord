@@ -34,12 +34,6 @@ export const ArrowDownIcon = () => (
   </Icon>
 );
 
-export const SparkleIcon = () => (
-  <Icon>
-    <path d="M8 1.5C8.6 5.4 10.6 7.4 14.5 8 10.6 8.6 8.6 10.6 8 14.5 7.4 10.6 5.4 8.6 1.5 8 5.4 7.4 7.4 5.4 8 1.5Z" fill="currentColor" stroke="none" />
-  </Icon>
-);
-
 export const PlusIcon = () => (
   <Icon>
     <path d="M8 3v10M3 8h10" />
@@ -48,7 +42,7 @@ export const PlusIcon = () => (
 
 export const ChatIcon = () => (
   <Icon>
-    <path d="M3.5 2.75h9a1.75 1.75 0 0 1 1.75 1.75v5a1.75 1.75 0 0 1-1.75 1.75H8L5 13.5v-2.25H3.5A1.75 1.75 0 0 1 1.75 9.5v-5A1.75 1.75 0 0 1 3.5 2.75z" />
+    <path d="M3.5 3.25h9a1.75 1.75 0 0 1 1.75 1.75v4a1.75 1.75 0 0 1-1.75 1.75H8L5 13v-2.25H3.5A1.75 1.75 0 0 1 1.75 9v-4A1.75 1.75 0 0 1 3.5 3.25z" />
   </Icon>
 );
 

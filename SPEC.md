@@ -15,8 +15,8 @@ Tags:
 
 ## 1. Window and navigation (core)
 
-- [x] A1 Sidebar: one flat list of worktree cards across projects (project, title, branch), show/hide, remembered.
-- [x] A2 Worktree card: branch name, ⌘1-9 hint. Other features add to it: git counts (B6), pane rows (C1), status (D2).
+- [x] A1 Sidebar: one flat list of worktree cards across projects (project, title, branch), show/hide remembered.
+- [x] A2 Worktree card: branch name, ⌘1-9 hint. Other features add to it: git counts (B6), status (D2).
 - [x] A3 One commands table drives shortcuts, menu accelerators and tooltips.
 - [x] A5 Light / dark / system theme; text size (⌘=, ⌘-, ⌘0). Settings rows for both.
 - [x] A6 Restores the open project and worktree on launch.
@@ -63,7 +63,7 @@ Edge cases:
 
 ## 3. Panes and tabs (core, needs E1)
 
-- [x] C1 Split right (⌘D), split down (⌘⇧D), close pane (⌘⇧W); every pane runs its own agent in the worktree. A split worktree's card shows one row per pane with its session name.
+- [x] C1 Split right (⌘D), split down (⌘⇧D), close pane (⌘⇧W); every pane runs its own agent in the worktree.
 - [x] C2 Drag dividers to resize, double-click evens out, sizes persist.
 - [x] C3 Session tabs in the tab bar: one per chat session of the worktree, each its own split layout; a + after them opens a new one (⌘⇧T).
 - [x] C4 Drag a session tab onto a pane edge to split there.

@@ -84,10 +84,6 @@
   height: 16px;
 }
 
-.tab-status:has(> .status-dot, > .spinner-inline) {
-  width: 12px;
-}
-
 .tab-label {
   min-width: 0;
   overflow: hidden;
@@ -126,7 +122,8 @@
 .tabbar .icon-button {
   flex: none;
   align-self: center;
-  margin: 0 8px;
+  /* Puts the plus glyph 14px from the tab edge, like the close glyph. */
+  margin: 0 8px 0 5px;
 }
 
 .pane-layout {

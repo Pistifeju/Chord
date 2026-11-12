@@ -66,22 +66,6 @@ export const paneNames = (chats: Record<string, { items: Item[] } | undefined>, 
 // A tab shows the name of its focused pane's agent session once that has one.
 export const tabName = (session: PaneSession, names: PaneNames): string => names[session.focused] ?? session.name;
 
-export type PaneRow = { pane: string; label: string; focused: boolean };
-
-// One row per pane once the worktree has more than one, labeled with its agent session's name; without one, a tab with several panes numbers them.
-export function paneRows(panes: WorktreePanes | undefined, worktreeSelected: boolean, names: PaneNames = {}): PaneRow[] {
-  if (!panes || paneCount(panes) < 2) return [];
-  const open = activeSession(panes).id;
-  return panes.sessions.flatMap((session) => {
-    const ids = paneIds(session.layout);
-    return ids.map((pane, i) => ({
-      pane,
-      label: names[pane] ?? (ids.length > 1 ? `${session.name} · ${i + 1}` : session.name),
-      focused: worktreeSelected && pane === session.focused && session.id === open,
-    }));
-  });
-}
-
 // Closes a session tab with all its panes; the tab beside it opens. The last session stays.
 export function withSessionClosed(panes: WorktreePanes, session: string): WorktreePanes {
   const at = panes.sessions.findIndex((s) => s.id === session);

@@ -3,23 +3,45 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { DialogAnswer } from "../../ipc/bindings";
 import { CheckIcon } from "../../ui/icons";
 import { useOutsidePointer } from "../../ui/outsidePointer";
-import { matchingOptions, startIndex, steppedIndex } from "./dialog";
+import { matchingOptions, startIndex, steppedIndex, typedIndex } from "./dialog";
 import { answerDialog } from "./store";
 import type { OpenDialog } from "./transcript";
 
-function Select({ options, current, answer, filter = true }: { options: string[]; current: string | null; answer: (answer: DialogAnswer) => void; filter?: boolean }) {
+// "field" filters through a Filter field, "typing" moves the highlight to what the user types (as a Mac menu does), "none" does neither.
+type Filter = "field" | "typing" | "none";
+
+// A pause this long starts a new typed name, as in a Mac menu.
+const TYPING_PAUSE_MS = 1000;
+
+function Select({ options, current, answer, filter = "field" }: { options: string[]; current: string | null; answer: (answer: DialogAnswer) => void; filter?: Filter }) {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(() => startIndex(options, current));
+  const root = useRef<HTMLDivElement>(null);
+  const typed = useRef({ text: "", at: 0 });
   const list = useRef<HTMLDivElement>(null);
   const shown = matchingOptions(options, query);
   const choose = (value: string) => answer({ kind: "value", value });
+  const narrow = (next: string) => {
+    setQuery(next);
+    setActive(0);
+  };
+
+  useEffect(() => {
+    if (filter !== "field") root.current?.focus();
+  }, [filter]);
 
   useEffect(() => {
     list.current?.querySelector("[data-active]")?.scrollIntoView({ block: "nearest" });
   }, [active, query]);
 
   const onKey = (e: KeyboardEvent) => {
-    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    if (filter === "typing" && e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.nativeEvent.isComposing) {
+      e.preventDefault();
+      const text = (e.timeStamp - typed.current.at < TYPING_PAUSE_MS ? typed.current.text : "") + e.key;
+      typed.current = { text, at: e.timeStamp };
+      const at = typedIndex(options, text);
+      if (at !== -1) setActive(at);
+    } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault();
       setActive(steppedIndex(active, e.key === "ArrowDown" ? 1 : -1, shown.length));
     } else if (e.key === "Enter" && !e.nativeEvent.isComposing && shown[active] !== undefined) {
@@ -30,20 +52,8 @@ function Select({ options, current, answer, filter = true }: { options: string[]
 
   return (
     // Without a filter row the list itself takes the focus, so the arrows and Return still reach it.
-    <div className="chat-dialog-select" onKeyDown={onKey} tabIndex={filter ? undefined : -1} autoFocus={!filter}>
-      {filter && (
-        <input
-          autoFocus
-          className="input"
-          value={query}
-          placeholder="Filter"
-          aria-label="Filter Options"
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setActive(0);
-          }}
-        />
-      )}
+    <div className="chat-dialog-select" onKeyDown={onKey} tabIndex={filter === "field" ? undefined : -1} ref={root}>
+      {filter === "field" && <input autoFocus className="input" value={query} placeholder="Filter" aria-label="Filter Options" onChange={(e) => narrow(e.target.value)} />}
       <div className="chat-dialog-options" role="listbox" ref={list}>
         {shown.map((option, i) => (
           <div
@@ -102,7 +112,7 @@ export function DialogMenu({ pane, dialog, options, current, filter }: { pane: s
   useOutsidePointer(menu, () => answer({ kind: "cancelled" }));
   return (
     <div className="chat-slash-menu chat-dialog-menu" role="dialog" aria-label={dialog.title} ref={menu}>
-      <Select options={options} current={current} answer={answer} filter={filter} />
+      <Select options={options} current={current} answer={answer} filter={filter ? "typing" : "none"} />
     </div>
   );
 }
