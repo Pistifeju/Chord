@@ -56,9 +56,10 @@ export function newSession(worktree: string) {
   void startChat(worktree, pane);
 }
 
-export function closeFocused(worktree: string) {
+export const closeFocused = (worktree: string) => closePane(worktree, activeSession(panesOf(worktree)).focused);
+
+export function closePane(worktree: string, pane: string) {
   const current = panesOf(worktree);
-  const pane = activeSession(current).focused;
   const next = withoutPaneClosed(current, pane);
   if (next === current) return;
   set(worktree, next);

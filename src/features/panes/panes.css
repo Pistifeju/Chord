@@ -159,6 +159,48 @@
   flex-direction: column;
 }
 
+.pane[data-split]::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  z-index: 1;
+  width: 28px;
+  height: 3px;
+  border-radius: 1.5px;
+  background: var(--accent);
+  opacity: 0;
+  transform: translateX(-50%) scaleX(0.3);
+  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
+  pointer-events: none;
+}
+
+.pane[data-split][data-focused]::before {
+  opacity: 1;
+  transform: translateX(-50%);
+}
+
+.pane-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-inset);
+  background: none;
+  color: var(--ink-muted);
+}
+
+.pane-close:hover {
+  background: var(--raised);
+  color: var(--ink);
+}
+
 .divider {
   position: relative;
   flex: none;
@@ -197,5 +239,9 @@
 @media (prefers-reduced-motion: reduce) {
   .tab-spinner {
     animation-duration: 2.4s;
+  }
+
+  .pane[data-split]::before {
+    transform: translateX(-50%);
   }
 }

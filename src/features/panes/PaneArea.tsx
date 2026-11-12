@@ -9,7 +9,7 @@ import { sidebar } from "../sidebar/store";
 import { ChatIcon, CloseIcon, PlusIcon } from "../../ui/icons";
 import { dropEdge, dropPreview, paneIds, resizedSizes, type Box, type Edge } from "./layout";
 import { activeSession } from "./sessions";
-import { closeSession, dropSession, endResize, ensurePanes, evenOutSplit, focusPane, newSession, panes, resizeSplit, selectSession } from "./store";
+import { closePane, closeSession, dropSession, endResize, ensurePanes, evenOutSplit, focusPane, newSession, panes, resizeSplit, selectSession } from "./store";
 import "./panes.css";
 
 type Place = { worktree: string; session: string; focused: string; split: boolean };
@@ -176,8 +176,13 @@ function LayoutView({ layout, path, place }: { layout: Layout; path: number[]; p
   if (layout.kind === "pane") {
     const { id } = layout;
     return (
-      <div className="pane" data-pane={id} onPointerDownCapture={() => focusPane(place.worktree, id)} onFocusCapture={() => focusPane(place.worktree, id)}>
+      <div className="pane" data-pane={id} data-split={place.split || undefined} data-focused={id === place.focused || undefined} onPointerDownCapture={() => focusPane(place.worktree, id)} onFocusCapture={() => focusPane(place.worktree, id)}>
         <ChatPane worktree={place.worktree} pane={id} focused={id === place.focused} />
+        {place.split && (
+          <button type="button" className="pane-close" title={tooltip("pane.close")} aria-label="Close Pane" onClick={() => closePane(place.worktree, id)}>
+            <CloseIcon size={14} />
+          </button>
+        )}
       </div>
     );
   }

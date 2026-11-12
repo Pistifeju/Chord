@@ -40,8 +40,8 @@ export const ChatIcon = () => (
   </Icon>
 );
 
-export const CloseIcon = () => (
-  <Icon>
+export const CloseIcon = ({ size }: { size?: number }) => (
+  <Icon size={size}>
     <path d="M4 4l8 8M12 4l-8 8" />
   </Icon>
 );
