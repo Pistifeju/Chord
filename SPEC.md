@@ -74,8 +74,8 @@ Edge cases:
 
 ## 4. Agent status and notifications (harness(status))
 
-- [ ] D1 Statuses: running, waiting for input (a dialog is open, or the last message ends with a question), done, error, exited with code. Rust decides each one.
-- [ ] D2 The worktree card shows status, last message and time. A session tab shows the status dot of its most urgent pane.
+- [x] D1 Statuses: running, waiting for input (a dialog is open, or the last message ends with a question), done, error, exited with code. Rust decides each one.
+- [x] D2 The worktree card shows status, last message and time. A session tab shows the status dot of its most urgent pane.
 - [ ] D3 A finished pane shows a marker until you open it; its card too.
 - [ ] D4 macOS notification for done and waiting, naming project and branch; a click opens the worktree and focuses the pane.
 - [ ] D5 Settings row: keep the Mac awake while an agent runs (`caffeinate`).

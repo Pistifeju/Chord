@@ -98,6 +98,32 @@ button:focus-visible {
   animation: spin 800ms linear infinite;
 }
 
+/* An 8px agent status mark; the element's data-status sets the color of the dot and of a spinner beside it. */
+.status-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+[data-status="running"] {
+  color: var(--status-running);
+}
+
+[data-status="waiting"] {
+  color: var(--status-waiting);
+}
+
+[data-status="done"] {
+  color: var(--status-done);
+}
+
+[data-status="error"],
+[data-status="exited"] {
+  color: var(--status-error);
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);

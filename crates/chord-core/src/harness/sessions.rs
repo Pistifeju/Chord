@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use super::pi::{Session, session_file};
-use super::{Capability, HarnessEvent};
+use super::{Capability, HarnessEvent, StatusTracker, status_for};
 use crate::{Error, Store};
 
 pub struct Sessions {
@@ -49,16 +49,25 @@ impl Sessions {
     ) -> Result<Vec<Capability>, Error> {
         let store = Arc::clone(&self.store);
         let exiting = pane.clone();
+        let tracker = Mutex::new(StatusTracker::default());
         let session = Session::start(
             binary,
             &worktree,
             &session_file(&self.dir, &pane)?,
             move |event| {
                 // An agent that ended on its own does not come back on launch.
-                if matches!(event, HarnessEvent::Exited) {
+                if matches!(event, HarnessEvent::Exited { .. }) {
                     let _ = store.update(|state| state.running_panes.remove(&exiting));
                 }
+                let mut tracker = tracker.lock().unwrap_or_else(PoisonError::into_inner);
+                let status = status_for(&mut tracker, &event);
                 on_event(event);
+                if let Some(status) = status {
+                    on_event(HarnessEvent::Status {
+                        status,
+                        last_message: tracker.last_message().to_string(),
+                    });
+                }
             },
         )?;
         let capabilities = session.capabilities();

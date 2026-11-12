@@ -7,6 +7,7 @@ use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::thread;
+use std::time::Duration;
 
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -22,7 +23,7 @@ const OLDEST_TESTED: (u32, u32, u32) = (1, 5, 0);
 
 /// One running `pi --mode rpc` process.
 pub struct Session {
-    child: Child,
+    child: Arc<Mutex<Child>>,
     stdin: Mutex<ChildStdin>,
     stopped: Arc<AtomicBool>,
 }
@@ -62,6 +63,8 @@ impl Session {
         let (Some(stdin), Some(stdout)) = (child.stdin.take(), child.stdout.take()) else {
             return Err(Error::Message("pi started without its pipes".into()));
         };
+        let child = Arc::new(Mutex::new(child));
+        let reader_child = Arc::clone(&child);
         let stopped = Arc::new(AtomicBool::new(false));
         let reader_stopped = Arc::clone(&stopped);
         thread::spawn(move || {
@@ -79,7 +82,9 @@ impl Session {
             open_calls.stop().into_iter().for_each(&on_event);
             // Only an agent that ended on its own is reported; a stopped one is already forgotten.
             if !reader_stopped.load(Ordering::SeqCst) {
-                on_event(HarnessEvent::Exited);
+                on_event(HarnessEvent::Exited {
+                    code: exit_code(&reader_child),
+                });
             }
         });
         Ok(Session {
@@ -113,9 +118,26 @@ impl Session {
 impl Drop for Session {
     fn drop(&mut self) {
         self.stopped.store(true, Ordering::SeqCst);
-        let _ = self.child.kill();
-        let _ = self.child.wait();
+        let mut child = self.child.lock().unwrap_or_else(PoisonError::into_inner);
+        let _ = child.kill();
+        let _ = child.wait();
     }
+}
+
+// Stdout closed, so the process is ending; it gets a moment to report its code.
+fn exit_code(child: &Mutex<Child>) -> Option<i32> {
+    for _ in 0..50 {
+        let waited = child
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .try_wait();
+        match waited {
+            Ok(Some(status)) => return status.code(),
+            Ok(None) => thread::sleep(Duration::from_millis(20)),
+            Err(_) => return None,
+        }
+    }
+    None
 }
 
 // The user's login shell finds pi and its API keys the way their terminal does.
@@ -194,7 +216,8 @@ struct Kind {
     kind: String,
 }
 
-const READ_KINDS: [&str; 7] = [
+const READ_KINDS: [&str; 8] = [
+    "extension_ui_request",
     "agent_start",
     "agent_settled",
     "message_update",
@@ -283,6 +306,15 @@ fn events_from(record: &Value) -> Vec<HarnessEvent> {
             },
         }],
         Some("message_end") => message_end(&record["message"]),
+        // Select, confirm, input and editor wait for an answer; notify and the status methods do not.
+        Some("extension_ui_request")
+            if matches!(
+                record["method"].as_str(),
+                Some("select" | "confirm" | "input" | "editor")
+            ) =>
+        {
+            vec![HarnessEvent::Dialog]
+        }
         Some("response") if record["success"] == false => vec![HarnessEvent::Notice {
             text: record["error"]
                 .as_str()
@@ -345,8 +377,9 @@ fn message_end(message: &Value) -> Vec<HarnessEvent> {
             text: text_of(&message["content"]),
         }],
         Some("assistant") => {
-            let mut events = vec![HarnessEvent::MessageEnd];
-            if message["stopReason"] == "error" {
+            let failed = message["stopReason"] == "error";
+            let mut events = vec![HarnessEvent::MessageEnd { failed }];
+            if failed {
                 events.push(HarnessEvent::Notice {
                     text: message["errorMessage"]
                         .as_str()
@@ -486,12 +519,21 @@ mod tests {
         assert_eq!(
             events(record),
             vec![
-                HarnessEvent::MessageEnd,
+                HarnessEvent::MessageEnd { failed: true },
                 HarnessEvent::Notice {
                     text: "No API key".into()
                 }
             ]
         );
+    }
+
+    #[test]
+    fn a_select_request_opens_a_dialog_and_a_notify_does_not() {
+        let dialog = r#"{"type":"extension_ui_request","id":"u1","method":"select","title":"Pick","options":["a"]}"#;
+        let notify =
+            r#"{"type":"extension_ui_request","id":"u2","method":"notify","message":"hi"}"#;
+        assert_eq!(events(dialog), vec![HarnessEvent::Dialog]);
+        assert_eq!(events(notify), vec![]);
     }
 
     #[test]

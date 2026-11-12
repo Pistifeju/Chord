@@ -1,6 +1,7 @@
 // Connects the transcript rules to IPC: one chat per pane, started, fed by the agent's events, stopped.
 import { Channel } from "@tauri-apps/api/core";
 import { commands, type HarnessEvent } from "../../ipc/bindings";
+import { stampedReport } from "../status/status";
 import { externalStore } from "../../ui/externalStore";
 import { chatAfter, emptyChat, type Chat } from "./transcript";
 
@@ -28,10 +29,11 @@ export async function startChat(worktree: string, pane: string) {
     if (starts.get(pane) !== start) return;
     update(pane, (chat) => {
       const next = chatAfter(chat, event);
-      return next.running && !chat.running ? { ...next, since: Date.now() } : next;
+      const stamped = next.report && next.report !== chat.report ? { ...next, report: stampedReport(chat.report, next.report, Date.now()) } : next;
+      return stamped.running && !chat.running ? { ...stamped, since: Date.now() } : stamped;
     });
   };
-  update(pane, (chat) => ({ ...chat, agent: "starting", notice: null }));
+  update(pane, (chat) => ({ ...chat, agent: "starting", notice: null, report: null }));
   try {
     const capabilities = await commands.startChat(worktree, pane, channel);
     if (starts.get(pane) === start) update(pane, (chat) => (chat.agent === "starting" ? { ...chat, agent: "ready", capabilities } : chat));

@@ -15,7 +15,7 @@ export const commands = {
 	createWorktree: (project: string, branch: string) => __TAURI_INVOKE<Worktree_Serialize>("create_worktree", { project, branch }),
 	removeWorktree: (project: string, worktree: string, force: boolean) => __TAURI_INVOKE<Removal_Serialize>("remove_worktree", { project, worktree, force }),
 	readGitCounts: (worktrees: string[]) => __TAURI_INVOKE<GitCounts_Serialize[]>("read_git_counts", { worktrees }),
-	startChat: (worktree: string, pane: string, onEvent: Channel<HarnessEvent>) => __TAURI_INVOKE<Capability[]>("start_chat", { worktree, pane, onEvent }),
+	startChat: (worktree: string, pane: string, onEvent: Channel<HarnessEvent_Deserialize>) => __TAURI_INVOKE<Capability[]>("start_chat", { worktree, pane, onEvent }),
 	sendMessage: (pane: string, text: string) => __TAURI_INVOKE<null>("send_message", { pane, text }),
 	abortRun: (pane: string) => __TAURI_INVOKE<null>("abort_run", { pane }),
 	stopChat: (pane: string) => __TAURI_INVOKE<null>("stop_chat", { pane }),
@@ -67,7 +67,9 @@ export type GitCounts_Serialize = {
 	changed: number,
 };
 
-export type HarnessEvent = 
+export type HarnessEvent = HarnessEvent_Serialize | HarnessEvent_Deserialize;
+
+export type HarnessEvent_Deserialize = 
 /**  A user message the agent took in, whether it started the run or steered it. */
 { kind: "user_message_chunk"; text: string } | 
 /**  Text of the reply that is streaming now. */
@@ -80,14 +82,44 @@ export type HarnessEvent =
 { kind: "tool_start"; id: string; title: string; detail: string } | 
 /**  A tool call ended; `Stopped` means the run ended or was aborted before it reported. */
 { kind: "tool_end"; id: string; outcome: ToolOutcome } | 
-/**  The streaming reply is complete. */
-{ kind: "message_end" } | 
+/**  The streaming reply is complete; `failed` when it ended in an error. */
+{ kind: "message_end"; failed: boolean } | 
+/**  The agent opened a dialog and waits for an answer. */
+{ kind: "dialog" } | 
 /**  The agent started or finished work. */
 { kind: "state"; running: boolean } | 
 /**  Something the user should read: a refused command or a failed reply. */
 { kind: "notice"; text: string } | 
-/**  The harness process ended. */
-{ kind: "exited" };
+/**  The harness process ended; `code` is missing when a signal ended it. */
+{ kind: "exited"; code?: number | null } | 
+/**  The pane's status changed or a reply ended; `last_message` is the text of the last reply. Core adds it, no adapter emits it. */
+{ kind: "status"; status: Status_Deserialize; last_message: string };
+
+export type HarnessEvent_Serialize = 
+/**  A user message the agent took in, whether it started the run or steered it. */
+{ kind: "user_message_chunk"; text: string } | 
+/**  Text of the reply that is streaming now. */
+{ kind: "message_chunk"; text: string } | 
+/**  The agent began a new block of reasoning. */
+{ kind: "thought_start" } | 
+/**  Text of the reasoning block that is streaming now. */
+{ kind: "thought_chunk"; text: string } | 
+/**  A tool call began; `title` is what it does (Read, Search, List, Run, Edit, Write, a tool's name) and `detail` its path, command or arguments. */
+{ kind: "tool_start"; id: string; title: string; detail: string } | 
+/**  A tool call ended; `Stopped` means the run ended or was aborted before it reported. */
+{ kind: "tool_end"; id: string; outcome: ToolOutcome } | 
+/**  The streaming reply is complete; `failed` when it ended in an error. */
+{ kind: "message_end"; failed: boolean } | 
+/**  The agent opened a dialog and waits for an answer. */
+{ kind: "dialog" } | 
+/**  The agent started or finished work. */
+{ kind: "state"; running: boolean } | 
+/**  Something the user should read: a refused command or a failed reply. */
+{ kind: "notice"; text: string } | 
+/**  The harness process ended; `code` is missing when a signal ended it. */
+{ kind: "exited"; code: number | null } | 
+/**  The pane's status changed or a reply ended; `last_message` is the text of the last reply. Core adds it, no adapter emits it. */
+{ kind: "status"; status: Status_Serialize; last_message: string };
 
 export type KeptBranch = {
 	name: string,
@@ -219,6 +251,16 @@ export type State_Serialize = {
 	/**  The panes whose agent was started and not stopped; they start again on launch. */
 	runningPanes: string[],
 };
+
+export type Status = Status_Serialize | Status_Deserialize;
+
+export type Status_Deserialize = { kind: "running" } | 
+/**  A dialog is open, or the last message ends with a question. */
+{ kind: "waiting" } | { kind: "done" } | { kind: "error" } | { kind: "exited"; code?: number | null };
+
+export type Status_Serialize = { kind: "running" } | 
+/**  A dialog is open, or the last message ends with a question. */
+{ kind: "waiting" } | { kind: "done" } | { kind: "error" } | { kind: "exited"; code: number | null };
 
 export type Theme = "system" | "light" | "dark";
 

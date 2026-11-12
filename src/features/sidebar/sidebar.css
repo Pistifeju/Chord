@@ -3,6 +3,8 @@
   display: flex;
   flex-direction: column;
   flex: 0 0 var(--sidebar-width);
+  /* Without it a long nowrap line widens the sidebar past its fixed width. */
+  min-width: 0;
   padding-top: var(--titlebar-height);
   border-right: 1px solid var(--line);
   background: var(--panel);
@@ -74,17 +76,55 @@
 }
 
 .worktree-card {
+  position: relative;
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
   width: 100%;
-  height: 30px;
+  min-height: 30px;
   padding: 0 8px 0 20px;
   border: none;
   border-radius: var(--radius-control);
   background: none;
   color: var(--ink-secondary);
   text-align: left;
+}
+
+.worktree-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+}
+
+.worktree-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* Tucks under the 30px name line so a two-line card stays compact. */
+  margin-top: -6px;
+  padding-bottom: 6px;
+  line-height: 14px;
+  font-size: calc(11px * var(--text-scale));
+  color: var(--ink-muted);
+}
+
+.worktree-status .status-dot {
+  position: absolute;
+  top: 11.5px;
+  left: 8px;
+}
+
+.worktree-last-message {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.worktree-age {
+  flex: none;
+  font-variant-numeric: tabular-nums;
 }
 
 .worktree-name {
@@ -118,6 +158,7 @@
   background: var(--selected);
 }
 
+.worktree-card[aria-current="true"]:not([data-pane-selected]) .worktree-status,
 .worktree-card[aria-current="true"]:not([data-pane-selected]) .worktree-counts,
 .worktree-card[aria-current="true"]:not([data-pane-selected]) .worktree-hint {
   color: var(--ink-secondary);

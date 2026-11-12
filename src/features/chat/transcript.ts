@@ -1,5 +1,6 @@
-// Rules for a chat's transcript: how each harness event changes the messages, the run flag and the notice.
+// Rules for a chat's transcript: how each harness event changes the messages, the run flag, the notice and the status report.
 import type { Capability, HarnessEvent } from "../../ipc/bindings";
+import type { StatusReport } from "../status/status.ts";
 
 export type Message = { role: "user" | "assistant"; text: string; streaming: boolean };
 
@@ -22,9 +23,11 @@ export type Chat = {
   /** What the harness can do; null until the agent has started. */
   capabilities: Capability[] | null;
   notice: string | null;
+  /** The status Rust reported; null until the first run. */
+  report: StatusReport | null;
 };
 
-export const emptyChat: Chat = { agent: "idle", items: [], running: false, since: null, capabilities: null, notice: null };
+export const emptyChat: Chat = { agent: "idle", items: [], running: false, since: null, capabilities: null, notice: null, report: null };
 
 const closed = (items: Item[]): Item[] => items.map((item) => (item.role !== "steps" && item.streaming ? { ...item, streaming: false } : item));
 
@@ -85,10 +88,14 @@ export function chatAfter(chat: Chat, event: HarnessEvent): Chat {
       }
       return chat;
     }
+    case "dialog":
+      return chat;
     case "message_end":
       return { ...chat, items: closed(chat.items) };
     case "state":
       return { ...chat, running: event.running, items: event.running ? chat.items : closed(chat.items) };
+    case "status":
+      return { ...chat, report: { status: event.status, lastMessage: event.last_message, since: chat.report?.since ?? 0 } };
     case "notice":
       return { ...chat, notice: event.text };
     case "exited":

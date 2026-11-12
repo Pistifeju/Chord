@@ -1,11 +1,14 @@
 // The sidebar: one foldable group per project, one card per worktree, and its show/hide button.
 import { Menu } from "@tauri-apps/api/menu";
-import type { MouseEvent } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import type { Project } from "../../ipc/bindings";
 import { menuItem, shortcutLabel, tooltip } from "../../app/commands";
+import { chats } from "../chat/store";
+import { paneIds } from "../panes/layout";
 import { paneRows } from "../panes/sessions";
 import { focusPane, panes } from "../panes/store";
 import { shortcutChanges } from "../settings/store";
+import { ageLabel, statusLabel, urgentReport } from "../status/status";
 import { ChevronIcon, PlusIcon, SidebarIcon } from "../../ui/icons";
 import { countsLabel, countsTitle } from "../worktrees/gitCounts";
 import { gitCounts } from "../worktrees/gitCountsRefresh";
@@ -45,6 +48,25 @@ export function Sidebar() {
   );
 }
 
+// The status of the worktree's most urgent pane: its last message and how long ago the status began.
+function WorktreeStatus({ paneIdList }: { paneIdList: string[] }) {
+  const report = chats.usePart((all) => urgentReport(paneIdList.map((pane) => all[pane]?.report)));
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
+  if (!report) return null;
+  const label = statusLabel(report.status);
+  return (
+    <span className="worktree-status">
+      <span className="status-dot" data-status={report.status.kind} role="img" aria-label={label} title={label} />
+      <span className="worktree-last-message">{report.lastMessage.trim() || label}</span>
+      <span className="worktree-age">{ageLabel(report.since, now)}</span>
+    </span>
+  );
+}
+
 async function showMenu(event: MouseEvent, commandId: string, target: string) {
   event.preventDefault();
   const menu = await Menu.new({ items: [menuItem(commandId, target)] });
@@ -76,6 +98,7 @@ function ProjectGroup({ project }: { project: Project }) {
             const hint = shortcutLabel(`worktree.select.${order.indexOf(worktree.path) + 1}`);
             const countsText = countsLabel(counts[worktree.path]);
             const countsHint = countsTitle(counts[worktree.path]);
+            const paneIdList = (allPanes[worktree.path]?.sessions ?? []).flatMap((session) => paneIds(session.layout));
             const rows = paneRows(allPanes[worktree.path], worktree.path === selected);
             return (
               <li key={worktree.path}>
@@ -88,9 +111,12 @@ function ProjectGroup({ project }: { project: Project }) {
                   onClick={() => selectWorktree(worktree.path)}
                   onContextMenu={worktree.path === project.path ? undefined : (e) => showMenu(e, "worktree.delete", worktree.path)}
                 >
-                  <span className="worktree-name">{worktreeName(worktree)}</span>
-                  {countsText && <span className="worktree-counts" title={countsHint}>{countsText}</span>}
-                  {hint && <span className="worktree-hint">{hint}</span>}
+                  <span className="worktree-line">
+                    <span className="worktree-name">{worktreeName(worktree)}</span>
+                    {countsText && <span className="worktree-counts" title={countsHint}>{countsText}</span>}
+                    {hint && <span className="worktree-hint">{hint}</span>}
+                  </span>
+                  <WorktreeStatus paneIdList={paneIdList} />
                 </button>
                 {rows.length > 0 && (
                   <ul className="pane-list">

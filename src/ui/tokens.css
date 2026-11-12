@@ -27,9 +27,9 @@
   --success: #1a7f37;
   --notification-dot: #0067dc;
 
-  --status-running: #1a7f37;
+  --status-running: #0067dc;
   --status-waiting: #9a6700;
-  --status-done: #0067dc;
+  --status-done: #1a7f37;
   --status-error: #c4271f;
   --editor-selection: rgba(0, 103, 220, 0.16);
   --editor-match: rgba(242, 201, 76, 0.4);
@@ -94,9 +94,9 @@
   --success: #3fb950;
   --notification-dot: #6cb6ff;
 
-  --status-running: #3fb950;
+  --status-running: #6cb6ff;
   --status-waiting: #d29922;
-  --status-done: #6cb6ff;
+  --status-done: #3fb950;
   --status-error: #ff6b63;
   --editor-selection: rgba(77, 163, 255, 0.26);
   --editor-match: rgba(242, 201, 76, 0.22);

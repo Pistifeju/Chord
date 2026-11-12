@@ -5,6 +5,8 @@ import { tooltip } from "../../app/commands";
 import { ChatPane } from "../chat/ChatPane";
 import { chats } from "../chat/store";
 import { shortcutChanges } from "../settings/store";
+import type { Status } from "../../ipc/bindings";
+import { statusLabel, urgentReport } from "../status/status";
 import { sidebar } from "../sidebar/store";
 import { ChatIcon, CloseIcon, PlusIcon } from "../../ui/icons";
 import { dropEdge, dropPreview, paneIds, resizedSizes, type Box, type Edge } from "./layout";
@@ -35,7 +37,10 @@ function SessionTabs({ worktree }: { worktree: string }) {
   shortcutChanges.use();
   const { hidden } = sidebar.use();
   const current = panes.use()[worktree];
-  const working = chats.usePart((all) => (current?.sessions ?? []).filter((s) => paneIds(s.layout).some((pane) => all[pane]?.running)).map((s) => s.id).join("\n")).split("\n");
+  const statusesJson = chats.usePart((all) =>
+    JSON.stringify((current?.sessions ?? []).map((s) => urgentReport(paneIds(s.layout).map((pane) => all[pane]?.report))?.status ?? null)),
+  );
+  const statuses: (Status | null)[] = JSON.parse(statusesJson);
   const drag = useRef<TabDrag | null>(null);
   const suppressClick = useRef(false);
   const [dragging, setDragging] = useState<string | null>(null);
@@ -80,7 +85,8 @@ function SessionTabs({ worktree }: { worktree: string }) {
 
   return (
     <div ref={bar} className="tabbar" role="tablist" data-tauri-drag-region data-sidebar-hidden={hidden}>
-      {current.sessions.map((session) => {
+      {current.sessions.map((session, i) => {
+        const status = statuses[i];
         return (
           <div key={session.id} className="tab" data-selected={session.id === current.active} data-dragging={session.id === dragging}>
             <button
@@ -97,7 +103,9 @@ function SessionTabs({ worktree }: { worktree: string }) {
                 else selectSession(worktree, session.id);
               }}
             >
-              <span className="tab-status">{working.includes(session.id) ? <span className="spinner-inline" /> : <ChatIcon />}</span>
+              <span className="tab-status" data-status={status?.kind} title={status ? statusLabel(status) : undefined}>
+                {status?.kind === "running" ? <span className="spinner-inline" /> : status ? <span className="status-dot" /> : <ChatIcon />}
+              </span>
               <span className="tab-label">{session.name}</span>
             </button>
             {current.sessions.length > 1 && (

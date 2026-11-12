@@ -222,7 +222,7 @@ Every color, shadow and radius lives in `src/ui/tokens.css` as a CSS variable na
 
 - **Danger** (`danger`): text and icons only. The destructive button's label, the chat notice, the toast's warning icon.
 - **Success** (`success`): inline text only.
-- **Status** (`status-running`, `status-waiting`, `status-done`, `status-error`): green, amber, blue, red. Reserved for agent status marks.
+- **Status** (`status-running`, `status-waiting`, `status-done`, `status-error`): blue, amber, green, red. Reserved for agent status marks.
 - **Scrim** (`scrim`): the wash behind a sheet and the drop target.
 
 ### Named Rules
@@ -300,7 +300,7 @@ Popover and sheet shadows include a 1px ring: black at 8% in light, white at 10%
 - **Cards** (12px, `--radius-card`): the composer, the user's message, sheets, the drop target.
 - **Inset** (6px, `--radius-inset`): a segment inside the segmented track, the close button inside a tab.
 
-No pills. A circle appears only as the spinner.
+No pills. A circle appears only as the spinner and the status dot.
 
 ## Components
 
@@ -325,14 +325,14 @@ No pills. A circle appears only as the spinner.
 
 - `panel` fill with a 1px `line` right edge. The header holds the "Projects" title and the add button.
 - **Project header:** name at 13px/600, then the chevron right after it. A long name truncates; the chevron stays. Right-click opens the project menu.
-- **Worktree row:** 30px tall, three slots in a fixed order: name, git counts, shortcut hint. The name truncates with an ellipsis; the two meta slots never shrink.
+- **Worktree row:** 30px tall, three slots in a fixed order: name, git counts, shortcut hint. The name truncates with an ellipsis; the two meta slots never shrink. Once an agent of the worktree has run, the row grows a second line: 11px `ink-muted` text with the last message of its most urgent pane (the status word while it has none; truncates) and the time since that status began ("now", "5m", "3h", "2d"; tabular). An 8px status dot sits in the row's left gutter, on the name line, in the pane's status color.
 - **States:** hover takes `raised`, pressed takes `selected`, the open worktree takes `selected` and `ink`. The focus ring sits inside the row, so it clears the rows above and below.
 - **Pane rows:** a worktree with more than one pane shows one row per pane under its card: 24px tall, 11px `ink-muted` session name (numbered, "Session 1 · 2", when the session has several panes), indented past the card's name. Hover and pressed take the card's states. The focused pane takes `selected` and `ink`, and its card gives up the fill and keeps `ink`, so the tree shows one selected row.
 
 ### Tab bar and panes
 
 - **Tab bar:** the title bar row (`--titlebar-height`, 40px) at the top of the work area, on `panel` with a 1px `line` bottom edge. Tabs fill its full height. One tab per session, then a plus icon button. With the sidebar hidden it starts after the sidebar toggle.
-- **Tab:** flat, full bar height, 220px wide at most, no radius, a 1px `line` rule on its right edge. A 16px chat icon, or a spinner while an agent of the session runs, then the name (truncates), then a 20px close icon button that shows on the open tab, and on another tab only while the pointer is over it or focus is inside it; it keeps its space when hidden, so the tab width holds still. Padding is 12px on the left and 8px after the close button, so the X glyph sits as far from the right edge as the chat icon from the left; 8px separates the name and the close button; with the close button hidden (one session left) the name takes 12px on the right. `ink-muted` text; hover takes `raised`; the open tab takes `canvas`, `ink` and a 1px `line` rule on its left, and drops the bottom edge, so it joins the pane below. The close button's hover takes `selected`, or `raised` on the open tab so it stays visible. The focus ring sits inside the tab. The bar scrolls sideways when tabs overflow and scrolls the open tab into view.
+- **Tab:** flat, full bar height, 220px wide at most, no radius, a 1px `line` rule on its right edge. A 16px chat icon until an agent of the session has run, then the status of its most urgent pane: a spinner while it runs, otherwise an 8px status dot in the status color; then the name (truncates), then a 20px close icon button that shows on the open tab, and on another tab only while the pointer is over it or focus is inside it; it keeps its space when hidden, so the tab width holds still. Padding is 12px on the left and 8px after the close button, so the X glyph sits as far from the right edge as the chat icon from the left; 8px separates the name and the close button; with the close button hidden (one session left) the name takes 12px on the right. `ink-muted` text; hover takes `raised`; the open tab takes `canvas`, `ink` and a 1px `line` rule on its left, and drops the bottom edge, so it joins the pane below. The close button's hover takes `selected`, or `raised` on the open tab so it stays visible. The focus ring sits inside the tab. The bar scrolls sideways when tabs overflow and scrolls the open tab into view.
 - **Tab drag:** a tab dragged over the open session's pane edge (the outer quarter) shows that half of the pane with a 2px dashed `accent-ink` outline on `accent-wash`; the dragged tab dims to 60%. Dropping splits the pane there and moves the dragged session's panes in; its tab goes. The open session's own tab has no drop target, so dragging it does nothing.
 - **Focused pane:** with the session split, the focused pane shows a 28×3px `accent` bar, fully rounded, centered 6px below its top edge. On a focus change the old bar shrinks out and the new one grows from its center while fading in, over 200ms with `--ease-out`; with reduced motion it only fades. A single pane shows none.
 - **Divider:** a 1px `line` rule between panes with a 9px grab area. Hover and drag step it to `line-strong`. Double-click evens the split out. A pane keeps 10% at least.
