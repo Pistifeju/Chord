@@ -22,6 +22,7 @@ Rules for every subagent:
 - Fresh context. Put everything it needs in the task: the ticket text, the source path, the steps it runs, the rules below.
 - Task text for every subagent includes: follow `AGENTS.md`; no commits, no pushes, no screenshots, no launching the app; run `npm run check` at the end of an editing step and report the result.
 - A subagent fails or `npm run check` stays red: stop the chain, report the exact failure to the user.
+- Gate the Writer's report before step B. It passes when every skipped part names its allowed skip condition, and every run part returns the evidence its bullet asks for, covering every file in its target. A part misses the gate: launch the Writer once more for that part only, and name the gap in the task. It misses again: stop the chain and report the gap.
 
 ### Subagent setup
 
@@ -36,9 +37,9 @@ Another harness: pick its closest equivalent of the tier. The reviewer needs she
 
 - One Writer runs all three parts in one context, in this order, so it reuses the files it already read.
 - Part 1, implement: implement the ticket. Tick the feature in `SPEC.md`.
-- Part 2, polish: skip when part 1 touched no `.tsx` or `.css` file, and say so. Otherwise read `.agents/skills/polish-ui/SKILL.md` and run it on the current changes (no target named: the skill takes them from `git diff HEAD` and untracked files).
-- Part 3, animations: skip when the changed files contain no motion code, and say so. Otherwise read `.agents/skills/improve-animations/SKILL.md` and `AUDIT.md` and run the skill, limited to the motion code in the changed files (`git diff HEAD --name-only` plus untracked files). Name that file list to the skill so it does not answer with its greeting.
-- Return the list of changed files, the findings of parts 2 and 3 it did not fix, and one `npm run check` result at the end.
+- Part 2, polish: the one skip condition is that part 1 touched no `.tsx` or `.css` file under `src/`; name it when you skip. Otherwise read `.agents/skills/polish-ui/SKILL.md` in full and run every step on the target its step 1 pins (no target named: the skill takes it from `git diff HEAD` and untracked files). Evidence: the target file list, then for layout, typeset, polish and the drift sweep, each finding with file and selector, or `none` with the files checked.
+- Part 3, animations: the one skip condition is a grep of the changed files for `transition`, `animation`, `@keyframes`, `transform` and `--ease` that returns no hit; name the grep and its empty result when you skip. Otherwise read `.agents/skills/improve-animations/SKILL.md` and `AUDIT.md` in full and run the skill, limited to the motion code in the changed files (`git diff HEAD --name-only` plus untracked files). Name that file list to the skill so it does not answer with its greeting. Evidence: the file list, then each finding with file and line, or `none` with the files checked.
+- Return the list of changed files, the evidence of parts 2 and 3, the findings it did not fix, and one `npm run check` result at the end.
 
 ### B. Code review
 
