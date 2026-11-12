@@ -4,6 +4,8 @@ pub mod pi;
 pub mod sessions;
 mod shell;
 
+use std::path::PathBuf;
+
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
@@ -33,6 +35,8 @@ pub enum SlashKind {
     Skill,
     Prompt,
     Extension,
+    /// A command of the harness itself that acts on the pane's session: new, resume, fork, clone, tree, export.
+    Session,
 }
 
 /// A command the user can type after a slash; `name` has no slash. `origin` names the package it comes from; it is empty for a local file.
@@ -116,6 +120,16 @@ pub enum HarnessEvent {
     Aborted,
     /// Something the user should read: a refused command or a failed reply.
     Notice { text: String },
+    /// The session the pane's agent holds: the file that opens it again.
+    SessionInfo { file: PathBuf },
+    /// The transcript starts over; the session's saved messages follow as the events a live reply produces, up to `HistoryEnd`.
+    HistoryStart,
+    /// The saved messages are all in; what follows is live.
+    HistoryEnd,
+    /// Text the harness puts in the composer, as the message a fork or a tree step went back to.
+    Draft { text: String },
+    /// The session was written to a file for reading outside the app.
+    Exported { path: String },
     /// The harness process ended; `code` is missing when a signal ended it.
     Exited { code: Option<i32> },
     /// The pane's status changed or a reply ended; `last_message` is the text of the last reply. Core adds it, no adapter emits it.
@@ -210,6 +224,11 @@ pub fn status_for(tracker: &mut StatusTracker, event: &HarnessEvent) -> Option<S
         | HarnessEvent::ToolStart { .. }
         | HarnessEvent::ToolEnd { .. } => tracker.dialog = false,
         HarnessEvent::Exited { code } => tracker.exited = Some(*code),
+        // Another session's runs are not this one's: the status starts over until it runs.
+        HarnessEvent::HistoryStart => {
+            *tracker = StatusTracker::default();
+            return None;
+        }
         _ => return None,
     }
     let current = tracker.current();
@@ -290,6 +309,21 @@ mod tests {
             .chain([HarnessEvent::Exited { code: Some(3) }])
             .collect::<Vec<_>>();
         assert_eq!(last_status(&events), Some(Status::Exited { code: Some(3) }));
+    }
+
+    #[test]
+    fn a_session_that_opens_has_no_status_until_it_runs() {
+        let mut tracker = StatusTracker::default();
+        for event in run(reply("Fixed.").into()) {
+            status_for(&mut tracker, &event);
+        }
+        let replayed = [HarnessEvent::HistoryStart]
+            .into_iter()
+            .chain(reply("An older reply?"))
+            .filter_map(|event| status_for(&mut tracker, &event))
+            .collect::<Vec<_>>();
+        assert_eq!(replayed, vec![]);
+        assert_eq!(tracker.last_message(), "An older reply?");
     }
 
     #[test]

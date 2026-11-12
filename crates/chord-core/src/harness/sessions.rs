@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use super::pi::{Session, session_file};
 use super::{Capability, DialogAnswer, HarnessEvent, Image, StatusTracker, status_for};
 use crate::awake::Awake;
-use crate::{Error, Store};
+use crate::{Error, State, Store, WorktreePanes};
 
 pub struct Sessions {
     running: Mutex<HashMap<String, (PathBuf, Session)>>,
@@ -17,7 +17,7 @@ pub struct Sessions {
 }
 
 impl Sessions {
-    /// `dir` holds one session file per pane.
+    /// `dir` holds the session files and the extension the harness loads.
     pub fn new(store: Arc<Store>, dir: PathBuf) -> Sessions {
         let awake = Arc::new(Awake::new(store.get().keep_awake));
         Sessions {
@@ -58,10 +58,17 @@ impl Sessions {
         let session = Session::start(
             binary,
             &worktree,
-            &session_file(&self.dir, &pane)?,
+            &held_file(&self.store.get(), &self.dir, &pane)?,
+            &self.dir,
             move |event| {
-                match event {
-                    HarnessEvent::State { running } => awake.set_working(&exiting, running),
+                match &event {
+                    HarnessEvent::State { running } => awake.set_working(&exiting, *running),
+                    // The next start opens the session the pane shows now.
+                    HarnessEvent::SessionInfo { file, .. } => {
+                        let _ = store.update(|state| {
+                            state.session_files.insert(exiting.clone(), file.clone())
+                        });
+                    }
                     HarnessEvent::Exited { .. } => {
                         awake.set_working(&exiting, false);
                         // An agent that ended on its own does not come back on launch.
@@ -90,7 +97,15 @@ impl Sessions {
     }
 
     pub fn send(&self, pane: &str, text: &str, images: &[Image]) -> Result<(), Error> {
-        self.with(pane, |session| session.send(text, images))
+        let state = self.store.get();
+        let held_elsewhere = state
+            .panes
+            .values()
+            .flat_map(WorktreePanes::pane_ids)
+            .filter(|other| other != pane)
+            .map(|other| held_file(&state, &self.dir, &other))
+            .collect::<Result<Vec<_>, _>>()?;
+        self.with(pane, |session| session.send(text, images, &held_elsewhere))
     }
 
     pub fn answer_dialog(&self, pane: &str, id: &str, answer: &DialogAnswer) -> Result<(), Error> {
@@ -101,16 +116,15 @@ impl Sessions {
         self.with(pane, Session::abort)
     }
 
-    /// The pane is gone: its agent stops, it no longer starts on launch, and its session file goes.
+    /// The pane is gone: its agent stops and no longer starts on launch. Its session files stay for `/resume`.
     pub fn stop_pane(&self, pane: &str) -> Result<(), Error> {
-        let file = session_file(&self.dir, pane)?;
         let session = self.sessions().remove(pane);
         drop(session);
         self.awake.set_working(pane, false);
-        self.store
-            .update(|state| state.running_panes.remove(pane))?;
-        let _ = std::fs::remove_file(file);
-        Ok(())
+        self.store.update(|state| {
+            state.running_panes.remove(pane);
+            state.session_files.remove(pane);
+        })
     }
 
     /// Returns once every agent has ended, so none outlives the app. The panes stay saved as running.
@@ -143,10 +157,10 @@ impl Sessions {
         drop(stopped);
     }
 
-    /// The worktree is gone: its layouts, running flags and session files go with it.
+    /// The worktree is gone: its layouts and running flags go with it. Its session files stay for `/resume`.
     pub fn forget(&self, worktree: &Path) -> Result<(), Error> {
         self.stop(worktree);
-        let panes = self.store.update(|state| {
+        self.store.update(|state| {
             let panes = state
                 .panes
                 .remove(worktree)
@@ -154,13 +168,17 @@ impl Sessions {
                 .unwrap_or_default();
             for pane in &panes {
                 state.running_panes.remove(pane);
+                state.session_files.remove(pane);
             }
-            panes
-        })?;
-        for pane in panes {
-            let _ = std::fs::remove_file(session_file(&self.dir, &pane)?);
-        }
-        Ok(())
+        })
+    }
+}
+
+// The session the pane's agent last held, or the file a pane held before Chord saved which one.
+fn held_file(state: &State, dir: &Path, pane: &str) -> Result<PathBuf, Error> {
+    match state.session_files.get(pane) {
+        Some(file) => Ok(file.clone()),
+        None => session_file(dir, pane),
     }
 }
 
@@ -170,8 +188,8 @@ mod tests {
     use crate::{Layout, PaneSession, WorktreePanes};
 
     #[test]
-    fn forgetting_a_worktree_drops_its_layout_running_flags_and_session_files() -> Result<(), Error>
-    {
+    fn forgetting_a_worktree_drops_its_layout_and_running_flags_and_keeps_its_session_files()
+    -> Result<(), Error> {
         let root = std::env::temp_dir().join(format!("chord-forget-{}", std::process::id()));
         let dir = root.join("sessions");
         std::fs::create_dir_all(&dir)?;
@@ -197,8 +215,12 @@ mod tests {
             state
                 .running_panes
                 .extend(["a".to_string(), "other".to_string()]);
+            state
+                .session_files
+                .insert("b".into(), dir.join("resumed.jsonl"));
         })?;
         std::fs::write(dir.join("a.jsonl"), "")?;
+        std::fs::write(dir.join("resumed.jsonl"), "")?;
         std::fs::write(dir.join("other.jsonl"), "")?;
 
         let sessions = Sessions::new(Arc::clone(&store), dir.clone());
@@ -207,6 +229,7 @@ mod tests {
         let state = store.get();
         let left_files = (
             dir.join("a.jsonl").exists(),
+            dir.join("resumed.jsonl").exists(),
             dir.join("other.jsonl").exists(),
         );
         let _ = std::fs::remove_dir_all(&root);
@@ -215,7 +238,33 @@ mod tests {
             state.running_panes.into_iter().collect::<Vec<_>>(),
             ["other"]
         );
-        assert_eq!(left_files, (false, true));
+        assert!(state.session_files.is_empty());
+        assert_eq!(left_files, (true, true, true));
+        Ok(())
+    }
+
+    #[test]
+    fn a_closed_pane_no_longer_starts_on_launch_and_keeps_its_session_file() -> Result<(), Error> {
+        let root = std::env::temp_dir().join(format!("chord-close-{}", std::process::id()));
+        let dir = root.join("sessions");
+        std::fs::create_dir_all(&dir)?;
+        let store = Arc::new(Store::open(root.join("state.json"))?);
+        store.update(|state| {
+            state.running_panes.insert("a".into());
+            state
+                .session_files
+                .insert("a".into(), dir.join("resumed.jsonl"));
+        })?;
+        std::fs::write(dir.join("resumed.jsonl"), "")?;
+
+        Sessions::new(Arc::clone(&store), dir.clone()).stop_pane("a")?;
+
+        let state = store.get();
+        let kept = dir.join("resumed.jsonl").exists();
+        let _ = std::fs::remove_dir_all(&root);
+        assert!(state.running_panes.is_empty());
+        assert!(state.session_files.is_empty());
+        assert!(kept);
         Ok(())
     }
 }

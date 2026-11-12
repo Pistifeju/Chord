@@ -29,6 +29,8 @@ pub struct State {
     pub panes: BTreeMap<PathBuf, WorktreePanes>,
     /// The panes whose agent was started and not stopped; they start again on launch.
     pub running_panes: BTreeSet<String>,
+    /// The session file each pane's agent last held; a pane without one opens a file of its own.
+    pub session_files: BTreeMap<String, PathBuf>,
 }
 
 /// One change the frontend saves.

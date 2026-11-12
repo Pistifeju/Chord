@@ -3,7 +3,7 @@ import { Menu } from "@tauri-apps/api/menu";
 import { useEffect, useState, type MouseEvent } from "react";
 import type { GitCounts_Serialize as GitCounts, Project, Worktree_Serialize as Worktree } from "../../ipc/bindings";
 import { menuItem, shortcutLabel, tooltip } from "../../app/commands";
-import { chats } from "../chat/store";
+import { chats, usePaneNames } from "../chat/store";
 import { paneRows } from "../panes/sessions";
 import { allPaneIds } from "../panes/agents";
 import { focusPane, panes } from "../panes/store";
@@ -139,7 +139,8 @@ function WorktreeCard({
   const countsText = countsLabel(counts);
   const countsHint = countsTitle(counts);
   const paneIdList = allPaneIds(saved);
-  const rows = paneRows(saved, selected);
+  const names = usePaneNames(paneIdList);
+  const rows = paneRows(saved, selected, names);
   return (
     <li>
       <button

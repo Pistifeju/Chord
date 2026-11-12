@@ -49,10 +49,10 @@ Feature folders follow the areas of `SPEC.md`: `sidebar`, `worktrees`, `panes`, 
 
 The trait, events, commands and capabilities: `docs/harness-contract.md`, section 3. How they sit in the code:
 
-1. **Records stop at the adapter.** `harness/pi.rs` turns each pi record into Chord events. The frontend's chat reducer handles the 11 events and 4 capability events and never sees a pi record.
+1. **Records stop at the adapter.** `harness/pi.rs` turns each pi record into Chord events. The frontend's chat reducer handles every `HarnessEvent` and never sees a pi record.
 2. **One path for history.** On resume the adapter reads the saved messages and sends them as the same events a live reply produces.
-3. **Status without a socket.** pi's stdout carries what the status needs: `agent_start`, `agent_settled`, `message_end`, `extension_ui_request` for dialogs, `session_info_changed`, and `get_state` for the session file. `status_for` in `harness/mod.rs` folds the events into a status; the app crate emits it to the sidebar and to notifications. No socket and no reporting extension.
-4. **The extension Chord ships adds three commands**: `/chord-resume`, `/chord-tree`, `/chord-reload`. RPC has no session list, tree navigation or reload.
+3. **Status without a socket.** pi's stdout carries what the status needs: `agent_start`, `agent_settled`, `message_end`, `extension_ui_request` for dialogs, and `get_state` for the session file. `status_for` in `harness/mod.rs` folds the events into a status; the app crate emits it to the sidebar and to notifications. No socket and no reporting extension.
+4. **The extension Chord ships adds two commands**: `/chord-resume`, `/chord-tree`. RPC has no session list or tree navigation.
 5. **Process.** One `pi --mode rpc` per pane, on pipes, started through the user's login shell so PATH and API keys match their terminal. The binary name is a parameter with the default `pi`. The adapter runs `pi --version` first and returns `MissingTool` or the upgrade step.
 6. **Capabilities.** The adapter returns its list when a session starts. A view checks the list before it shows a control.
 

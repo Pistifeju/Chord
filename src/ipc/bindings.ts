@@ -118,6 +118,16 @@ export type HarnessEvent_Deserialize =
 { kind: "aborted" } | 
 /**  Something the user should read: a refused command or a failed reply. */
 { kind: "notice"; text: string } | 
+/**  The session the pane's agent holds: the file that opens it again. */
+{ kind: "session_info"; file: string } | 
+/**  The transcript starts over; the session's saved messages follow as the events a live reply produces, up to `HistoryEnd`. */
+{ kind: "history_start" } | 
+/**  The saved messages are all in; what follows is live. */
+{ kind: "history_end" } | 
+/**  Text the harness puts in the composer, as the message a fork or a tree step went back to. */
+{ kind: "draft"; text: string } | 
+/**  The session was written to a file for reading outside the app. */
+{ kind: "exported"; path: string } | 
 /**  The harness process ended; `code` is missing when a signal ended it. */
 { kind: "exited"; code?: number | null } | 
 /**  The pane's status changed or a reply ended; `last_message` is the text of the last reply. Core adds it, no adapter emits it. */
@@ -150,6 +160,16 @@ export type HarnessEvent_Serialize =
 { kind: "aborted" } | 
 /**  Something the user should read: a refused command or a failed reply. */
 { kind: "notice"; text: string } | 
+/**  The session the pane's agent holds: the file that opens it again. */
+{ kind: "session_info"; file: string } | 
+/**  The transcript starts over; the session's saved messages follow as the events a live reply produces, up to `HistoryEnd`. */
+{ kind: "history_start" } | 
+/**  The saved messages are all in; what follows is live. */
+{ kind: "history_end" } | 
+/**  Text the harness puts in the composer, as the message a fork or a tree step went back to. */
+{ kind: "draft"; text: string } | 
+/**  The session was written to a file for reading outside the app. */
+{ kind: "exported"; path: string } | 
 /**  The harness process ended; `code` is missing when a signal ended it. */
 { kind: "exited"; code: number | null } | 
 /**  The pane's status changed or a reply ended; `last_message` is the text of the last reply. Core adds it, no adapter emits it. */
@@ -257,7 +277,9 @@ export type SlashCommand_Serialize = {
 };
 
 /**  Where a slash command is defined. */
-export type SlashKind = "skill" | "prompt" | "extension";
+export type SlashKind = "skill" | "prompt" | "extension" | 
+/**  A command of the harness itself that acts on the pane's session: new, resume, fork, clone, tree, export. */
+"session";
 
 export type State = State_Serialize | State_Deserialize;
 
@@ -300,6 +322,8 @@ export type State_Deserialize = {
 	panes?: { [key in string]: WorktreePanes },
 	/**  The panes whose agent was started and not stopped; they start again on launch. */
 	runningPanes?: string[],
+	/**  The session file each pane's agent last held; a pane without one opens a file of its own. */
+	sessionFiles?: { [key in string]: string },
 };
 
 export type State_Serialize = {
@@ -316,6 +340,8 @@ export type State_Serialize = {
 	panes: { [key in string]: WorktreePanes },
 	/**  The panes whose agent was started and not stopped; they start again on launch. */
 	runningPanes: string[],
+	/**  The session file each pane's agent last held; a pane without one opens a file of its own. */
+	sessionFiles: { [key in string]: string },
 };
 
 export type Status = Status_Serialize | Status_Deserialize;

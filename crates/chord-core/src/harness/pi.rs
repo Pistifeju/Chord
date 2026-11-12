@@ -1,6 +1,7 @@
 //! The pi adapter: runs `pi --mode rpc` and turns its records into harness events. The only file that knows pi's records.
 
 use std::collections::BTreeSet;
+use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io::{BufRead, BufReader, ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
@@ -23,11 +24,35 @@ pub const DEFAULT_BINARY: &str = "pi";
 const INSTALL: &str = "npm install -g @earendil-works/pi-coding-agent";
 const OLDEST_TESTED: (u32, u32, u32) = (1, 5, 0);
 
+/// The extension Chord ships: the session commands RPC lacks.
+const EXTENSION: &str = include_str!("pi_extension.ts");
+const EXTENSION_FILE: &str = "chord-extension.ts";
+/// The commands the extension adds start with this; the slash menu lists Chord's own names for them.
+const EXTENSION_PREFIX: &str = "chord-";
+/// The request id of a prompt that runs one of the extension's commands; its response means the session may have changed.
+const SESSION_PROMPT: &str = "chord-session";
+/// A fork dialog's id starts with this; the ids of the entries it lists follow, comma-separated, in the order of its options.
+const FORK_DIALOG: &str = "chord-fork:";
+
+/// What pi offers after a slash in its own terminal and RPC does not list: each name and its description.
+const SESSION_COMMANDS: [(&str, &str); 6] = [
+    ("new", "Start a new session"),
+    ("resume", "Open another session of this worktree"),
+    ("fork", "Start a new session from an earlier message"),
+    ("clone", "Copy this session into a new one"),
+    ("tree", "Go back to an earlier point of this session"),
+    (
+        "export",
+        "Write this session to an HTML file, optionally at a path",
+    ),
+];
+
 /// One running `pi --mode rpc` process.
 pub struct Session {
     child: Arc<Mutex<Child>>,
-    stdin: Mutex<ChildStdin>,
+    stdin: Arc<Mutex<ChildStdin>>,
     stopped: Arc<AtomicBool>,
+    running: Arc<AtomicBool>,
 }
 
 /// The file that holds a pane's pi session, so the pane's agent can open the same session again.
@@ -42,20 +67,41 @@ pub fn session_file(sessions_dir: &Path, pane: &str) -> Result<PathBuf, Error> {
     Ok(sessions_dir.join(format!("{pane}.jsonl")))
 }
 
+static EXTENSION_WRITE: Mutex<()> = Mutex::new(());
+
+// Written only when it differs, and one start at a time, so no pi reads a half-written file.
+fn installed_extension(dir: &Path) -> Result<PathBuf, Error> {
+    let _writing = EXTENSION_WRITE
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner);
+    std::fs::create_dir_all(dir)?;
+    let file = dir.join(EXTENSION_FILE);
+    if std::fs::read_to_string(&file).ok().as_deref() != Some(EXTENSION) {
+        std::fs::write(&file, EXTENSION)?;
+    }
+    Ok(file)
+}
+
 impl Session {
+    /// `extension_dir` is where the extension Chord ships is written for pi to load. Without an existing `session_file` pi starts a new session in its own session folder.
     pub fn start(
         binary: &str,
         dir: &Path,
         session_file: &Path,
+        extension_dir: &Path,
         on_event: impl Fn(HarnessEvent) + Send + 'static,
     ) -> Result<Session, Error> {
         check_version(binary)?;
-        if let Some(parent) = session_file.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        // The same file on every start puts the pane back in its exact session.
+        let extension = installed_extension(extension_dir)?;
+        let extension = extension.to_string_lossy();
+        let held = session_file.is_file();
         let session_file = session_file.to_string_lossy();
-        let mut child = through_login_shell(binary, &["--mode", "rpc", "--session", &session_file])
+        let mut args = vec!["--mode", "rpc", "--extension", &extension];
+        // The same file on every start puts the pane back in its exact session.
+        if held {
+            args.extend(["--session", &session_file]);
+        }
+        let mut child = through_login_shell(binary, &args)
             .current_dir(dir)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -67,18 +113,32 @@ impl Session {
         };
         let child = Arc::new(Mutex::new(child));
         let reader_child = Arc::clone(&child);
+        let stdin = Arc::new(Mutex::new(stdin));
+        let reader_stdin = Arc::clone(&stdin);
         let stopped = Arc::new(AtomicBool::new(false));
         let reader_stopped = Arc::clone(&stopped);
+        let running = Arc::new(AtomicBool::new(false));
+        let reader_running = Arc::clone(&running);
         thread::spawn(move || {
             let mut reader = BufReader::new(stdout);
             let mut line = Vec::new();
             let mut open_calls = OpenCalls::default();
+            let mut shown = ShownSession::default();
             // Split on LF only: a JSON string may hold U+2028.
             while matches!(reader.read_until(b'\n', &mut line), Ok(read) if read > 0) {
-                open_calls
-                    .track(events_from_line(&line))
-                    .into_iter()
-                    .for_each(&on_event);
+                let Read { events, requests } = read_line(&line, &mut shown);
+                for event in open_calls.track(events) {
+                    if let HarnessEvent::State { running } = event {
+                        reader_running.store(running, Ordering::SeqCst);
+                    }
+                    on_event(event);
+                }
+                // A `/tree` pi refused mid-run left the session as it was; reading it again would restart the live transcript.
+                if !reader_running.load(Ordering::SeqCst) {
+                    for request in requests {
+                        let _ = write_to(&reader_stdin, &request);
+                    }
+                }
                 line.clear();
             }
             open_calls.stop().into_iter().for_each(&on_event);
@@ -91,11 +151,16 @@ impl Session {
         });
         let session = Session {
             child,
-            stdin: Mutex::new(stdin),
+            stdin,
             stopped,
+            running,
         };
         // Without the list the slash menu stays hidden; the agent works without it.
         let _ = session.write(&json!({ "type": "get_commands" }));
+        // The session file may hold earlier messages; they come back as history.
+        for request in session_requests() {
+            let _ = session.write(&request);
+        }
         Ok(session)
     }
 
@@ -103,26 +168,56 @@ impl Session {
         vec![Capability::Chat, Capability::Attachments, Capability::Steer]
     }
 
-    /// Sends a message; while the agent runs, pi queues it as a steer.
-    pub fn send(&self, text: &str, images: &[Image]) -> Result<(), Error> {
-        self.write(&prompt_command(text, images))
+    /// Sends a message; while the agent runs, pi queues it as a steer. A session command runs instead of being sent; `/resume` leaves out `held_elsewhere`, the session files other panes hold, so no two agents write one file.
+    pub fn send(
+        &self,
+        text: &str,
+        images: &[Image],
+        held_elsewhere: &[PathBuf],
+    ) -> Result<(), Error> {
+        let Some(command) = session_command(text.trim(), held_elsewhere) else {
+            return self.write(&prompt_command(text, images));
+        };
+        // pi aborts the run to open another session; `/tree` mid-run it refuses itself and `/export` leaves the run alone.
+        let keeps_run = matches!(command_name(text.trim()), "/tree" | "/export");
+        if self.running.load(Ordering::SeqCst) && !keeps_run {
+            return Err(Error::Message(
+                "Wait for the agent to finish, then change the session".into(),
+            ));
+        }
+        if !images.is_empty() {
+            return Err(Error::Message(
+                "Remove the images, then change the session".into(),
+            ));
+        }
+        self.write(&command)
     }
 
     pub fn abort(&self) -> Result<(), Error> {
         self.write(&json!({ "type": "abort" }))
     }
 
-    /// Answers the dialog pi asked with `id`.
+    /// Answers the dialog pi asked with `id`; a fork dialog is the adapter's own, so its answer becomes the fork.
     pub fn answer_dialog(&self, id: &str, answer: &DialogAnswer) -> Result<(), Error> {
-        self.write(&dialog_response(id, answer))
+        match id.strip_prefix(FORK_DIALOG) {
+            Some(entries) => match fork_command(entries, answer) {
+                Some(command) => self.write(&command),
+                None => Ok(()),
+            },
+            None => self.write(&dialog_response(id, answer)),
+        }
     }
 
     fn write(&self, command: &Value) -> Result<(), Error> {
-        let mut stdin = self.stdin.lock().unwrap_or_else(|e| e.into_inner());
-        writeln!(stdin, "{command}")?;
-        stdin.flush()?;
-        Ok(())
+        write_to(&self.stdin, command)
     }
+}
+
+fn write_to(stdin: &Mutex<ChildStdin>, command: &Value) -> Result<(), Error> {
+    let mut stdin = stdin.lock().unwrap_or_else(PoisonError::into_inner);
+    writeln!(stdin, "{command}")?;
+    stdin.flush()?;
+    Ok(())
 }
 
 impl Drop for Session {
@@ -140,6 +235,57 @@ fn prompt_command(text: &str, images: &[Image]) -> Value {
         .map(|image| json!({ "type": "image", "data": image.data, "mimeType": image.mime_type }))
         .collect();
     json!({ "type": "prompt", "message": text, "images": images, "streamingBehavior": "steer" })
+}
+
+// The RPC command a session command runs; resume and tree need a pick pi's RPC has no list for, so the extension runs them.
+fn session_command(text: &str, held_elsewhere: &[PathBuf]) -> Option<Value> {
+    let extension = |name: &str| json!({ "id": SESSION_PROMPT, "type": "prompt", "message": format!("/{EXTENSION_PREFIX}{name}") });
+    // `/export` takes an optional output path; pi picks the file without one.
+    if let Some(path) = text
+        .strip_prefix("/export")
+        .filter(|_| command_name(text) == "/export")
+    {
+        return Some(match path.trim() {
+            "" => json!({ "type": "export_html" }),
+            path => json!({ "type": "export_html", "outputPath": path }),
+        });
+    }
+    Some(match text {
+        "/new" => json!({ "type": "new_session" }),
+        "/resume" => {
+            let held: Vec<_> = held_elsewhere
+                .iter()
+                .map(|file| file.to_string_lossy())
+                .collect();
+            extension(&format!("resume {}", json!(held)))
+        }
+        "/fork" => json!({ "type": "get_fork_messages" }),
+        "/clone" => json!({ "type": "clone" }),
+        "/tree" => extension("tree"),
+        _ => return None,
+    })
+}
+
+fn command_name(text: &str) -> &str {
+    text.split(char::is_whitespace).next().unwrap_or_default()
+}
+
+// What tells the chat which session pi holds now and what it says.
+fn session_requests() -> [Value; 2] {
+    [
+        json!({ "type": "get_state" }),
+        json!({ "type": "get_messages" }),
+    ]
+}
+
+// The picked option starts with its number in the list; `entries` holds the entry ids in that order.
+fn fork_command(entries: &str, answer: &DialogAnswer) -> Option<Value> {
+    let DialogAnswer::Value { value } = answer else {
+        return None;
+    };
+    let number: usize = value.split_once('.')?.0.parse().ok()?;
+    let entry = entries.split(',').nth(number.checked_sub(1)?)?;
+    Some(json!({ "type": "fork", "entryId": entry }))
 }
 
 fn dialog_response(id: &str, answer: &DialogAnswer) -> Value {
@@ -247,8 +393,9 @@ struct Kind {
     update: Option<Value>,
 }
 
-const READ_KINDS: [&str; 9] = [
+const READ_KINDS: [&str; 10] = [
     "extension_ui_request",
+    "extension_error",
     "agent_start",
     "agent_settled",
     "message_update",
@@ -290,16 +437,72 @@ impl OpenCalls {
     }
 }
 
-// Tool output and turn summaries are large and unused, so only the records `events_from` reads get a full parse.
-fn events_from_line(line: &[u8]) -> Vec<HarnessEvent> {
-    match serde_json::from_slice::<Kind>(line) {
-        Ok(Kind { kind, update }) if kind == "message_update" => {
-            message_update(update.as_ref().unwrap_or(&Value::Null))
+/// What one stdout record leads to: events for the chat and commands to send pi next.
+#[derive(Default)]
+struct Read {
+    events: Vec<HarnessEvent>,
+    requests: Vec<Value>,
+}
+
+/// The session the chat shows: its file and a hash of its messages.
+#[derive(Default)]
+struct ShownSession {
+    file: Option<String>,
+    messages: Option<u64>,
+}
+
+impl ShownSession {
+    // A cancelled or failed `/resume` or `/tree` still reads the session again; the same file and messages leave the transcript and status alone.
+    fn repeats(&mut self, record: &Value) -> bool {
+        if record["type"] != "response" || record["success"] != true {
+            return false;
         }
+        match record["command"].as_str() {
+            Some("get_state") => {
+                self.file = record["data"]["sessionFile"].as_str().map(String::from);
+                false
+            }
+            Some("get_messages") => {
+                let mut hasher = DefaultHasher::new();
+                (&self.file, record["data"]["messages"].to_string()).hash(&mut hasher);
+                let messages = Some(hasher.finish());
+                std::mem::replace(&mut self.messages, messages) == messages
+            }
+            _ => false,
+        }
+    }
+}
+
+// Tool output and turn summaries are large and unused, so only the records `events_from` reads get a full parse.
+fn read_line(line: &[u8], shown: &mut ShownSession) -> Read {
+    match serde_json::from_slice::<Kind>(line) {
+        Ok(Kind { kind, update }) if kind == "message_update" => Read {
+            events: message_update(update.as_ref().unwrap_or(&Value::Null)),
+            requests: vec![],
+        },
         Ok(Kind { kind, .. }) if READ_KINDS.contains(&kind.as_str()) => {
             serde_json::from_slice::<Value>(line)
-                .map(|record| events_from(&record))
+                .ok()
+                .filter(|record| !shown.repeats(record))
+                .map(|record| Read {
+                    events: events_from(&record),
+                    requests: requests_after(&record),
+                })
                 .unwrap_or_default()
+        }
+        _ => Read::default(),
+    }
+}
+
+// pi reports a session change only as the response to what caused it.
+fn requests_after(record: &Value) -> Vec<Value> {
+    let changed = record["success"] == true && record["data"]["cancelled"] != true;
+    match (record["type"].as_str(), record["command"].as_str()) {
+        (Some("response"), Some("new_session" | "fork" | "clone")) if changed => {
+            session_requests().into()
+        }
+        (Some("response"), Some("prompt")) if changed && record["id"] == SESSION_PROMPT => {
+            session_requests().into()
         }
         _ => vec![],
     }
@@ -345,10 +548,36 @@ fn events_from(record: &Value) -> Vec<HarnessEvent> {
                 .filter_map(|text| text.as_str().map(collapse_skill))
                 .collect(),
         }],
-        Some("extension_ui_request") => dialog_from(record).into_iter().collect(),
-        Some("response") if record["command"] == "get_commands" => {
+        Some("extension_ui_request") => ui_request(record).into_iter().collect(),
+        // A failure in one of Chord's own commands is the answer to what the user asked for.
+        Some("extension_error")
+            if record["extensionPath"]
+                .as_str()
+                .is_some_and(|path| path.starts_with(&format!("command:{EXTENSION_PREFIX}"))) =>
+        {
+            vec![HarnessEvent::Notice {
+                text: record["error"]
+                    .as_str()
+                    .unwrap_or("The session command failed")
+                    .into(),
+            }]
+        }
+        Some("response") if record["success"] == false => vec![HarnessEvent::Notice {
+            text: record["error"]
+                .as_str()
+                .unwrap_or("pi refused the command")
+                .into(),
+        }],
+        Some("response") => response(record["command"].as_str(), &record["data"]),
+        _ => vec![],
+    }
+}
+
+fn response(command: Option<&str>, data: &Value) -> Vec<HarnessEvent> {
+    match command {
+        Some("get_commands") => {
             vec![HarnessEvent::Commands {
-                commands: record["data"]["commands"]
+                commands: data["commands"]
                     .as_array()
                     .into_iter()
                     .flatten()
@@ -364,17 +593,138 @@ fn events_from(record: &Value) -> Vec<HarnessEvent> {
                             origin: package_name(&command["sourceInfo"]),
                         })
                     })
+                    .filter(|command| !command.name.starts_with(EXTENSION_PREFIX))
+                    .chain(SESSION_COMMANDS.map(|(name, description)| SlashCommand {
+                        name: name.into(),
+                        description: description.into(),
+                        kind: SlashKind::Session,
+                        origin: None,
+                    }))
                     .collect(),
             }]
         }
-        Some("response") if record["success"] == false => vec![HarnessEvent::Notice {
-            text: record["error"]
-                .as_str()
-                .unwrap_or("pi refused the command")
-                .into(),
+        Some("get_state") => data["sessionFile"]
+            .as_str()
+            .map(|file| HarnessEvent::SessionInfo { file: file.into() })
+            .into_iter()
+            .collect(),
+        Some("get_messages") => history(&data["messages"]),
+        Some("get_fork_messages") => vec![fork_dialog(&data["messages"])],
+        Some("fork") => data["text"]
+            .as_str()
+            .map(|text| HarnessEvent::Draft {
+                text: collapse_skill(text),
+            })
+            .into_iter()
+            .collect(),
+        Some("export_html") => data["path"]
+            .as_str()
+            .map(|path| HarnessEvent::Exported { path: path.into() })
+            .into_iter()
+            .collect(),
+        _ => vec![],
+    }
+}
+
+// The session's saved messages as the events their live run produced, between the marks that start the transcript over and end the replay.
+fn history(messages: &Value) -> Vec<HarnessEvent> {
+    let mut events = vec![HarnessEvent::HistoryStart];
+    let mut open_calls = OpenCalls::default();
+    for message in messages.as_array().into_iter().flatten() {
+        events.extend(open_calls.track(saved_message(message)));
+    }
+    events.extend(open_calls.stop());
+    events.push(HarnessEvent::HistoryEnd);
+    events
+}
+
+fn saved_message(message: &Value) -> Vec<HarnessEvent> {
+    match message["role"].as_str() {
+        Some("user") => message_end(message),
+        Some("assistant") => {
+            let blocks = message["content"].as_array().into_iter().flatten();
+            let mut events: Vec<HarnessEvent> = blocks.flat_map(saved_block).collect();
+            if message["stopReason"] == "aborted" {
+                events.push(HarnessEvent::Aborted);
+            }
+            events
+        }
+        Some("toolResult") => vec![HarnessEvent::ToolEnd {
+            id: message["toolCallId"].as_str().unwrap_or_default().into(),
+            outcome: if message["isError"] == true {
+                ToolOutcome::Failed
+            } else {
+                ToolOutcome::Done
+            },
+            images: images_of(&message["content"]),
         }],
         _ => vec![],
     }
+}
+
+fn saved_block(block: &Value) -> Vec<HarnessEvent> {
+    match block["type"].as_str() {
+        Some("text") => match block["text"].as_str() {
+            Some(text) if !text.is_empty() => vec![
+                HarnessEvent::MessageChunk { text: text.into() },
+                HarnessEvent::MessageEnd { failed: false },
+            ],
+            _ => vec![],
+        },
+        Some("thinking") => vec![
+            HarnessEvent::ThoughtStart,
+            HarnessEvent::ThoughtChunk {
+                text: block["thinking"].as_str().unwrap_or_default().into(),
+            },
+        ],
+        Some("toolCall") => {
+            let (title, detail) = describe_tool(
+                block["name"].as_str().unwrap_or("tool"),
+                &block["arguments"],
+            );
+            vec![HarnessEvent::ToolStart {
+                id: block["id"].as_str().unwrap_or_default().into(),
+                title,
+                detail,
+            }]
+        }
+        _ => vec![],
+    }
+}
+
+// One numbered option per user message of the session, oldest first; the number finds the entry again in the answer.
+fn fork_dialog(messages: &Value) -> HarnessEvent {
+    let messages: Vec<(&str, String)> = messages
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|message| {
+            let text = collapse_skill(message["text"].as_str()?);
+            Some((message["entryId"].as_str()?, text))
+        })
+        .collect();
+    if messages.is_empty() {
+        return HarnessEvent::Notice {
+            text: "The session has no message to fork from".into(),
+        };
+    }
+    let entries: Vec<&str> = messages.iter().map(|(entry, _)| *entry).collect();
+    HarnessEvent::Dialog {
+        id: format!("{FORK_DIALOG}{}", entries.join(",")),
+        title: "Fork From".into(),
+        ask: DialogAsk::Select {
+            options: messages
+                .iter()
+                .enumerate()
+                .map(|(i, (_, text))| format!("{}. {}", i + 1, first_line(text)))
+                .collect(),
+        },
+    }
+}
+
+fn first_line(text: &str) -> String {
+    let line = text.lines().find(|line| !line.trim().is_empty());
+    line.unwrap_or_default().trim().chars().take(80).collect()
 }
 
 // The package a command comes from, from a source like `npm:@scope/name@1.2.0` or `https://host/user/name.git`; none for a local file.
@@ -393,10 +743,11 @@ fn package_name(source_info: &Value) -> Option<String> {
     (!name.is_empty()).then(|| name.to_string())
 }
 
-// Select, confirm and input wait for an answer; notify and the status methods do not.
-fn dialog_from(record: &Value) -> Option<HarnessEvent> {
+// Select, confirm and input wait for an answer; the editor text goes in the composer; notify and the status methods are not read.
+fn ui_request(record: &Value) -> Option<HarnessEvent> {
     let text = |key: &str| record[key].as_str().unwrap_or_default().to_string();
     let ask = match record["method"].as_str()? {
+        "set_editor_text" => return Some(HarnessEvent::Draft { text: text("text") }),
         "select" => DialogAsk::Select {
             options: record["options"]
                 .as_array()
@@ -553,7 +904,7 @@ mod tests {
     use super::*;
 
     fn events(record: &str) -> Vec<HarnessEvent> {
-        events_from_line(record.as_bytes())
+        read_line(record.as_bytes(), &mut ShownSession::default()).events
     }
 
     #[test]
@@ -697,32 +1048,203 @@ mod tests {
 
     #[test]
     fn the_command_list_becomes_slash_commands() {
-        let record = r#"{"type":"response","command":"get_commands","success":true,"data":{"commands":[{"name":"skill:deploy","description":"Ship it","source":"skill"},{"name":"compact","source":"extension"},{"name":"review","source":"prompt","sourceInfo":{"source":"npm:@acme/pi-tools@1.2.0","origin":"package"}}]}}"#;
+        let record = r#"{"type":"response","command":"get_commands","success":true,"data":{"commands":[{"name":"skill:deploy","description":"Ship it","source":"skill"},{"name":"compact","source":"extension"},{"name":"chord-resume","source":"extension"},{"name":"review","source":"prompt","sourceInfo":{"source":"npm:@acme/pi-tools@1.2.0","origin":"package"}}]}}"#;
+        let HarnessEvent::Commands { commands } = &events(record)[0] else {
+            panic!("no command list");
+        };
+        let from_pi: Vec<&SlashCommand> = commands
+            .iter()
+            .filter(|command| command.kind != SlashKind::Session)
+            .collect();
+        assert_eq!(
+            from_pi,
+            [
+                &SlashCommand {
+                    name: "skill:deploy".into(),
+                    description: "Ship it".into(),
+                    kind: SlashKind::Skill,
+                    origin: None
+                },
+                &SlashCommand {
+                    name: "compact".into(),
+                    description: "".into(),
+                    kind: SlashKind::Extension,
+                    origin: None
+                },
+                &SlashCommand {
+                    name: "review".into(),
+                    description: "".into(),
+                    kind: SlashKind::Prompt,
+                    origin: Some("pi-tools".into())
+                }
+            ]
+        );
+    }
+
+    #[test]
+    fn saved_messages_come_back_as_the_events_of_their_run() {
+        let record = r#"{"type":"response","command":"get_messages","success":true,"data":{"messages":[{"role":"user","content":"List it"},{"role":"assistant","content":[{"type":"thinking","thinking":"hm"},{"type":"text","text":"Sure."},{"type":"toolCall","id":"c1","name":"ls","arguments":{"path":"src"}},{"type":"toolCall","id":"c2","name":"read","arguments":{"path":"a.rs"}}],"stopReason":"toolUse"},{"role":"toolResult","toolCallId":"c1","content":[],"isError":true},{"role":"assistant","content":[],"stopReason":"aborted"}]}}"#;
         assert_eq!(
             events(record),
-            vec![HarnessEvent::Commands {
-                commands: vec![
-                    SlashCommand {
-                        name: "skill:deploy".into(),
-                        description: "Ship it".into(),
-                        kind: SlashKind::Skill,
-                        origin: None
-                    },
-                    SlashCommand {
-                        name: "compact".into(),
-                        description: "".into(),
-                        kind: SlashKind::Extension,
-                        origin: None
-                    },
-                    SlashCommand {
-                        name: "review".into(),
-                        description: "".into(),
-                        kind: SlashKind::Prompt,
-                        origin: Some("pi-tools".into())
-                    }
-                ]
+            vec![
+                HarnessEvent::HistoryStart,
+                HarnessEvent::UserMessageChunk {
+                    text: "List it".into(),
+                    images: vec![]
+                },
+                HarnessEvent::ThoughtStart,
+                HarnessEvent::ThoughtChunk { text: "hm".into() },
+                HarnessEvent::MessageChunk {
+                    text: "Sure.".into()
+                },
+                HarnessEvent::MessageEnd { failed: false },
+                HarnessEvent::ToolStart {
+                    id: "c1".into(),
+                    title: "List".into(),
+                    detail: "src".into()
+                },
+                HarnessEvent::ToolStart {
+                    id: "c2".into(),
+                    title: "Read".into(),
+                    detail: "a.rs".into()
+                },
+                HarnessEvent::ToolEnd {
+                    id: "c1".into(),
+                    outcome: ToolOutcome::Failed,
+                    images: vec![]
+                },
+                HarnessEvent::Aborted,
+                HarnessEvent::ToolEnd {
+                    id: "c2".into(),
+                    outcome: ToolOutcome::Stopped,
+                    images: vec![]
+                },
+                HarnessEvent::HistoryEnd,
+            ]
+        );
+    }
+
+    #[test]
+    fn the_state_tells_the_session_file() {
+        let record = r#"{"type":"response","command":"get_state","success":true,"data":{"sessionFile":"sessions/a.jsonl","sessionName":"Login fix"}}"#;
+        assert_eq!(
+            events(record),
+            vec![HarnessEvent::SessionInfo {
+                file: "sessions/a.jsonl".into()
             }]
         );
+    }
+
+    #[test]
+    fn a_session_command_runs_instead_of_being_sent() {
+        assert_eq!(
+            session_command("/new", &[]),
+            Some(json!({ "type": "new_session" }))
+        );
+        assert_eq!(
+            session_command("/tree", &[]),
+            Some(
+                json!({ "id": "chord-session", "type": "prompt", "message": "/chord-tree" })
+            )
+        );
+        assert_eq!(session_command("/new feature", &[]), None);
+    }
+
+    #[test]
+    fn export_passes_the_path_it_was_given() {
+        assert_eq!(
+            session_command("/export", &[]),
+            Some(json!({ "type": "export_html" }))
+        );
+        assert_eq!(
+            session_command("/export  out/login.html", &[]),
+            Some(json!({ "type": "export_html", "outputPath": "out/login.html" }))
+        );
+        assert_eq!(session_command("/exports", &[]), None);
+    }
+
+    #[test]
+    fn resume_leaves_out_the_sessions_other_panes_hold() {
+        assert_eq!(
+            session_command("/resume", &[PathBuf::from("sessions/b.jsonl")]),
+            Some(
+                json!({ "id": "chord-session", "type": "prompt", "message": r#"/chord-resume ["sessions/b.jsonl"]"# })
+            )
+        );
+    }
+
+    #[test]
+    fn a_reload_that_finds_the_shown_session_changes_nothing() {
+        let mut shown = ShownSession::default();
+        let mut read = |record: &str| read_line(record.as_bytes(), &mut shown).events;
+        let state_a = r#"{"type":"response","command":"get_state","success":true,"data":{"sessionFile":"a.jsonl"}}"#;
+        let state_b = r#"{"type":"response","command":"get_state","success":true,"data":{"sessionFile":"b.jsonl"}}"#;
+        let messages =
+            r#"{"type":"response","command":"get_messages","success":true,"data":{"messages":[]}}"#;
+        let history = vec![HarnessEvent::HistoryStart, HarnessEvent::HistoryEnd];
+        read(state_a);
+        assert_eq!(read(messages), history);
+        read(state_a);
+        assert_eq!(read(messages), vec![]);
+        read(state_b);
+        assert_eq!(read(messages), history);
+    }
+
+    #[test]
+    fn a_changed_session_is_read_again_and_a_cancelled_change_is_not() {
+        let read =
+            |record: &str| read_line(record.as_bytes(), &mut ShownSession::default()).requests;
+        let again = vec![
+            json!({ "type": "get_state" }),
+            json!({ "type": "get_messages" }),
+        ];
+        assert_eq!(
+            read(
+                r#"{"type":"response","command":"clone","success":true,"data":{"cancelled":false}}"#
+            ),
+            again
+        );
+        assert_eq!(
+            read(
+                r#"{"id":"chord-session","type":"response","command":"prompt","success":true,"data":{"disposition":"handled"}}"#
+            ),
+            again
+        );
+        assert_eq!(
+            read(
+                r#"{"type":"response","command":"new_session","success":true,"data":{"cancelled":true}}"#
+            ),
+            Vec::<Value>::new()
+        );
+        assert_eq!(
+            read(
+                r#"{"type":"response","command":"prompt","success":true,"data":{"disposition":"started"}}"#
+            ),
+            Vec::<Value>::new()
+        );
+    }
+
+    #[test]
+    fn a_fork_asks_which_message_and_forks_from_the_picked_one() {
+        let record = r#"{"type":"response","command":"get_fork_messages","success":true,"data":{"messages":[{"entryId":"a1","text":"Fix the login\nand the logout"},{"entryId":"b2","text":"Fix the login"}]}}"#;
+        assert_eq!(
+            events(record),
+            vec![HarnessEvent::Dialog {
+                id: "chord-fork:a1,b2".into(),
+                title: "Fork From".into(),
+                ask: DialogAsk::Select {
+                    options: vec!["1. Fix the login".into(), "2. Fix the login".into()]
+                },
+            }]
+        );
+        let picked = DialogAnswer::Value {
+            value: "2. Fix the login".into(),
+        };
+        assert_eq!(
+            fork_command("a1,b2", &picked),
+            Some(json!({ "type": "fork", "entryId": "b2" }))
+        );
+        assert_eq!(fork_command("a1,b2", &DialogAnswer::Cancelled), None);
     }
 
     #[test]

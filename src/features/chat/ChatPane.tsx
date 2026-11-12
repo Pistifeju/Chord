@@ -39,7 +39,7 @@ function Working({ since }: { since: number }) {
   return (
     <div className="chat-working">
       <span className="spinner-inline" />
-      <span className="chat-working-verb">{VERBS[since % VERBS.length]}…</span>
+      <span className="chat-working-verb">{VERBS[since % VERBS.length]}</span>
       <span>{s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`}</span>
       <span>esc stops</span>
     </div>
@@ -98,24 +98,29 @@ const StepsRow = memo(function StepsRow({ pane, group, running, fresh }: { pane:
 });
 
 // A streaming reply renders nothing, so its chunks leave the rows as they are.
-type Rows = { items: Item[]; running: boolean; queued: string[] };
+type Rows = { items: Item[]; running: boolean; queued: string[]; /** How many items are the session's history. */ historyLength: number };
 const sameRows = (a: Rows, b: Rows) =>
-  a.running === b.running && a.queued === b.queued && a.items.length === b.items.length && a.items.every((item, i) => item === b.items[i] || (isStreaming(item) && isStreaming(b.items[i])));
+  a.running === b.running && a.historyLength === b.historyLength && a.queued === b.queued && a.items.length === b.items.length && a.items.every((item, i) => item === b.items[i] || (isStreaming(item) && isStreaming(b.items[i])));
 
-const Messages = memo(function Messages({ pane, items, running, queued }: { pane: string } & Rows) {
-  // Only items that arrive while the pane is open animate in; reopening a long chat stays still.
+const Messages = memo(function Messages({ pane, items, running, queued, historyLength }: { pane: string } & Rows) {
+  // Only items that arrive live while the pane is open animate in; reopening a long chat and a session's history stay still.
   const loaded = useRef(items.length);
+  // A session that opens with fewer items than the pane held: what arrives after its history is live.
+  useLayoutEffect(() => {
+    loaded.current = Math.min(loaded.current, items.length);
+  });
+  const still = Math.max(loaded.current, historyLength);
   return (
     <div className="chat-messages" data-selectable>
       {items.map((item, i) =>
         item.role === "steps" ? (
-          <StepsRow key={i} pane={pane} group={item} running={running && i === items.length - 1} fresh={i >= loaded.current} />
+          <StepsRow key={i} pane={pane} group={item} running={running && i === items.length - 1} fresh={i >= still} />
         ) : item.role === "stopped" ? (
-          <div key={i} className="chat-stopped" data-fresh={i >= loaded.current || undefined}>
+          <div key={i} className="chat-stopped" data-fresh={i >= still || undefined}>
             Stopped
           </div>
         ) : item.streaming ? null : (
-          <MessageRow key={i} pane={pane} message={item} fresh={i >= loaded.current} />
+          <MessageRow key={i} pane={pane} message={item} fresh={i >= still} />
         ),
       )}
       {queued.map((text, i) => (
@@ -173,9 +178,12 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
     if (ready && focused) composer.current?.focus();
   }, [ready, focused, dialogOpen]);
 
-  // Follow the reply while the reader sits at the bottom; reading further up pauses it.
+  // Follow the reply while the reader sits at the bottom; reading further up pauses it. A session that opens starts the transcript over and shows its end.
+  const firstItem = useRef(chat.items[0]);
   useLayoutEffect(() => {
     const el = transcript.current;
+    if (chat.items[0] !== firstItem.current) pinned.current = true;
+    firstItem.current = chat.items[0];
     if (el && pinned.current) el.scrollTop = el.scrollHeight;
   }, [chat.items, chat.running, chat.queued]);
 
@@ -256,7 +264,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
               <StartButton worktree={worktree} pane={pane} />
             </div>
           ) : (
-            <Messages pane={pane} items={chat.items} running={chat.running} queued={chat.queued} />
+            <Messages pane={pane} items={chat.items} running={chat.running} queued={chat.queued} historyLength={chat.historyLength} />
           )}
         </div>
         <button type="button" className="chat-jump" data-shown={away || undefined} data-running={chat.running || undefined} title="Jump to Latest" aria-label="Jump to Latest" onClick={jumpToEnd}>

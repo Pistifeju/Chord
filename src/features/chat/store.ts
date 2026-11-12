@@ -2,10 +2,15 @@
 import { Channel } from "@tauri-apps/api/core";
 import { commands, type DialogAnswer, type HarnessEvent, type Image } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
+import { paneNames, type PaneNames } from "../panes/sessions";
+import { notify } from "../worktrees/store";
 import { fileName, imageExtensions, imageMime, type Attachment } from "./attachments";
 import { chatAfter, emptyChat, type Chat } from "./transcript";
 
 export const chats = externalStore<Record<string, Chat>>({});
+
+/** The name of each listed pane's agent session; a component re-renders only when one changes. */
+export const usePaneNames = (panes: string[]): PaneNames => JSON.parse(chats.usePart((all) => JSON.stringify(paneNames(all, panes))));
 
 export const chatOf = (all: Record<string, Chat>, pane: string): Chat => all[pane] ?? emptyChat;
 
@@ -25,15 +30,31 @@ export const closeSlash = (pane: string, draft: string) => slashClosed.set({ ...
 const starts = new Map<string, number>();
 let startCount = 0;
 
+// A session's history arrives as one event per saved message; they wait here so the transcript changes once.
+const replays = new Map<string, HarnessEvent[]>();
+
+function received(pane: string, event: HarnessEvent) {
+  if (event.kind === "draft") setDraft(pane, event.text);
+  if (event.kind === "exported") notify(`Exported to ${event.path}`);
+  if (event.kind === "history_start") replays.set(pane, []);
+  const replay = replays.get(pane);
+  if (!replay) return update(pane, (chat) => chatAfter(chat, event, Date.now()));
+  replay.push(event);
+  if (event.kind !== "history_end") return;
+  replays.delete(pane);
+  const now = Date.now();
+  update(pane, (chat) => replay.reduce((next, replayed) => chatAfter(next, replayed, now), chat));
+}
+
 export async function startChat(worktree: string, pane: string) {
   if (chatOf(chats.get(), pane).agent !== "idle") return;
   const start = ++startCount;
   starts.set(pane, start);
   const channel = new Channel<HarnessEvent>();
   channel.onmessage = (event) => {
-    if (starts.get(pane) !== start) return;
-    update(pane, (chat) => chatAfter(chat, event, Date.now()));
+    if (starts.get(pane) === start) received(pane, event);
   };
+  replays.delete(pane);
   update(pane, (chat) => ({ ...chat, agent: "starting", notice: null, report: null, commands: [] }));
   try {
     const capabilities = await commands.startChat(worktree, pane, channel);
@@ -110,6 +131,7 @@ export function abortRun(pane: string) {
 // The pane is gone: its agent stops and its transcript and draft go.
 export function forgetChat(pane: string) {
   starts.delete(pane);
+  replays.delete(pane);
   const { [pane]: gone, ...rest } = chats.get();
   chats.set(rest);
   const { [pane]: goneDraft, ...restDrafts } = drafts.get();

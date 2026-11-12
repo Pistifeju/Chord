@@ -37,9 +37,11 @@ export type Chat = {
   queued: string[];
   /** The status Rust reported; null until the first run. */
   report: StatusReport | null;
+  /** How many of the items came back as the session's history; they show without the arrival motion. */
+  historyLength: number;
 };
 
-export const emptyChat: Chat = { agent: "idle", items: [], running: false, since: null, capabilities: null, notice: null, dialog: null, commands: [], queued: [], report: null };
+export const emptyChat: Chat = { agent: "idle", items: [], running: false, since: null, capabilities: null, notice: null, dialog: null, commands: [], queued: [], report: null, historyLength: 0 };
 
 export const isStreaming = (item: Item) => item.role !== "steps" && item.role !== "stopped" && item.streaming;
 
@@ -151,6 +153,16 @@ function applied(chat: Chat, event: HarnessEvent, now: number): Chat {
       return { ...chat, report: stampedReport(chat.report, { status: event.status, lastMessage: event.last_message, since: now }, now) };
     case "notice":
       return { ...chat, notice: event.text };
+    // Rust's `status_for` starts the status over here too.
+    case "history_start":
+      return { ...chat, items: [], queued: [], report: null, historyLength: 0 };
+    case "history_end":
+      return { ...chat, historyLength: chat.items.length };
+    // Rust saves the session file; the store puts a draft in the composer and tells of an export; the transcript holds none of them.
+    case "session_info":
+    case "draft":
+    case "exported":
+      return chat;
     case "exited":
       return { ...chat, agent: "idle", running: false, queued: [], items: closed(chat.items) };
   }

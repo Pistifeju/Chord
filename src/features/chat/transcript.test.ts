@@ -118,3 +118,12 @@ test("a dialog stays open until the agent goes on", () => {
   chat = chatAfter(chat, { kind: "tool_start", id: "t", title: "Read", detail: "a" }, 0);
   assert.equal(chat.dialog, null);
 });
+
+test("a history start empties the transcript and the status, then the saved messages fill it", () => {
+  let chat = chatAfter(emptyChat, { kind: "user_message_chunk", text: "Old", images: [] }, 0);
+  chat = chatAfter(chat, { kind: "status", status: { kind: "done" }, last_message: "Old reply" }, 5);
+  chat = chatAfter(chat, { kind: "history_start" }, 9);
+  assert.deepEqual([chat.items, chat.report], [[], null]);
+  chat = chatAfter(chat, { kind: "user_message_chunk", text: "Saved", images: [] }, 9);
+  assert.deepEqual(chat.items, [{ role: "user", text: "Saved", streaming: false, images: [] }]);
+});

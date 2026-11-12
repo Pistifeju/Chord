@@ -3,14 +3,14 @@ import { Fragment, useEffect, useRef, useState, type PointerEvent, type RefObjec
 import type { Direction, Layout } from "../../ipc/bindings";
 import { tooltip } from "../../app/commands";
 import { ChatPane } from "../chat/ChatPane";
-import { chats } from "../chat/store";
+import { chats, usePaneNames } from "../chat/store";
 import { shortcutChanges } from "../settings/store";
 import type { Status } from "../../ipc/bindings";
 import { statusLabel, urgentReport } from "../status/status";
 import { sidebar } from "../sidebar/store";
 import { ChatIcon, CloseIcon, PlusIcon } from "../../ui/icons";
 import { dropEdge, dropPreview, paneIds, resizedSizes, type Box, type Edge } from "./layout";
-import { activeSession } from "./sessions";
+import { activeSession, tabName } from "./sessions";
 import { closePane, closeSession, dropSession, endResize, ensurePanes, evenOutSplit, focusPane, newSession, panes, resizeSplit, selectSession } from "./store";
 import "./panes.css";
 
@@ -41,6 +41,7 @@ function SessionTabs({ worktree }: { worktree: string }) {
     JSON.stringify((current?.sessions ?? []).map((s) => urgentReport(paneIds(s.layout).map((pane) => all[pane]?.report))?.status ?? null)),
   );
   const statuses: (Status | null)[] = JSON.parse(statusesJson);
+  const names = usePaneNames((current?.sessions ?? []).map((s) => s.focused));
   const drag = useRef<TabDrag | null>(null);
   const suppressClick = useRef(false);
   const [dragging, setDragging] = useState<string | null>(null);
@@ -106,7 +107,7 @@ function SessionTabs({ worktree }: { worktree: string }) {
               <span className="tab-status" data-status={status?.kind} title={status ? statusLabel(status) : undefined}>
                 {status?.kind === "running" ? <span className="spinner-inline" /> : status ? <span className="status-dot" /> : <ChatIcon />}
               </span>
-              <span className="tab-label">{session.name}</span>
+              <span className="tab-label">{tabName(session, names)}</span>
             </button>
             {current.sessions.length > 1 && (
               <button type="button" className="tab-close" title="Close Session" aria-label="Close Session" onClick={() => closeSession(worktree, session.id)}>

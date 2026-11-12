@@ -1,10 +1,10 @@
 // The slash menu floating above the composer card: the commands that match what the draft holds, the typed part marked.
 import { useEffect, useRef } from "react";
 import type { SlashCommand } from "../../ipc/bindings";
-import { ExtensionIcon, PromptIcon, SkillIcon } from "../../ui/icons";
+import { ChatIcon, ExtensionIcon, PromptIcon, SkillIcon } from "../../ui/icons";
 import { commandSource, commandTitle, markedTitle } from "./slash";
 
-const kindIcon = { skill: SkillIcon, prompt: PromptIcon, extension: ExtensionIcon };
+const kindIcon = { skill: SkillIcon, prompt: PromptIcon, extension: ExtensionIcon, session: ChatIcon };
 
 export function SlashMenu({ commands, query, active, onActive, onPick }: { commands: SlashCommand[]; query: string; active: number; onActive: (index: number) => void; onPick: (command: SlashCommand) => void }) {
   const list = useRef<HTMLDivElement>(null);

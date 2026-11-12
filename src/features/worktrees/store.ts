@@ -16,7 +16,7 @@ const update = (change: (p: Projects) => Projects) => {
   if (selected !== before) commands.changeState({ selectedWorktree: selected }).catch(console.error);
 };
 export const fail = (error: unknown) => update((p) => ({ ...p, error: String(error), errorIsNotice: false }));
-const notify = (text: string) => update((p) => ({ ...p, error: text, errorIsNotice: true }));
+export const notify = (text: string) => update((p) => ({ ...p, error: text, errorIsNotice: true }));
 
 export async function refreshWorktrees(project: string) {
   const list = await commands.listWorktrees(project);

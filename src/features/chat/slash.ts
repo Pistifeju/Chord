@@ -49,6 +49,7 @@ export function markedTitle(title: string, query: string): { before: string; typ
 /** The words at the row's right edge saying where the command comes from. */
 export function commandSource(command: SlashCommand): string {
   if (command.origin) return command.origin;
+  if (command.kind === "session") return "Session";
   return command.kind === "extension" ? "Extension" : "Local file";
 }
 

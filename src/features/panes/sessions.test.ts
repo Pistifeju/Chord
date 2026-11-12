@@ -1,7 +1,7 @@
 // Tests for the session tab rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { activeSession, firstPanes, paneRows, withFocus, withNewSession, withoutPaneClosed, withSplitFocused } from "./sessions.ts";
+import { activeSession, firstPanes, paneNames, paneRows, tabName, withFocus, withNewSession, withoutPaneClosed, withSplitFocused } from "./sessions.ts";
 
 test("a new session is named after the highest number and opens", () => {
   const two = withNewSession(firstPanes("s1", "p1"), "s2", "p2");
@@ -55,4 +55,15 @@ test("panes of one session are numbered, and a single pane has no rows", () => {
     { pane: "p2", label: "Session 1 · 2", focused: false },
   ]);
   assert.deepEqual(paneRows(firstPanes("s1", "p1"), true), []);
+});
+
+test("a tab and a pane row show the first user message of the pane's session, cut to 30 characters", () => {
+  const split = withSplitFocused(firstPanes("s1", "p1"), "p2", "column");
+  const said = (text: string) => ({ role: "user" as const, text, streaming: false });
+  const items = [{ role: "assistant" as const, text: "Hi", streaming: false }, said("  Fix the\n login   form so it accepts emails"), said("Later")];
+  const names = paneNames({ p1: { items: [] }, p2: { items } }, ["p1", "p2", "p3"]);
+  assert.deepEqual(names, { p2: "Fix the login form so it accep" });
+  assert.equal(tabName(split.sessions[0], names), "Fix the login form so it accep");
+  assert.equal(tabName(split.sessions[0], {}), "Session 1");
+  assert.deepEqual(paneRows(split, false, names).map((row) => row.label), ["Session 1 · 1", "Fix the login form so it accep"]);
 });

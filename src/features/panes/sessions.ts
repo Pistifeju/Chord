@@ -1,5 +1,6 @@
 // Rules for a worktree's session tabs: new, open, split, drop, close, and which pane has the focus.
 import type { Direction, Layout, PaneSession, WorktreePanes } from "../../ipc/bindings";
+import type { Item } from "../chat/transcript.ts";
 import { edgeDirection, paneIds, withBeside, withoutPane, withSplit, type Edge } from "./layout.ts";
 
 export const firstPanes = (session: string, pane: string): WorktreePanes => ({
@@ -47,17 +48,35 @@ export const paneCount = (panes: WorktreePanes): number => panes.sessions.reduce
 
 export const canClosePane = (panes: WorktreePanes | undefined): boolean => !!panes && paneCount(panes) > 1;
 
+/** The name of each pane's agent session, by pane id; a pane whose session has no user message yet is left out. */
+export type PaneNames = Record<string, string | undefined>;
+
+// A session is named after its first user message, on one line and cut to 30 characters.
+export function sessionName(items: Item[]): string | undefined {
+  const first = items.find((item) => item.role === "user");
+  return (first?.role === "user" && first.text.split(/\s+/).join(" ").trim().slice(0, 30)) || undefined;
+}
+
+export const paneNames = (chats: Record<string, { items: Item[] } | undefined>, panes: string[]): PaneNames =>
+  Object.fromEntries(panes.flatMap((pane) => {
+    const name = sessionName(chats[pane]?.items ?? []);
+    return name ? [[pane, name]] : [];
+  }));
+
+// A tab shows the name of its focused pane's agent session once that has one.
+export const tabName = (session: PaneSession, names: PaneNames): string => names[session.focused] ?? session.name;
+
 export type PaneRow = { pane: string; label: string; focused: boolean };
 
-// One row per pane once the worktree has more than one; a session with several panes numbers them.
-export function paneRows(panes: WorktreePanes | undefined, worktreeSelected: boolean): PaneRow[] {
+// One row per pane once the worktree has more than one, labeled with its agent session's name; without one, a tab with several panes numbers them.
+export function paneRows(panes: WorktreePanes | undefined, worktreeSelected: boolean, names: PaneNames = {}): PaneRow[] {
   if (!panes || paneCount(panes) < 2) return [];
   const open = activeSession(panes).id;
   return panes.sessions.flatMap((session) => {
     const ids = paneIds(session.layout);
     return ids.map((pane, i) => ({
       pane,
-      label: ids.length > 1 ? `${session.name} · ${i + 1}` : session.name,
+      label: names[pane] ?? (ids.length > 1 ? `${session.name} · ${i + 1}` : session.name),
       focused: worktreeSelected && pane === session.focused && session.id === open,
     }));
   });
