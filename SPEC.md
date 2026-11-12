@@ -1,13 +1,13 @@
 co# Chord: features
 
-One line per feature. A ticked box means the feature works. Section 13 lists what Chord leaves out.
+One line per feature. A ticked box means the feature works. Section 14 lists what Chord leaves out.
 
 Rule: build nothing before a feature needs it. A feature brings its own buttons, panel views, status bar items, menu items, shortcuts, card details and Settings rows. Each line below lists those with the feature that owns them.
 
 Tags:
 
 - **core**: needs no harness and no Xcode.
-- **harness(x)**: needs capability `x` from the harness adapter. Section 12 lists the capabilities.
+- **harness(x)**: needs capability `x` from the harness adapter. Section 13 lists the capabilities.
 - **hard**: the riskiest tickets; give them the strongest agent.
 - **iOS**: goes into the `chord-ios` crate; its UI shows only in a worktree with an Xcode project.
 
@@ -25,11 +25,11 @@ Containers. The first feature that puts something in one builds it:
 
 | Container | What it is | Features that fill it |
 |-----------|------------|-----------------------|
-| Tab bar | Strip above the panes; window drag region; shows the project name or "Settings" as a title when it has no tabs | Tabs: C3, F2. Buttons: F1, H1, H2, I1 |
+| Tab bar | Strip above the panes; window drag region; shows the project name or "Settings" as a title when it has no tabs | Tabs: C3, F2. Buttons: F1, H1, H2, I1, L4 |
 | Side panel | One panel right of the panes, one view at a time; resizable; width, open state and shown view remembered per worktree | F1 Files, I1 Simulator, J1 Preview |
 | Bottom panel | Resizable; open state remembered per worktree | G1 terminal, H3 build log and console |
 | Status bar | Strip at the bottom of the window | E11 usage, H3 build log toggle, H5 cache size and running simulators |
-| Settings page (⌘,) | One page of rows | A5, D5, G1, H2, K1 |
+| Settings page (⌘,) | One page of rows | A5, D5, G1, H2, K1, L4 |
 
 Edge cases:
 - The window opens centered on the screen under the cursor.
@@ -180,7 +180,20 @@ Edge cases:
 - [ ] K2 onboarding: find the harness, show its install step when it is missing, check its version, add the first project. A missing `git` shows its install step.
 - [ ] K3 Copy diagnostics (versions of Chord, macOS, Xcode, harness) and a log file.
 
-## 12. Harness capabilities these features need
+## 12. Simulator tools (iOS)
+
+- [ ] L1 Appearance menu on the Simulator view: light / dark, Dynamic Type size, language and region of the worktree's simulator.
+- [ ] L2 Open URL: a field on the Simulator view sends a deep link or web URL to the worktree's simulator (`simctl openurl`); recent URLs per project.
+- [ ] L3 Push notification: drop a JSON payload on the Simulator view, or pick a recent one; `simctl push` sends it to the running app's bundle id.
+- [ ] L4 Scheme and build configuration picker (Debug / Release) in the tab bar, next to the run destination, per project; ⌘R and ⌘B use it. Settings row: the project's scheme and configuration.
+- [ ] L5 Screen recording: record / stop button next to the I3 screenshot button (`simctl io recordVideo`); the video gets the I3 thumbnail and drag.
+
+Edge cases:
+- L1 to L3 act on the worktree's own simulator and are disabled while it is not booted.
+- A payload without `Simulator Target Bundle` goes to the last built app.
+- A window close or stop of the simulator ends a recording and keeps the file.
+
+## 13. Harness capabilities these features need
 
 A harness that lacks one hides the features tagged with it.
 
@@ -196,7 +209,7 @@ A harness that lacks one hides the features tagged with it.
 | context, usage, status-line | E10-E12 | RPC; usage comes from a pi extension that reports it |
 | widgets | E13 | a pi subagent extension |
 
-## 13. Left out
+## 14. Left out
 
 | Feature | What it would be |
 |---------|------------------|
