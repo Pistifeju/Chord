@@ -4,18 +4,20 @@
   flex-direction: column;
   flex: 0 0 var(--sidebar-width);
   padding-top: 52px;
-  background: var(--surface-cream);
+  border-right: 1px solid var(--line);
+  background: var(--panel);
 }
 
 .sidebar-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 var(--sidebar-inset) 4px 12px;
+  padding: 0 var(--sidebar-inset) 4px 16px;
 }
 
 .sidebar-title {
   font-size: calc(11px * var(--text-scale));
+  font-weight: 500;
   color: var(--ink-muted);
 }
 
@@ -26,7 +28,7 @@
 }
 
 .project-group + .project-group {
-  margin-top: 8px;
+  margin-top: 12px;
 }
 
 .project-header {
@@ -41,22 +43,27 @@
   gap: 4px;
   min-width: 0;
   height: 28px;
-  padding: 0 8px 0 4px;
+  padding: 0 8px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: none;
-  font-weight: 500;
+  font-weight: 600;
   text-align: left;
+}
+
+.project-title {
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .project-name:active {
-  background: var(--surface-pressed);
+  background: var(--selected);
 }
 
 .project-chevron {
+  flex: none;
   display: inline-grid;
   color: var(--ink-muted);
   transition: transform var(--t-fast) var(--ease-out);
@@ -64,15 +71,6 @@
 
 .project-chevron[data-open="true"] {
   transform: rotate(90deg);
-}
-
-.project-more {
-  opacity: 0;
-}
-
-.project-header:hover .project-more,
-.project-header:focus-within .project-more {
-  opacity: 1;
 }
 
 .worktree-list {
@@ -86,9 +84,10 @@
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 6px 8px 6px 20px;
+  height: 30px;
+  padding: 0 8px 0 20px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: none;
   color: var(--ink-secondary);
   text-align: left;
@@ -102,32 +101,27 @@
   text-overflow: ellipsis;
 }
 
-.worktree-counts {
-  flex: none;
-  font-size: calc(11px * var(--text-scale));
-  font-weight: 400;
-  color: var(--ink-muted);
-}
-
+.worktree-counts,
 .worktree-hint {
   flex: none;
   font-size: calc(11px * var(--text-scale));
-  font-weight: 400;
+  font-variant-numeric: tabular-nums;
   color: var(--ink-muted);
 }
 
 .worktree-card:hover {
+  background: var(--raised);
   color: var(--ink);
 }
 
 .worktree-card[aria-current="true"] {
-  background: var(--surface-muted);
+  background: var(--selected);
   color: var(--ink);
-  font-weight: 500;
 }
 
-.worktree-card:active {
-  background: var(--surface-pressed);
+.worktree-card[aria-current="true"] .worktree-counts,
+.worktree-card[aria-current="true"] .worktree-hint {
+  color: var(--ink-secondary);
 }
 
 @media (prefers-reduced-motion: reduce) {

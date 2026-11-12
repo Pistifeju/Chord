@@ -1,11 +1,12 @@
 // The chat of one worktree: transcript, composer, and a Start button while no agent runs.
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
+import { ArrowUpIcon } from "../../ui/icons";
 import { chatOf, chats, sendMessage, startChat } from "./store";
 import "./chat.css";
 
 function StartButton({ worktree }: { worktree: string }) {
   return (
-    <button type="button" className="pill-primary" onClick={() => startChat(worktree)}>
+    <button type="button" className="button-primary" onClick={() => startChat(worktree)}>
       Start
     </button>
   );
@@ -96,8 +97,15 @@ export function ChatPane({ worktree }: { worktree: string }) {
           />
           <div className="chat-composer-bar">
             <span className="chat-hint">{chat.running ? "Esc to stop" : ""}</span>
-            <button type="button" className="pill-primary" disabled={!ready || !draft.trim()} onClick={send}>
-              {chat.running ? "Steer" : "Send"}
+            <button
+              type="button"
+              className="button-primary chat-send"
+              title={chat.running ? "Steer" : "Send"}
+              aria-label={chat.running ? "Steer" : "Send"}
+              disabled={!ready || !draft.trim()}
+              onClick={send}
+            >
+              <ArrowUpIcon />
             </button>
           </div>
         </div>

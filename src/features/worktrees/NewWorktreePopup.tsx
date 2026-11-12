@@ -1,5 +1,7 @@
 // The New Worktree sheet: project picker, branch name with its live git check, Create.
 import type { FormEvent } from "react";
+import { tooltip } from "../../app/commands";
+import { CloseIcon } from "../../ui/icons";
 import { branchName, canCreate } from "./projects";
 import { closeNewWorktree, createWorktree, newWorktree, setBranch, setProject } from "./newWorktree";
 import { projects } from "./store";
@@ -17,13 +19,9 @@ export function NewWorktreePopup() {
     <div className="sheet-scrim" onMouseDown={closeNewWorktree}>
       <form className="sheet" role="dialog" aria-label="New Worktree" onMouseDown={(e) => e.stopPropagation()} onSubmit={submit}>
         <header className="sheet-header">
-          <button type="button" className="sheet-cancel" onClick={closeNewWorktree}>
-            Cancel
-          </button>
           <h2 className="sheet-title">New Worktree</h2>
-          <button type="submit" className="pill-primary" disabled={!ready && !creating} aria-busy={creating}>
-            <span className="pill-label">Create</span>
-            {creating && <span className="spinner" aria-label="Creating" />}
+          <button type="button" className="icon-button" aria-label="Cancel" title={tooltip("sheet.close")} onClick={closeNewWorktree}>
+            <CloseIcon />
           </button>
         </header>
         <label className="field">
@@ -49,6 +47,12 @@ export function NewWorktreePopup() {
           />
           <span className="field-hint">{createError ?? branchName(branch)}</span>
         </label>
+        <footer className="sheet-footer">
+          <button type="submit" className="button-primary" disabled={!ready && !creating} aria-busy={creating}>
+            <span className="button-label">Create</span>
+            {creating && <span className="spinner" aria-label="Creating" />}
+          </button>
+        </footer>
       </form>
     </div>
   );

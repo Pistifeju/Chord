@@ -5,11 +5,18 @@
   z-index: 10;
   display: grid;
   place-items: center;
-  border: 2px dashed var(--ink);
-  border-radius: 14px;
+  border: 2px dashed var(--accent-ink);
+  border-radius: var(--radius-card);
   background: var(--scrim);
-  font-weight: 500;
   pointer-events: none;
+}
+
+.project-drop-label {
+  padding: 8px 14px;
+  border-radius: var(--radius-control);
+  background: var(--sheet);
+  box-shadow: var(--shadow-popover);
+  font-weight: 500;
 }
 
 .no-projects {
@@ -29,8 +36,8 @@
 
 .no-projects-title {
   margin: 12px 0 4px;
-  font-size: calc(14px * var(--text-scale));
-  font-weight: 500;
+  font-size: calc(15px * var(--text-scale));
+  font-weight: 600;
 }
 
 .no-projects-text {

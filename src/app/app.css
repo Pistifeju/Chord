@@ -27,6 +27,29 @@
   top: 10px;
 }
 
+.titlebar-title {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  margin: 0 20px 0 calc(var(--sidebar-width) + 20px);
+  color: var(--ink-muted);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.titlebar-title[data-sidebar-hidden="true"] {
+  margin-left: 132px;
+}
+
+.titlebar-worktree {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+  color: var(--ink);
+}
+
 .main {
   flex: 1;
   min-width: 0;

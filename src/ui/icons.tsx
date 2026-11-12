@@ -22,15 +22,27 @@ export const ChevronIcon = () => (
   </Icon>
 );
 
+export const ArrowUpIcon = () => (
+  <Icon>
+    <path d="M8 13V3M3.5 7.5L8 3l4.5 4.5" strokeWidth="1.8" />
+  </Icon>
+);
+
 export const PlusIcon = () => (
   <Icon>
     <path d="M8 3v10M3 8h10" />
   </Icon>
 );
 
-export const EllipsisIcon = () => (
+export const CloseIcon = () => (
   <Icon>
-    <path d="M3.5 8h.01M8 8h.01M12.5 8h.01" strokeWidth="2" />
+    <path d="M4 4l8 8M12 4l-8 8" />
+  </Icon>
+);
+
+export const MinusIcon = () => (
+  <Icon>
+    <path d="M3 8h10" />
   </Icon>
 );
 

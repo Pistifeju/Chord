@@ -1,395 +1,373 @@
 ---
-version: alpha
-name: chord-design
-description: "A macOS workspace for coding agents. One window holds a white canvas; the UI stays monochrome (near-black ink, warm off-white chrome, soft grays). The toolbar lives in the title bar as floating pill groups next to the traffic lights. Toasts and action bars float as pills, sheets and panels are large rounded cream cards over a light gray scrim. One button language runs through the app: black pill for the primary action, white or light gray pill for everything else. Dark appearance inverts the same system."
-
-platform: "macOS 14+, single main window with a full-size content view and a transparent title bar. Sizes are in points."
-
+name: Chord
+description: "A macOS workspace for coding agents in the category's standard look: neutral graphite panels, one blue accent, 8pt controls. Light and dark share one set of roles."
 colors:
-  ink: "#111111"
-  ink-secondary: "#5C5C5C"
-  ink-muted: "#8E8E8E"
-  ink-disabled: "#B5B5B5"
-  canvas: "#FFFFFF"
-  chrome: "#FAF9F7"
-  surface-cream: "#FBFAF8"
-  surface-muted: "#F2F1EF"
-  surface-pressed: "#EBEAE8"
-  skeleton: "#F1F0EE"
-  hairline: "#ECEBE9"
-  hairline-strong: "#DEDDDB"
-  focus-ring: "rgba(17, 17, 17, 0.35)"
-  scrim-light: "rgba(190, 190, 190, 0.55)"
-  scrim-dark: "rgba(0, 0, 0, 0.55)"
-  primary: "#111111"
-  on-primary: "#FFFFFF"
-  danger: "#C0392B"
-  success: "#3E8E41"
-  notification-dot: "#3B82F6"
-  dark-canvas: "#141414"
-  dark-chrome: "#1F1F1F"
-  dark-surface: "#242424"
-  dark-hairline: "#2E2E2E"
-  dark-ink: "#F5F5F5"
-  dark-primary: "#FFFFFF"
-  dark-on-primary: "#111111"
-
+  canvas: "#ffffff"
+  panel: "#f5f5f7"
+  raised: "#ececef"
+  selected: "#dfdfe4"
+  sheet: "#ffffff"
+  control-selected: "#ffffff"
+  line: "#e2e2e6"
+  line-strong: "#cfcfd5"
+  ink: "#1d1d1f"
+  ink-secondary: "#4a4a50"
+  ink-muted: "#66666d"
+  ink-disabled: "#a9a9b0"
+  accent: "#0067dc"
+  accent-pressed: "#0058bd"
+  accent-ink: "#0067dc"
+  accent-wash: "rgba(0, 103, 220, 0.16)"
+  on-accent: "#ffffff"
+  focus-ring: "rgba(0, 103, 220, 0.6)"
+  scrim: "rgba(0, 0, 0, 0.3)"
+  danger: "#c4271f"
+  success: "#1a7f37"
+  status-running: "#1a7f37"
+  status-waiting: "#9a6700"
+  status-done: "#0067dc"
+  status-error: "#c4271f"
+  dark-canvas: "#1e1e1e"
+  dark-panel: "#252526"
+  dark-raised: "#2d2d30"
+  dark-selected: "#37373d"
+  dark-sheet: "#2a2a2c"
+  dark-control-selected: "#4a4a50"
+  dark-line: "#333336"
+  dark-line-strong: "#46464b"
+  dark-ink: "#e6e6e6"
+  dark-ink-secondary: "#bdbdbd"
+  dark-ink-muted: "#98989d"
+  dark-ink-disabled: "#5e5e63"
+  dark-accent: "#0b6fe6"
+  dark-accent-pressed: "#0a60c8"
+  dark-accent-ink: "#6cb6ff"
+  dark-accent-wash: "rgba(77, 163, 255, 0.26)"
+  dark-focus-ring: "rgba(108, 182, 255, 0.75)"
+  dark-scrim: "rgba(0, 0, 0, 0.5)"
+  dark-danger: "#ff6b63"
+  dark-success: "#3fb950"
+  dark-status-running: "#3fb950"
+  dark-status-waiting: "#d29922"
+  dark-status-done: "#6cb6ff"
+  dark-status-error: "#ff6b63"
 typography:
-  fontFamily: "SF Pro (system font); SF Pro Display above 20pt"
   page-title:
-    fontSize: 22pt
-    fontWeight: 400
-    lineHeight: 1.2
-    letterSpacing: -0.3pt
-  section-title:
-    fontSize: 15pt
-    fontWeight: 500
-    lineHeight: 1.3
-  sheet-title:
-    fontSize: 14pt
-    fontWeight: 500
-    lineHeight: 1.3
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif"
+    fontSize: "20px"
+    fontWeight: 600
+    lineHeight: 1.45
+    letterSpacing: "-0.01em"
+  empty-title:
+    fontSize: "15px"
+    fontWeight: 600
+    lineHeight: 1.45
+  heading:
+    fontSize: "13px"
+    fontWeight: 600
+    lineHeight: 1.45
   body:
-    fontSize: 13pt
+    fontSize: "13px"
     fontWeight: 400
     lineHeight: 1.45
   label:
-    fontSize: 13pt
+    fontSize: "13px"
     fontWeight: 500
-    lineHeight: 1.3
+    lineHeight: 1.45
   meta:
-    fontSize: 11pt
+    fontSize: "11px"
     fontWeight: 400
-    lineHeight: 1.35
-    color: "{colors.ink-muted}"
-  micro:
-    fontSize: 10pt
-    fontWeight: 400
-    lineHeight: 1.3
-
+    lineHeight: 1.45
+  mono:
+    fontFamily: "ui-monospace, 'SF Mono', Menlo, monospace"
 rounded:
-  input: 8pt
-  card: 14pt
-  sheet: 20pt
-  pill: 9999pt
-
+  inset: "6px"
+  control: "8px"
+  card: "12px"
 spacing:
-  xxs: 4pt
-  xs: 8pt
-  sm: 12pt
-  md: 16pt
-  lg: 24pt
-  xl: 32pt
-  xxl: 48pt
-  window-margin: 20pt
-  titlebar-height: 52pt
-  traffic-light-inset: 80pt
-
-window:
-  minSize: 900 x 600
-  defaultSize: 1280 x 820
-  titleBar: transparent, full-size content view, no visible title
-  toolbar: pill groups placed in the title bar row, vertically centered with the traffic lights
-
-elevation:
-  chrome-pill: "0 1px 2px rgba(0,0,0,0.04), inset 0 0 0 1px {colors.hairline}"
-  card: "0 2px 12px rgba(0,0,0,0.06)"
-  popover: "0 8px 28px rgba(0,0,0,0.10)"
-  sheet: "0 16px 48px rgba(0,0,0,0.12)"
-
+  xxs: "4px"
+  xs: "8px"
+  sm: "12px"
+  md: "16px"
+  lg: "20px"
+  xl: "28px"
+  titlebar-height: "52px"
+  sidebar-width: "240px"
+  transcript-width: "720px"
 components:
   button-primary:
-    backgroundColor: "{colors.primary}"
-    textColor: "{colors.on-primary}"
+    backgroundColor: "{colors.accent}"
+    textColor: "{colors.on-accent}"
     typography: "{typography.label}"
-    rounded: "{rounded.pill}"
-    height: 28pt
-    padding: 0 14pt
-  button-primary-large:
-    backgroundColor: "{colors.primary}"
-    textColor: "{colors.on-primary}"
-    rounded: "{rounded.pill}"
-    height: 40pt
-    width: 100%
+    rounded: "{rounded.control}"
+    height: "28px"
+    padding: "0 12px"
+  button-primary-active:
+    backgroundColor: "{colors.accent-pressed}"
   button-primary-disabled:
-    backgroundColor: "{colors.surface-muted}"
+    backgroundColor: "{colors.raised}"
     textColor: "{colors.ink-disabled}"
   button-secondary:
-    backgroundColor: "{colors.canvas}"
+    backgroundColor: "{colors.raised}"
     textColor: "{colors.ink}"
-    border: "1px solid {colors.hairline}"
-    shadow: "{elevation.chrome-pill}"
-    rounded: "{rounded.pill}"
-  button-tertiary:
-    backgroundColor: "{colors.surface-muted}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.pill}"
+    typography: "{typography.label}"
+    rounded: "{rounded.control}"
+    height: "28px"
+    padding: "0 12px"
+  button-secondary-active:
+    backgroundColor: "{colors.selected}"
   button-destructive:
-    backgroundColor: "{colors.surface-muted}"
+    backgroundColor: "{colors.raised}"
     textColor: "{colors.danger}"
-    rounded: "{rounded.pill}"
+    rounded: "{rounded.control}"
+    height: "28px"
   icon-button:
-    backgroundColor: "{colors.canvas}"
-    border: "1px solid {colors.hairline}"
-    rounded: "{rounded.pill}"
-    size: 28pt
+    textColor: "{colors.ink-muted}"
+    rounded: "{rounded.control}"
+    size: "28px"
+  icon-button-hover:
+    backgroundColor: "{colors.raised}"
+    textColor: "{colors.ink}"
   input:
-    backgroundColor: "{colors.surface-cream}"
-    border: "1px solid {colors.hairline}"
-    rounded: "{rounded.input}"
-    height: 32pt
-    padding: 0 12pt
-  toolbar-pill:
-    backgroundColor: "{colors.chrome}"
-    shadow: "{elevation.chrome-pill}"
-    rounded: "{rounded.pill}"
-    height: 36pt
-  sheet:
     backgroundColor: "{colors.canvas}"
-    rounded: "{rounded.sheet}"
-    shadow: "{elevation.sheet}"
-    scrim: "{colors.scrim-light}"
-  popover:
-    backgroundColor: "{colors.surface-cream}"
-    rounded: "{rounded.card}"
-    shadow: "{elevation.popover}"
-  toast:
-    backgroundColor: "{colors.canvas}"
-    rounded: "{rounded.pill}"
-    shadow: "{elevation.popover}"
-    position: bottom-center of the window
+    textColor: "{colors.ink}"
+    rounded: "{rounded.control}"
+    height: "30px"
+    padding: "0 10px"
   segmented:
-    track: "{colors.canvas} with 1px {colors.hairline}"
-    selected: "{colors.primary} pill, {colors.on-primary} text"
+    backgroundColor: "{colors.raised}"
+    textColor: "{colors.ink-secondary}"
+    rounded: "{rounded.control}"
+    padding: "2px"
+  segmented-selected:
+    backgroundColor: "{colors.control-selected}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.inset}"
+    height: "24px"
+  worktree-row:
+    textColor: "{colors.ink-secondary}"
+    rounded: "{rounded.control}"
+    height: "30px"
+    padding: "0 8px 0 20px"
+  worktree-row-selected:
+    backgroundColor: "{colors.selected}"
+    textColor: "{colors.ink}"
+  message-user:
+    backgroundColor: "{colors.raised}"
+    rounded: "{rounded.card}"
+    padding: "8px 12px"
+  composer:
+    backgroundColor: "{colors.panel}"
+    rounded: "{rounded.card}"
+    padding: "8px"
+  sheet:
+    backgroundColor: "{colors.sheet}"
+    rounded: "{rounded.card}"
+    padding: "20px"
+    width: "400px"
+  toast:
+    backgroundColor: "{colors.sheet}"
+    rounded: "{rounded.control}"
+    padding: "6px 12px"
 ---
+
+# Design System: Chord
 
 ## Overview
 
-Chord is a native macOS workspace for coding agents: one git worktree per task, each with its own agent chats. The interface uses near-black, white and a family of warm off-whites, with no brand accent color. The only hues are the red of destructive text, the green of a success message and a small blue notification dot.
+**Creative North Star: "The Standard Workbench"**
 
-Toolbars, menus, toasts and action bars float above the canvas as rounded pills and cards, so the chrome never boxes the content in.
+Chord looks like the tools a developer already has open next to it. The window is a stack of neutral gray panels with one blue accent. A developer who has used any agent workspace finds the sidebar, the transcript and the composer where they expect them.
 
-Every color, shadow and font lives in `src/ui/tokens.css` as a CSS variable named after the keys above (`--ink`, `--canvas`, `--shadow-sheet`). Components use the variables and hold no raw color value. Add every new color token to both the light `:root` block and the dark block.
+The developer chose this look on purpose over an invented visual world. Play the convention straight. A new screen earns its place by being clear, dense and consistent with the panels around it.
 
-The app keeps the platform conventions a Mac user expects: traffic lights, a full menu bar, keyboard shortcuts for every command, a separate Settings window (⌘,), drag and drop from Finder and system appearance (light / dark).
+The app keeps the platform conventions a Mac user expects: traffic lights on a transparent title bar, a full menu bar, a keyboard shortcut for every command, drag and drop from Finder, and light and dark appearance. Settings opens as a page in the main window (⌘,).
+
+**Key Characteristics:**
+
+- Four neutral surface steps, one blue accent, hairline borders.
+- 8px controls, 12px cards, no pills.
+- System font at 13px, semibold for titles.
+- Dense rows: 30px in the sidebar, 44px in Settings.
+- Light and dark use the same roles; the app follows the system by default.
 
 ## Colors
 
-### Ink
+A neutral gray ladder carries the layout. Blue marks the one primary action and keyboard focus. Red and green appear as text.
 
-- `ink #111111` for titles, labels, primary buttons and selected states.
-- `ink-secondary #5C5C5C` for descriptions in sheets.
-- `ink-muted #8E8E8E` for meta lines, timestamps and placeholders.
-- `ink-disabled #B5B5B5` for disabled button labels.
+Every color, shadow and radius lives in `src/ui/tokens.css` as a CSS variable named after the frontmatter key (`--canvas`, `--accent`, `--radius-control`). The dark block under `:root[data-theme="dark"]` overrides the same names with the `dark-` values. Components use the variables and hold no raw color value; `npm run check` fails on a hex color in `src/app` or `src/features`. Add a new color to both blocks.
 
-### Surfaces
+### Primary
 
-The canvas is pure white and runs under the transparent title bar. The chrome around it runs warm, a hair toward beige:
+- **Action Blue** (`accent`): the fill of the primary button. One per view.
+- **Pressed Blue** (`accent-pressed`): the same button while pressed.
+- **Blue Ink** (`accent-ink`): blue on a neutral surface: the caret, the Working dot, the drop target outline. Dark appearance uses a lighter blue here so it reads on graphite.
+- **Blue Wash** (`accent-wash`): the text selection highlight and the halo around a recording shortcut.
 
-- `chrome #FAF9F7`: toolbar pill groups.
-- `surface-cream #FBFAF8`: popovers, menus, panels, the Settings sidebar, input fills.
-- `surface-muted #F2F1EF`: tertiary pill buttons, selected sidebar row, selected tab, disabled primary buttons.
-- `skeleton #F1F0EE`: loading placeholders.
+### Neutral
 
-Skip system vibrancy materials on the canvas and toolbar. Flat warm fills keep the monochrome look stable over colorful wallpapers.
+- **Canvas** (`canvas`): the main area and the fill of inputs.
+- **Panel** (`panel`): the sidebar and the composer.
+- **Raised** (`raised`): the user's message, hovered rows and icon buttons, secondary buttons, the segmented track.
+- **Selected** (`selected`): the open worktree's row and every pressed neutral control.
+- **Sheet** (`sheet`): sheets, the toast, the drop label.
+- **Line** (`line`): the sidebar's edge and the rules between Settings rows.
+- **Strong Line** (`line-strong`): the border of an input, the composer and a secondary button.
+- **Ink** (`ink`): titles, message text, selected labels.
+- **Secondary Ink** (`ink-secondary`): unselected worktree names, sheet descriptions, field labels, unselected segments.
+- **Muted Ink** (`ink-muted`): meta lines, hints, placeholders, resting icon buttons.
+- **Disabled Ink** (`ink-disabled`): the label of a disabled primary button.
 
 ### Semantic
 
-- Danger `#C0392B`: text only. Destructive menu items, the destructive confirm button (red label on a gray pill), inline errors.
-- Success `#3E8E41`: inline text only.
-- Notification dot `#3B82F6`: a 5pt dot on the tab or icon that holds something unseen. Mirror it with a Dock badge.
-- Focus ring: a 2pt `focus-ring` outline outside the control's own radius. Keyboard focus must stay visible on every control.
-- Text fields and selects (`.input`) get no outline. Focus changes only the border color to `focus-ring`, with no transition, so clicking between the Project and Branch name fields never flashes a ring.
+- **Danger** (`danger`): text and icons only. The destructive button's label, the chat notice, the toast's warning icon.
+- **Success** (`success`): inline text only.
+- **Status** (`status-running`, `status-waiting`, `status-done`, `status-error`): green, amber, blue, red. Reserved for agent status marks.
+- **Scrim** (`scrim`): the wash behind a sheet and the drop target.
 
-Keep large areas free of semantic color. Confirmation uses a black circle with a white check.
+### Named Rules
 
-### Dark appearance
+**The One Blue Rule.** A view fills one control with `accent`: its primary action. Selection stays gray (`selected`). Links and focus use `accent-ink`.
 
-The app follows the system appearance by default; View › Appearance overrides it (Light / Dark / System). Dark inverts the roles:
+**The Text-Only Semantic Rule.** Red and green color text and small icons. No red or green fill.
 
-- Canvas `#141414`, toolbar pills `#1F1F1F`, cards and sheets `#242424`.
-- Text `#F5F5F5`, muted text about `#8A8A8A`.
-- The primary button flips to a white pill with black text.
-- Selected chips and tabs flip to a white pill.
-- Sheets use `scrim-dark`.
+**The Selected Row Rule.** Meta text on a `selected` fill steps up from `ink-muted` to `ink-secondary`, so counts and shortcut hints keep a 4.5:1 contrast.
 
 ## Typography
 
-### Font family
+**Body Font:** SF Pro, the system font (`--font-ui`)
+**Mono Font:** SF Mono (`--font-mono`), for code
 
-SF Pro, the system font. Use SF Pro Display for sizes above 20pt and SF Pro Text below; the system switches automatically when you ask for the system font.
+**Character:** One family, four weights of emphasis: size, semibold, medium, muted color. The text reads like the rest of macOS.
+
+Sizes multiply by `--text-scale`, which the text size setting changes (⌘=, ⌘-, ⌘0). Write a size as `calc(11px * var(--text-scale))`; the root sets the 13px body.
 
 ### Hierarchy
 
-| Role | Size | Weight | Where |
-|---|---|---|---|
-| Page title | 22pt | 400 | The title of the open view |
-| Section title | 15pt | 500 | Section headings inside a view |
-| Sheet title | 14pt | 500 | Sheet and dialog titles |
-| Body | 13pt | 400 | Descriptions, form values |
-| Label | 13pt | 500 | Buttons, tabs, menu items, chips |
-| Meta | 11pt | 400, muted | Counts, timestamps, helper text |
-| Micro | 10pt | 400 | Sublabels under icon buttons |
+- **Page title** (600, 20px, -0.01em): the title of a page, "Settings".
+- **Empty title** (600, 15px): the title of an empty state.
+- **Heading** (600, 13px): section headings, sheet titles, project names.
+- **Body** (400, 13px, 1.45): descriptions, row labels. The transcript runs at 1.5.
+- **Label** (500, 13px): buttons, segments, the worktree name in the title bar.
+- **Meta** (400, 11px, muted): git counts, shortcut hints, helper and notice text. The sidebar title and field labels use 11px at 500.
 
-### Principles
+### Named Rules
 
-- Titles stay at regular weight (400). Weight 500 marks interactive labels and sheet titles. Bold barely appears.
-- Meta lines join facts with a middle dot: "3 chats · 2 hours ago".
-- Counts sit in small gray number badges next to tab labels.
-- Menu bar items and buttons use title case per the macOS guidelines ("New Task…"). In-canvas copy stays short and sentence case.
+**The Tabular Rule.** Numbers that change in place use `font-variant-numeric: tabular-nums`: git counts, shortcut hints, the text size percentage.
+
+**The Title Case Rule.** Buttons, menu items and sheet titles use title case ("New Worktree", "Add Project…"). Sentences in the canvas use sentence case.
 
 ## Layout
 
-### Window
+- One window, minimum 900 × 600. A flex row: the sidebar (240px) and the main area.
+- The title bar row is 52px tall, transparent, and drags the window. It holds the sidebar toggle and the title: project name, a slash, the worktree name. The title hides on the Settings page. With the sidebar hidden, the toggle sits after the traffic lights and the title follows it.
+- The toast shows in the title bar row, centered, so it covers no content.
+- The transcript and the composer share a centered column, 720px at most, with 20px side padding.
+- The Settings page is a centered column, 560px at most.
+- Sheets are 400px wide, cap at 80% of the window height and scroll inside.
 
-- One main window, default 1280 × 820pt, minimum 900 × 600pt. The app restores size, position and the last open view on launch.
-- Transparent title bar with full-size content: the white canvas runs to the top edge and the traffic lights sit on it.
-- Dragging any empty part of the toolbar row moves the window; double-clicking it zooms.
-
-### Toolbar
-
-Floating pill groups in the title bar row, 36pt tall, vertically centered with the traffic lights. No full-width bar. The first group starts after the traffic lights (80pt inset). The active tab in a tab pill gets ink color and weight 500; inactive tabs are muted.
-
-In full screen the toolbar stays; the traffic lights hide and the first group moves to the window margin.
+Spacing steps: 4, 8, 12, 16, 20, 28. Rows inside a group sit 0 to 2px apart; groups sit 12px apart; a section heading gets 28px above and 8px below.
 
 ### Text selection
 
-Text is not selectable by default. Only content someone copies or edits is: chat messages, code and diffs, terminal output, file paths and error details, and the text in inputs. Chrome is never selectable: labels, titles, buttons, rows, tabs, toasts, menus, tooltips, empty states. Mark a selectable region with `data-selectable`; `src/ui/tokens.css` sets `user-select: none` on `body` and turns it back on for inputs and `[data-selectable]`. Set both `-webkit-user-select` and `user-select`, because the macOS web view ignores the unprefixed one.
-
-### Whitespace
-
-Content runs dense; the chrome stays airy. Sheets use 20 to 28pt padding. Centered views (empty states) leave large empty margins and keep content in a narrow column.
+Text is not selectable by default. Only content someone copies or edits is: chat messages, code, file paths, error details, and the text in inputs. Mark a selectable region with `data-selectable`. `src/ui/tokens.css` sets `user-select: none` on `body` and turns it back on for inputs and `[data-selectable]`. Set both `-webkit-user-select` and `user-select`; the macOS web view ignores the unprefixed one.
 
 ## Elevation & Depth
 
-- Toolbar pills: near-flat, a hairline ring and a 1 to 2pt shadow.
-- Cards: a soft 12pt shadow and a 14pt radius.
-- Popovers and menus: a 28pt soft shadow on cream.
-- Sheets: large soft shadow. In light appearance the scrim turns the window a desaturated light gray instead of darkening it.
-- Native context menus and the menu bar keep the system look. Custom popovers use the cream style above.
+Tonal steps carry depth inside the window: canvas, panel, raised, selected. Borders separate panels. Shadows belong to things that float above the window's content.
+
+### Shadow Vocabulary
+
+- **Control** (`--shadow-control`): the selected segment in a segmented control.
+- **Popover** (`--shadow-popover`): the toast and the drop label.
+- **Sheet** (`--shadow-sheet`): sheets.
+
+Popover and sheet shadows include a 1px ring: black at 8% in light, white at 10% in dark. The ring keeps a floating surface's edge visible on a dark canvas.
+
+### Motion
+
+- A sheet fades in and rises 8px over 200ms; its scrim fades with it. The toast drops 8px into place over 200ms. Both use `--ease-out`.
+- The project chevron turns in 120ms.
+- The Working dot pulses between full and 25% opacity.
+- Under Reduce Motion the sheet, scrim, toast and chevron skip their animation and the dot holds still.
 
 ## Shapes
 
-| Element | Radius |
-|---|---|
-| Inputs | 8pt |
-| Cards, popovers | 14pt |
-| Sheets, Settings panes | 20pt |
-| Buttons, chips, tabs, toasts, search, toolbar groups, action bars | full pill |
-| Avatars, icon buttons | circle |
+- **Controls** (8px, `--radius-control`): buttons, icon buttons, inputs, worktree rows, the segmented track, the toast.
+- **Cards** (12px, `--radius-card`): the composer, the user's message, sheets, the drop target.
+- **Inset** (6px, `--radius-inset`): a segment inside the segmented track.
+
+No pills. A circle appears only as the Working dot and the spinner.
 
 ## Components
 
 ### Buttons
 
-- Primary: black pill, white 13pt/500 label. Sizes: regular 28pt in the toolbar and inline, and large 40pt full-width in forms and sheet footers.
-- The primary button of a sheet is the default button: Return triggers it. Escape triggers "Cancel".
-- Disabled primary: `surface-muted` fill, `ink-disabled` label. Forms keep the button disabled until input is valid.
-- Secondary: white pill with hairline ring ("Cancel").
-- Tertiary: gray pill.
-- Destructive confirm: gray pill with red label, paired with a white "Cancel".
-- Icon buttons: 28pt white circles with hairline ring (back arrow, more "…", sort, filter). Each has a tooltip with its shortcut.
-- Pressed: fill steps to `surface-pressed` (or 85% black for primary).
-- Loading: the label swaps for a spinner inside the same pill.
+- **Primary** (`.button-primary`): blue fill, white 13px/500 label, 28px tall. One per view. No hover change, per macOS; pressed steps to `accent-pressed`.
+- **Disabled primary:** `raised` fill, `ink-disabled` label. A form keeps the button disabled until its input is valid.
+- **Loading:** the label hides and a 14px spinner takes its place in the same button (`aria-busy="true"`).
+- **Secondary** (`.button-secondary`): `raised` fill with a 1px `line-strong` inner border. Pressed steps to `selected`.
+- **Destructive** (`.button-destructive`): a secondary button with a `danger` label.
+- **Icon button** (`.icon-button`): 28px square, no fill at rest, `raised` on hover, `selected` when pressed. Each has a tooltip with its shortcut.
+- **Focus:** a 2px `focus-ring` outline, 2px outside the control.
 
 ### Inputs
 
-- 32pt tall, 8pt radius, cream fill, hairline border. Labels sit above in 11pt muted text.
-- Inline helper and error text sits under the field in red or green.
-- Toggle switch: pill track, gray off, black on.
-- Pop-up buttons: full-width cream field with chevron; the open list is a cream popover with 32pt rows.
+- **Field** (`.input`): 30px tall, `canvas` fill, 1px `line-strong` border. The label sits above at 11px/500; the hint sits below at 11px muted and reserves its line so the sheet keeps its height.
+- **Focus:** no visual change. The caret shows where you type. No outline, no blue border, no halo.
+- **Segmented control** (`.segmented`): a `raised` track with 2px padding. The selected segment is a `control-selected` chip with the control shadow.
+- **Shortcut recorder:** a secondary button that shows the shortcut, or "None" in muted ink. While recording it gets a `canvas` fill, a 1px `accent-ink` inset border and a 3px `accent-wash` halo, and reads "Press keys…".
 
-### Segmented controls and tabs
+### Sidebar
 
-- Segmented control: a hairline pill track with a black selected pill.
-- Tabs: a hairline pill track, selected tab in `surface-muted`, count badges inline. ⌃1, ⌃2, ⌃3 switch them; ⌘1 to ⌘9 select worktrees.
-- Panel tabs use a 2pt black underline instead of a pill.
+- `panel` fill with a 1px `line` right edge. The header holds the "Projects" title and the add button.
+- **Project header:** name at 13px/600, then the chevron right after it. A long name truncates; the chevron stays. Right-click opens the project menu.
+- **Worktree row:** 30px tall, three slots in a fixed order: name, git counts, shortcut hint. The name truncates with an ellipsis; the two meta slots never shrink.
+- **States:** hover takes `raised`, the open worktree takes `selected` and `ink`.
 
-### Chips
+### Chat
 
-Text only; the selected chip becomes a black pill.
+- **User message:** right-aligned, 85% wide at most, on a `raised` card. The agent's message is plain text on the canvas.
+- **Working:** a pulsing 6px blue dot and "Working" in meta text.
+- **Notice:** one line of `danger` meta text above the composer.
+- **Composer:** a `panel` card with a 1px `line-strong` border. Focus inside changes nothing. Its bar holds a hint on the left and the send button on the right: a 28px `accent` circle with a white up arrow, `raised` with `ink-disabled` arrow while the draft is empty. Its tooltip reads Send, or Steer while the agent runs.
+- **Empty state:** a centered title, one muted line and the primary button.
 
 ### Sheets
 
-- Sheets attach to the main window and appear centered over the scrim as white cards, 20pt radius, 20 to 28pt padding.
-- Header patterns: centered title with a text "Cancel" left and an optional primary pill right, or small muted title left with an X right.
-- Confirm dialogs: title, one muted line, two equal 40pt pills side by side (Cancel / destructive or primary); the muted line is `.sheet-description`, centered, with any detail beneath it as meta text.
-- Success dialogs: black check circle, title, muted line, full-width "Done".
+- A `sheet` card centered over the scrim. A click on the scrim cancels.
+- **Form sheet:** a header row with the title on the left and a close icon button (X) on the right that cancels. The fields follow, then a footer with the primary button on the right. Return triggers the primary button, Escape cancels.
+- **Confirm sheet:** title, one centered `ink-secondary` line (`.sheet-description`), an optional detail in meta text, then two equal 32px buttons: secondary "Cancel" and the destructive or primary action.
 
-### Settings window
+### Toast
 
-- Opens from App menu › Settings… (⌘,) as its own window, not a sheet. Fixed width 720pt, height fits the pane.
-- Two panes: left sidebar on cream with icon + label rows, selected row in `surface-muted`. Right pane white with a 15pt title and grouped fields.
-- Changes apply when the user makes them, per macOS convention. Text fields commit on Return or when focus leaves; no Save button.
+One surface in the title bar row, 32px tall at least, 560px wide at most. It closes after 4 seconds or on click. A failure shows a `danger` warning icon before the text; a notice shows text only.
 
-### Popovers and menus
+### Drop target
 
-- Custom popovers: cream, 14pt radius, 32pt rows, label left, line icon right, destructive rows in red. They anchor to their toolbar button with no arrow.
-- A popover with a list puts a search field on top; typing filters the list immediately.
-
-### Menu bar
-
-Every action in the app also lives in the menu bar with a shortcut. Edit, Window and Help keep the system defaults; Go holds Back (⌘[) and Forward (⌘]).
-
-### Toasts
-
-Bottom-center floating pill inside the window, white, soft shadow, 13pt label, dismissed after 4 seconds or on click. Three variants:
-
-1. Label + black check circle ("Changes saved").
-2. Label + black "View" pill.
-3. Label only (errors and notices).
-
-Toasts carry no warning or exclamation icon. Errors state the cause in text. A two-line variant adds a muted sublabel. Events that happen while the app sits in the background go to Notification Center instead.
-
-### Floating action bar
-
-Multi-selection puts a bottom-center pill bar on screen: the selection count, the actions, then "Done". Selected items get a 2pt black outline with a white inset gap. Delete removes the selection after a confirm sheet; Escape exits the mode.
-
-### Empty and loading states
-
-- Empty: a small icon, a 14pt title, a muted line and a gray pill CTA.
-- Drop target: while the user drags files over the window, the canvas shows a 2pt dashed ink outline inset 12pt with a short label.
-- Loading: skeleton blocks in `skeleton` gray with the same radii as the content they stand for.
+While the user drags a folder over the window, a 2px dashed `accent-ink` outline sits 12px inside the window over the scrim, with its label on a small `sheet` chip.
 
 ### Icons
 
-SF Symbols at regular weight, 15 to 17pt, in ink or muted gray.
+Line icons drawn in `src/ui/icons.tsx` on a 16px grid with a 1.3px stroke, in the current text color. Add a new icon there in the same stroke. No text glyph stands in for an icon.
 
 ## Do's and Don'ts
 
-### Do
+### Do:
 
-- Keep every UI element in ink, white or warm gray.
-- Use the black pill for the single primary action per view; make it the default button in sheets.
-- Float chrome as separate pills and cards above the canvas.
-- Give every command a menu bar item and a keyboard shortcut.
-- Use the light gray scrim for everyday sheets.
-- State outcomes in a toast with a check or a "View" action.
+- **Do** use the four neutral steps in order: `canvas` for the work area, `panel` for the frame around it, `raised` for hover and resting controls, `selected` for the open item and pressed controls.
+- **Do** give a view one blue primary button.
+- **Do** keep controls at 8px and cards at 12px.
+- **Do** give every command a menu bar item and a keyboard shortcut.
+- **Do** put each new color in both the light and the dark block of `src/ui/tokens.css`.
+- **Do** check muted text against the surface it sits on; step up to `ink-secondary` on `selected`.
 
-### Don't
+### Don't:
 
-- Don't add a brand accent color to buttons, links or selection, and don't inherit the system accent color for them.
-- Don't fill areas with red or green; keep semantic color in text and small icons.
-- Don't use a standard opaque toolbar or bordered panels around the content.
-- Don't mix radii: inputs stay at 8pt, cards at 14pt, actions stay pill.
-- Don't use bold weights for headings.
-- Don't put a Save button in the Settings window.
-- Don't make chrome text selectable.
-- Don't put a warning or exclamation icon on a toast, popup, sheet or alert. Text only.
-
-## Window Resizing
-
-- Below 1000pt the toolbar pills shrink first, then a tab pill collapses to the active tab with a chevron menu.
-- Sheets cap at 80% of the window height and scroll inside.
-
-## Iteration Guide
-
-1. Start with tokens: `canvas`, `chrome`, `surface-cream`, `surface-muted`, `ink`, `ink-muted`, `hairline`, plus their dark counterparts.
-2. Build the window shell: transparent title bar, toolbar pill groups beside the traffic lights, menu bar with shortcuts.
-3. Build the pill button set (primary, secondary, tertiary, destructive, icon, disabled, loading).
-4. Add sheet, popover and toast shells with the elevation tokens, then the Settings window.
-
-## Known Gaps
-
-- Motion: no timing or easing defined yet. Sheets and popovers should match system animation speeds and respect Reduce Motion.
-- Accessibility beyond focus rings (VoiceOver labels, Increase Contrast variants) still needs a pass.
+- **Don't** color selection, hover or a second button blue.
+- **Don't** fill an area with red or green.
+- **Don't** use a pill shape for a button, a row or a toast.
+- **Don't** add a second accent hue, a gradient or a blur.
+- **Don't** add a hover color to the primary button.
+- **Don't** make chrome text selectable.
+- **Don't** put a raw hex color in a component.

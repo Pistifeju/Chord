@@ -11,10 +11,10 @@ export function ForceRemovalPopup() {
         <p className="sheet-description">Deleting {pending.branch ?? pending.path} anyway discards its uncommitted changes.</p>
         <p className="sheet-meta">{pending.reason}</p>
         <footer className="sheet-actions">
-          <button type="button" className="pill-secondary" onClick={cancelForceRemoval}>
+          <button type="button" className="button-secondary" onClick={cancelForceRemoval}>
             Cancel
           </button>
-          <button type="button" className="pill-destructive" autoFocus onClick={confirmForceRemoval}>
+          <button type="button" className="button-destructive" autoFocus onClick={confirmForceRemoval}>
             Delete
           </button>
         </footer>

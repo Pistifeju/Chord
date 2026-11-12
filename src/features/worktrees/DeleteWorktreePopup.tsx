@@ -10,10 +10,10 @@ export function DeleteWorktreePopup() {
         <h2 className="sheet-title">Delete Worktree?</h2>
         <p className="sheet-description">Delete {pending.name}? Its folder is removed from disk.</p>
         <footer className="sheet-actions">
-          <button type="button" className="pill-secondary" onClick={cancelDeletion}>
+          <button type="button" className="button-secondary" onClick={cancelDeletion}>
             Cancel
           </button>
-          <button type="button" className="pill-destructive" autoFocus onClick={confirmDeletion}>
+          <button type="button" className="button-destructive" autoFocus onClick={confirmDeletion}>
             Delete
           </button>
         </footer>

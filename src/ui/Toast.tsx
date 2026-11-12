@@ -1,4 +1,4 @@
-// Bottom-center warning pill; closes on click or after 4 seconds.
+// Top-center toast in the title bar row; closes on click or after 4 seconds.
 import { useEffect } from "react";
 import { WarningIcon } from "./icons";
 

@@ -3,6 +3,7 @@ import { useState, type KeyboardEvent } from "react";
 import type { Theme } from "../../ipc/bindings";
 import { changeShortcut, commandTitles, resetShortcut, shortcutLabel, tooltip } from "../../app/commands";
 import { recordedShortcut } from "../../app/shortcuts";
+import { MinusIcon, PlusIcon } from "../../ui/icons";
 import { appearance, changeTextSize, setTheme, shortcutChanges } from "./store";
 import "./settings.css";
 
@@ -42,13 +43,13 @@ function ShortcutRows() {
           <span className="settings-label">{title}</span>
           <div className="settings-stepper">
             {id in changes && (
-              <button type="button" className="pill-tertiary" aria-label={`Reset shortcut for ${title}`} onClick={() => announce(resetShortcut(id))}>
+              <button type="button" className="button-secondary" aria-label={`Reset shortcut for ${title}`} onClick={() => announce(resetShortcut(id))}>
                 Reset
               </button>
             )}
             <button
               type="button"
-              className="pill-tertiary settings-key"
+              className="button-secondary settings-key"
               aria-label={`Shortcut for ${title}`}
               data-recording={recording === id}
               data-empty={!shortcutLabel(id)}
@@ -91,14 +92,14 @@ export function SettingsPage() {
       <div className="settings-row">
         <span className="settings-label">Text size</span>
         <div className="settings-stepper">
-          <button type="button" className="pill-tertiary" aria-label="Decrease text size" title={tooltip("text.smaller")} onClick={() => changeTextSize("smaller")}>
-            −
+          <button type="button" className="button-secondary settings-step" aria-label="Decrease text size" title={tooltip("text.smaller")} onClick={() => changeTextSize("smaller")}>
+            <MinusIcon />
           </button>
           <span className="settings-value">{textPercent}%</span>
-          <button type="button" className="pill-tertiary" aria-label="Increase text size" title={tooltip("text.larger")} onClick={() => changeTextSize("larger")}>
-            +
+          <button type="button" className="button-secondary settings-step" aria-label="Increase text size" title={tooltip("text.larger")} onClick={() => changeTextSize("larger")}>
+            <PlusIcon />
           </button>
-          <button type="button" className="pill-tertiary" title={tooltip("text.reset")} onClick={() => changeTextSize("reset")}>
+          <button type="button" className="button-secondary" title={tooltip("text.reset")} onClick={() => changeTextSize("reset")}>
             Reset
           </button>
         </div>

@@ -2,7 +2,6 @@
 .chat {
   display: flex;
   flex-direction: column;
-  box-sizing: border-box;
   height: 100%;
   outline: none;
 }
@@ -17,10 +16,10 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  box-sizing: border-box;
   max-width: 720px;
   margin: 0 auto;
   padding: 16px 20px;
+  line-height: 1.5;
 }
 
 .chat-message {
@@ -32,8 +31,8 @@
   align-self: flex-end;
   max-width: 85%;
   padding: 8px 12px;
-  border-radius: 14px;
-  background: var(--surface-muted);
+  border-radius: var(--radius-card);
+  background: var(--raised);
 }
 
 .chat-working,
@@ -42,8 +41,31 @@
   color: var(--ink-muted);
 }
 
+.chat-working {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-working::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-ink);
+  animation: working 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes working {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.25;
+  }
+}
+
 .chat-notice {
-  box-sizing: border-box;
   width: min(720px, 100%);
   margin: 0 auto;
   padding: 0 20px 8px;
@@ -53,7 +75,6 @@
 
 .chat-composer,
 .chat-restart {
-  box-sizing: border-box;
   width: min(720px, 100% - 40px);
   margin: 0 auto 20px;
 }
@@ -63,13 +84,12 @@
   flex-direction: column;
   gap: 8px;
   padding: 8px;
-  border: 1px solid var(--hairline);
-  border-radius: 14px;
-  background: var(--surface-cream);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-card);
+  background: var(--panel);
 }
 
 .chat-input {
-  box-sizing: border-box;
   width: 100%;
   padding: 4px 6px;
   border: none;
@@ -83,11 +103,27 @@
   outline: none;
 }
 
+.chat-input::placeholder {
+  color: var(--ink-muted);
+}
+
 .chat-composer-bar,
 .chat-restart {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.chat-send {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.chat-composer-bar .chat-hint {
+  padding-left: 6px;
 }
 
 .chat-empty {
@@ -101,8 +137,8 @@
 
 .chat-empty-title {
   margin: 0 0 4px;
-  font-size: calc(14px * var(--text-scale));
-  font-weight: 500;
+  font-size: calc(15px * var(--text-scale));
+  font-weight: 600;
 }
 
 .chat-empty-text {
@@ -110,10 +146,8 @@
   color: var(--ink-muted);
 }
 
-.chat-composer:focus-within {
-  border-color: var(--focus-ring);
-}
-
-.chat-input::placeholder {
-  color: var(--ink-muted);
+@media (prefers-reduced-motion: reduce) {
+  .chat-working::before {
+    animation: none;
+  }
 }

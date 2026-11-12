@@ -4,10 +4,10 @@ import type { MouseEvent } from "react";
 import type { Project } from "../../ipc/bindings";
 import { menuItem, shortcutLabel, tooltip } from "../../app/commands";
 import { shortcutChanges } from "../settings/store";
-import { ChevronIcon, EllipsisIcon, PlusIcon, SidebarIcon } from "../../ui/icons";
+import { ChevronIcon, PlusIcon, SidebarIcon } from "../../ui/icons";
 import { countsLabel, countsTitle } from "../worktrees/gitCounts";
 import { gitCounts } from "../worktrees/gitCountsRefresh";
-import { worktreeOrder } from "../worktrees/projects";
+import { worktreeName, worktreeOrder } from "../worktrees/projects";
 import { pickProject, projects, selectWorktree } from "../worktrees/store";
 import { sidebar, toggleFold, toggleSidebar } from "./store";
 import "./sidebar.css";
@@ -61,13 +61,10 @@ function ProjectGroup({ project }: { project: Project }) {
     <section className="project-group">
       <div className="project-header" onContextMenu={(e) => showMenu(e, "project.remove", project.path)}>
         <button type="button" className="project-name" aria-expanded={open} onClick={() => toggleFold(project.path)}>
+          <span className="project-title">{project.name}</span>
           <span className="project-chevron" data-open={open}>
             <ChevronIcon />
           </span>
-          {project.name}
-        </button>
-        <button type="button" className="icon-button project-more" title="Project Actions" onClick={(e) => showMenu(e, "project.remove", project.path)}>
-          <EllipsisIcon />
         </button>
       </div>
       {open && (
@@ -86,7 +83,7 @@ function ProjectGroup({ project }: { project: Project }) {
                   onClick={() => selectWorktree(worktree.path)}
                   onContextMenu={worktree.path === project.path ? undefined : (e) => showMenu(e, "worktree.delete", worktree.path)}
                 >
-                  <span className="worktree-name">{worktree.branch ?? worktree.path.split("/").pop()}</span>
+                  <span className="worktree-name">{worktreeName(worktree)}</span>
                   {countsText && <span className="worktree-counts" title={countsHint}>{countsText}</span>}
                   {hint && <span className="worktree-hint">{hint}</span>}
                 </button>

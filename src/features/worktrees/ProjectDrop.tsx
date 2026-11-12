@@ -14,5 +14,9 @@ export function ProjectDrop() {
     return () => void unlisten.then((stop) => stop());
   }, []);
   if (!over) return null;
-  return <div className="project-drop">Drop a folder to add it as a project</div>;
+  return (
+    <div className="project-drop">
+      <span className="project-drop-label">Drop a folder to add it as a project</span>
+    </div>
+  );
 }
