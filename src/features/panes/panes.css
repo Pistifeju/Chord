@@ -39,6 +39,18 @@
   color: var(--ink);
 }
 
+.tab[data-dragging="true"] {
+  opacity: 0.6;
+}
+
+.drop-edge {
+  position: fixed;
+  z-index: 3;
+  border: 2px dashed var(--accent-ink);
+  background: var(--accent-wash);
+  pointer-events: none;
+}
+
 .tab-name {
   display: flex;
   align-items: center;

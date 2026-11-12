@@ -1,6 +1,6 @@
-// Rules for a worktree's session tabs: new, open, split, close, and which pane has the focus.
+// Rules for a worktree's session tabs: new, open, split, drop, close, and which pane has the focus.
 import type { Direction, Layout, PaneSession, WorktreePanes } from "../../ipc/bindings";
-import { paneIds, withoutPane, withSplit } from "./layout.ts";
+import { edgeDirection, paneIds, withBeside, withoutPane, withSplit, type Edge } from "./layout.ts";
 
 export const firstPanes = (session: string, pane: string): WorktreePanes => ({
   sessions: [{ id: session, name: "Session 1", layout: { kind: "pane", id: pane }, focused: pane }],
@@ -88,4 +88,14 @@ export function withoutPaneClosed(panes: WorktreePanes, pane: string): WorktreeP
   const sessions = panes.sessions.filter((s) => s !== owner);
   const active = panes.active === owner.id ? (sessions[at] ?? sessions[at - 1]).id : panes.active;
   return { sessions, active };
+}
+
+// A session tab dropped on a pane edge: its whole layout joins that pane's session beside the pane, and its tab goes.
+export function withSessionDropped(panes: WorktreePanes, source: string, pane: string, edge: Edge): WorktreePanes {
+  const moved = panes.sessions.find((s) => s.id === source);
+  const target = panes.sessions.find((s) => paneIds(s.layout).includes(pane));
+  if (!moved || !target || moved === target) return panes;
+  const layout = withBeside(target.layout, pane, moved.layout, edgeDirection(edge), edge === "left" || edge === "top");
+  const joined = { ...target, layout, focused: moved.focused };
+  return { sessions: panes.sessions.filter((s) => s !== moved).map((s) => (s === target ? joined : s)), active: target.id };
 }

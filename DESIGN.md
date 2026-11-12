@@ -332,6 +332,7 @@ No pills. A circle appears only as the Working dot and the spinner.
 
 - **Tab bar:** the 40px row at the top of the work area with a 1px `line` bottom edge. One tab per session, then a plus icon button. With the sidebar hidden it starts after the sidebar toggle.
 - **Tab:** flat, full bar height, 220px wide at most, no radius, a 1px `line` rule on its right edge. A 16px chat icon, or a spinner while an agent of the session runs, then the name (truncates), then a 20px close icon button. The close button hides when one session is left. `ink-muted` text; hover takes `raised`; the open tab takes `selected` and `ink`. The bar scrolls sideways when tabs overflow.
+- **Tab drag:** a tab dragged over the open session's pane edge (the outer quarter) shows that half of the pane with a 2px dashed `accent-ink` outline on `accent-wash`; the dragged tab dims to 60%. Dropping splits the pane there and moves the dragged session's panes in; its tab goes. The open session's own tab has no drop target, so dragging it does nothing.
 - **Divider:** a 1px `line` rule between panes with a 9px grab area. Hover and drag step it to `line-strong`. Double-click evens the split out. A pane keeps 10% at least.
 - **Focused pane:** with a split, a 1px `line-strong` inset edge marks the pane that takes the shortcuts.
 

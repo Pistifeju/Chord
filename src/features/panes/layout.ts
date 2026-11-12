@@ -10,11 +10,11 @@ export const paneIds = (layout: Layout): string[] => (layout.kind === "pane" ? [
 
 const evenSizes = (count: number): number[] => Array.from({ length: count }, () => 1 / count);
 
-// The new pane goes after `pane` and takes half of its share; a split in the same direction grows instead of nesting.
-export function withSplit(layout: Layout, pane: string, created: string, direction: Direction): Layout {
+// `inserted` goes before or after `pane` and takes half of its share; a lone pane in a same-direction split gains a sibling, anything else nests.
+export function withBeside(layout: Layout, pane: string, inserted: Layout, direction: Direction, before: boolean): Layout {
   if (layout.kind === "pane") {
     if (layout.id !== pane) return layout;
-    return { kind: "split", direction, sizes: [0.5, 0.5], children: [layout, { kind: "pane", id: created }] };
+    return { kind: "split", direction, sizes: [0.5, 0.5], children: before ? [inserted, layout] : [layout, inserted] };
   }
   const at = layout.children.findIndex((child) => child.kind === "pane" && child.id === pane);
   if (at >= 0 && layout.direction === direction) {
@@ -22,11 +22,48 @@ export function withSplit(layout: Layout, pane: string, created: string, directi
     const half = sizes[at] / 2;
     sizes.splice(at, 1, half, half);
     const children = [...layout.children];
-    children.splice(at + 1, 0, { kind: "pane", id: created });
+    children.splice(before ? at : at + 1, 0, inserted);
     return { ...layout, sizes, children };
   }
-  return { ...layout, children: layout.children.map((child) => withSplit(child, pane, created, direction)) };
+  return { ...layout, children: layout.children.map((child) => withBeside(child, pane, inserted, direction, before)) };
 }
+
+export type Box = { left: number; top: number; width: number; height: number };
+
+export type Edge = "left" | "right" | "top" | "bottom";
+
+/** The share of a pane's width or height, from each edge, where a dropped tab splits it. */
+const EDGE_ZONE = 0.25;
+
+// The pane edge the point is nearest to, or null in the middle of the pane.
+export function dropEdge(x: number, y: number, box: Box): Edge | null {
+  const fx = (x - box.left) / box.width;
+  const fy = (y - box.top) / box.height;
+  const near = [
+    { edge: "left" as const, share: fx },
+    { edge: "right" as const, share: 1 - fx },
+    { edge: "top" as const, share: fy },
+    { edge: "bottom" as const, share: 1 - fy },
+  ].reduce((a, b) => (b.share < a.share ? b : a));
+  return near.share <= EDGE_ZONE ? near.edge : null;
+}
+
+export const edgeDirection = (edge: Edge): Direction => (edge === "left" || edge === "right" ? "row" : "column");
+
+// The half of the pane that a drop on `edge` would fill.
+export function dropPreview(edge: Edge, box: Box): Box {
+  const row = edgeDirection(edge) === "row";
+  return {
+    left: edge === "right" ? box.left + box.width / 2 : box.left,
+    top: edge === "bottom" ? box.top + box.height / 2 : box.top,
+    width: row ? box.width / 2 : box.width,
+    height: row ? box.height : box.height / 2,
+  };
+}
+
+// The new pane goes after `pane` and takes half of its share.
+export const withSplit = (layout: Layout, pane: string, created: string, direction: Direction): Layout =>
+  withBeside(layout, pane, { kind: "pane", id: created }, direction, false);
 
 // The closed pane's share goes to the others in proportion; a split left with one child becomes that child.
 export function withoutPane(layout: Layout, pane: string): Layout | null {

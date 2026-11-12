@@ -2,8 +2,8 @@
 import { commands, type Direction, type Layout, type WorktreePanes } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
 import { forgetChat, startChat } from "../chat/store";
-import { withEvenSizes, paneIds, withSizes } from "./layout";
-import { activeSession, firstPanes, withActiveSession, withFocus, withLayout, withNewSession, withoutPaneClosed, withSessionClosed, withSplitFocused } from "./sessions";
+import { withEvenSizes, paneIds, withSizes, type Edge } from "./layout";
+import { activeSession, firstPanes, withActiveSession, withFocus, withLayout, withNewSession, withoutPaneClosed, withSessionClosed, withSessionDropped, withSplitFocused } from "./sessions";
 
 export const panes = externalStore<Record<string, WorktreePanes>>({});
 
@@ -68,6 +68,14 @@ export function closeSession(worktree: string, session: string) {
 
 export function selectSession(worktree: string, session: string) {
   set(worktree, withActiveSession(panesOf(worktree), session));
+  save(worktree);
+}
+
+export function dropSession(worktree: string, session: string, pane: string, edge: Edge) {
+  const current = panesOf(worktree);
+  const next = withSessionDropped(current, session, pane, edge);
+  if (next === current) return;
+  set(worktree, next);
   save(worktree);
 }
 

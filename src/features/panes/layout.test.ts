@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Layout } from "../../ipc/bindings.ts";
-import { paneIds, resizedSizes, withEvenSizes, withoutPane, withSplit } from "./layout.ts";
+import { dropEdge, dropPreview, paneIds, resizedSizes, withBeside, withEvenSizes, withoutPane, withSplit, type Split } from "./layout.ts";
 
 const pane = (id: string): Layout => ({ kind: "pane", id });
 
@@ -36,4 +36,28 @@ test("a divider moves the two panes beside it and stops at the minimum", () => {
 test("double-click evens out the sizes of one split", () => {
   const uneven: Layout = { kind: "split", direction: "row", sizes: [0.7, 0.2, 0.1], children: [pane("a"), pane("b"), pane("c")] };
   assert.deepEqual(withEvenSizes(uneven, []), { ...uneven, sizes: [1 / 3, 1 / 3, 1 / 3] });
+});
+
+test("a point near a pane edge picks that edge, the middle picks none", () => {
+  const box = { left: 100, top: 0, width: 400, height: 200 };
+  assert.equal(dropEdge(110, 100, box), "left");
+  assert.equal(dropEdge(490, 100, box), "right");
+  assert.equal(dropEdge(300, 10, box), "top");
+  assert.equal(dropEdge(300, 195, box), "bottom");
+  assert.equal(dropEdge(300, 100, box), null);
+});
+
+test("the drop preview is the half of the pane on the dropped edge", () => {
+  const box = { left: 100, top: 20, width: 400, height: 200 };
+  assert.deepEqual(dropPreview("left", box), { left: 100, top: 20, width: 200, height: 200 });
+  assert.deepEqual(dropPreview("right", box), { left: 300, top: 20, width: 200, height: 200 });
+  assert.deepEqual(dropPreview("top", box), { left: 100, top: 20, width: 400, height: 100 });
+  assert.deepEqual(dropPreview("bottom", box), { left: 100, top: 120, width: 400, height: 100 });
+});
+
+test("a layout dropped before a pane goes first and halves the pane's share", () => {
+  const layout: Layout = { kind: "split", direction: "row", sizes: [0.5, 0.5], children: [{ kind: "pane", id: "a" }, { kind: "pane", id: "b" }] };
+  const next = withBeside(layout, "b", { kind: "pane", id: "c" }, "row", true) as Split;
+  assert.deepEqual(next.children.map((c) => (c.kind === "pane" ? c.id : "?")), ["a", "c", "b"]);
+  assert.deepEqual(next.sizes, [0.5, 0.25, 0.25]);
 });
