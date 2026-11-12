@@ -41,6 +41,10 @@ function SessionTabs({ worktree }: { worktree: string }) {
   const [dragging, setDragging] = useState<string | null>(null);
   const [drop, setDrop] = useState<Drop | null>(null);
   const dropRef = useRef<Drop | null>(null);
+  const bar = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    bar.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [current?.active]);
   if (!current) return null;
 
   const onTabDown = (e: PointerEvent<HTMLElement>, session: string) => {
@@ -75,7 +79,7 @@ function SessionTabs({ worktree }: { worktree: string }) {
   };
 
   return (
-    <div className="tabbar" role="tablist" data-tauri-drag-region data-sidebar-hidden={hidden}>
+    <div ref={bar} className="tabbar" role="tablist" data-tauri-drag-region data-sidebar-hidden={hidden}>
       {current.sessions.map((session) => {
         const working = paneIds(session.layout).some((pane) => all[pane]?.running);
         return (
@@ -98,7 +102,7 @@ function SessionTabs({ worktree }: { worktree: string }) {
               <span className="tab-label">{session.name}</span>
             </button>
             {current.sessions.length > 1 && (
-              <button type="button" className="tab-close" aria-label="Close Session" onClick={() => closeSession(worktree, session.id)}>
+              <button type="button" className="tab-close" title="Close Session" aria-label="Close Session" onClick={() => closeSession(worktree, session.id)}>
                 <CloseIcon />
               </button>
             )}
@@ -172,7 +176,7 @@ function LayoutView({ layout, path, place }: { layout: Layout; path: number[]; p
   if (layout.kind === "pane") {
     const { id } = layout;
     return (
-      <div className="pane" data-pane={id} data-focused={place.split && id === place.focused} onPointerDownCapture={() => focusPane(place.worktree, id)} onFocusCapture={() => focusPane(place.worktree, id)}>
+      <div className="pane" data-pane={id} onPointerDownCapture={() => focusPane(place.worktree, id)} onFocusCapture={() => focusPane(place.worktree, id)}>
         <ChatPane worktree={place.worktree} pane={id} focused={id === place.focused} />
       </div>
     );

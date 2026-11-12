@@ -1,6 +1,8 @@
 // The window's layout. Each feature adds its own region.
 import { useEffect } from "react";
 import { PaneArea } from "../features/panes/PaneArea";
+import { QuitPopup } from "../features/quit/QuitPopup";
+import { watchQuit } from "../features/quit/store";
 import { SettingsPage } from "../features/settings/SettingsPage";
 import { settingsOpen } from "../features/settings/store";
 import { Sidebar, SidebarToggle } from "../features/sidebar/Sidebar";
@@ -26,9 +28,11 @@ export default function App() {
     launch().catch(console.error);
     window.addEventListener("keydown", runShortcut);
     const unwatch = watchGitCounts();
+    const unwatchQuit = watchQuit();
     return () => {
       window.removeEventListener("keydown", runShortcut);
       unwatch();
+      unwatchQuit();
     };
   }, []);
   return (
@@ -44,6 +48,7 @@ export default function App() {
       <NewWorktreePopup />
       <DeleteWorktreePopup />
       <ForceRemovalPopup />
+      <QuitPopup />
       {error && <WarningToast text={error} notice={errorIsNotice} onDismiss={dismissError} />}
     </div>
   );

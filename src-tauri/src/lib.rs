@@ -4,7 +4,7 @@ mod commands;
 
 use chord_core::Store;
 use chord_core::harness::sessions::Sessions;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use tauri_specta::collect_commands;
 
 pub fn ipc() -> tauri_specta::Builder<tauri::Wry> {
@@ -23,6 +23,7 @@ pub fn ipc() -> tauri_specta::Builder<tauri::Wry> {
         commands::chat::send_message,
         commands::chat::abort_run,
         commands::chat::stop_chat,
+        commands::app::quit_app,
     ])
 }
 
@@ -38,8 +39,19 @@ pub fn run() {
             app.manage(Store::open(dir.join("state.json"))?);
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            // Closing the window asks like Quit does: the window quits at once or shows its sheet.
+            if let tauri::RunEvent::WindowEvent {
+                event: tauri::WindowEvent::CloseRequested { api, .. },
+                ..
+            } = event
+            {
+                api.prevent_close();
+                let _ = app.emit("quit-requested", ());
+            }
+        });
 }
 
 #[cfg(test)]

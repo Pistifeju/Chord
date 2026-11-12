@@ -19,6 +19,8 @@ export const commands = {
 	sendMessage: (pane: string, text: string) => __TAURI_INVOKE<null>("send_message", { pane, text }),
 	abortRun: (pane: string) => __TAURI_INVOKE<null>("abort_run", { pane }),
 	stopChat: (pane: string) => __TAURI_INVOKE<null>("stop_chat", { pane }),
+	/**  Stops every agent and ends the app once the user confirmed the quit. Panes stay saved as running, so they start again on launch. */
+	quitApp: () => __TAURI_INVOKE<null>("quit_app"),
 };
 
 /* Types */
@@ -192,6 +194,8 @@ export type State_Deserialize = {
 	selected?: string | null,
 	/**  Each worktree's session tabs and split layouts. */
 	panes?: { [key in string]: WorktreePanes },
+	/**  The panes whose agent was started and not stopped; they start again on launch. */
+	runningPanes?: string[],
 };
 
 export type State_Serialize = {
@@ -204,6 +208,8 @@ export type State_Serialize = {
 	selected: string | null,
 	/**  Each worktree's session tabs and split layouts. */
 	panes: { [key in string]: WorktreePanes },
+	/**  The panes whose agent was started and not stopped; they start again on launch. */
+	runningPanes: string[],
 };
 
 export type Theme = "system" | "light" | "dark";

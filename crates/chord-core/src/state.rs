@@ -1,6 +1,6 @@
 //! The saved app state and the store that writes it to `state.json`.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::ErrorKind;
 use std::path::PathBuf;
@@ -25,6 +25,8 @@ pub struct State {
     pub selected: Option<PathBuf>,
     /// Each worktree's session tabs and split layouts.
     pub panes: BTreeMap<PathBuf, WorktreePanes>,
+    /// The panes whose agent was started and not stopped; they start again on launch.
+    pub running_panes: BTreeSet<String>,
 }
 
 /// One change the frontend saves.

@@ -50,7 +50,14 @@ export function ChatPane({ worktree, pane, focused }: { worktree: string; pane: 
   if (!hasChat) return null;
 
   return (
-    <div className="chat">
+    <div
+      className="chat"
+      onClick={(e) => {
+        // A click outside a control lands in the composer, unless the reader selected text.
+        if ((e.target as Element).closest("button, a, input, textarea")) return;
+        if (window.getSelection()?.isCollapsed !== false) composer.current?.focus();
+      }}
+    >
       <div
         className="chat-transcript"
         ref={transcript}

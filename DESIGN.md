@@ -247,7 +247,7 @@ Sizes multiply by `--text-scale`, which the text size setting changes (⌘=, ⌘
 - **Page title** (600, 20px, -0.01em): the title of a page, "Settings".
 - **Empty title** (600, 15px): the title of an empty state.
 - **Heading** (600, 13px): section headings, sheet titles, project names.
-- **Body** (400, 13px, 1.45): descriptions, row labels. The transcript runs at 1.5.
+- **Body** (400, 13px, 1.45): descriptions, row labels, tab names. The transcript runs at 1.5.
 - **Label** (500, 13px): buttons, segments, the worktree name in the title bar.
 - **Meta** (400, 11px, muted): git counts, shortcut hints, helper and notice text. The sidebar title and field labels use 11px at 500.
 
@@ -262,7 +262,7 @@ Sizes multiply by `--text-scale`, which the text size setting changes (⌘=, ⌘
 ## Layout
 
 - One window, minimum 900 × 600. A flex row: the sidebar (240px) and the main area.
-- The title bar row is 52px tall, transparent, and drags the window. It holds the sidebar toggle. With the sidebar hidden, the toggle sits after the traffic lights. On a worktree the session tabs fill the row.
+- The title bar row is 52px tall, transparent, and drags the window. It holds the sidebar toggle. With the sidebar hidden, the toggle sits after the traffic lights. On a worktree the 40px tab bar takes the top of the work area in its place.
 - The toast shows in the title bar row, centered, so it covers no content.
 - The transcript and the composer share a centered column, 720px at most, with 20px side padding.
 - The Settings page is a centered column, 560px at most.
@@ -291,13 +291,13 @@ Popover and sheet shadows include a 1px ring: black at 8% in light, white at 10%
 - A sheet fades in and rises 8px over 200ms; its scrim fades with it. The toast drops 8px into place over 200ms. Both use `--ease-out`.
 - The project chevron turns in 120ms.
 - The Working dot pulses between full and 25% opacity.
-- Under Reduce Motion the sheet, scrim, toast and chevron skip their animation and the dot holds still.
+- Under Reduce Motion the sheet, scrim, toast and chevron skip their animation, the dot holds still and spinners turn at a third of their speed.
 
 ## Shapes
 
 - **Controls** (8px, `--radius-control`): buttons, icon buttons, inputs, worktree rows, the segmented track, the toast.
 - **Cards** (12px, `--radius-card`): the composer, the user's message, sheets, the drop target.
-- **Inset** (6px, `--radius-inset`): a segment inside the segmented track.
+- **Inset** (6px, `--radius-inset`): a segment inside the segmented track, the close button inside a tab.
 
 No pills. A circle appears only as the Working dot and the spinner.
 
@@ -331,7 +331,7 @@ No pills. A circle appears only as the Working dot and the spinner.
 ### Tab bar and panes
 
 - **Tab bar:** the 40px row at the top of the work area with a 1px `line` bottom edge. One tab per session, then a plus icon button. With the sidebar hidden it starts after the sidebar toggle.
-- **Tab:** flat, full bar height, 220px wide at most, no radius, a 1px `line` rule on its right edge. A 16px chat icon, or a spinner while an agent of the session runs, then the name (truncates), then a 20px close icon button. The close button hides when one session is left. `ink-muted` text; hover takes `raised`; the open tab takes `selected` and `ink`. The bar scrolls sideways when tabs overflow.
+- **Tab:** flat, full bar height, 220px wide at most, no radius, a 1px `line` rule on its right edge. A 16px chat icon, or a spinner while an agent of the session runs, then the name (truncates), then a 20px close icon button that shows on the open tab, and on another tab only while the pointer is over it or focus is inside it; it keeps its space when hidden, so the tab width holds still. Padding is 12px on the left and 8px after the close button, so the X glyph sits as far from the right edge as the chat icon from the left; 8px separates the name and the close button; with the close button hidden (one session left) the name takes 12px on the right. `ink-muted` text; hover takes `raised`; the open tab takes `selected` and `ink`. The close button's hover takes `selected`, or `raised` on the open tab so it stays visible. The focus ring sits inside the tab. The bar scrolls sideways when tabs overflow and scrolls the open tab into view.
 - **Tab drag:** a tab dragged over the open session's pane edge (the outer quarter) shows that half of the pane with a 2px dashed `accent-ink` outline on `accent-wash`; the dragged tab dims to 60%. Dropping splits the pane there and moves the dragged session's panes in; its tab goes. The open session's own tab has no drop target, so dragging it does nothing.
 - **Divider:** a 1px `line` rule between panes with a 9px grab area. Hover and drag step it to `line-strong`. Double-click evens the split out. A pane keeps 10% at least.
 - **Focused pane:** with a split, a 1px `line-strong` inset edge marks the pane that takes the shortcuts.
@@ -348,7 +348,7 @@ No pills. A circle appears only as the Working dot and the spinner.
 
 - A `sheet` card centered over the scrim. A click on the scrim cancels.
 - **Form sheet:** a header row with the title on the left and a close icon button (X) on the right that cancels. The fields follow, then a footer with the primary button on the right. Return triggers the primary button, Escape cancels.
-- **Confirm sheet:** title, one centered `ink-secondary` line (`.sheet-description`), an optional detail in meta text, then two equal 32px buttons: secondary "Cancel" and the destructive or primary action.
+- **Confirm sheet:** title, one centered `ink-secondary` line (`.sheet-description`), an optional detail in meta text, then two equal 32px buttons: secondary "Cancel" and the destructive or primary action. Focus starts on the action, Escape cancels, and a long name or path wraps inside the sheet. The detail is selectable text.
 
 ### Toast
 

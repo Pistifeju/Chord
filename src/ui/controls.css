@@ -223,12 +223,16 @@ button:focus-visible {
 .sheet-description {
   margin: 0;
   text-align: center;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
   color: var(--ink-secondary);
 }
 
 .sheet-meta {
   margin: 0;
   text-align: center;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
   font-size: calc(11px * var(--text-scale));
   color: var(--ink-muted);
 }

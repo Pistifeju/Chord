@@ -1,9 +1,10 @@
 //! The pi adapter: runs `pi --mode rpc` and turns its records into harness events. The only file that knows pi's records.
 
 use std::io::{BufRead, BufReader, ErrorKind, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 use serde_json::{Value, json};
@@ -20,16 +21,35 @@ const OLDEST_TESTED: (u32, u32, u32) = (1, 5, 0);
 pub struct Session {
     child: Child,
     stdin: Mutex<ChildStdin>,
+    stopped: Arc<AtomicBool>,
+}
+
+/// The file that holds a pane's pi session, so the pane's agent can open the same session again.
+pub fn session_file(sessions_dir: &Path, pane: &str) -> Result<PathBuf, Error> {
+    let plain = !pane.is_empty()
+        && pane
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
+    if !plain {
+        return Err(Error::Message(format!("\"{pane}\" is not a pane id")));
+    }
+    Ok(sessions_dir.join(format!("{pane}.jsonl")))
 }
 
 impl Session {
     pub fn start(
         binary: &str,
         dir: &Path,
+        session_file: &Path,
         on_event: impl Fn(HarnessEvent) + Send + 'static,
     ) -> Result<Session, Error> {
         check_version(binary)?;
-        let mut child = through_login_shell(binary, &["--mode", "rpc"])
+        if let Some(parent) = session_file.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        // The same file on every start puts the pane back in its exact session.
+        let session_file = session_file.to_string_lossy();
+        let mut child = through_login_shell(binary, &["--mode", "rpc", "--session", &session_file])
             .current_dir(dir)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -39,6 +59,8 @@ impl Session {
         let (Some(stdin), Some(stdout)) = (child.stdin.take(), child.stdout.take()) else {
             return Err(Error::Message("pi started without its pipes".into()));
         };
+        let stopped = Arc::new(AtomicBool::new(false));
+        let reader_stopped = Arc::clone(&stopped);
         thread::spawn(move || {
             let mut reader = BufReader::new(stdout);
             let mut line = Vec::new();
@@ -49,11 +71,15 @@ impl Session {
                 }
                 line.clear();
             }
-            on_event(HarnessEvent::Exited);
+            // Only an agent that ended on its own is reported; a stopped one is already forgotten.
+            if !reader_stopped.load(Ordering::SeqCst) {
+                on_event(HarnessEvent::Exited);
+            }
         });
         Ok(Session {
             child,
             stdin: Mutex::new(stdin),
+            stopped,
         })
     }
 
@@ -80,6 +106,7 @@ impl Session {
 
 impl Drop for Session {
     fn drop(&mut self) {
+        self.stopped.store(true, Ordering::SeqCst);
         let _ = self.child.kill();
         let _ = self.child.wait();
     }

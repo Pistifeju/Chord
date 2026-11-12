@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
-use super::pi::Session;
+use super::pi::{Session, session_file};
 use super::{Capability, HarnessEvent};
 use crate::Error;
 
@@ -33,9 +33,15 @@ impl Sessions {
         binary: &str,
         worktree: PathBuf,
         pane: String,
+        sessions_dir: &Path,
         on_event: impl Fn(HarnessEvent) + Send + 'static,
     ) -> Result<Vec<Capability>, Error> {
-        let session = Session::start(binary, &worktree, on_event)?;
+        let session = Session::start(
+            binary,
+            &worktree,
+            &session_file(sessions_dir, &pane)?,
+            on_event,
+        )?;
         let capabilities = session.capabilities();
         // The lock is free again before the old session drops: dropping kills pi and waits for it.
         let replaced = self.sessions().insert(pane, (worktree, session));
@@ -54,6 +60,12 @@ impl Sessions {
     pub fn stop_pane(&self, pane: &str) {
         let session = self.sessions().remove(pane);
         drop(session);
+    }
+
+    /// Returns once every agent has ended, so none outlives the app.
+    pub fn stop_all(&self) {
+        let stopped = std::mem::take(&mut *self.sessions());
+        drop(stopped);
     }
 
     /// Returns once every agent in the worktree has ended, so git can remove its directory.

@@ -63,8 +63,8 @@ Edge cases:
 - [x] C2 Drag dividers to resize, double-click evens out, sizes persist.
 - [x] C3 Session tabs in the tab bar: one per chat session of the worktree, each its own split layout; a + after them opens a new one (⌘⇧T).
 - [x] C4 Drag a session tab onto a pane edge to split there.
-- [ ] C5 harness(sessions): agents that ran at quit come back on launch in their exact session.
-- [ ] C6 Quit asks while agents run.
+- [x] C5 harness(sessions): agents that ran at quit come back on launch in their exact session.
+- [x] C6 Quit asks while agents run.
 
 Edge cases:
 - Holding ⌘D splits once.

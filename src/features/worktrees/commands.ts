@@ -1,5 +1,6 @@
 // The project, worktree and sheet commands for the commands table.
 import type { AppCommand } from "../../app/commands";
+import { cancelQuit, quitAsked } from "../quit/store";
 import { closeNewWorktree, newWorktree, openNewWorktree } from "./newWorktree";
 import { worktreeOrder } from "./projects";
 import { cancelDeletion, cancelForceRemoval, deletion, forceRemoval, pickProject, projects, removeProject, requestDelete, selectWorktree } from "./store";
@@ -10,12 +11,13 @@ function deleteWorktreeAt(path?: string) {
   if (owner && path) requestDelete(owner.path, path);
 }
 
-const sheetOpen = () => newWorktree.get().open || deletion.get() !== null || forceRemoval.get() !== null;
+const sheetOpen = () => newWorktree.get().open || deletion.get() !== null || forceRemoval.get() !== null || quitAsked.get();
 
 function closeSheets() {
   if (newWorktree.get().open) closeNewWorktree();
   cancelDeletion();
   cancelForceRemoval();
+  cancelQuit();
 }
 
 const selectCommands: AppCommand[] = Array.from({ length: 9 }, (_, i) => ({

@@ -32,7 +32,7 @@ function show(project: Project) {
 // The saved worktree comes back once its project's list has loaded; one that no longer exists stays unselected.
 export function loadProjects(list: Project[], saved: string | null) {
   const loaded = list.map((project) => show(project).then(() => update((p) => withSavedSelection(p, saved))));
-  void Promise.all(loaded).then(pruneVanishedPanes);
+  return Promise.all(loaded).then(pruneVanishedPanes);
 }
 
 // Only when every project's list loaded and none is empty: a failed load must not wipe saved layouts.
