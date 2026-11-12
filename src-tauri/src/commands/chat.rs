@@ -5,7 +5,7 @@ use std::sync::Mutex;
 
 use chord_core::harness::pi::DEFAULT_BINARY;
 use chord_core::harness::sessions::Sessions;
-use chord_core::{Capability, Error, HarnessEvent, Image, images};
+use chord_core::{Capability, DialogAnswer, Error, HarnessEvent, Image, images};
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::DialogExt;
@@ -64,6 +64,20 @@ pub async fn send_message(
 ) -> Result<(), String> {
     blocking(app, move |app, _| {
         app.state::<Sessions>().send(&pane, &text, &images)
+    })
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn answer_dialog(
+    app: AppHandle,
+    pane: String,
+    id: String,
+    answer: DialogAnswer,
+) -> Result<(), String> {
+    blocking(app, move |app, _| {
+        app.state::<Sessions>().answer_dialog(&pane, &id, &answer)
     })
     .await
 }

@@ -1,5 +1,5 @@
 // Rules for a chat's transcript: how each harness event changes the messages, the run flag, the notice and the status report.
-import type { Capability, HarnessEvent, Image } from "../../ipc/bindings";
+import type { Capability, DialogAsk, HarnessEvent, Image } from "../../ipc/bindings";
 import { stampedReport, type StatusReport } from "../status/status.ts";
 
 export type Message = { role: "user" | "assistant"; text: string; streaming: boolean; /** The images a user message carried. */ images?: Image[] };
@@ -13,6 +13,9 @@ export type StepGroup = { role: "steps"; steps: Step[] };
 
 export type Item = Message | StepGroup;
 
+/** A dialog the agent waits on; `id` goes back with the answer. */
+export type OpenDialog = { id: string; title: string; ask: DialogAsk };
+
 export type Chat = {
   /** idle: no agent runs (the Start button shows); starting: the process is coming up; ready: it takes messages. */
   agent: "idle" | "starting" | "ready";
@@ -23,13 +26,15 @@ export type Chat = {
   /** What the harness can do; null until the agent has started. */
   capabilities: Capability[] | null;
   notice: string | null;
+  /** The dialog the agent waits on, shown over the composer. */
+  dialog: OpenDialog | null;
   /** Steering messages the agent has not taken in yet. */
   queued: string[];
   /** The status Rust reported; null until the first run. */
   report: StatusReport | null;
 };
 
-export const emptyChat: Chat = { agent: "idle", items: [], running: false, since: null, capabilities: null, notice: null, queued: [], report: null };
+export const emptyChat: Chat = { agent: "idle", items: [], running: false, since: null, capabilities: null, notice: null, dialog: null, queued: [], report: null };
 
 const closed = (items: Item[]): Item[] => items.map((item) => (item.role !== "steps" && item.streaming ? { ...item, streaming: false } : item));
 
@@ -69,8 +74,23 @@ export function stepsSummary(steps: Step[]): string {
   return parts.join(", ");
 }
 
+// Mirrors the events that clear a dialog in Rust's `status_for`; `exited` also clears it, as nobody is left to answer.
+const movesOn = (event: HarnessEvent): boolean =>
+  event.kind === "message_chunk" ||
+  event.kind === "thought_start" ||
+  event.kind === "thought_chunk" ||
+  event.kind === "tool_start" ||
+  event.kind === "tool_end" ||
+  event.kind === "exited" ||
+  (event.kind === "state" && event.running);
+
 /** `now` is the event's arrival time in ms since the epoch; it stamps when a run starts and when the status changes. */
 export function chatAfter(chat: Chat, event: HarnessEvent, now: number): Chat {
+  const next = applied(chat, event, now);
+  return next.dialog && movesOn(event) ? { ...next, dialog: null } : next;
+}
+
+function applied(chat: Chat, event: HarnessEvent, now: number): Chat {
   switch (event.kind) {
     case "user_message_chunk":
       return { ...chat, items: [...closed(chat.items), { role: "user", text: event.text, streaming: false, images: event.images }] };
@@ -104,7 +124,7 @@ export function chatAfter(chat: Chat, event: HarnessEvent, now: number): Chat {
       return chat;
     }
     case "dialog":
-      return chat;
+      return { ...chat, dialog: { id: event.id, title: event.title, ask: event.ask } };
     case "queue":
       return { ...chat, queued: event.steering };
     case "message_end":

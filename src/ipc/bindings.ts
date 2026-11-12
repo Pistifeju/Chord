@@ -17,6 +17,7 @@ export const commands = {
 	readGitCounts: (worktrees: string[]) => __TAURI_INVOKE<GitCounts_Serialize[]>("read_git_counts", { worktrees }),
 	startChat: (worktree: string, pane: string, onEvent: Channel<HarnessEvent_Deserialize>) => __TAURI_INVOKE<Capability[]>("start_chat", { worktree, pane, onEvent }),
 	sendMessage: (pane: string, text: string, images: Image[]) => __TAURI_INVOKE<null>("send_message", { pane, text, images }),
+	answerDialog: (pane: string, id: string, answer: DialogAnswer) => __TAURI_INVOKE<null>("answer_dialog", { pane, id, answer }),
 	/**  Asks for image files with one of the extensions; no pick gives an empty list. */
 	pickImages: (extensions: string[]) => __TAURI_INVOKE<string[]>("pick_images", { extensions }),
 	readImageFile: (path: string) => __TAURI_INVOKE<string>("read_image_file", { path }),
@@ -55,6 +56,14 @@ export type Capability =
 "attachments" | 
 /**  A message sent while the agent runs steers the run. */
 "steer";
+
+/**  The user's answer to a dialog. */
+export type DialogAnswer = 
+/**  The chosen option or the entered text. */
+{ kind: "value"; value: string } | { kind: "confirmed"; confirmed: boolean } | { kind: "cancelled" };
+
+/**  What a dialog asks. */
+export type DialogAsk = { kind: "select"; options: string[] } | { kind: "confirm"; message: string } | { kind: "input"; placeholder: string };
 
 export type Direction = 
 /**  Children sit side by side. */
@@ -97,8 +106,8 @@ export type HarnessEvent_Deserialize =
 { kind: "tool_end"; id: string; outcome: ToolOutcome; images: Image[] } | 
 /**  The streaming reply is complete; `failed` when it ended in an error. */
 { kind: "message_end"; failed: boolean } | 
-/**  The agent opened a dialog and waits for an answer. */
-{ kind: "dialog" } | 
+/**  The agent opened a dialog and waits for an answer; `id` goes back with it. */
+{ kind: "dialog"; id: string; title: string; ask: DialogAsk } | 
 /**  The steering messages the agent has not taken in yet, oldest first; the whole queue each time. */
 { kind: "queue"; steering: string[] } | 
 /**  The agent started or finished work. */
@@ -125,8 +134,8 @@ export type HarnessEvent_Serialize =
 { kind: "tool_end"; id: string; outcome: ToolOutcome; images: Image[] } | 
 /**  The streaming reply is complete; `failed` when it ended in an error. */
 { kind: "message_end"; failed: boolean } | 
-/**  The agent opened a dialog and waits for an answer. */
-{ kind: "dialog" } | 
+/**  The agent opened a dialog and waits for an answer; `id` goes back with it. */
+{ kind: "dialog"; id: string; title: string; ask: DialogAsk } | 
 /**  The steering messages the agent has not taken in yet, oldest first; the whole queue each time. */
 { kind: "queue"; steering: string[] } | 
 /**  The agent started or finished work. */

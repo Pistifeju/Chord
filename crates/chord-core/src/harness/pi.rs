@@ -13,7 +13,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::shell::read_only_title;
-use super::{Capability, HarnessEvent, Image, ToolOutcome};
+use super::{Capability, DialogAnswer, DialogAsk, HarnessEvent, Image, ToolOutcome};
 use crate::Error;
 
 /// The binary to run when the user chose none.
@@ -107,6 +107,11 @@ impl Session {
         self.write(&json!({ "type": "abort" }))
     }
 
+    /// Answers the dialog pi asked with `id`.
+    pub fn answer_dialog(&self, id: &str, answer: &DialogAnswer) -> Result<(), Error> {
+        self.write(&dialog_response(id, answer))
+    }
+
     fn write(&self, command: &Value) -> Result<(), Error> {
         let mut stdin = self.stdin.lock().unwrap_or_else(|e| e.into_inner());
         writeln!(stdin, "{command}")?;
@@ -130,6 +135,16 @@ fn prompt_command(text: &str, images: &[Image]) -> Value {
         .map(|image| json!({ "type": "image", "data": image.data, "mimeType": image.mime_type }))
         .collect();
     json!({ "type": "prompt", "message": text, "images": images, "streamingBehavior": "steer" })
+}
+
+fn dialog_response(id: &str, answer: &DialogAnswer) -> Value {
+    let mut response = json!({ "type": "extension_ui_response", "id": id });
+    match answer {
+        DialogAnswer::Value { value } => response["value"] = json!(value),
+        DialogAnswer::Confirmed { confirmed } => response["confirmed"] = json!(confirmed),
+        DialogAnswer::Cancelled => response["cancelled"] = json!(true),
+    }
+    response
 }
 
 // Stdout closed, so the process is ending; it gets a moment to report its code.
@@ -319,15 +334,7 @@ fn events_from(record: &Value) -> Vec<HarnessEvent> {
                 .filter_map(|text| text.as_str().map(String::from))
                 .collect(),
         }],
-        // Select, confirm, input and editor wait for an answer; notify and the status methods do not.
-        Some("extension_ui_request")
-            if matches!(
-                record["method"].as_str(),
-                Some("select" | "confirm" | "input" | "editor")
-            ) =>
-        {
-            vec![HarnessEvent::Dialog]
-        }
+        Some("extension_ui_request") => dialog_from(record).into_iter().collect(),
         Some("response") if record["success"] == false => vec![HarnessEvent::Notice {
             text: record["error"]
                 .as_str()
@@ -336,6 +343,33 @@ fn events_from(record: &Value) -> Vec<HarnessEvent> {
         }],
         _ => vec![],
     }
+}
+
+// Select, confirm and input wait for an answer; notify and the status methods do not.
+fn dialog_from(record: &Value) -> Option<HarnessEvent> {
+    let text = |key: &str| record[key].as_str().unwrap_or_default().to_string();
+    let ask = match record["method"].as_str()? {
+        "select" => DialogAsk::Select {
+            options: record["options"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|option| option.as_str().map(String::from))
+                .collect(),
+        },
+        "confirm" => DialogAsk::Confirm {
+            message: text("message"),
+        },
+        "input" => DialogAsk::Input {
+            placeholder: text("placeholder"),
+        },
+        _ => return None,
+    };
+    Some(HarnessEvent::Dialog {
+        id: text("id"),
+        title: text("title"),
+        ask,
+    })
 }
 
 fn message_update(update: &Value) -> Vec<HarnessEvent> {
@@ -621,8 +655,38 @@ mod tests {
         let dialog = r#"{"type":"extension_ui_request","id":"u1","method":"select","title":"Pick","options":["a"]}"#;
         let notify =
             r#"{"type":"extension_ui_request","id":"u2","method":"notify","message":"hi"}"#;
-        assert_eq!(events(dialog), vec![HarnessEvent::Dialog]);
+        assert_eq!(
+            events(dialog),
+            vec![HarnessEvent::Dialog {
+                id: "u1".into(),
+                title: "Pick".into(),
+                ask: DialogAsk::Select {
+                    options: vec!["a".into()]
+                },
+            }]
+        );
         assert_eq!(events(notify), vec![]);
+    }
+
+    #[test]
+    fn an_answer_goes_back_under_the_request_id() {
+        assert_eq!(
+            dialog_response(
+                "u1",
+                &DialogAnswer::Value {
+                    value: "Allow".into()
+                }
+            ),
+            json!({"type": "extension_ui_response", "id": "u1", "value": "Allow"})
+        );
+        assert_eq!(
+            dialog_response("u2", &DialogAnswer::Confirmed { confirmed: false }),
+            json!({"type": "extension_ui_response", "id": "u2", "confirmed": false})
+        );
+        assert_eq!(
+            dialog_response("u3", &DialogAnswer::Cancelled),
+            json!({"type": "extension_ui_response", "id": "u3", "cancelled": true})
+        );
     }
 
     #[test]

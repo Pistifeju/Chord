@@ -4,9 +4,10 @@ import { activeSession } from "../panes/sessions";
 import { panes } from "../panes/store";
 import { settingsOpen } from "../settings/store";
 import { projects } from "../worktrees/store";
+import { sheet } from "../../app/sheet";
 import { closeFind, finds, openFind } from "./find";
 import { closeLightbox, lightboxes, stepLightbox } from "./viewing";
-import { abortRun, chatOf, chats, pickAttachments } from "./store";
+import { abortRun, answerDialog, chatOf, chats, pickAttachments } from "./store";
 
 const focusedPane = (): string | null => {
   const { selected } = projects.get();
@@ -23,6 +24,11 @@ const runningPane = (): string | null => {
 const findingPane = (): string | null => {
   const pane = focusedPane();
   return pane && finds.get()[pane] ? pane : null;
+};
+
+const dialogPane = (): string | null => {
+  const pane = focusedPane();
+  return pane && sheet.get() === null && chatOf(chats.get(), pane).dialog ? pane : null;
 };
 
 const lightboxPane = (): string | null => {
@@ -95,6 +101,17 @@ export const chatCommands: AppCommand[] = [
     run: () => {
       const pane = findingPane();
       if (pane) closeFind(pane);
+    },
+  },
+  {
+    id: "chat.dialogCancel",
+    title: "Cancel Dialog",
+    shortcut: { key: "escape" },
+    when: () => dialogPane() !== null,
+    run: () => {
+      const pane = dialogPane();
+      const dialog = pane && chatOf(chats.get(), pane).dialog;
+      if (pane && dialog) answerDialog(pane, dialog.id, { kind: "cancelled" });
     },
   },
   {

@@ -5,6 +5,7 @@ import { tooltip } from "../../app/commands";
 import type { Image } from "../../ipc/bindings";
 import { ArrowDownIcon, ArrowUpIcon, ChevronIcon, CloseIcon, PaperclipIcon, SparkleIcon } from "../../ui/icons";
 import { imageMime, imageUrl, isImageType, type Attachment } from "./attachments";
+import { DialogPanel } from "./DialogPanel";
 import { FindBar } from "./FindBar";
 import { finds } from "./find";
 import { Markdown } from "./MarkdownView";
@@ -158,9 +159,10 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
     return () => void unlisten.then((stop) => stop());
   }, [canAttach, pane]);
 
+  const dialogOpen = chat.dialog !== null;
   useEffect(() => {
     if (ready && focused) composer.current?.focus();
-  }, [ready, focused]);
+  }, [ready, focused, dialogOpen]);
 
   // Follow the reply while the reader sits at the bottom; reading further up pauses it.
   useLayoutEffect(() => {
@@ -250,7 +252,8 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
           <StartButton worktree={worktree} pane={pane} />
         </div>
       )}
-      {chat.agent !== "idle" && (
+      {chat.dialog && <DialogPanel key={chat.dialog.id} pane={pane} dialog={chat.dialog} />}
+      {chat.agent !== "idle" && !chat.dialog && (
         <div className="chat-composer">
           {waiting.length > 0 && (
             <div className="chat-attachments">

@@ -1,6 +1,6 @@
 // Connects the transcript rules to IPC: one chat per pane, started, fed by the agent's events, stopped.
 import { Channel } from "@tauri-apps/api/core";
-import { commands, type HarnessEvent, type Image } from "../../ipc/bindings";
+import { commands, type DialogAnswer, type HarnessEvent, type Image } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
 import { fileName, imageExtensions, imageMime, type Attachment } from "./attachments";
 import { chatAfter, emptyChat, type Chat } from "./transcript";
@@ -90,6 +90,12 @@ export function sendMessage(pane: string, text: string) {
     .sendMessage(pane, text, sent.map((a) => a.image))
     .then(() => attachments.set({ ...attachments.get(), [pane]: (attachments.get()[pane] ?? []).filter((a) => !sent.includes(a)) }))
     .catch((error) => noticeOf(pane, error));
+}
+
+// The dialog closes at once; a refused answer shows as a notice.
+export function answerDialog(pane: string, id: string, answer: DialogAnswer) {
+  update(pane, (chat) => (chat.dialog?.id === id ? { ...chat, dialog: null } : chat));
+  commands.answerDialog(pane, id, answer).catch((error) => noticeOf(pane, error));
 }
 
 export function abortRun(pane: string) {

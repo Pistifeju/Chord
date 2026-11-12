@@ -26,6 +26,29 @@ pub struct Image {
     pub mime_type: String,
 }
 
+/// What a dialog asks.
+#[derive(Serialize, Type, Debug, Clone, PartialEq)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum DialogAsk {
+    Select { options: Vec<String> },
+    Confirm { message: String },
+    Input { placeholder: String },
+}
+
+/// The user's answer to a dialog.
+#[derive(Deserialize, Type, Debug, Clone, PartialEq)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum DialogAnswer {
+    /// The chosen option or the entered text.
+    Value {
+        value: String,
+    },
+    Confirmed {
+        confirmed: bool,
+    },
+    Cancelled,
+}
+
 #[derive(Serialize, Type, Debug, Clone, Copy, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum ToolOutcome {
@@ -59,8 +82,12 @@ pub enum HarnessEvent {
     },
     /// The streaming reply is complete; `failed` when it ended in an error.
     MessageEnd { failed: bool },
-    /// The agent opened a dialog and waits for an answer.
-    Dialog,
+    /// The agent opened a dialog and waits for an answer; `id` goes back with it.
+    Dialog {
+        id: String,
+        title: String,
+        ask: DialogAsk,
+    },
     /// The steering messages the agent has not taken in yet, oldest first; the whole queue each time.
     Queue { steering: Vec<String> },
     /// The agent started or finished work.
@@ -143,7 +170,7 @@ pub fn status_for(tracker: &mut StatusTracker, event: &HarnessEvent) -> Option<S
             tracker.failed = false;
         }
         HarnessEvent::State { running: false } => tracker.running = false,
-        HarnessEvent::Dialog => tracker.dialog = true,
+        HarnessEvent::Dialog { .. } => tracker.dialog = true,
         HarnessEvent::MessageChunk { text } => {
             if !tracker.reply_open {
                 tracker.reply_open = true;
@@ -211,7 +238,14 @@ mod tests {
 
     #[test]
     fn an_open_dialog_waits_until_the_agent_goes_on() {
-        let mut events = vec![HarnessEvent::State { running: true }, HarnessEvent::Dialog];
+        let mut events = vec![
+            HarnessEvent::State { running: true },
+            HarnessEvent::Dialog {
+                id: "u1".into(),
+                title: "Pick".into(),
+                ask: DialogAsk::Confirm { message: "".into() },
+            },
+        ];
         assert_eq!(last_status(&events), Some(Status::Waiting));
         events.push(HarnessEvent::ToolEnd {
             id: "a".into(),

@@ -108,3 +108,13 @@ test("a group's images are its calls' images in call order", () => {
   ];
   assert.deepEqual(stepImages(steps), [a, b, c]);
 });
+
+test("a dialog stays open until the agent goes on", () => {
+  const ask = { kind: "confirm", message: "Sure?" } as const;
+  let chat = chatAfter(emptyChat, { kind: "dialog", id: "u1", title: "Clear", ask }, 0);
+  assert.deepEqual(chat.dialog, { id: "u1", title: "Clear", ask });
+  chat = chatAfter(chat, { kind: "queue", steering: [] }, 0);
+  assert.equal(chat.dialog?.id, "u1");
+  chat = chatAfter(chat, { kind: "tool_start", id: "t", title: "Read", detail: "a" }, 0);
+  assert.equal(chat.dialog, null);
+});
