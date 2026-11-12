@@ -1,7 +1,8 @@
 // Connects the session and layout rules to IPC: each worktree's tabs and panes, their agents, saved through Rust.
 import { commands, type Direction, type Layout, type WorktreePanes } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
-import { forgetChat, startChat } from "../chat/store";
+import { closeSheet, openSheet, type Sheet } from "../../app/sheet";
+import { chats, forgetChat, startChat } from "../chat/store";
 import { paneChanges, resumedPanes, vanishedWorktrees } from "./agents";
 import { withEvenSizes, withSizes, type Edge } from "./layout";
 import { activeSession, firstPanes, withActiveSession, withFocus, withLayout, withNewSession, withoutPaneClosed, withSessionClosed, withSessionDropped, withSplitFocused } from "./sessions";
@@ -59,9 +60,29 @@ export const newSession = (worktree: string) => change(worktree, (p) => withNewS
 
 export const closeFocused = (worktree: string) => closePane(worktree, activeSession(panesOf(worktree)).focused);
 
-export const closePane = (worktree: string, pane: string) => change(worktree, (p) => withoutPaneClosed(p, pane));
+type CloseAgents = Extract<Sheet, { kind: "closeAgents" }>;
 
-export const closeSession = (worktree: string, session: string) => change(worktree, (p) => withSessionClosed(p, session));
+const closeRule = ({ target, id }: Pick<CloseAgents, "target" | "id">) =>
+  target === "pane" ? (p: WorktreePanes) => withoutPaneClosed(p, id) : (p: WorktreePanes) => withSessionClosed(p, id);
+
+// A close that would stop a working agent asks first.
+function closeAsking(worktree: string, target: CloseAgents["target"], id: string) {
+  const current = panesOf(worktree);
+  const { gone } = paneChanges(current, closeRule({ target, id })(current));
+  if (gone.some((pane) => chats.get()[pane]?.running)) openSheet({ kind: "closeAgents", worktree, target, id });
+  else change(worktree, closeRule({ target, id }));
+}
+
+export const closePane = (worktree: string, pane: string) => closeAsking(worktree, "pane", pane);
+
+export const closeSession = (worktree: string, session: string) => closeAsking(worktree, "session", session);
+
+export const cancelClose = () => closeSheet("closeAgents");
+
+export function confirmClose(sheet: CloseAgents) {
+  closeSheet("closeAgents");
+  change(sheet.worktree, closeRule(sheet));
+}
 
 export const selectSession = (worktree: string, session: string) => change(worktree, (p) => withActiveSession(p, session));
 
