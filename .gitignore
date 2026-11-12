@@ -8,3 +8,4 @@ src-tauri/gen/schemas
 .agents/.DS_Store
 .agents/skills/impeccable/
 .agents/skills/improve-animations/
+.impeccable/
