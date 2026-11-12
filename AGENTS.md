@@ -2,8 +2,8 @@
 
 A macOS workspace for coding agents: one git worktree per task, each with its own agent chats. Tauri 2, Rust, React/TS.
 
-- Scope: `SPEC.md`. Architecture: `ARCHITECTURE.md`. UI rules: `DESIGN.md`.
-- Module map: `find src crates src-tauri \( -name '*.ts*' -o -name '*.rs' \) | xargs head -1`. Line 1 of every source file says what the file holds.
+- Scope and tickets: `SPEC.md`. A ticket is one `- [ ]` row, named by its id (`D1`, `E2`). Architecture: `ARCHITECTURE.md`. UI rules: `DESIGN.md`.
+- Module map: `npm run map` prints every source file with its line 1, which says what the file holds. Run it first when you look for code, then read only the files you need, by name.
 
 ## Boundaries
 

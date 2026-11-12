@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "tauri": "tauri",
+    "map": "sh scripts/map.sh",
     "check": "tsc --noEmit && sh scripts/check-rules.sh && node --test \"src/**/*.test.ts\" && cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace",
     "bindings": "UPDATE_BINDINGS=1 cargo test -p chord bindings"
   },
