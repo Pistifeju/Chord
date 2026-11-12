@@ -78,7 +78,7 @@ Edge cases:
 - [x] D2 The worktree card shows status, last message and time. A session tab shows the status dot of its most urgent pane.
 - [x] D3 A finished pane shows a marker until you open it; its card too.
 - [x] D4 macOS notification for done and waiting, naming project and branch; a click opens the worktree and focuses the pane.
-- [ ] D5 Settings row: keep the Mac awake while an agent runs (`caffeinate`).
+- [x] D5 Settings row: keep the Mac awake while an agent runs (`caffeinate`).
 
 Edge cases:
 - A failure in status handling never breaks the agent.

@@ -17,6 +17,8 @@ pub struct State {
     pub projects: Vec<Project>,
     pub sidebar: Sidebar,
     pub appearance: Appearance,
+    /// Keep the Mac awake while an agent runs.
+    pub keep_awake: bool,
     /// Shortcuts the user changed, by command id. `None` means the command lost its key.
     #[serde(deserialize_with = "valid_shortcuts")]
     #[specta(type = BTreeMap<String, Option<Shortcut>>)]

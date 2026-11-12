@@ -23,6 +23,8 @@ export const commands = {
 	showPanes: (panes: string[]) => __TAURI_INVOKE<void>("show_panes", { panes }),
 	/**  Stops every agent and ends the app once the user confirmed the quit. Panes stay saved as running, so they start again on launch. */
 	quitApp: () => __TAURI_INVOKE<null>("quit_app"),
+	/**  Saves the setting and applies it; a missing `caffeinate` fails before anything is saved. */
+	setKeepAwake: (enabled: boolean) => __TAURI_INVOKE<null>("set_keep_awake", { enabled }),
 };
 
 /* Types */
@@ -230,6 +232,8 @@ export type State_Deserialize = {
 	projects?: Project[],
 	sidebar?: Sidebar_Deserialize,
 	appearance?: Appearance_Deserialize,
+	/**  Keep the Mac awake while an agent runs. */
+	keepAwake?: boolean,
 	/**  Shortcuts the user changed, by command id. `None` means the command lost its key. */
 	shortcuts?: { [key in string]: Shortcut_Deserialize | null },
 	/**  The worktree open when the app last ran. */
@@ -244,6 +248,8 @@ export type State_Serialize = {
 	projects: Project[],
 	sidebar: Sidebar_Serialize,
 	appearance: Appearance_Serialize,
+	/**  Keep the Mac awake while an agent runs. */
+	keepAwake: boolean,
 	/**  Shortcuts the user changed, by command id. `None` means the command lost its key. */
 	shortcuts: { [key in string]: Shortcut_Serialize | null },
 	/**  The worktree open when the app last ran. */

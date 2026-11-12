@@ -1,5 +1,6 @@
 //! Chord's core: everything that runs without Tauri.
 
+mod awake;
 mod error;
 mod git;
 pub mod git_counts;

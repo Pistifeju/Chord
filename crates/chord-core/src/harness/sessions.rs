@@ -6,20 +6,24 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use super::pi::{Session, session_file};
 use super::{Capability, HarnessEvent, StatusTracker, status_for};
+use crate::awake::Awake;
 use crate::{Error, Store};
 
 pub struct Sessions {
     running: Mutex<HashMap<String, (PathBuf, Session)>>,
     store: Arc<Store>,
+    awake: Arc<Awake>,
     dir: PathBuf,
 }
 
 impl Sessions {
     /// `dir` holds one session file per pane.
     pub fn new(store: Arc<Store>, dir: PathBuf) -> Sessions {
+        let awake = Arc::new(Awake::new(store.get().keep_awake));
         Sessions {
             running: Mutex::default(),
             store,
+            awake,
             dir,
         }
     }
@@ -49,15 +53,21 @@ impl Sessions {
     ) -> Result<Vec<Capability>, Error> {
         let store = Arc::clone(&self.store);
         let exiting = pane.clone();
+        let awake = Arc::clone(&self.awake);
         let tracker = Mutex::new(StatusTracker::default());
         let session = Session::start(
             binary,
             &worktree,
             &session_file(&self.dir, &pane)?,
             move |event| {
-                // An agent that ended on its own does not come back on launch.
-                if matches!(event, HarnessEvent::Exited { .. }) {
-                    let _ = store.update(|state| state.running_panes.remove(&exiting));
+                match event {
+                    HarnessEvent::State { running } => awake.set_working(&exiting, running),
+                    HarnessEvent::Exited { .. } => {
+                        awake.set_working(&exiting, false);
+                        // An agent that ended on its own does not come back on launch.
+                        let _ = store.update(|state| state.running_panes.remove(&exiting));
+                    }
+                    _ => {}
                 }
                 let mut tracker = tracker.lock().unwrap_or_else(PoisonError::into_inner);
                 let status = status_for(&mut tracker, &event);
@@ -92,6 +102,7 @@ impl Sessions {
         let file = session_file(&self.dir, pane)?;
         let session = self.sessions().remove(pane);
         drop(session);
+        self.awake.set_working(pane, false);
         self.store
             .update(|state| state.running_panes.remove(pane))?;
         let _ = std::fs::remove_file(file);
@@ -102,6 +113,12 @@ impl Sessions {
     pub fn stop_all(&self) {
         let stopped = std::mem::take(&mut *self.sessions());
         drop(stopped);
+        self.awake.clear();
+    }
+
+    /// Turns the setting on or off; on fails with `MissingTool` when `caffeinate` is missing, even with no agent working.
+    pub fn keep_awake(&self, enabled: bool) -> Result<(), Error> {
+        self.awake.set_enabled(enabled)
     }
 
     /// Returns once every agent in the worktree has ended, so git can remove its directory. Its saved panes stay, in case git refuses.
@@ -115,6 +132,9 @@ impl Sessions {
                 .map(|(pane, _)| pane.clone())
                 .collect();
             stopped.extend(panes.iter().filter_map(|pane| sessions.remove(pane)));
+            for pane in &panes {
+                self.awake.set_working(pane, false);
+            }
         }
         drop(stopped);
     }

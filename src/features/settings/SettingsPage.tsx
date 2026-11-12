@@ -1,10 +1,10 @@
-// The Settings page: one page of rows for the theme, the text size and every command's shortcut.
+// The Settings page: one page of rows for the theme, the text size, keep-awake and every command's shortcut.
 import { useState, type KeyboardEvent } from "react";
 import type { Theme } from "../../ipc/bindings";
 import { changeShortcut, commandTitles, resetShortcut, shortcutLabel, tooltip } from "../../app/commands";
 import { recordedShortcut } from "../../app/shortcuts";
 import { MinusIcon, PlusIcon } from "../../ui/icons";
-import { appearance, changeTextSize, setTheme, shortcutChanges } from "./store";
+import { appearance, changeTextSize, keepAwake, setKeepAwake, setTheme, shortcutChanges } from "./store";
 import "./settings.css";
 
 const themes: { value: Theme; label: string }[] = [
@@ -12,6 +12,34 @@ const themes: { value: Theme; label: string }[] = [
   { value: "light", label: "Light" },
   { value: "dark", label: "Dark" },
 ];
+
+function KeepAwakeRow() {
+  const enabled = keepAwake.use();
+  const [notice, setNotice] = useState("");
+  return (
+    <div className="settings-row">
+      <div>
+        <span className="settings-label">Keep the Mac awake while an agent runs</span>
+        <p className="settings-notice" role="status">
+          {notice}
+        </p>
+      </div>
+      <div className="segmented" role="radiogroup" aria-label="Keep the Mac awake while an agent runs">
+        {[true, false].map((value) => (
+          <button
+            key={String(value)}
+            type="button"
+            role="radio"
+            aria-checked={enabled === value}
+            onClick={() => setKeepAwake(value).then((error) => setNotice(error ?? ""))}
+          >
+            {value ? "On" : "Off"}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function ShortcutRows() {
   const changes = shortcutChanges.use();
@@ -104,6 +132,7 @@ export function SettingsPage() {
           </button>
         </div>
       </div>
+      <KeepAwakeRow />
       <ShortcutRows />
     </section>
   );
