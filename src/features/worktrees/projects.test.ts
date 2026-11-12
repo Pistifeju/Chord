@@ -1,7 +1,7 @@
 // Tests for the project list rules.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { branchName, noProjects, withProject, withoutProject, withoutWorktree, withSelectionRestored, withWorktrees } from "./projects.ts";
+import { branchName, noProjects, withProject, withoutProject, withoutWorktree, withSavedSelection, withSelectionRestored, withWorktrees } from "./projects.ts";
 
 test("removing a project clears the selection only when it held the selected worktree", () => {
   let projects = withProject(withProject(noProjects, { path: "/a", name: "a" }), { path: "/b", name: "b" });
@@ -35,4 +35,12 @@ test("a refused delete gives the selection back only when the delete had moved i
   assert.equal(withSelectionRestored(projects, "/a-one", "/a-one", "/a-two").selected, "/a-one");
   assert.equal(withSelectionRestored(projects, "/a-one", "/a", "/a-two").selected, "/a-two");
   assert.equal(withSelectionRestored({ ...projects, selected: "/a" }, "/a-one", "/a-one", "/a-two").selected, "/a");
+});
+
+test("the saved worktree is selected only if it still exists and nothing is selected yet", () => {
+  const projects = withWorktrees(withProject(noProjects, { path: "/a", name: "a" }), "/a", [{ path: "/a-one", branch: "one" }]);
+
+  assert.equal(withSavedSelection(projects, "/a-one").selected, "/a-one");
+  assert.equal(withSavedSelection(projects, "/gone").selected, null);
+  assert.equal(withSavedSelection({ ...projects, selected: "/a" }, "/a-one").selected, "/a");
 });

@@ -2,11 +2,16 @@
 import { commands, type Project } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
 import { sidebar, toggleFold } from "../sidebar/store";
-import { noProjects, withProject, withoutProject, withoutWorktree, withSelectionRestored, withWorktrees, type Projects } from "./projects";
+import { noProjects, withProject, withoutProject, withoutWorktree, withSavedSelection, withSelectionRestored, withWorktrees, type Projects } from "./projects";
 
 export const projects = externalStore(noProjects);
 
-const update = (change: (p: Projects) => Projects) => projects.set(change(projects.get()));
+const update = (change: (p: Projects) => Projects) => {
+  const before = projects.get().selected;
+  projects.set(change(projects.get()));
+  const { selected } = projects.get();
+  if (selected !== before) commands.setSelectedWorktree(selected).catch(console.error);
+};
 export const fail = (error: unknown) => update((p) => ({ ...p, error: String(error), errorIsNotice: false }));
 const notify = (text: string) => update((p) => ({ ...p, error: text, errorIsNotice: true }));
 
@@ -17,11 +22,14 @@ export async function refreshWorktrees(project: string) {
 
 function show(project: Project) {
   update((p) => withProject(p, project));
-  refreshWorktrees(project.path).catch(fail);
+  return refreshWorktrees(project.path).catch(fail);
 }
 
-export function loadProjects(list: Project[]) {
-  list.forEach(show);
+// The saved worktree comes back once its project's list has loaded; one that no longer exists stays unselected.
+export function loadProjects(list: Project[], saved: string | null) {
+  for (const project of list) {
+    void show(project).then(() => update((p) => withSavedSelection(p, saved)));
+  }
 }
 
 export async function pickProject() {

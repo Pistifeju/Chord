@@ -6,5 +6,5 @@ import { loadProjects } from "../features/worktrees/store";
 export async function launch() {
   const state = await commands.loadState();
   sidebar.set(state.sidebar);
-  loadProjects(state.projects);
+  loadProjects(state.projects, state.selected);
 }

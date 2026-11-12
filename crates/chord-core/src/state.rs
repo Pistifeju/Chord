@@ -15,6 +15,8 @@ use crate::{Error, Project};
 pub struct State {
     pub projects: Vec<Project>,
     pub sidebar: Sidebar,
+    /// The worktree open when the app last ran.
+    pub selected: Option<PathBuf>,
 }
 
 #[derive(Serialize, Deserialize, Type, Clone, Debug, Default, PartialEq)]

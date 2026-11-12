@@ -1,4 +1,4 @@
-//! Commands for projects and their worktrees: load, add, remove, list, create, delete, git counts.
+//! Commands for projects and their worktrees: load, save the selected worktree, add, remove, list, create, delete, git counts.
 
 use std::path::PathBuf;
 
@@ -14,6 +14,18 @@ use super::blocking;
 #[specta::specta]
 pub async fn load_state(app: AppHandle) -> Result<State, String> {
     blocking(app, |_, store| Ok(store.get())).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn set_selected_worktree(
+    app: AppHandle,
+    worktree: Option<PathBuf>,
+) -> Result<(), String> {
+    blocking(app, move |_, store| {
+        store.update(|state| state.selected = worktree)
+    })
+    .await
 }
 
 #[tauri::command]

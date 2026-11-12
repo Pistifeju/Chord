@@ -6,6 +6,7 @@ import { invoke as __TAURI_INVOKE } from "@tauri-apps/api/core";
 /** Commands */
 export const commands = {
 	loadState: () => __TAURI_INVOKE<State_Serialize>("load_state"),
+	setSelectedWorktree: (worktree: string | null) => __TAURI_INVOKE<null>("set_selected_worktree", { worktree }),
 	pickProject: () => __TAURI_INVOKE<Project | null>("pick_project"),
 	addProject: (folder: string) => __TAURI_INVOKE<Project>("add_project", { folder }),
 	removeProject: (project: string) => __TAURI_INVOKE<null>("remove_project", { project }),
@@ -86,11 +87,15 @@ export type State = State_Serialize | State_Deserialize;
 export type State_Deserialize = {
 	projects?: Project[],
 	sidebar?: Sidebar_Deserialize,
+	/**  The worktree open when the app last ran. */
+	selected?: string | null,
 };
 
 export type State_Serialize = {
 	projects: Project[],
 	sidebar: Sidebar_Serialize,
+	/**  The worktree open when the app last ran. */
+	selected: string | null,
 };
 
 export type Worktree = Worktree_Serialize | Worktree_Deserialize;

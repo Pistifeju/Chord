@@ -18,7 +18,7 @@ Tags:
 - [x] A2 Worktree card: branch name, ⌘1-9 hint. Other features add to it: git counts (B6), pane rows (C1), status (D2).
 - [x] A3 One commands table drives shortcuts, menu accelerators and tooltips.
 - [ ] A5 Light / dark / system theme; text size (⌘=, ⌘-, ⌘0). Settings rows for both.
-- [ ] A6 Restores the open project and worktree on launch.
+- [x] A6 Restores the open project and worktree on launch.
 
 Containers. The first feature that puts something in one builds it:
 

@@ -9,6 +9,7 @@ use tauri_specta::collect_commands;
 pub fn ipc() -> tauri_specta::Builder<tauri::Wry> {
     tauri_specta::Builder::new().commands(collect_commands![
         commands::projects::load_state,
+        commands::projects::set_selected_worktree,
         commands::projects::pick_project,
         commands::projects::add_project,
         commands::projects::remove_project,

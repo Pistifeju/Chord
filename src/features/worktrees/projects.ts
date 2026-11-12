@@ -60,6 +60,12 @@ export function withSelectionRestored(projects: Projects, path: string, before: 
   return before === path && projects.selected === afterDelete ? { ...projects, selected: path } : projects;
 }
 
+// The worktree saved from the last run is selected if it still exists and the user has not picked one since.
+export function withSavedSelection(projects: Projects, saved: string | null): Projects {
+  if (projects.selected !== null || saved === null) return projects;
+  return worktreeOrder(projects).includes(saved) ? { ...projects, selected: saved } : projects;
+}
+
 // Worktree paths in sidebar order, folded projects included; the first ones take the select shortcuts.
 export function worktreeOrder(projects: Projects): string[] {
   return projects.list.flatMap((p) => (projects.worktrees[p.path] ?? []).map((w) => w.path));
