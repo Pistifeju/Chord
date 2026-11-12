@@ -8,6 +8,7 @@ Tags:
 
 - **core**: needs no harness and no Xcode.
 - **harness(x)**: needs capability `x` from the harness adapter. Section 12 lists the capabilities.
+- **hard**: the riskiest tickets; give them the strongest agent.
 - **iOS**: goes into the `chord-ios` crate; its UI shows only in a worktree with an Xcode project.
 
 "Edge cases" lines are details a feature must keep.
@@ -97,7 +98,7 @@ Edge cases:
 - [x] E5 harness(tool-images): images a tool returns show in one thumbnail row below its step group, folded or open, and open in the E4 lightbox.
 - [ ] E6 harness(dialogs): extension dialogs (select, confirm, input) over the composer; a select marks the current option and filters long lists.
 - [ ] E7 harness(commands): slash menu with the typed part marked; a bubble shows `/skill:name`, not the expanded skill.
-- [ ] E8 harness(sessions): resume, fork, clone, tree, export, new; the session's name on its tab; history on restart.
+- [ ] E8 **hard** harness(sessions): resume, fork, clone, tree, export, new; the session's name on its tab; history on restart.
 - [ ] E9 harness(models): model picker with search; thinking level picker.
 - [ ] E10 harness(context): context meter with a limit warning; `/new` resets it.
 - [ ] E11 harness(usage): subscription usage (5h, weekly) in the status bar, with the reset as a clock time; stale windows hidden.
@@ -141,10 +142,10 @@ Edge cases:
 
 ## 8. Build and Run (iOS)
 
-- [ ] H1 ⌘R builds into the worktree's own DerivedData and runs on its own simulator; ⌘B builds only; ⌘. stops. Play / stop button in the tab bar.
+- [ ] H1 **hard** ⌘R builds into the worktree's own DerivedData and runs on its own simulator; ⌘B builds only; ⌘. stops. Play / stop button in the tab bar.
 - [ ] H2 Run destination picker in the tab bar, per project: connected devices above simulators. Settings row: the project's run destination.
 - [ ] H3 Build log and app console (stdout, stderr, OSLog) in the bottom panel, 10,000 lines, ⌘F. Build log toggle in the status bar.
-- [ ] H4 One build per worktree: ⌘R takes over; a preview build waits, then follows.
+- [ ] H4 **hard** One build per worktree: ⌘R takes over; a preview build waits, then follows.
 - [ ] H5 Caches: DerivedData, hot reload folders and simulators per worktree; one forget, one prune; stop other worktrees' simulators. Cache size and running simulators in the status bar.
 - [ ] H7 a missing `xcodebuild` or `xcrun` shows the install step.
 
@@ -156,15 +157,15 @@ Edge cases:
 
 ## 9. Simulator (iOS, private API)
 
-- [ ] I1 Simulator view in the side panel (⌘⇧S), with its tab bar button: live frames from the IOSurface, touch, pinch and rotate, Home, Lock, Shake, keyboard.
+- [ ] I1 **hard** Simulator view in the side panel (⌘⇧S), with its tab bar button: live frames from the IOSurface, touch, pinch and rotate, Home, Lock, Shake, keyboard.
 - [ ] I2 Fallback message and "Open in Simulator / DeviceHub" when the private API fails to load.
 - [ ] I3 Screenshot: thumbnail at the bottom right; drag it into Finder or any app. With harness(attachments): drag it into a pane, or click to paste it into the focused agent. Settings row, off by default: a folder to save screenshots in.
 - [ ] I4 No frame callbacks while the window is hidden.
 
 ## 10. SwiftUI previews (iOS, private API)
 
-- [ ] J1 Preview view in the side panel (⌘⇧P), on a second simulator in Chord's own device set; model picker per project; at most two preview simulators.
-- [ ] J2 Hot reload of the shown preview's file and the view files between it and the saved file; any other change rebuilds.
+- [ ] J1 **hard** Preview view in the side panel (⌘⇧P), on a second simulator in Chord's own device set; model picker per project; at most two preview simulators.
+- [ ] J2 **hard** Hot reload of the shown preview's file and the view files between it and the saved file; any other change rebuilds.
 - [ ] J3 Previews tab in the sidebar: every `#Preview` by file, search, ↑↓, search text and scroll kept per worktree.
 - [ ] J4 Compile error keeps the last frame under a red bar that opens the build log.
 
