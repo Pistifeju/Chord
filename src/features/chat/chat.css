@@ -8,11 +8,28 @@
   outline: none;
 }
 
+.chat-body {
+  --working-height: calc(8px + 16px * var(--text-scale));
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 .chat-transcript {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   mask-image: linear-gradient(to bottom, transparent, black 16px, black calc(100% - 16px), transparent);
+}
+
+.chat-body[data-running] .chat-transcript {
+  mask-image: linear-gradient(to bottom, transparent, black 16px, black calc(100% - 16px - var(--working-height)), transparent calc(100% - var(--working-height)));
+}
+
+.chat-body[data-running] .chat-messages {
+  padding-bottom: calc(16px + var(--working-height));
 }
 
 .chat-messages {
@@ -110,13 +127,19 @@
   color: var(--ink-muted);
 }
 
+/* The Working row floats over the transcript's foot, so a run's start resizes nothing and the jump button stays put. */
 .chat-working {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
   display: flex;
   align-items: center;
   gap: 8px;
   width: min(720px, 100% - 40px);
-  margin: 0 auto 8px;
-  padding: 0 8px;
+  height: var(--working-height);
+  margin: 0 auto;
+  padding: 0 8px 8px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -137,6 +160,109 @@
 .chat-working,
 .chat-notice {
   animation: chat-in var(--t-med) var(--ease-out);
+}
+
+/* Visibility waits for the fade-out, so the hidden button leaves the tab order after it has faded. */
+.chat-jump {
+  position: absolute;
+  bottom: calc(12px + var(--working-height));
+  left: 50%;
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--canvas);
+  color: var(--ink-secondary);
+  box-shadow: var(--shadow-control);
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, 8px) scale(0.9);
+  transition: opacity var(--t-med) var(--ease-out), transform var(--t-med) var(--ease-out), visibility 0s linear var(--t-med), background-color var(--t-fast) ease;
+}
+
+.chat-jump[data-shown] {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+  transition-delay: 0s;
+}
+
+.chat-jump:hover {
+  background: var(--raised);
+  color: var(--ink);
+}
+
+.chat-jump[data-shown]:active {
+  transform: translate(-50%, 0) scale(0.94);
+}
+
+/* While the agent writes, a comet runs around the rim, a halo breathes out and a sparkle turns in place of the arrow. */
+.chat-jump > svg {
+  animation: chat-fade var(--t-med) var(--ease-out);
+}
+
+.chat-jump[data-running] {
+  color: var(--accent-ink);
+}
+
+.chat-jump[data-running] > svg {
+  animation: chat-fade var(--t-med) var(--ease-out), chat-sparkle 2.4s ease-in-out infinite;
+}
+
+.chat-jump[data-running]::before,
+.chat-jump[data-running]::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.chat-jump[data-running]::before {
+  background: conic-gradient(transparent 0 55%, var(--accent-ink));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 1.5px), black calc(100% - 1px));
+  animation: chat-comet 1.2s linear infinite;
+}
+
+.chat-jump[data-running]::after {
+  animation: chat-halo 1.8s var(--ease-out) infinite;
+}
+
+@keyframes chat-comet {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@keyframes chat-halo {
+  from {
+    box-shadow: 0 0 0 0 var(--accent-wash);
+  }
+  to {
+    box-shadow: 0 0 0 8px transparent;
+  }
+}
+
+@keyframes chat-sparkle {
+  0% {
+    transform: rotate(0) scale(0.75);
+  }
+  50% {
+    transform: rotate(90deg) scale(1.05);
+  }
+  100% {
+    transform: rotate(180deg) scale(0.75);
+  }
+}
+
+@keyframes chat-sparkle-fade {
+  50% {
+    opacity: 0.5;
+  }
 }
 
 @keyframes chat-in {
@@ -245,5 +371,23 @@
 
   .chat-send:active:not(:disabled) {
     transform: none;
+  }
+
+  .chat-jump[data-running] > svg {
+    animation-name: chat-fade, chat-sparkle-fade;
+  }
+
+  .chat-jump[data-running]::before {
+    animation: none;
+  }
+
+  .chat-jump[data-running]::after {
+    animation: none;
+  }
+
+  .chat-jump,
+  .chat-jump[data-shown],
+  .chat-jump[data-shown]:active {
+    transform: translate(-50%, 0);
   }
 }

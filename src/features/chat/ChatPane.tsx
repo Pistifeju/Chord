@@ -1,6 +1,6 @@
 // The chat of one pane: transcript, composer, and a Start button while no agent runs.
 import { memo, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
-import { ArrowUpIcon, ChevronIcon } from "../../ui/icons";
+import { ArrowDownIcon, ArrowUpIcon, ChevronIcon, SparkleIcon } from "../../ui/icons";
 import { chatOf, chats, drafts, sendMessage, setDraft, startChat } from "./store";
 import { shownSteps, stepsSummary, type Item, type Message, type StepGroup } from "./transcript";
 import "./chat.css";
@@ -96,6 +96,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
   const composer = useRef<HTMLTextAreaElement>(null);
   const transcript = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
+  const [away, setAway] = useState(false);
   const ready = chat.agent === "ready";
   const hasChat = chat.capabilities === null || chat.capabilities.includes("chat");
 
@@ -107,13 +108,20 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
   useLayoutEffect(() => {
     const el = transcript.current;
     if (el && pinned.current) el.scrollTop = el.scrollHeight;
-  }, [chat.items]);
+  }, [chat.items, chat.running]);
+
+  const jumpToEnd = () => {
+    const el = transcript.current;
+    if (!el) return;
+    pinned.current = true;
+    const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollTo({ top: el.scrollHeight, behavior: smooth ? "smooth" : "auto" });
+  };
 
   const send = () => {
     const text = draft.trim();
     if (!text) return;
     setDraft(pane, "");
-    pinned.current = true;
     sendMessage(pane, text);
     composer.current?.focus();
   };
@@ -136,26 +144,33 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
         if (window.getSelection()?.isCollapsed !== false) composer.current?.focus();
       }}
     >
-      <div
-        className="chat-transcript"
-        ref={transcript}
-        onScroll={(e) => {
-          const el = e.currentTarget;
-          pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
-        }}
-      >
-        {chat.items.length === 0 && chat.agent === "idle" ? (
-          <div className="chat-empty">
-            <h1 className="chat-empty-title">No chat yet</h1>
-            <p className="chat-empty-text">Start an agent in this worktree.</p>
-            <StartButton worktree={worktree} pane={pane} />
-          </div>
-        ) : (
-          <Messages items={chat.items} running={chat.running} />
-        )}
+      <div className="chat-body" data-running={chat.running || undefined}>
+        <div
+          className="chat-transcript"
+          ref={transcript}
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            const fromEnd = el.scrollHeight - el.scrollTop - el.clientHeight;
+            pinned.current = fromEnd < 24;
+            setAway(fromEnd >= 72);
+          }}
+        >
+          {chat.items.length === 0 && chat.agent === "idle" ? (
+            <div className="chat-empty">
+              <h1 className="chat-empty-title">No chat yet</h1>
+              <p className="chat-empty-text">Start an agent in this worktree.</p>
+              <StartButton worktree={worktree} pane={pane} />
+            </div>
+          ) : (
+            <Messages items={chat.items} running={chat.running} />
+          )}
+        </div>
+        <button type="button" className="chat-jump" data-shown={away || undefined} data-running={chat.running || undefined} title="Jump to Latest" aria-label="Jump to Latest" onClick={jumpToEnd}>
+          {chat.running ? <SparkleIcon /> : <ArrowDownIcon />}
+        </button>
+        {chat.running && <Working since={chat.since ?? Date.now()} />}
       </div>
       {chat.notice && <p className="chat-notice">{chat.notice}</p>}
-      {chat.running && <Working since={chat.since ?? Date.now()} />}
       {chat.agent === "idle" && chat.items.length > 0 && (
         <div className="chat-restart">
           <span className="chat-hint">The agent stopped.</span>

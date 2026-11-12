@@ -28,6 +28,18 @@ export const ArrowUpIcon = () => (
   </Icon>
 );
 
+export const ArrowDownIcon = () => (
+  <Icon>
+    <path d="M8 3v10M3.5 8.5L8 13l4.5-4.5" strokeWidth="1.5" />
+  </Icon>
+);
+
+export const SparkleIcon = () => (
+  <Icon>
+    <path d="M8 1.5C8.6 5.4 10.6 7.4 14.5 8 10.6 8.6 8.6 10.6 8 14.5 7.4 10.6 5.4 8.6 1.5 8 5.4 7.4 7.4 5.4 8 1.5Z" fill="currentColor" stroke="none" />
+  </Icon>
+);
+
 export const PlusIcon = () => (
   <Icon>
     <path d="M8 3v10M3 8h10" />

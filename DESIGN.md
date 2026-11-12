@@ -293,7 +293,7 @@ Popover and sheet shadows include a 1px ring: black at 8% in light, white at 10%
 - The project chevron and a step group's chevron turn in 120ms.
 - In the chat, a message, a step row, the Working row and the notice fade in and rise 4px over 200ms with `--ease-out` when they arrive. A chat that opens with history shows it still.
 - The send button changes color over 120ms and presses to 97% scale.
-- Under Reduce Motion the sheet, scrim, toast and chevrons skip their animation, chat items only fade, the send button does not scale and spinners turn at a third of their speed.
+- Under Reduce Motion the sheet, scrim, toast and chevrons skip their animation, chat items only fade, the send button and the jump button do not move or scale, the jump scrolls instantly, its sparkle only fades, its comet stands still, its halo stays off and spinners turn at a third of their speed.
 
 ## Shapes
 
@@ -344,9 +344,11 @@ No pills. A circle appears only as the spinner and the status dot.
 
 - **User message:** right-aligned, 85% wide at most, on a `raised` card. The agent's message is plain text on the canvas.
 - **Step group:** thoughts and tool calls between two messages, one row in meta text: a toggle with a chevron and a count ("1 thought, 3 calls"), folded when the run is past it. While it runs it keeps the last thought (three lines at most) and the last three calls open; the toggle opens all steps. A call is its title (`ink-secondary`, `danger` when it failed) and its detail in mono on one line. A call the run left unfinished (stopped with Esc) has an `ink-muted` title.
-- **Working:** a row of meta text right above the composer while the agent runs: a 10px `accent-ink` spinner, a verb in `ink-secondary` ("Cooking…", "Locking in…", "Hold my beer…", "Going feral…"), the time since the run started ("14s", "2m 5s") and "esc stops". The run's start time picks the verb, so it holds for the whole run.
+- **Working:** a row of meta text right above the composer while the agent runs. It floats over the foot of the transcript, so a run's start resizes nothing; the transcript's bottom fade moves up to end at the row's top, and the text under the row hides; while it shows, the transcript ends that much lower. The row holds a 10px `accent-ink` spinner, a verb in `ink-secondary` ("Cooking…", "Locking in…", "Hold my beer…", "Going feral…"), the time since the run started ("14s", "2m 5s") and "esc stops". The run's start time picks the verb, so it holds for the whole run.
 - **Notice:** one line of `danger` meta text above the composer.
+- **Sending** keeps the transcript where the reader left it; it follows the reply only when the reader sits at the end.
 - **Composer:** a `panel` card with a 1px `line-strong` border. Focus inside changes nothing. Its bar holds the send button on the right: a 28px `accent` circle with a white up arrow, `raised` with `ink-disabled` arrow while the draft is empty. Its tooltip reads Send, or Steer while the agent runs.
+- **Jump to latest:** once the reader scrolls 72px or more above the end of the transcript, a 28px `canvas` circle with a 1px `line-strong` border, the control shadow and an `ink-secondary` down arrow sits centered 12px above the Working row's place, whether the row shows or not. While the agent runs, the button turns `accent-ink`: a 16px four-point sparkle takes the arrow's place and turns 90° while it grows from 75% to 105% and back every 1.2s, a comet (a conic `accent-ink` tail on the rim) circles the button once per 1.2s, and an `accent-wash` halo breathes 8px out every 1.8s. Hover takes `raised` and `ink`. A click scrolls smoothly to the end and resumes following the reply. It fades in and rises 8px from 90% scale over 200ms with `--ease-out`, fades out the same way once the reader is back at the end, and presses to 94% scale.
 - **Empty state:** a centered title, one muted line and the primary button.
 
 ### Sheets
