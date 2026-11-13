@@ -1,7 +1,7 @@
 // The strip under the main area: the subscription usage with the shortest window's bar while a harness reports it.
 import { useEffect, useState } from "react";
 import { usage } from "../features/usage/store";
-import { openWindows, usageText, usageTitle, usedPercent } from "../features/usage/usage";
+import { openWindows, usageLevel, usageText, usageTitle, usedPercent } from "../features/usage/usage";
 
 const REFRESH_MS = 60000;
 
@@ -20,7 +20,7 @@ export function StatusBar() {
       {open.length > 0 && (
         <span className="statusbar-usage" title={open.map((window) => usageTitle(window, now)).join("\n")}>
           {percent != null && (
-            <span className="usage-bar" aria-hidden>
+            <span className="usage-bar" data-level={usageLevel(percent)} aria-hidden>
               <span style={{ width: `${Math.min(percent, 100)}%` }} />
             </span>
           )}

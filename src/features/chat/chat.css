@@ -697,12 +697,20 @@
 }
 
 .chat-context-ring circle:last-child {
-  stroke: currentColor;
+  stroke: var(--accent-ink);
   transition: stroke-dasharray var(--t-med) var(--ease-out);
 }
 
-.chat-context-warning {
+.chat-context[data-level="warning"] {
   color: var(--status-waiting);
+}
+
+.chat-context[data-level="critical"] {
+  color: var(--status-error);
+}
+
+.chat-context:not([data-level="calm"]) .chat-context-ring circle:last-child {
+  stroke: currentColor;
 }
 
 .chat-send {

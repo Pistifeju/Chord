@@ -438,7 +438,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
                 </div>
               )}
               {context && (
-                <span className={context.warning ? "chat-context chat-context-warning" : "chat-context"} title={context.title} aria-label={context.title}>
+                <span className="chat-context" data-level={context.level} title={context.title} aria-label={context.title}>
                   <svg className="chat-context-ring" viewBox="0 0 14 14" aria-hidden="true">
                     <circle cx="7" cy="7" r="5.5" pathLength="100" />
                     <circle cx="7" cy="7" r="5.5" pathLength="100" style={{ strokeDasharray: `${context.percent ?? 0} 100` }} />

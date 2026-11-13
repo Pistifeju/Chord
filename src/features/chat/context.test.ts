@@ -9,12 +9,14 @@ const chat = (tokens: number | null) => ({ ...emptyChat, capabilities: ["context
 test("the meter shows the fill of the window", () => {
   const meter = contextMeter(chat(60000));
   assert.equal(meter?.percent, 30);
-  assert.equal(meter?.warning, false);
+  assert.equal(meter?.level, "calm");
 });
 
-test("the meter warns from 80 percent", () => {
-  assert.equal(contextMeter(chat(160000))?.warning, true);
-  assert.equal(contextMeter(chat(150000))?.warning, false);
+test("the meter warns from 50 percent and turns critical from 75", () => {
+  assert.equal(contextMeter(chat(98000))?.level, "calm");
+  assert.equal(contextMeter(chat(100000))?.level, "warning");
+  assert.equal(contextMeter(chat(148000))?.level, "warning");
+  assert.equal(contextMeter(chat(150000))?.level, "critical");
 });
 
 test("a window without a token count shows unknown", () => {

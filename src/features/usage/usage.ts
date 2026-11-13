@@ -1,5 +1,6 @@
 // Rules for the subscription usage in the status bar: which windows show and how a window reads.
 import type { UsageWindow } from "../../ipc/bindings";
+import type { FillLevel } from "../chat/context";
 
 const MINUTE = 60000;
 const DAY = 86400000;
@@ -12,6 +13,9 @@ export function usedPercent({ label }: UsageWindow): number | undefined {
   const match = label.match(/(\d+(?:\.\d+)?)%/);
   return match ? Number(match[1]) : undefined;
 }
+
+/** The bar warns above 70 percent and turns critical above 85. */
+export const usageLevel = (percent: number): FillLevel => (percent > 85 ? "critical" : percent > 70 ? "warning" : "calm");
 
 /** The time until a reset in its two largest units: "4d 6h", "2h 48m", "12m". */
 function timeLeft(ms: number): string {

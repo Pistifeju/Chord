@@ -1,7 +1,7 @@
 // Tests for the usage rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { openWindows, usageText } from "./usage.ts";
+import { openWindows, usageLevel, usageText } from "./usage.ts";
 
 test("a window whose reset has passed is hidden", () => {
   const windows = [
@@ -18,4 +18,11 @@ test("a window reads as its percentage and the time left in two units", () => {
   assert.equal(usageText({ label: "week 59%", resets_at: now + (4 * 24 + 6) * 3600000 + 59000 }, now), "59% 4d 6h");
   assert.equal(usageText({ label: "5h 3%", resets_at: now + 12 * 60000 }, now), "3% 12m");
   assert.equal(usageText({ label: "month", resets_at: null }, now), "month");
+});
+
+test("the bar warns above 70 percent and turns critical above 85", () => {
+  assert.equal(usageLevel(70), "calm");
+  assert.equal(usageLevel(71), "warning");
+  assert.equal(usageLevel(85), "warning");
+  assert.equal(usageLevel(86), "critical");
 });

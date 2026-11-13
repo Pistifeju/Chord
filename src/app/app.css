@@ -93,8 +93,16 @@
 .usage-bar > span {
   display: block;
   height: 100%;
-  background: var(--ink-muted);
+  background: var(--accent-ink);
   transition: width var(--t-med) var(--ease-out);
+}
+
+.usage-bar[data-level="warning"] > span {
+  background: var(--status-waiting);
+}
+
+.usage-bar[data-level="critical"] > span {
+  background: var(--status-error);
 }
 
 @media (prefers-reduced-motion: reduce) {
