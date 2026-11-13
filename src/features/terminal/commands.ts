@@ -3,7 +3,7 @@ import type { AppCommand } from "../../app/commands";
 import { settingsOpen } from "../settings/store";
 import { projects } from "../worktrees/store";
 import { closeTerminalFind, openTerminalFind, terminalFinds } from "./find";
-import { focusTerminal, toggleTerminal } from "./store";
+import { toggleTerminal } from "./focus";
 
 // The selected worktree's terminal while the focus is in it or in its find bar.
 const focusedTerminal = (): string | null => {
@@ -41,7 +41,8 @@ export const terminalCommands: AppCommand[] = [
       const worktree = focusedTerminal();
       if (!worktree) return;
       closeTerminalFind(worktree);
-      focusTerminal(worktree);
+      // The focus sits in the terminal, so its xterm store has loaded and the import resolves at once.
+      void import("./store").then(({ focusTerminal }) => focusTerminal(worktree));
     },
   },
 ];

@@ -1,12 +1,10 @@
 // The worktree's terminal in the bottom panel: a header with its title and Hide button, then the xterm and its find bar.
 import { useEffect, useRef } from "react";
-import "@xterm/xterm/css/xterm.css";
 import { tooltip } from "../../app/commands";
 import { CloseIcon } from "../../ui/icons";
 import { terminalFinds } from "./find";
 import { hideTerminal, showTerminal } from "./store";
 import { TerminalFind } from "./TerminalFind";
-import "./terminal.css";
 
 export function TerminalView({ worktree }: { worktree: string }) {
   const container = useRef<HTMLDivElement>(null);

@@ -1,7 +1,8 @@
-// Launch: loads the saved state from Rust into the feature stores, and holds the window back until all of it, the git counts and the resumed chats' history have arrived.
+// Launch: loads the saved state from Rust into the feature stores, and holds the window back until all of it, the git counts, the resumed chats' history and the deferred views have arrived.
 import { commands } from "../ipc/bindings";
 import { loadShortcutChanges } from "./commands";
 import { installAppMenu } from "./appMenu";
+import { loadDeferredViews } from "./deferredViews";
 import { keepAwake, loadAppearance } from "../features/settings/store";
 import { loadPanes, resumeAgents } from "../features/panes/store";
 import { sidebar } from "../features/sidebar/store";
@@ -20,6 +21,7 @@ const historyWait = () => new Promise<void>((resolve) => setTimeout(resolve, HIS
 export async function launch() {
   try {
     installAppMenu().catch(console.error);
+    const views = loadDeferredViews();
     const state = await commands.loadState();
     loadAppearance(state.appearance);
     keepAwake.set(state.keepAwake);
@@ -31,7 +33,7 @@ export async function launch() {
     await loadProjects(state.projects, state.selected);
     // A pi that never sends its history must not keep the window hidden; its chat fills in once it does.
     const resumed = Promise.race([resumeAgents(state.runningPanes, worktreeOrder(projects.get())), historyWait()]);
-    await Promise.all([loadGitCounts(), resumed]);
+    await Promise.all([loadGitCounts(), resumed, views]);
   } finally {
     launched.set(true);
   }

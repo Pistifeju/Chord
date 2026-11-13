@@ -9,7 +9,6 @@ import { commands } from "../../ipc/bindings";
 import { fail } from "../worktrees/store";
 import { changedOnDisk, flushSave, readFile, scheduleSave } from "./store";
 import { editorTheme } from "./theme";
-import "./editor.css";
 
 /** Milliseconds between two looks at the file's change time. */
 const CHANGE_CHECK_DELAY = 1000;

@@ -14,7 +14,8 @@ import { BottomPanel } from "../bottompanel/BottomPanel";
 import { SidePanel } from "../sidepanel/SidePanel";
 import { sidePanelOf, sidePanels, toggleSidePanel } from "../sidepanel/store";
 import { sidebar } from "../sidebar/store";
-import { Editor } from "../editor/Editor";
+import { editorView } from "../../app/deferredViews";
+import "../editor/editor.css";
 import { ImageView } from "../editor/ImageView";
 import { noFiles } from "../editor/openFiles";
 import { closeFile, dropFile, openFile } from "../editor/showing";
@@ -251,7 +252,9 @@ function Divider({ place, path, index, direction, sizes, container }: DividerPro
 // An open file: the image view for an image, otherwise the editor.
 function FileView({ worktree, path, autoFocus, onGone }: { worktree: string; path: string; autoFocus: boolean; onGone: () => void }) {
   const mime = imageMime(path);
-  return mime ? <ImageView worktree={worktree} path={path} mime={mime} onGone={onGone} /> : <Editor worktree={worktree} path={path} autoFocus={autoFocus} onGone={onGone} />;
+  const editor = editorView.use();
+  if (mime) return <ImageView worktree={worktree} path={path} mime={mime} onGone={onGone} />;
+  return editor && <editor.Editor worktree={worktree} path={path} autoFocus={autoFocus} onGone={onGone} />;
 }
 
 function LayoutView({ layout, path, place }: { layout: Layout; path: number[]; place: Place }) {

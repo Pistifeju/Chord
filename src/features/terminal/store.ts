@@ -6,19 +6,18 @@ import { SearchAddon, type ISearchResultChangeEvent } from "@xterm/addon-search"
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal, type ITheme } from "@xterm/xterm";
 import { commands, type TerminalEvent } from "../../ipc/bindings";
-import { bottomPanelOf, bottomPanels, showBottomPanel } from "../bottompanel/store";
+import { showBottomPanel } from "../bottompanel/store";
 import { appearance } from "../settings/store";
 import { fail } from "../worktrees/store";
 import { closeTerminalFind } from "./find";
 import { isOverTerminal } from "./drop";
+import { takesFocusOnShow } from "./focus";
 import { droppedPathsText } from "./paths";
 import { webUrlsIn } from "../../ui/webUrls";
 
 type Shell = { term: Terminal; fit: FitAddon; search: SearchAddon; host: HTMLDivElement };
 
 const shells = new Map<string, Shell>();
-// The worktree whose terminal takes the focus once it shows: the one ⌘T just opened.
-let focusOnShow: string | null = null;
 
 const ansiColors = ["black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"].flatMap((name) => [name, `bright${name[0].toUpperCase()}${name.slice(1)}`]);
 
@@ -77,12 +76,6 @@ function fitNow({ term, fit }: Shell) {
 }
 
 export const hideTerminal = (worktree: string) => showBottomPanel(worktree, false);
-
-export function toggleTerminal(worktree: string) {
-  const open = !bottomPanelOf(bottomPanels.get(), worktree).open;
-  focusOnShow = open ? worktree : null;
-  showBottomPanel(worktree, open);
-}
 
 // The shell is gone: its terminal goes, and the panel closes.
 function forget(worktree: string) {
@@ -207,10 +200,7 @@ export function showTerminal(worktree: string, container: HTMLElement): () => vo
       term.focus();
     }
   });
-  if (focusOnShow === worktree) {
-    focusOnShow = null;
-    term.focus();
-  }
+  if (takesFocusOnShow(worktree)) term.focus();
   return () => {
     cancelAnimationFrame(frame);
     resized.disconnect();
