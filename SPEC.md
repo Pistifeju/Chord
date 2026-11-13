@@ -139,7 +139,7 @@ Edge cases:
 
 - [x] G1 One login shell per worktree (⌘T) in the bottom panel, shown or hidden per worktree. Settings row: terminal font size.
 - [x] G2 ⌘F searches the terminal or log that has focus.
-- [ ] G3 Drop files on the terminal to paste their paths; links open in the browser.
+- [x] G3 Drop files on the terminal to paste their paths; links open in the browser.
 
 Edge cases:
 - The shell is the user's `$SHELL` as a login shell, so PATH and API keys match their terminal.

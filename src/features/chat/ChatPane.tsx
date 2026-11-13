@@ -3,6 +3,7 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { memo, useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type CSSProperties, type KeyboardEvent } from "react";
 import { tooltip } from "../../app/commands";
 import type { Image, SlashCommand, SubagentNode } from "../../ipc/bindings";
+import { elementAtDrop } from "../../ui/dropPoint";
 import { ArrowDownIcon, ArrowUpIcon, ChevronIcon, CloseIcon, PaperclipIcon } from "../../ui/icons";
 import { imageMime, imageUrl, isImageType, type Attachment } from "./attachments";
 import { DialogMenu, DialogPanel } from "./DialogPanel";
@@ -214,10 +215,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
     const unlisten = getCurrentWebview().onDragDropEvent(({ payload }) => {
       if (payload.type === "leave") return setDropping(false);
       if (payload.type === "enter") carriesImages = payload.paths.some((path) => imageMime(path));
-      const rect = root.current?.getBoundingClientRect();
-      // On macOS wry sends the position in CSS points despite its PhysicalPosition type.
-      const { x, y } = payload.position;
-      const inside = !!rect && x >= rect.left && x < rect.right && y >= rect.top && y < rect.bottom;
+      const inside = !!root.current?.contains(elementAtDrop(payload.position));
       setDropping(carriesImages && inside && payload.type !== "drop");
       if (payload.type === "drop" && inside) attachFiles(pane, payload.paths);
     });

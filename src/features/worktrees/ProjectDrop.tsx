@@ -2,16 +2,19 @@
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { useEffect, useState } from "react";
 import { imageMime } from "../chat/attachments";
+import { isOverTerminal } from "../terminal/drop";
 import { addFolders } from "./store";
 
 export function ProjectDrop() {
   const [over, setOver] = useState(false);
   useEffect(() => {
+    let carriesFolders = false;
     const unlisten = getCurrentWebview().onDragDropEvent(({ payload }) => {
-      // Images belong to the chat they land on, so they neither show the label nor become projects.
-      if (payload.type === "enter") setOver(payload.paths.some((path) => !imageMime(path)));
-      else if (payload.type !== "over") setOver(false);
-      if (payload.type === "drop") addFolders(payload.paths.filter((path) => !imageMime(path)));
+      // Images belong to the chat they land on and every file dropped on the terminal belongs to it, so they neither show the label nor become projects.
+      const onTerminal = payload.type !== "leave" && isOverTerminal(payload.position);
+      if (payload.type === "enter") carriesFolders = payload.paths.some((path) => !imageMime(path));
+      setOver(payload.type !== "drop" && payload.type !== "leave" && carriesFolders && !onTerminal);
+      if (payload.type === "drop" && !onTerminal) addFolders(payload.paths.filter((path) => !imageMime(path)));
     });
     return () => void unlisten.then((stop) => stop());
   }, []);

@@ -1,5 +1,6 @@
 // Each worktree's xterm, wired to its shell over IPC and kept with its scrollback while hidden.
 import { Channel } from "@tauri-apps/api/core";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon, type ISearchResultChangeEvent } from "@xterm/addon-search";
 import { WebglAddon } from "@xterm/addon-webgl";
@@ -9,6 +10,9 @@ import { bottomPanelOf, bottomPanels, showBottomPanel } from "../bottompanel/sto
 import { appearance } from "../settings/store";
 import { fail } from "../worktrees/store";
 import { closeTerminalFind } from "./find";
+import { isOverTerminal } from "./drop";
+import { droppedPathsText } from "./paths";
+import { webUrlsIn } from "../../ui/webUrls";
 
 type Shell = { term: Terminal; fit: FitAddon; search: SearchAddon; host: HTMLDivElement };
 
@@ -88,6 +92,28 @@ function forget(worktree: string) {
   showBottomPanel(worktree, false);
 }
 
+// A URL can wrap onto the next rows, and a wide character fills two cells but one string unit, so each unit keeps its own cell.
+function wrappedLine(term: Terminal, row: number) {
+  const buffer = term.buffer.active;
+  let first = row;
+  while (first > 0 && buffer.getLine(first)?.isWrapped) first--;
+  let last = row;
+  while (buffer.getLine(last + 1)?.isWrapped) last++;
+  const cell = buffer.getNullCell();
+  let text = "";
+  const cells: { x: number; y: number; lastX: number }[] = [];
+  for (let y = first; y <= last; y++) {
+    const bufferLine = buffer.getLine(y);
+    for (let x = 0; x < term.cols; x++) {
+      if (!bufferLine?.getCell(x, cell) || cell.getWidth() === 0) continue;
+      const chars = cell.getChars() || " ";
+      text += chars;
+      for (let unit = 0; unit < chars.length; unit++) cells.push({ x: x + 1, y: y + 1, lastX: x + cell.getWidth() });
+    }
+  }
+  return { text, cells };
+}
+
 function start(worktree: string, host: HTMLDivElement): Shell {
   const term = new Terminal({ fontFamily: token("font-code"), fontSize: appearance.get().terminalFontSize, scrollback: 10000, theme: theme(), allowProposedApi: true });
   const fit = new FitAddon();
@@ -98,6 +124,20 @@ function start(worktree: string, host: HTMLDivElement): Shell {
   term.attachCustomKeyEventHandler((e) => !e.metaKey);
   host.addEventListener("keydown", (e) => {
     if (!e.metaKey) e.stopPropagation();
+  });
+  term.registerLinkProvider({
+    provideLinks(line, callback) {
+      const { text, cells } = wrappedLine(term, line - 1);
+      const links = webUrlsIn(text).map(({ url, start }) => ({
+        text: url,
+        range: { start: { x: cells[start].x, y: cells[start].y }, end: { x: cells[start + url.length - 1].lastX, y: cells[start + url.length - 1].y } },
+        // A plain click stays free for the shell's own mouse use and text selection.
+        activate: (event: MouseEvent) => {
+          if (event.metaKey) void commands.openLink(url).catch(fail);
+        },
+      }));
+      callback(links.filter(({ range }) => range.start.y <= line && line <= range.end.y));
+    },
   });
   term.open(host);
   fit.fit();
@@ -160,6 +200,13 @@ export function showTerminal(worktree: string, container: HTMLElement): () => vo
     frame = requestAnimationFrame(() => fitNow(shown));
   });
   resized.observe(container);
+  const unlistenDrop = getCurrentWebview().onDragDropEvent(({ payload }) => {
+    if (payload.type !== "drop" || payload.paths.length === 0) return;
+    if (isOverTerminal(payload.position)) {
+      term.paste(droppedPathsText(payload.paths));
+      term.focus();
+    }
+  });
   if (focusOnShow === worktree) {
     focusOnShow = null;
     term.focus();
@@ -167,6 +214,7 @@ export function showTerminal(worktree: string, container: HTMLElement): () => vo
   return () => {
     cancelAnimationFrame(frame);
     resized.disconnect();
+    void unlistenDrop.then((stop) => stop());
     themed.disconnect();
     unsubscribe();
     webgl?.dispose();

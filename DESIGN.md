@@ -373,6 +373,7 @@ The status roles keep the app's values, so a card shows a status in the same col
 
 - **Bottom panel:** one row under the panes and the editor, left of the side panel, 240px tall by default, on `canvas` with a 1px `line` top edge. Dragging the top edge resizes it between 120px and 800px, and it leaves the panes 160px at least; the edge has a divider's 9px grab area centered on the border and takes `line-strong` on hover and drag. Open state and height are saved per worktree.
 - **Terminal:** ⌘T shows or hides the worktree's terminal in the bottom panel and focuses it when it opens. One login shell per worktree starts on its first show and keeps running, with its scrollback, while the panel is hidden or another worktree shows; typing `exit` or deleting the worktree closes the panel, and the next ⌘T starts a new shell. A 28px header with a 1px `line` bottom rule: "Terminal" at 12px/500 in `ink-secondary`, `ink` while the terminal has the focus, and at the right end a 24px Hide icon button (tooltip "Show or Hide Terminal (⌘T)"), 4px from the edge. Under it xterm.js on `canvas` with 8px top, 2px bottom and 8px left padding, its rows held to the bottom edge: `ink` text and block cursor, `editor-selection` selection, the 16 ANSI colors from the `term-*` tokens (xterm's Tango palette in dark; GitHub's light terminal palette in light, so yellow and white stay readable on white), `ui-monospace` (SF Mono) at the terminal font size, 10,000 lines of scrollback (Settings › Appearance › Terminal, 9 to 24px, 12px by default). ⌘ keys run the app's shortcuts and copy and paste; every other key goes to the shell.
+- **Terminal links:** a web URL in the terminal output opens in the browser with ⌘-click; a plain click does nothing.
 - **Terminal find:** ⌘F while the terminal has the focus opens the chat's find bar (Chat › Find) under the header, at the terminal's top right. Matches take `editor-match` laid over `canvas` (xterm takes only opaque colors); the current one adds a 1px `accent-ink` border and scrolls into view. Esc closes the bar and returns the focus to the terminal.
 
 ### Editor
@@ -426,7 +427,7 @@ One surface in the title bar row, 32px tall at least, 560px wide at most. It clo
 
 While the user drags an image over a chat pane that takes attachments, a 2px dashed `accent-ink` outline sits 8px inside the pane over the scrim, with the label "Drop images to attach". The window's folder drop stays off for images.
 
-While the user drags a folder over the window, a 2px dashed `accent-ink` outline sits 12px inside the window over the scrim, with its label on a small `sheet` chip.
+While the user drags a folder over the window, a 2px dashed `accent-ink` outline sits 12px inside the window over the scrim, with its label on a small `sheet` chip. Over the terminal the folder drop stays off too, and no outline shows: files dropped there paste their paths into the shell.
 
 ### Scrollbars
 

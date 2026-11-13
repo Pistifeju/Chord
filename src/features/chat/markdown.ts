@@ -1,4 +1,5 @@
 // Rules for the agent's Markdown: text in, blocks and inline spans out. Raw HTML is never read, so it stays text.
+import { webUrlAt } from "../../ui/webUrls.ts";
 
 export type Inline =
   | { kind: "text"; text: string }
@@ -196,7 +197,6 @@ function closerOf(s: string, delimiter: string, from: number): number {
 }
 
 const LINK = /^\[((?:[^[\]\\]|\\.|\[[^\]]*\])*)\]\(\s*<?((?:[^\s()<>]|\([^\s()]*\))*)>?(?:\s+"[^"]*")?\s*\)/;
-const BARE_URL = /^https?:\/\/[^\s<]+/i;
 
 export function inlineFrom(s: string): Inline[] {
   const out: Inline[] = [];
@@ -206,6 +206,7 @@ export function inlineFrom(s: string): Inline[] {
     text = "";
   };
   let i = 0;
+  let url: string | null;
   while (i < s.length) {
     const c = s[i];
     if (c === "\\" && s[i + 1] === "\n") {
@@ -267,8 +268,7 @@ export function inlineFrom(s: string): Inline[] {
         else out.push({ kind: length === 2 ? "strong" : "em", children });
         i = close + length;
       }
-    } else if (c === "h" && s.startsWith("http", i) && !isWord(s[i - 1]) && BARE_URL.test(s.slice(i))) {
-      const url = trimmedUrl(BARE_URL.exec(s.slice(i))![0]);
+    } else if (c === "h" && !isWord(s[i - 1]) && (url = webUrlAt(s, i))) {
       flush();
       out.push({ kind: "link", href: url, children: [{ kind: "text", text: url }] });
       i += url.length;
@@ -279,11 +279,4 @@ export function inlineFrom(s: string): Inline[] {
   }
   flush();
   return out;
-}
-
-// Sentence punctuation after a bare URL is not part of it; a closing ")" is only when the URL opened one.
-function trimmedUrl(url: string): string {
-  let end = url.replace(/[.,;:!?'"*_~]+$/, "");
-  while (end.endsWith(")") && end.split("(").length < end.split(")").length) end = end.slice(0, -1).replace(/[.,;:!?'"*_~]+$/, "");
-  return end;
 }
