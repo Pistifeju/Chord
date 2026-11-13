@@ -19,7 +19,7 @@
   flex: none;
   height: var(--titlebar-height);
   padding-left: 8px;
-  overflow-x: auto;
+  overflow: hidden;
   position: relative;
   z-index: 2;
   background: var(--canvas);
@@ -32,8 +32,10 @@
 
 .tab {
   display: flex;
-  flex: none;
+  flex: 0 1 auto;
   align-items: center;
+  min-width: 0;
+  overflow: hidden;
   height: 28px;
   max-width: 220px;
   border-radius: var(--radius-control);
@@ -162,27 +164,19 @@
   min-height: 0;
 }
 
-/* Stays at the bar's right end while the tabs scroll, and in the same place over the open side panel. */
+/* Sits at the bar's right end, and in the same place over the open side panel. */
 .files-toggle {
   flex: none;
   margin-right: 8px;
 }
 
 .tabbar .files-toggle {
-  position: sticky;
-  right: 0;
   margin: 0 8px 0 auto;
-  background: var(--canvas);
-}
-
-/* The washes are translucent in dark, so the canvas stays under them to hide the tabs scrolling past. */
-.files-toggle:hover {
-  background: linear-gradient(var(--raised), var(--raised)), var(--canvas);
 }
 
 .files-toggle[aria-pressed="true"],
 .files-toggle:active {
-  background: linear-gradient(var(--selected), var(--selected)), var(--canvas);
+  background: var(--selected);
   color: var(--ink);
 }
 

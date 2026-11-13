@@ -137,17 +137,13 @@ function GroupTabs({ group, place, edges }: { group: Group; place: Place; edges:
   const statusesJson = chats.usePart((all) => JSON.stringify(chatIds.map((tab) => all[tab]?.report?.status ?? null)));
   const statuses: (Status | null)[] = JSON.parse(statusesJson);
   const finishedPanes = finished.use();
-  const bar = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    bar.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest", inline: "nearest" });
-  }, [group.active]);
   // The open tab's pane shows its own Working row, so its tab shows no status; a done you already saw shows none either.
   const statusOf = (tab: Tab): Status | null => {
     const report = tab.id === group.active ? null : statuses[chatIds.indexOf(tab.id)] ?? null;
     return seenDone(report?.kind, [tab.id], finishedPanes) ? null : report;
   };
   return (
-    <div ref={bar} className="tabbar" role="tablist" data-group-bar data-tauri-drag-region={edges.top || undefined} data-sidebar-hidden={(edges.top && edges.left && hidden) || undefined}>
+    <div className="tabbar" role="tablist" data-group-bar data-tauri-drag-region={edges.top || undefined} data-sidebar-hidden={(edges.top && edges.left && hidden) || undefined}>
       {group.tabs.map((tab) => (
         <TabView key={tab.id} tab={tab} group={group} place={place} status={statusOf(tab)} closable={closable} />
       ))}
