@@ -13,12 +13,9 @@ pub async fn load_state(app: AppHandle) -> Result<State, String> {
 
 #[tauri::command]
 #[specta::specta]
-pub async fn change_state(app: AppHandle, change: StateChange) -> Result<State, String> {
+pub async fn change_state(app: AppHandle, change: StateChange) -> Result<(), String> {
     blocking(app, move |_, store| {
-        store.update(|state| {
-            state.apply(change);
-            state.clone()
-        })
+        store.update(|state| state.apply(change))
     })
     .await
 }

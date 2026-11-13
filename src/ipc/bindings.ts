@@ -6,7 +6,7 @@ import { invoke as __TAURI_INVOKE, Channel } from "@tauri-apps/api/core";
 /** Commands */
 export const commands = {
 	loadState: () => __TAURI_INVOKE<State_Serialize>("load_state"),
-	changeState: (change: StateChange_Deserialize) => __TAURI_INVOKE<State_Serialize>("change_state", { change }),
+	changeState: (change: StateChange_Deserialize) => __TAURI_INVOKE<null>("change_state", { change }),
 	pickProject: () => __TAURI_INVOKE<Project | null>("pick_project"),
 	addProject: (folder: string) => __TAURI_INVOKE<Project>("add_project", { folder }),
 	removeProject: (project: string) => __TAURI_INVOKE<null>("remove_project", { project }),
