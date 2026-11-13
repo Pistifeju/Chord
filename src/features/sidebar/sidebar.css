@@ -95,16 +95,11 @@
 }
 
 .worktree-title,
-.worktree-branch {
+.session-name {
   min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.worktree-branch svg {
-  margin-right: 4px;
-  vertical-align: -2px;
 }
 
 .worktree-title {
@@ -199,5 +194,49 @@
 }
 
 .worktree-card:focus-visible {
+  outline-offset: -2px;
+}
+
+/* A worktree's chat sessions, under its card and indented past the card's text. */
+.session-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.session-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 26px;
+  padding: 0 10px 0 22px;
+  border: none;
+  border-radius: var(--radius-inset);
+  background: none;
+  color: var(--ink-muted);
+  font-size: calc(13px * var(--text-scale));
+  text-align: left;
+  transition: background-color var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out);
+}
+
+.session-name {
+  flex: 1;
+}
+
+.session-row:hover,
+.session-row:active {
+  background: var(--raised);
+  color: var(--ink);
+}
+
+.session-row[aria-current="true"] {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.session-row:focus-visible {
   outline-offset: -2px;
 }

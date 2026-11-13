@@ -1,15 +1,16 @@
-// The sidebar: each project's worktrees as cards under its name, in project order, its show/hide button and the Settings button at its foot.
+// The sidebar: each project's worktrees as cards under its name, in project order, each with a row per chat session; its show/hide button and the Settings button at its foot.
 import { useEffect, useState } from "react";
 import type { GitCounts_Serialize as GitCounts, Project, Worktree_Serialize as Worktree } from "../../ipc/bindings";
 import { shortcutLabel, showMenu, tooltip } from "../../app/commands";
 import { chats, usePaneNames } from "../chat/store";
-import { allPaneIds } from "../panes/agents";
-import { panes } from "../panes/store";
+import { chatTabs } from "../panes/layout";
+import { tabName } from "../panes/sessions";
+import { focusPane, panes } from "../panes/store";
 import { openSettings, settingsOpen, shortcutChanges } from "../settings/store";
 import { finished } from "../status/store";
 import { ageLabel, seenDone, statusLabel, urgentReport } from "../status/status";
 import { StatusMark } from "../status/StatusMark";
-import { BranchIcon, GearIcon, PlusIcon, SidebarIcon } from "../../ui/icons";
+import { GearIcon, PlusIcon, SidebarIcon } from "../../ui/icons";
 import { countsLabel, countsTitle } from "../worktrees/gitCounts";
 import { gitCounts } from "../worktrees/gitCountsRefresh";
 import { worktreeName, worktreeOrder } from "../worktrees/projects";
@@ -95,8 +96,8 @@ function useNow(): number {
   return now;
 }
 
-// The card's right slot: "Done" for a finish nobody opened, the mark and age while an agent runs, the status word while it needs attention, otherwise the age of the last status.
-function WorktreeStatus({ paneIdList, finishedPanes }: { paneIdList: string[]; finishedPanes: string[] }) {
+// A session row's right slot: "Done" for a finish nobody opened, the mark and age while an agent runs, the status word while it needs attention, otherwise the age of the last status.
+function SessionStatus({ paneIdList, finishedPanes }: { paneIdList: string[]; finishedPanes: string[] }) {
   const report = chats.usePart((all) => urgentReport(paneIdList.map((pane) => all[pane]?.report)));
   const now = useNow();
   if (!report) return null;
@@ -133,7 +134,7 @@ function WorktreeCard({
   project: Project;
   worktree: Worktree;
   selected: boolean;
-  /** Its panes are on screen, so the tabs show their status and the card does not. */
+  /** Its panes are on screen, so the tabs show their status and its session rows do not. */
   shown: boolean;
   hint: string | undefined;
   counts: GitCounts | undefined;
@@ -141,10 +142,9 @@ function WorktreeCard({
 }) {
   const saved = panes.usePart((all) => all[worktree.path]);
   const countsText = countsLabel(counts);
-  const paneIdList = allPaneIds(saved);
-  const names = usePaneNames(paneIdList);
+  const sessions = saved ? chatTabs(saved.layout) : [];
+  const names = usePaneNames(sessions.map((tab) => tab.id));
   const branch = worktreeName(worktree);
-  const title = paneIdList.map((pane) => names[pane]).find(Boolean);
   const menu: [string, string][] = [["worktree.new", project.path]];
   if (worktree.path !== project.path) menu.push(["worktree.delete", worktree.path]);
   return (
@@ -158,14 +158,9 @@ function WorktreeCard({
         onContextMenu={(e) => showMenu(e, [...menu, ["project.remove", project.path]])}
       >
         <span className="worktree-line">
-          <span className="worktree-title">{title ?? branch}</span>
-          {!shown && <WorktreeStatus paneIdList={paneIdList} finishedPanes={finishedPanes} />}
+          <span className="worktree-title">{branch}</span>
         </span>
         <span className="worktree-line worktree-meta">
-          {title && <span className="worktree-branch">
-              <BranchIcon />
-              {branch}
-            </span>}
           {(countsText.sides || countsText.changed) && (
             <span className="worktree-counts" title={countsTitle(counts)}>
               {countsText.sides && <span>{countsText.sides}</span>}
@@ -175,6 +170,24 @@ function WorktreeCard({
           {hint && <span className="worktree-hint">{hint}</span>}
         </span>
       </button>
+      <ul className="session-list">
+        {sessions.map((tab) => (
+          <li key={tab.id}>
+            <button
+              type="button"
+              className="session-row"
+              aria-current={shown && tab.id === saved?.focused}
+              onClick={() => {
+                selectWorktree(worktree.path);
+                focusPane(worktree.path, tab.id);
+              }}
+            >
+              <span className="session-name">{tabName(tab, names)}</span>
+              {!shown && <SessionStatus paneIdList={[tab.id]} finishedPanes={finishedPanes} />}
+            </button>
+          </li>
+        ))}
+      </ul>
     </li>
   );
 }

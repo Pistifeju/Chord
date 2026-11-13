@@ -15,7 +15,11 @@ const tabs = (layout: Layout): Tab[] => groups(layout).flatMap((group) => group.
 
 export const paneIds = (layout: Layout): string[] => tabs(layout).map((tab) => tab.id);
 
-export const chatPaneIds = (layout: Layout): string[] => tabs(layout).flatMap((tab) => (tab.kind === "chat" ? [tab.id] : []));
+export type ChatTab = Extract<Tab, { kind: "chat" }>;
+
+export const chatTabs = (layout: Layout): ChatTab[] => tabs(layout).flatMap((tab) => (tab.kind === "chat" ? [tab] : []));
+
+export const chatPaneIds = (layout: Layout): string[] => chatTabs(layout).map((tab) => tab.id);
 
 export const filePanes = (layout: Layout): FilePane[] => tabs(layout).flatMap((tab) => (tab.kind === "file" ? [tab] : []));
 
