@@ -29,13 +29,16 @@
   padding: 0 8px 12px;
 }
 
-/* The title bar row's height and the tab bar's 8px inset, so the gear mirrors the Files button at the top right. */
+/* The status bar's height and top edge, so its line runs to the window's left edge; the -1px covers the sidebar's right edge below that line. */
 .sidebar-footer {
   display: flex;
   align-items: center;
   flex: none;
-  height: var(--titlebar-height);
+  height: 32px;
+  margin-right: -1px;
   padding: 0 8px;
+  border-top: 1px solid var(--line);
+  background: var(--panel);
 }
 
 .project-group + .project-group {
