@@ -70,9 +70,11 @@ export default function App() {
         </div>
         <div className="app-body">
           <Sidebar />
-          <main className="main">{list.length === 0 ? <NoProjects /> : selected && <PaneArea key={selected} worktree={selected} />}</main>
+          <div className="app-column">
+            <main className="main">{list.length === 0 ? <NoProjects /> : selected && <PaneArea key={selected} worktree={selected} />}</main>
+            <StatusBar />
+          </div>
         </div>
-        <StatusBar />
       </div>
       {settings && <SettingsPage />}
       <ProjectDrop />

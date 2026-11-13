@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import type { GitCounts_Serialize as GitCounts, Project, Worktree_Serialize as Worktree } from "../../ipc/bindings";
 import { shortcutLabel, showMenu, tooltip } from "../../app/commands";
+import { SettingsButton } from "../../app/StatusBar";
 import { chats, usePaneNames } from "../chat/store";
 import { allPaneIds } from "../panes/agents";
 import { panes } from "../panes/store";
@@ -69,6 +70,9 @@ export function Sidebar() {
             </ul>
           </section>
         ))}
+      </div>
+      <div className="sidebar-footer">
+        <SettingsButton />
       </div>
     </nav>
   );
