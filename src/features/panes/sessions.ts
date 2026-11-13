@@ -1,56 +1,51 @@
-// Rules for a worktree's session tabs: new, open, split, drop, close, and which pane has the focus.
-import type { Direction, Layout, PaneSession, WorktreePanes } from "../../ipc/bindings";
+// Rules for a worktree's tabs and tab groups: new, open, split, move, close, and which tab has the focus.
+import type { Direction, Tab, WorktreePanes } from "../../ipc/bindings";
 import type { Item } from "../chat/transcript.ts";
-import { chatPaneIds, edgeDirection, paneIds, withBeside, withoutPane, withSplit, type Edge, type FilePane } from "./layout.ts";
+import { edgeDirection, groupOf, groups, paneIds, withBeside, withGroup, withoutGroup, type Edge, type FilePane, type Group } from "./layout.ts";
 
-export const firstPanes = (session: string, pane: string): WorktreePanes => ({
-  sessions: [{ id: session, name: "Session 1", layout: { kind: "pane", id: pane }, focused: pane }],
-  active: session,
-});
+const chatTab = (id: string, name: string): Tab => ({ kind: "chat", id, name });
 
-export const activeSession = (panes: WorktreePanes): PaneSession => panes.sessions.find((s) => s.id === panes.active) ?? panes.sessions[0];
+const lone = (group: string, tab: Tab): Group => ({ kind: "group", id: group, tabs: [tab], active: tab.id });
 
-// The session the window shows: the selected worktree's open tab, none while Settings covers the window.
-export function shownSession(all: Record<string, WorktreePanes>, selected: string | null, settingsOpen: boolean): PaneSession | null {
-  const open = selected && !settingsOpen ? all[selected] : undefined;
-  return open ? activeSession(open) : null;
+export const firstPanes = (group: string, chat: string): WorktreePanes => ({ layout: lone(group, chatTab(chat, "Session 1")), focused: chat });
+
+// The panes the window shows: the selected worktree's, none while Settings covers the window.
+export function shownSession(all: Record<string, WorktreePanes>, selected: string | null, settingsOpen: boolean): WorktreePanes | null {
+  return (selected && !settingsOpen && all[selected]) || null;
 }
 
-const nextName = (sessions: PaneSession[]): string => {
-  const numbers = sessions.map((s) => Number(/^Session (\d+)$/.exec(s.name)?.[1] ?? 0));
+const nextName = (panes: WorktreePanes): string => {
+  const numbers = groups(panes.layout).flatMap((g) => g.tabs).map((t) => Number(t.kind === "chat" ? /^Session (\d+)$/.exec(t.name)?.[1] ?? 0 : 0));
   return `Session ${Math.max(0, ...numbers) + 1}`;
 };
 
-export const withNewSession = (panes: WorktreePanes, session: string, pane: string): WorktreePanes => ({
-  sessions: [...panes.sessions, { id: session, name: nextName(panes.sessions), layout: { kind: "pane", id: pane }, focused: pane }],
-  active: session,
-});
+export const focusedGroup = (panes: WorktreePanes): Group => groupOf(panes.layout, panes.focused) ?? groups(panes.layout)[0];
 
-export const withActiveSession = (panes: WorktreePanes, session: string): WorktreePanes =>
-  panes.sessions.some((s) => s.id === session) ? { ...panes, active: session } : panes;
-
-const withSessionChanged = (panes: WorktreePanes, session: string, change: (s: PaneSession) => PaneSession): WorktreePanes => ({
-  ...panes,
-  sessions: panes.sessions.map((s) => (s.id === session ? change(s) : s)),
-});
-
-export const withLayout = (panes: WorktreePanes, session: string, layout: Layout): WorktreePanes =>
-  withSessionChanged(panes, session, (s) => ({ ...s, layout }));
-
-// Opens the pane's session and gives the pane the focus.
-export function withFocus(panes: WorktreePanes, pane: string): WorktreePanes {
-  const owner = panes.sessions.find((s) => paneIds(s.layout).includes(pane));
-  if (!owner || (owner.focused === pane && panes.active === owner.id)) return panes;
-  return { ...withSessionChanged(panes, owner.id, (s) => ({ ...s, focused: pane })), active: owner.id };
+// The tab joins the end of the group, opens there and takes the focus.
+function withTabAdded(panes: WorktreePanes, group: string, tab: Tab): WorktreePanes {
+  return { layout: withGroup(panes.layout, group, (g) => ({ ...g, tabs: [...g.tabs, tab], active: tab.id })), focused: tab.id };
 }
 
-// The new pane goes beside the active session's focused pane and takes the focus.
-export function withSplitFocused(panes: WorktreePanes, created: string, direction: Direction): WorktreePanes {
-  const { id, layout, focused } = activeSession(panes);
-  return withSessionChanged(panes, id, (s) => ({ ...s, layout: withSplit(layout, focused, created, direction), focused: created }));
+// A new chat opens in `group`, by default the focused one.
+export const withNewSession = (panes: WorktreePanes, chat: string, group = focusedGroup(panes).id): WorktreePanes =>
+  withTabAdded(panes, group, chatTab(chat, nextName(panes)));
+
+// A file opens in a tab of the focused group.
+export const withFileOpened = (panes: WorktreePanes, file: FilePane): WorktreePanes => withTabAdded(panes, focusedGroup(panes).id, file);
+
+// Opens the tab in its group and gives it the focus.
+export function withFocus(panes: WorktreePanes, tab: string): WorktreePanes {
+  const owner = groupOf(panes.layout, tab);
+  if (!owner || (owner.active === tab && panes.focused === tab)) return panes;
+  return { layout: withGroup(panes.layout, owner.id, (g) => ({ ...g, active: tab })), focused: tab };
 }
 
-export const paneCount = (panes: WorktreePanes): number => panes.sessions.reduce((sum, s) => sum + paneIds(s.layout).length, 0);
+// A new group with a new chat goes beside the focused group and takes the focus.
+export function withSplitFocused(panes: WorktreePanes, group: string, chat: string, direction: Direction): WorktreePanes {
+  return { layout: withBeside(panes.layout, focusedGroup(panes).id, lone(group, chatTab(chat, nextName(panes))), direction, false), focused: chat };
+}
+
+export const paneCount = (panes: WorktreePanes): number => paneIds(panes.layout).length;
 
 export const canClosePane = (panes: WorktreePanes | undefined): boolean => !!panes && paneCount(panes) > 1;
 
@@ -76,64 +71,45 @@ export const paneNames = (chats: Record<string, { items: Item[] } | undefined>, 
     return name ? [[pane, name]] : [];
   }));
 
-// The chat pane a tab is named after: the focused one, or the first while a file pane has the focus.
-export const namedPane = (session: PaneSession): string | undefined => {
-  const chat = chatPaneIds(session.layout);
-  return chat.includes(session.focused) ? session.focused : chat[0];
-};
+// A chat tab shows the name of its agent session once that has one; a file tab its file name.
+export const tabName = (tab: Tab, names: PaneNames): string => (tab.kind === "chat" ? names[tab.id] ?? tab.name : tab.path.split("/").pop() ?? tab.path);
 
-// A tab shows the name of its named pane's agent session once that has one.
-export const tabName = (session: PaneSession, names: PaneNames): string => names[namedPane(session) ?? ""] ?? session.name;
-
-// Closes a session tab with all its panes; the tab beside it opens. The last session stays.
-export function withSessionClosed(panes: WorktreePanes, session: string): WorktreePanes {
-  const at = panes.sessions.findIndex((s) => s.id === session);
-  if (at < 0 || panes.sessions.length === 1) return panes;
-  const sessions = panes.sessions.filter((s) => s.id !== session);
-  const active = panes.active === session ? (sessions[at] ?? sessions[at - 1]).id : panes.active;
-  return { sessions, active };
-}
-
-// Closes a pane. Its session goes with its last pane, and the tab beside it opens; the last pane of all stays.
-export function withoutPaneClosed(panes: WorktreePanes, pane: string): WorktreePanes {
-  const owner = panes.sessions.find((s) => paneIds(s.layout).includes(pane));
-  if (!owner || paneCount(panes) === 1) return panes;
-  const layout = withoutPane(owner.layout, pane);
-  if (layout) {
-    const order = paneIds(owner.layout);
-    const rest = paneIds(layout);
-    const beside = order[order.indexOf(pane) + 1] ?? order[order.indexOf(pane) - 1];
-    const focused = owner.focused === pane ? (rest.includes(beside) ? beside : rest[0]) : owner.focused;
-    return withSessionChanged(panes, owner.id, (s) => ({ ...s, layout, focused }));
+// The tab leaves its group, whose tab beside it opens; a group left empty goes.
+function withoutTab(panes: WorktreePanes, tab: string): WorktreePanes {
+  const owner = groupOf(panes.layout, tab);
+  if (!owner) return panes;
+  const at = owner.tabs.findIndex((t) => t.id === tab);
+  const rest = owner.tabs.filter((t) => t.id !== tab);
+  if (rest.length > 0) {
+    const active = owner.active === tab ? (rest[at] ?? rest[at - 1]).id : owner.active;
+    const layout = withGroup(panes.layout, owner.id, (g) => ({ ...g, tabs: rest, active }));
+    return { layout, focused: panes.focused === tab ? active : panes.focused };
   }
-  const at = panes.sessions.indexOf(owner);
-  const sessions = panes.sessions.filter((s) => s !== owner);
-  const active = panes.active === owner.id ? (sessions[at] ?? sessions[at - 1]).id : panes.active;
-  return { sessions, active };
+  const layout = withoutGroup(panes.layout, owner.id);
+  if (!layout) return panes;
+  const left = groups(layout);
+  const beside = left[Math.min(groups(panes.layout).indexOf(owner), left.length - 1)];
+  return { layout, focused: panes.focused === tab ? beside.active : panes.focused };
 }
 
-// `inserted` goes beside `pane` on `edge` and `focused` takes the focus; the pane's session opens.
-function withInserted(panes: WorktreePanes, inserted: Layout, focused: string, pane: string, edge: Edge): WorktreePanes {
-  const target = panes.sessions.find((s) => paneIds(s.layout).includes(pane));
-  if (!target) return panes;
-  const layout = withBeside(target.layout, pane, inserted, edgeDirection(edge), edge === "left" || edge === "top");
-  return { sessions: panes.sessions.map((s) => (s === target ? { ...s, layout, focused } : s)), active: target.id };
+// Closes a tab; the last tab of all stays.
+export const withTabClosed = (panes: WorktreePanes, tab: string): WorktreePanes => (paneCount(panes) > 1 ? withoutTab(panes, tab) : panes);
+
+/** Where a dragged tab lands: a group's tab bar (`edge` null), or a group's edge, where it opens a new group. */
+export type TabDrop = { group: string; edge: Edge | null };
+
+// Whether dropping the tab there changes anything: not into its own group, and not beside its own group while it is that group's only tab.
+export function movesTab(panes: WorktreePanes, tab: string, { group, edge }: TabDrop): boolean {
+  const owner = groupOf(panes.layout, tab);
+  if (!owner) return false;
+  return owner.id !== group || (edge !== null && owner.tabs.length > 1);
 }
 
-// A session tab dropped on a pane edge: its whole layout joins that pane's session beside the pane, and its tab goes.
-export function withSessionDropped(panes: WorktreePanes, source: string, pane: string, edge: Edge): WorktreePanes {
-  const moved = panes.sessions.find((s) => s.id === source);
-  const target = panes.sessions.find((s) => paneIds(s.layout).includes(pane));
-  if (!moved || !target || moved === target) return panes;
-  const joined = withInserted(panes, moved.layout, moved.focused, pane, edge);
-  return { ...joined, sessions: joined.sessions.filter((s) => s !== moved) };
-}
-
-// A file tab dropped on a pane edge: the file shows in a pane there.
-export const withFileDropped = (panes: WorktreePanes, file: FilePane, pane: string, edge: Edge): WorktreePanes => withInserted(panes, file, file.id, pane, edge);
-
-// The file opens in a new session tab with a new agent after it, which takes the focus.
-export function withFileSession(panes: WorktreePanes, session: string, file: FilePane, agent: string, direction: Direction): WorktreePanes {
-  const next = withNewSession(panes, session, agent);
-  return withLayout(next, session, withBeside(activeSession(next).layout, agent, file, direction, true));
+export function withTabMoved(panes: WorktreePanes, tab: string, drop: TabDrop, created: string): WorktreePanes {
+  const moved = groupOf(panes.layout, tab)?.tabs.find((t) => t.id === tab);
+  if (!moved || !movesTab(panes, tab, drop)) return panes;
+  const { layout } = withoutTab(panes, tab);
+  if (drop.edge === null) return withTabAdded({ layout, focused: tab }, drop.group, moved);
+  const before = drop.edge === "left" || drop.edge === "top";
+  return { layout: withBeside(layout, drop.group, lone(created, moved), edgeDirection(drop.edge), before), focused: tab };
 }

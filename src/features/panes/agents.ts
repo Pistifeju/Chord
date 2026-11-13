@@ -3,7 +3,7 @@ import type { WorktreePanes } from "../../ipc/bindings";
 import { chatPaneIds } from "./layout.ts";
 
 // Only chat panes run an agent; a file pane has none.
-export const allPaneIds = (saved: WorktreePanes | undefined): string[] => (saved?.sessions ?? []).flatMap((session) => chatPaneIds(session.layout));
+export const allPaneIds = (saved: WorktreePanes | undefined): string[] => (saved ? chatPaneIds(saved.layout) : []);
 
 export function paneChanges(before: WorktreePanes | undefined, after: WorktreePanes | undefined): { started: string[]; gone: string[] } {
   const was = allPaneIds(before);

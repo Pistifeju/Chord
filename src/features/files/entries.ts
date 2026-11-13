@@ -1,21 +1,19 @@
-// A Files tree entry renamed, created or moved to the Trash: the change on disk, then every tab, file pane and tree path that held it.
+// A Files tree entry renamed, created or moved to the Trash: the change on disk, then every file tab and tree path that held it.
 import { closeSheet, sheet, sheetOf } from "../../app/sheet";
 import { commands } from "../../ipc/bindings";
-import { closeFile, showFile } from "../editor/showing";
-import { flushAllSaves, moveFiles, openFiles } from "../editor/store";
+import { showFile } from "../editor/showing";
+import { flushAllSaves } from "../editor/store";
 import { closeFilePanesAt, moveFilePanes } from "../panes/store";
 import { fail } from "../worktrees/store";
-import { isAtOrInside, joinPath, parentFolder } from "./paths";
+import { joinPath, parentFolder } from "./paths";
 import { moveTreeEntries, nameEdit, reloadFiles } from "./store";
 
 function entryMoved(worktree: string, from: string, to: string) {
-  moveFiles(worktree, from, to);
   moveFilePanes(worktree, from, to);
   moveTreeEntries(worktree, from, to);
 }
 
 function entryGone(worktree: string, path: string) {
-  for (const file of openFiles.get()[worktree]?.files ?? []) if (isAtOrInside(file, path)) closeFile(worktree, file);
   closeFilePanesAt(worktree, path);
 }
 

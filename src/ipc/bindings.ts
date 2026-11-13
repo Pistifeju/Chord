@@ -261,10 +261,8 @@ export type KeptBranch = {
 };
 
 export type Layout = 
-/**  A pane that holds a chat. */
-{ kind: "pane"; id: string } | 
-/**  A pane that shows a file of the worktree, by its relative path. */
-{ kind: "file"; id: string; path: string } | { kind: "split"; direction: Direction; 
+/**  Tabs that share one place, each with its own tab in the group's bar; `active` shows. */
+{ kind: "group"; id: string; tabs: Tab[]; active: string } | { kind: "split"; direction: Direction; 
 /**  Each child's share of the split; they add up to 1. */
 sizes: (number | null)[]; children: Layout[] };
 
@@ -286,14 +284,6 @@ export type PaneAgent_Serialize = {
 	harness: string,
 	/**  What the harness opens the session by; none until it reports one. */
 	session: string | null,
-};
-
-/**  One session tab: its name, its split layout and the pane that has the focus. */
-export type PaneSession = {
-	id: string,
-	name: string,
-	layout: Layout,
-	focused: string,
 };
 
 export type Project = {
@@ -511,6 +501,12 @@ export type SubagentNode_Serialize = {
 
 export type SubagentState = "running" | "done" | "error";
 
+export type Tab = 
+/**  A chat with its agent; `name` shows until its first user message names it. */
+{ kind: "chat"; id: string; name: string } | 
+/**  A file of the worktree, by its relative path. */
+{ kind: "file"; id: string; path: string };
+
 export type TerminalEvent = { kind: "output"; text: string } | 
 /**  The shell ended, on its own or stopped; a shell a newer start replaced sends nothing. */
 { kind: "exited" };
@@ -537,9 +533,9 @@ export type UsageWindow_Serialize = {
 export type Worktree = Worktree_Serialize | Worktree_Deserialize;
 
 export type WorktreePanes = {
-	sessions: PaneSession[],
-	/**  The id of the session whose tab is open. */
-	active: string,
+	layout: Layout,
+	/**  The id of the tab that has the focus: the open tab of one group. */
+	focused: string,
 };
 
 export type Worktree_Deserialize = {

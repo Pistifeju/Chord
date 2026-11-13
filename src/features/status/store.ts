@@ -3,7 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { commands } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
 import { chats } from "../chat/store";
-import { paneIds } from "../panes/layout";
+import { shownTabIds } from "../panes/layout";
 import { focusPane } from "../panes/store";
 import { selectWorktree, shownPanes, shownPanesStores } from "../worktrees/store";
 import { keptMarks, turnedDone, type PaneKinds } from "./finished";
@@ -15,7 +15,7 @@ const kindsNow = (): PaneKinds =>
 
 function openPanes(): string[] {
   const shown = shownPanes();
-  return shown ? paneIds(shown.layout) : [];
+  return shown ? shownTabIds(shown.layout) : [];
 }
 
 export function watchFinished(): () => void {

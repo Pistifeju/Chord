@@ -1,35 +1,50 @@
-// Rules for one split layout: split a pane, close one, its file panes, and the sizes of a split's children.
-import type { Direction, Layout } from "../../ipc/bindings";
+// Rules for one split layout of tab groups: split a group, close one, its tabs, and the sizes of a split's children.
+import type { Direction, Layout, Tab } from "../../ipc/bindings";
 import { isAtOrInside, movedPath } from "../files/paths.ts";
 
 export type Split = Extract<Layout, { kind: "split" }>;
-export type FilePane = Extract<Layout, { kind: "file" }>;
+export type Group = Extract<Layout, { kind: "group" }>;
+export type FilePane = Extract<Tab, { kind: "file" }>;
 
-/** The share a child keeps at least, so a divider never hides a pane. */
+/** The share a child keeps at least, so a divider never hides a group. */
 const MIN_SIZE = 0.1;
 
-export const paneIds = (layout: Layout): string[] => (layout.kind === "split" ? layout.children.flatMap(paneIds) : [layout.id]);
+export const groups = (layout: Layout): Group[] => (layout.kind === "split" ? layout.children.flatMap(groups) : [layout]);
 
-export const chatPaneIds = (layout: Layout): string[] =>
-  layout.kind === "split" ? layout.children.flatMap(chatPaneIds) : layout.kind === "pane" ? [layout.id] : [];
+const tabs = (layout: Layout): Tab[] => groups(layout).flatMap((group) => group.tabs);
 
-export const filePanes = (layout: Layout): FilePane[] => (layout.kind === "split" ? layout.children.flatMap(filePanes) : layout.kind === "file" ? [layout] : []);
+export const paneIds = (layout: Layout): string[] => tabs(layout).map((tab) => tab.id);
 
-// A rename moves the file panes of the entry and of everything inside it to their new paths.
+export const chatPaneIds = (layout: Layout): string[] => tabs(layout).flatMap((tab) => (tab.kind === "chat" ? [tab.id] : []));
+
+export const filePanes = (layout: Layout): FilePane[] => tabs(layout).flatMap((tab) => (tab.kind === "file" ? [tab] : []));
+
+/** The tabs on screen: the open tab of each group. */
+export const shownTabIds = (layout: Layout): string[] => groups(layout).map((group) => group.active);
+
+export const groupOf = (layout: Layout, tab: string): Group | undefined => groups(layout).find((group) => group.tabs.some((t) => t.id === tab));
+
+// The group `id` gets `change` applied.
+export function withGroup(layout: Layout, id: string, change: (group: Group) => Group): Layout {
+  if (layout.kind === "group") return layout.id === id ? change(layout) : layout;
+  return { ...layout, children: layout.children.map((child) => withGroup(child, id, change)) };
+}
+
+// A rename moves the file tabs of the entry and of everything inside it to their new paths.
 export function withFilePanesMoved(layout: Layout, from: string, to: string): Layout {
   if (layout.kind === "split") return { ...layout, children: layout.children.map((child) => withFilePanesMoved(child, from, to)) };
-  return layout.kind === "file" && isAtOrInside(layout.path, from) ? { ...layout, path: movedPath(layout.path, from, to) } : layout;
+  return { ...layout, tabs: layout.tabs.map((tab) => (tab.kind === "file" && isAtOrInside(tab.path, from) ? { ...tab, path: movedPath(tab.path, from, to) } : tab)) };
 }
 
 const evenSizes = (count: number): number[] => Array.from({ length: count }, () => 1 / count);
 
-// `inserted` goes before or after `pane` and takes half of its share; a lone pane in a same-direction split gains a sibling, anything else nests.
-export function withBeside(layout: Layout, pane: string, inserted: Layout, direction: Direction, before: boolean): Layout {
+// `inserted` goes before or after the group and takes half of its share; a lone group in a same-direction split gains a sibling, anything else nests.
+export function withBeside(layout: Layout, group: string, inserted: Layout, direction: Direction, before: boolean): Layout {
   if (layout.kind !== "split") {
-    if (layout.id !== pane) return layout;
+    if (layout.id !== group) return layout;
     return { kind: "split", direction, sizes: [0.5, 0.5], children: before ? [inserted, layout] : [layout, inserted] };
   }
-  const at = layout.children.findIndex((child) => child.kind !== "split" && child.id === pane);
+  const at = layout.children.findIndex((child) => child.kind !== "split" && child.id === group);
   if (at >= 0 && layout.direction === direction) {
     const sizes = layout.sizes.map(Number);
     const half = sizes[at] / 2;
@@ -38,14 +53,14 @@ export function withBeside(layout: Layout, pane: string, inserted: Layout, direc
     children.splice(before ? at : at + 1, 0, inserted);
     return { ...layout, sizes, children };
   }
-  return { ...layout, children: layout.children.map((child) => withBeside(child, pane, inserted, direction, before)) };
+  return { ...layout, children: layout.children.map((child) => withBeside(child, group, inserted, direction, before)) };
 }
 
 export type Box = { left: number; top: number; width: number; height: number };
 
 export type Edge = "left" | "right" | "top" | "bottom";
 
-// The pane edge the point is nearest to, measured in shares of the pane's width and height.
+// The group edge the point is nearest to, measured in shares of the group's width and height.
 export function dropEdge(x: number, y: number, box: Box): Edge {
   const fx = (x - box.left) / box.width;
   const fy = (y - box.top) / box.height;
@@ -60,7 +75,7 @@ export function dropEdge(x: number, y: number, box: Box): Edge {
 
 export const edgeDirection = (edge: Edge): Direction => (edge === "left" || edge === "right" ? "row" : "column");
 
-// The half of the pane that a drop on `edge` would fill.
+// The half of the group that a drop on `edge` would fill.
 export function dropPreview(edge: Edge, box: Box): Box {
   const row = edgeDirection(edge) === "row";
   return {
@@ -71,16 +86,12 @@ export function dropPreview(edge: Edge, box: Box): Box {
   };
 }
 
-// The new pane goes after `pane` and takes half of its share.
-export const withSplit = (layout: Layout, pane: string, created: string, direction: Direction): Layout =>
-  withBeside(layout, pane, { kind: "pane", id: created }, direction, false);
-
-// The closed pane's share goes to the others in proportion; a split left with one child becomes that child.
-export function withoutPane(layout: Layout, pane: string): Layout | null {
-  if (layout.kind !== "split") return layout.id === pane ? null : layout;
+// The closed group's share goes to the others in proportion; a split left with one child becomes that child.
+export function withoutGroup(layout: Layout, group: string): Layout | null {
+  if (layout.kind !== "split") return layout.id === group ? null : layout;
   const kept: { child: Layout; size: number }[] = [];
   layout.children.forEach((child, i) => {
-    const next = withoutPane(child, pane);
+    const next = withoutGroup(child, group);
     if (next) kept.push({ child: next, size: Number(layout.sizes[i]) });
   });
   if (kept.length === 0) return null;
