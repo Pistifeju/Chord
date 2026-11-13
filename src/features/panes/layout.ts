@@ -45,11 +45,8 @@ export type Box = { left: number; top: number; width: number; height: number };
 
 export type Edge = "left" | "right" | "top" | "bottom";
 
-/** The share of a pane's width or height, from each edge, where a dropped tab splits it. */
-const EDGE_ZONE = 0.25;
-
-// The pane edge the point is nearest to, or null in the middle of the pane.
-export function dropEdge(x: number, y: number, box: Box): Edge | null {
+// The pane edge the point is nearest to, measured in shares of the pane's width and height.
+export function dropEdge(x: number, y: number, box: Box): Edge {
   const fx = (x - box.left) / box.width;
   const fy = (y - box.top) / box.height;
   const near = [
@@ -58,7 +55,7 @@ export function dropEdge(x: number, y: number, box: Box): Edge | null {
     { edge: "top" as const, share: fy },
     { edge: "bottom" as const, share: 1 - fy },
   ].reduce((a, b) => (b.share < a.share ? b : a));
-  return near.share <= EDGE_ZONE ? near.edge : null;
+  return near.edge;
 }
 
 export const edgeDirection = (edge: Edge): Direction => (edge === "left" || edge === "right" ? "row" : "column");

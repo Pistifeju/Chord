@@ -1,6 +1,6 @@
 // The panes of one worktree: the session tab bar and the split layout of the open session.
 import { Fragment, useEffect, useRef, useState, type PointerEvent, type RefObject, type SyntheticEvent } from "react";
-import type { Direction, Layout } from "../../ipc/bindings";
+import type { Direction, Layout, PaneSession } from "../../ipc/bindings";
 import { tooltip } from "../../app/commands";
 import { imageMime } from "../chat/attachments";
 import { ChatPane } from "../chat/ChatPane";
@@ -22,7 +22,7 @@ import { openFiles, showSessions } from "../editor/store";
 import { ChatIcon, CloseIcon, FileIcon, PlusIcon, SidePanelIcon } from "../../ui/icons";
 import { usePointerDrag } from "../../ui/pointerDrag";
 import { dropEdge, dropPreview, paneIds, resizedSizes, type Box, type Edge } from "./layout";
-import { activeSession, namedPane, tabName } from "./sessions";
+import { activeSession, namedPane, tabName, type PaneNames } from "./sessions";
 import { closeFilePane, closePane, closeSession, dropSession, endResize, ensurePanes, evenOutSplit, focusPane, newSession, panes, resizeSplit, selectSession } from "./store";
 import "./panes.css";
 
@@ -32,15 +32,36 @@ type Place = { worktree: string; session: string; focused: string; split: boolea
 type DraggedTab = { session: string } | { file: string };
 type Drop = { pane: string; edge: Edge; box: Box };
 
-// The edge strip of the pane under the pointer where a drop would split it.
-function dropAt(x: number, y: number): Drop | null {
-  const element = document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-pane]");
+// The pane under the pointer and its edge where a drop would split it. A divider keeps the last drop, so the mark does not blink between panes.
+function dropAt(x: number, y: number, last: Drop | null): Drop | null {
+  const under = document.elementFromPoint(x, y);
+  if (under?.closest(".divider")) return last;
+  const element = under?.closest<HTMLElement>("[data-pane]");
   if (!element?.dataset.pane) return null;
   const rect = element.getBoundingClientRect();
   const edge = dropEdge(x, y, rect);
-  if (!edge) return null;
-  const box = dropPreview(edge, rect);
-  return { pane: element.dataset.pane, edge, box };
+  return { pane: element.dataset.pane, edge, box: dropPreview(edge, rect) };
+}
+
+// The chip that follows the pointer while a tab drags: the tab's icon and name.
+function TabGhost({
+  dragging,
+  pointer,
+  sessions,
+  names,
+}: {
+  dragging: string;
+  pointer: { left: number; top: number };
+  sessions: PaneSession[];
+  names: PaneNames;
+}) {
+  const session = sessions.find((s) => s.id === dragging);
+  return (
+    <div className="tab-ghost" style={pointer}>
+      <span className="tab-status">{session ? <ChatIcon /> : <FileIcon />}</span>
+      <span className="tab-label">{session ? tabName(session, names) : dragging.split("/").pop()}</span>
+    </div>
+  );
 }
 
 function SessionTabs({ worktree }: { worktree: string }) {
@@ -57,6 +78,7 @@ function SessionTabs({ worktree }: { worktree: string }) {
   const shownBefore = useRef<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [drop, setDrop] = useState<Drop | null>(null);
+  const [pointer, setPointer] = useState<{ left: number; top: number } | null>(null);
   const dropRef = useRef<Drop | null>(null);
   const bar = useRef<HTMLDivElement>(null);
   const { files, active: shownFile } = openFiles.use()[worktree] ?? noFiles;
@@ -74,12 +96,14 @@ function SessionTabs({ worktree }: { worktree: string }) {
       }
     },
     onMove: (e, tab) => {
+      setPointer({ left: e.clientX, top: e.clientY });
       // The open session's own tab has nowhere to go.
-      dropRef.current = "session" in tab && tab.session === current?.active ? null : dropAt(e.clientX, e.clientY);
+      dropRef.current = "session" in tab && tab.session === current?.active ? null : dropAt(e.clientX, e.clientY, dropRef.current);
       setDrop(dropRef.current);
     },
     onEnd: (tab, dropped) => {
       setDragging(null);
+      setPointer(null);
       setDrop(null);
       const target = dropRef.current;
       dropRef.current = null;
@@ -165,6 +189,7 @@ function SessionTabs({ worktree }: { worktree: string }) {
         <SidePanelIcon />
       </button>
       {drop && <div className="drop-edge" style={drop.box} />}
+      {dragging && pointer && <TabGhost dragging={dragging} pointer={pointer} sessions={current.sessions} names={names} />}
     </div>
   );
 }

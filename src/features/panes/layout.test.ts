@@ -38,13 +38,14 @@ test("double-click evens out the sizes of one split", () => {
   assert.deepEqual(withEvenSizes(uneven, []), { ...uneven, sizes: [1 / 3, 1 / 3, 1 / 3] });
 });
 
-test("a point near a pane edge picks that edge, the middle picks none", () => {
+test("a point in a pane picks the nearest edge", () => {
   const box = { left: 100, top: 0, width: 400, height: 200 };
   assert.equal(dropEdge(110, 100, box), "left");
   assert.equal(dropEdge(490, 100, box), "right");
   assert.equal(dropEdge(300, 10, box), "top");
   assert.equal(dropEdge(300, 195, box), "bottom");
-  assert.equal(dropEdge(300, 100, box), null);
+  assert.equal(dropEdge(150, 100, box), "left");
+  assert.equal(dropEdge(300, 60, box), "top");
 });
 
 test("the drop preview is the half of the pane on the dropped edge", () => {
