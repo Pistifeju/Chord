@@ -17,7 +17,7 @@ pub use error::Error;
 pub use files::FileEntry;
 pub use git_counts::GitCounts;
 pub use harness::{Capability, DialogAnswer, DialogAsk, HarnessEvent, Image, SlashCommand, Status};
-pub use panes::{Direction, Layout, PaneSession, WorktreePanes};
+pub use panes::{Direction, Layout, Tab, WorktreePanes};
 pub use projects::Project;
 pub use state::{
     Appearance, BottomPanel, PaneAgent, Shortcut, SidePanel, Sidebar, State, StateChange, Store,

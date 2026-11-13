@@ -25,7 +25,7 @@ Containers. The first feature that puts something in one builds it:
 
 | Container | What it is | Features that fill it |
 |-----------|------------|-----------------------|
-| Tab bar | Strip above the panes; window drag region; shows the project name or "Settings" as a title when it has no tabs | Tabs: C3, F2. Buttons: F1, H1, H2, I1, L4 |
+| Tab bar | One strip over each tab group; the ones along the top are the window drag region; shows the project name or "Settings" as a title when it has no tabs | Tabs: C3, F2. Buttons: F1, H1, H2, I1, L4 |
 | Side panel | One panel right of the panes, one view at a time; resizable; width, open state and shown view remembered per worktree | F1 Files, I1 Simulator, J1 Preview |
 | Bottom panel | Resizable; open state remembered per worktree | G1 terminal, H3 build log and console |
 | Status bar | Strip at the bottom of the window | E11 usage, H3 build log toggle, H5 cache size and running simulators |
@@ -63,10 +63,10 @@ Edge cases:
 
 ## 3. Panes and tabs (core, needs E1)
 
-- [x] C1 Split right (⌘D), split down (⌘⇧D), close pane (⌘⇧W); every pane runs its own agent in the worktree.
+- [x] C1 Split right (⌘D), split down (⌘⇧D): a new tab group with a new session beside the focused one; close tab (⌘⇧W); every chat tab runs its own agent in the worktree.
 - [x] C2 Drag dividers to resize, double-click evens out, sizes persist.
-- [x] C3 Session tabs in the tab bar: one per chat session of the worktree, each its own split layout; a + after them opens a new one (⌘⇧T).
-- [x] C4 Drag a session tab onto a pane edge to split there.
+- [x] C3 Tab groups: each pane of the split is a group with its own tab bar over it, one tab per chat session or file; a + after a group's tabs opens a new session there (⌘⇧T in the focused group). A saved layout from before tab groups keeps its open session's split and adds the other sessions as tabs of the focused group.
+- [x] C4 Drag a tab onto another group's tab bar to move it there, or onto a pane edge to open a new group there.
 - [x] C5 harness(sessions): agents that ran at quit come back on launch in their exact session.
 - [x] C6 Quit asks while agents run.
 
@@ -119,11 +119,11 @@ Edge cases:
 ## 6. Files and editor (core)
 
 - [x] F1 Files view in the side panel (⌘⇧E), with its tab bar button: a tree of the worktree folder on disk, without `.git`; a folder reads its children when you open it; folders first, natural sort (`file2` before `file10`); a chain of single-child folders shows as one row (`src/app/views`). Header: filter field, Collapse All, Reload. The open file's row stays selected and scrolls into view.
-- [x] F2 CodeMirror editor with syntax highlighting; a file opens in a file tab of the tab bar; saves 1 s after you stop typing and on file switch.
+- [x] F2 CodeMirror editor with syntax highlighting; a file opens in a tab of the focused group; saves 1 s after you stop typing and on file switch.
 - [x] F3 Saving never overwrites an agent's change on disk; a conflict stops the save.
 - [x] F4 Image view, reloads on change.
 - [x] F5 Right click: New File, New Folder, Rename (inline, the name without its extension selected), Copy Path, Copy Relative Path, Reveal in Finder, Move to Trash (⌘⌫) after asking.
-- [x] F6 Needs C1: drag a file tab onto a pane edge to show the file beside a chat; ⌘D on a file tab puts an agent beside it.
+- [x] F6 Needs C1: a file tab drags like a session tab (C4); ⌘D on a file tab puts an agent beside it.
 - [x] F7 Open file by name (⌘⇧O).
 - [x] F8 Keyboard in the tree: ↑ ↓ move, → opens a folder, ← closes it or jumps to the parent, Return opens the file.
 - [x] F9 Drag a file from the tree into the composer to put its relative path in the draft.

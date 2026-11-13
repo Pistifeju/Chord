@@ -1,8 +1,15 @@
-/* The tab bar, the split layout and its dividers. Rules: DESIGN.md, Tab bar and Panes. */
+/* The split layout of tab groups, each group's tab bar, and the dividers. Rules: DESIGN.md, Tab bar and Panes. */
 .panes {
   display: flex;
-  flex-direction: column;
   height: 100%;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
 }
 
 .tabbar {
@@ -127,7 +134,8 @@
 
 .tab:hover .tab-close,
 .tab:focus-within .tab-close,
-.tab[data-selected="true"] .tab-close {
+.tab[data-selected="true"] .tab-close,
+.tab-close[data-always] {
   opacity: 1;
 }
 
@@ -145,12 +153,6 @@
   margin: 0 8px 0 2px;
 }
 
-.panes-body {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-}
-
 /* The shown file or the panes, with the bottom panel under them. */
 .panes-work {
   display: flex;
@@ -160,8 +162,13 @@
   min-height: 0;
 }
 
-/* Stays at the bar's right end while the tabs scroll. */
-.tabbar .tabbar-files {
+/* Stays at the bar's right end while the tabs scroll, and in the same place over the open side panel. */
+.files-toggle {
+  flex: none;
+  margin-right: 8px;
+}
+
+.tabbar .files-toggle {
   position: sticky;
   right: 0;
   margin: 0 8px 0 auto;
@@ -169,12 +176,12 @@
 }
 
 /* The washes are translucent in dark, so the canvas stays under them to hide the tabs scrolling past. */
-.tabbar .tabbar-files:hover {
+.files-toggle:hover {
   background: linear-gradient(var(--raised), var(--raised)), var(--canvas);
 }
 
-.tabbar .tabbar-files[aria-pressed="true"],
-.tabbar .tabbar-files:active {
+.files-toggle[aria-pressed="true"],
+.files-toggle:active {
   background: linear-gradient(var(--selected), var(--selected)), var(--canvas);
   color: var(--ink);
 }
@@ -184,11 +191,6 @@
   flex: 1;
   min-width: 0;
   min-height: 0;
-}
-
-/* A shown file's editor takes the layout's place; the panes stay mounted. */
-.pane-layout[hidden] {
-  display: none;
 }
 
 .split,
@@ -233,27 +235,6 @@
 .pane[data-split][data-focused]::before {
   opacity: 1;
   transform: translateX(-50%);
-}
-
-.pane-close {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  z-index: 1;
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-control);
-  background: none;
-  color: var(--ink-muted);
-}
-
-.pane-close:hover {
-  background: var(--raised);
-  color: var(--ink);
 }
 
 .divider {

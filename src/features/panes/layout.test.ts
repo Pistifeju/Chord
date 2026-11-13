@@ -2,9 +2,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Layout } from "../../ipc/bindings.ts";
-import { dropEdge, dropPreview, paneIds, resizedSizes, withBeside, withEvenSizes, withoutPane, withSplit, type Split } from "./layout.ts";
+import { dropEdge, dropPreview, paneIds, resizedSizes, withBeside, withEvenSizes, withoutGroup, type Split } from "./layout.ts";
 
-const pane = (id: string): Layout => ({ kind: "pane", id });
+const pane = (id: string): Layout => ({ kind: "group", id, tabs: [{ kind: "chat", id, name: "Session 1" }], active: id });
+const withSplit = (layout: Layout, at: string, created: string, direction: "row" | "column") => withBeside(layout, at, pane(created), direction, false);
 
 test("splitting a lone pane makes two halves", () => {
   assert.deepEqual(withSplit(pane("a"), "a", "b", "row"), { kind: "split", direction: "row", sizes: [0.5, 0.5], children: [pane("a"), pane("b")] });
@@ -24,8 +25,8 @@ test("splitting across the direction nests", () => {
 
 test("closing a pane gives its share to the others and collapses a split of one", () => {
   const three = withSplit(withSplit(pane("a"), "a", "b", "row"), "b", "c", "row");
-  assert.deepEqual(withoutPane(three, "c"), { kind: "split", direction: "row", sizes: [2 / 3, 1 / 3], children: [pane("a"), pane("b")] });
-  assert.deepEqual(withoutPane(withSplit(pane("a"), "a", "b", "row"), "a"), pane("b"));
+  assert.deepEqual(withoutGroup(three, "c"), { kind: "split", direction: "row", sizes: [2 / 3, 1 / 3], children: [pane("a"), pane("b")] });
+  assert.deepEqual(withoutGroup(withSplit(pane("a"), "a", "b", "row"), "a"), pane("b"));
 });
 
 test("a divider moves the two panes beside it and stops at the minimum", () => {
@@ -57,8 +58,8 @@ test("the drop preview is the half of the pane on the dropped edge", () => {
 });
 
 test("a layout dropped before a pane goes first and halves the pane's share", () => {
-  const layout: Layout = { kind: "split", direction: "row", sizes: [0.5, 0.5], children: [{ kind: "pane", id: "a" }, { kind: "pane", id: "b" }] };
-  const next = withBeside(layout, "b", { kind: "pane", id: "c" }, "row", true) as Split;
-  assert.deepEqual(next.children.map((c) => (c.kind === "pane" ? c.id : "?")), ["a", "c", "b"]);
+  const layout: Layout = { kind: "split", direction: "row", sizes: [0.5, 0.5], children: [pane("a"), pane("b")] };
+  const next = withBeside(layout, "b", pane("c"), "row", true) as Split;
+  assert.deepEqual(next.children.map((c) => (c.kind === "group" ? c.id : "?")), ["a", "c", "b"]);
   assert.deepEqual(next.sizes, [0.5, 0.25, 0.25]);
 });

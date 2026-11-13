@@ -212,7 +212,7 @@ impl PaneWatch {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Layout, PaneAgent, PaneSession, WorktreePanes};
+    use crate::{Layout, PaneAgent, Tab, WorktreePanes};
 
     fn held(session: &str) -> PaneAgent {
         PaneAgent {
@@ -226,22 +226,24 @@ mod tests {
         let root = std::env::temp_dir().join(format!("chord-forget-{}", std::process::id()));
         std::fs::create_dir_all(&root)?;
         let store = Arc::new(Store::open(root.join("state.json"))?);
-        let pane = |id: &str| Layout::Pane { id: id.into() };
+        let group = |id: &str| Layout::Group {
+            id: format!("group-{id}"),
+            tabs: vec![Tab::Chat {
+                id: id.into(),
+                name: "Session 1".into(),
+            }],
+            active: id.into(),
+        };
         store.update(|state| {
             state.panes.insert(
                 PathBuf::from("/w"),
                 WorktreePanes {
-                    sessions: vec![PaneSession {
-                        id: "s".into(),
-                        name: "Session 1".into(),
-                        layout: Layout::Split {
-                            direction: crate::Direction::Row,
-                            sizes: vec![0.5, 0.5],
-                            children: vec![pane("a"), pane("b")],
-                        },
-                        focused: "a".into(),
-                    }],
-                    active: "s".into(),
+                    layout: Layout::Split {
+                        direction: crate::Direction::Row,
+                        sizes: vec![0.5, 0.5],
+                        children: vec![group("a"), group("b")],
+                    },
+                    focused: "a".into(),
                 },
             );
             state

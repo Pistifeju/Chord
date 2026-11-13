@@ -1,31 +1,10 @@
-// Connects the file tab rules to IPC: each worktree's open files, a file read when its tab shows and again when it changes on disk, saved 1 s after the last edit and when the tab goes, unless the file changed on disk.
+// Connects the editor to IPC: a file read when its tab shows and again when it changes on disk, saved 1 s after the last edit and when the tab goes, unless the file changed on disk.
 import type { Text } from "@codemirror/state";
 import { commands } from "../../ipc/bindings";
-import { externalStore } from "../../ui/externalStore";
 import { fail } from "../worktrees/store";
-import { noFiles, withFileClosed, withFileOpened, withFilesMoved, withSessionsShown, type OpenFiles } from "./openFiles";
-
-export const openFiles = externalStore<Record<string, OpenFiles>>({});
 
 /** Milliseconds after the last edit before the file saves. */
 const SAVE_DELAY = 1000;
-
-const filesOf = (worktree: string): OpenFiles => openFiles.get()[worktree] ?? noFiles;
-const update = (worktree: string, change: (open: OpenFiles) => OpenFiles) => openFiles.set({ ...openFiles.get(), [worktree]: change(filesOf(worktree)) });
-
-export const openTab = (worktree: string, path: string) => update(worktree, (open) => withFileOpened(open, path));
-
-/** Closes the tab of `path` and returns the file shown after it. */
-export function closeTab(worktree: string, path: string): string | null {
-  update(worktree, (open) => withFileClosed(open, path));
-  return filesOf(worktree).active;
-}
-
-export const moveFiles = (worktree: string, from: string, to: string) => update(worktree, (open) => withFilesMoved(open, from, to));
-
-export const showSessions = (worktree: string) => {
-  if (filesOf(worktree).active !== null) update(worktree, withSessionsShown);
-};
 
 // The document is kept as is and turned into a string only when it saves, not on every keystroke.
 type Edit = { worktree: string; path: string; text: Text; lineBreak: string; timer: number };

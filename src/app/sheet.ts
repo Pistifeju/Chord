@@ -8,7 +8,7 @@ export type Sheet =
   | { kind: "trashFile"; worktree: string; path: string }
   | { kind: "openFileByName"; worktree: string }
   | { kind: "quit" }
-  | { kind: "closeAgents"; worktree: string; target: "pane" | "session"; id: string };
+  | { kind: "closeAgents"; worktree: string; id: string };
 
 export const sheet = externalStore<Sheet | null>(null);
 
