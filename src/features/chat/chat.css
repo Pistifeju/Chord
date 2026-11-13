@@ -80,6 +80,8 @@
   opacity: 0;
   transform: translateY(-3px);
   filter: blur(2px);
+  /* WebKit draws a stray stripe when it builds the blur layer mid-transition; a layer kept from the start has nothing to build. */
+  will-change: opacity, transform, filter;
   /* The short delay keeps the row from flickering when the pointer crosses the gap between messages. */
   transition: opacity var(--t-fast) var(--ease-out) 60ms, transform var(--t-fast) var(--ease-out) 60ms, filter var(--t-fast) var(--ease-out) 60ms;
 }
