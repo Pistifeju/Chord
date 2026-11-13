@@ -1,4 +1,5 @@
 // Connects the file tab rules to IPC: each worktree's open files, a file read when its tab shows, saved 1 s after the last edit and when the tab goes.
+import type { Text } from "@codemirror/state";
 import { commands } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
 import { selectFile } from "../files/store";
@@ -28,14 +29,15 @@ export const showSessions = (worktree: string) => {
   if (filesOf(worktree).active !== null) update(worktree, withSessionsShown);
 };
 
-type Edit = { worktree: string; path: string; text: string; timer: number };
+// The document is kept as is and turned into a string only when it saves, not on every keystroke.
+type Edit = { worktree: string; path: string; text: Text; timer: number };
 
 const edits = new Map<string, Edit>();
 // The last write of each file, so a read or the next write waits for it.
 const writes = new Map<string, Promise<unknown>>();
 const keyOf = (worktree: string, path: string) => `${worktree}\0${path}`;
 
-export function scheduleSave(worktree: string, path: string, text: string) {
+export function scheduleSave(worktree: string, path: string, text: Text) {
   const key = keyOf(worktree, path);
   clearTimeout(edits.get(key)?.timer);
   edits.set(key, { worktree, path, text, timer: window.setTimeout(() => flushSave(worktree, path), SAVE_DELAY) });
@@ -47,7 +49,7 @@ export function flushSave(worktree: string, path: string) {
   if (!edit) return;
   clearTimeout(edit.timer);
   edits.delete(key);
-  const write = (writes.get(key) ?? Promise.resolve()).then(() => commands.writeFile(worktree, path, edit.text)).catch(fail);
+  const write = (writes.get(key) ?? Promise.resolve()).then(() => commands.writeFile(worktree, path, edit.text.toString())).catch(fail);
   writes.set(key, write);
 }
 

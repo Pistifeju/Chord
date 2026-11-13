@@ -35,7 +35,7 @@ export function Editor({ worktree, path }: { worktree: string; path: string }) {
               language.of([]),
               editorTheme,
               EditorView.updateListener.of((update) => {
-                if (update.docChanged) scheduleSave(worktree, path, update.state.doc.toString());
+                if (update.docChanged) scheduleSave(worktree, path, update.state.doc);
               }),
             ],
           }),
