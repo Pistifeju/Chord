@@ -1,6 +1,8 @@
 //! A worktree's git counts: commits ahead of and behind its upstream, and changed files.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, PoisonError};
 
 use serde::Serialize;
 use specta::Type;
@@ -18,11 +20,15 @@ pub struct GitCounts {
 
 /// Counts for each folder; a folder git cannot read is left out.
 pub fn read_all(paths: &[PathBuf]) -> Result<Vec<GitCounts>, Error> {
+    let bases = Bases::default();
     // shortcut: one thread per folder, cap them once a window shows hundreds of worktrees.
     let results: Vec<_> = std::thread::scope(|scope| {
         let threads: Vec<_> = paths
             .iter()
-            .map(|path| scope.spawn(move || read(path)))
+            .map(|path| {
+                let bases = &bases;
+                scope.spawn(move || read(path, bases))
+            })
             .collect();
         threads.into_iter().map(|thread| thread.join()).collect()
     });
@@ -37,15 +43,25 @@ pub fn read_all(paths: &[PathBuf]) -> Result<Vec<GitCounts>, Error> {
     Ok(all)
 }
 
-fn read(dir: &Path) -> Result<GitCounts, Error> {
+/// The main checkout's branch of each worktree whose repository `git worktree list` already ran for.
+type Bases = Mutex<HashMap<PathBuf, Option<String>>>;
+
+fn read(dir: &Path, bases: &Bases) -> Result<GitCounts, Error> {
+    // Without optional locks git leaves the index alone, so an agent's own git command never meets our lock.
     let status = git::run(
         dir,
-        &["status", "--porcelain=v2", "--branch", "--ahead-behind"],
+        &[
+            "--no-optional-locks",
+            "status",
+            "--porcelain=v2",
+            "--branch",
+            "--ahead-behind",
+        ],
     )?;
     let (against_upstream, changed) = parse_status(&status);
     let (behind, ahead) = match against_upstream {
         Some(sides) => Some(sides),
-        None => match main_checkout_branch(dir)? {
+        None => match main_checkout_branch(dir, bases)? {
             Some(base) => count_against(dir, &base)?,
             None => None,
         },
@@ -88,12 +104,20 @@ fn count_against(dir: &Path, base: &str) -> Result<Option<(u32, u32)>, Error> {
     }
 }
 
-fn main_checkout_branch(dir: &Path) -> Result<Option<String>, Error> {
+// One list serves every worktree of its repository; the lock keeps a second thread from listing it again.
+fn main_checkout_branch(dir: &Path, bases: &Bases) -> Result<Option<String>, Error> {
+    let mut bases = bases.lock().unwrap_or_else(PoisonError::into_inner);
+    if let Some(base) = bases.get(dir) {
+        return Ok(base.clone());
+    }
     let entries = worktrees::entries(dir)?;
-    Ok(entries
-        .into_iter()
-        .next()
-        .and_then(|entry| entry.worktree.branch))
+    let base = entries
+        .first()
+        .and_then(|entry| entry.worktree.branch.clone());
+    for entry in entries {
+        bases.insert(entry.worktree.path, base.clone());
+    }
+    Ok(base)
 }
 
 fn parse_sides(output: &str) -> Option<(u32, u32)> {
@@ -145,7 +169,7 @@ mod tests {
         )?;
         git::run(&tree, &commit)?;
 
-        let counts = read(&tree)?;
+        let counts = read(&tree, &Bases::default())?;
 
         assert_eq!((counts.ahead, counts.behind), (Some(1), Some(0)));
         Ok(())

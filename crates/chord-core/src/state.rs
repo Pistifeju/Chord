@@ -210,6 +210,9 @@ impl Store {
         let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
         let mut next = state.clone();
         let result = change(&mut next);
+        if next == *state {
+            return Ok(result);
+        }
         // shortcut: writes on every change, debounce once a feature saves while you type or drag.
         let temp = self.file.with_extension("json.tmp");
         fs::write(&temp, serde_json::to_vec_pretty(&next)?)?;

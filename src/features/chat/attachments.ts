@@ -18,4 +18,11 @@ export function imageMime(path: string): string | null {
 
 export const fileName = (path: string) => path.slice(path.lastIndexOf("/") + 1);
 
-export const imageUrl = (image: Image) => `data:${image.mime_type};base64,${image.data}`;
+// One string per image, so a re-render compares the src by identity instead of megabytes of base64.
+const urls = new WeakMap<Image, string>();
+
+export function imageUrl(image: Image): string {
+  let url = urls.get(image);
+  if (url === undefined) urls.set(image, (url = `data:${image.mime_type};base64,${image.data}`));
+  return url;
+}
