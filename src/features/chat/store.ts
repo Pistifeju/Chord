@@ -71,6 +71,8 @@ export async function startChat(worktree: string, pane: string) {
   update(pane, (chat) => ({ ...chat, agent: "starting", notice: null, report: null, commands: [] }));
   try {
     const capabilities = await commands.startChat(worktree, pane, channel);
+    // The pane closed while its agent started, so the stop came first and missed it.
+    if (!intakes.has(pane)) commands.stopChat(pane).catch(console.error);
     if (latest(pane, start)) update(pane, (chat) => (chat.agent === "starting" ? { ...chat, agent: "ready", capabilities } : chat));
   } catch (error) {
     if (latest(pane, start)) update(pane, (chat) => ({ ...chat, agent: "idle", notice: String(error) }));
