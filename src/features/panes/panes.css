@@ -7,14 +7,15 @@
 
 .tabbar {
   display: flex;
-  align-items: stretch;
+  align-items: center;
+  gap: 2px;
   flex: none;
   height: var(--titlebar-height);
+  padding-left: 8px;
   overflow-x: auto;
   position: relative;
   z-index: 2;
-  background: var(--panel);
-  box-shadow: inset 0 -1px 0 var(--line);
+  background: var(--canvas);
 }
 
 .tabbar[data-sidebar-hidden="true"] {
@@ -25,10 +26,11 @@
   display: flex;
   flex: none;
   align-items: center;
+  height: 28px;
   max-width: 220px;
-  border-right: 1px solid var(--line);
-  box-shadow: inset 0 -1px 0 var(--line);
+  border-radius: var(--radius-control);
   color: var(--ink-muted);
+  transition: background-color var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out);
 }
 
 .tab:hover {
@@ -36,10 +38,8 @@
   color: var(--ink);
 }
 
-/* The open tab takes the pane's fill and keeps the bottom rule, so it reads as one tab with the bar. */
 .tab[data-selected="true"] {
-  background: var(--canvas);
-  box-shadow: -1px 0 0 var(--line), inset 0 -1px 0 var(--line);
+  background: var(--raised);
   color: var(--ink);
 }
 
@@ -55,21 +55,40 @@
   pointer-events: none;
 }
 
+.tab-ghost {
+  position: fixed;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  max-width: 220px;
+  padding: 0 10px;
+  border-radius: var(--radius-control);
+  background: var(--sheet);
+  box-shadow: var(--shadow-popover);
+  color: var(--ink);
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate(8px, 8px);
+}
+
 .tab-name {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
   height: 100%;
-  padding: 0 8px 0 12px;
+  padding: 0 6px 0 10px;
   border: none;
+  border-radius: inherit;
   background: none;
   color: inherit;
   white-space: nowrap;
 }
 
 .tab-name:last-child {
-  padding-right: 12px;
+  padding-right: 10px;
 }
 
 .tab-name:focus-visible {
@@ -96,7 +115,7 @@
   flex: none;
   width: 20px;
   height: 20px;
-  margin-right: 8px;
+  margin-right: 4px;
   padding: 0;
   border: none;
   border-radius: var(--radius-inset);
@@ -116,14 +135,13 @@
 }
 
 .tab[data-selected="true"] .tab-close:hover {
-  background: var(--raised);
+  background: var(--selected);
 }
 
 .tabbar .icon-button {
   flex: none;
   align-self: center;
-  /* Puts the plus glyph 14px from the tab edge, like the close glyph. */
-  margin: 0 8px 0 5px;
+  margin: 0 8px 0 2px;
 }
 
 .panes-body {
@@ -146,16 +164,17 @@
   position: sticky;
   right: 0;
   margin: 0 8px 0 auto;
-  background: var(--panel);
+  background: var(--canvas);
 }
 
+/* The washes are translucent in dark, so the canvas stays under them to hide the tabs scrolling past. */
 .tabbar .tabbar-files:hover {
-  background: var(--raised);
+  background: linear-gradient(var(--raised), var(--raised)), var(--canvas);
 }
 
 .tabbar .tabbar-files[aria-pressed="true"],
 .tabbar .tabbar-files:active {
-  background: var(--selected);
+  background: linear-gradient(var(--selected), var(--selected)), var(--canvas);
   color: var(--ink);
 }
 

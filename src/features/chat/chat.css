@@ -42,7 +42,8 @@
   max-width: 700px;
   margin: 0 auto;
   padding: 16px 25px;
-  line-height: 1.5;
+  font-size: calc(14px * var(--text-scale));
+  line-height: 1.625;
 }
 
 .chat-message {
@@ -54,9 +55,45 @@
   align-self: flex-end;
   max-width: 85%;
   margin-right: -15px;
-  padding: 8px 12px;
+  padding: 10px 14px;
   border-radius: var(--radius-card);
-  background: var(--raised);
+  background: var(--bubble);
+}
+
+.chat-turn {
+  display: flex;
+  flex-direction: column;
+}
+
+/* A message's copy button and time, shown while the pointer is over the message. */
+.chat-message-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  margin: 4px 0 0 -4px;
+  font-size: calc(12px * var(--text-scale));
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+  -webkit-user-select: none;
+  user-select: none;
+  opacity: 0;
+  transition: opacity var(--t-fast) var(--ease-out);
+}
+
+.chat-turn[data-role="user"] .chat-message-meta {
+  align-self: flex-end;
+  margin: 4px -15px 0 0;
+}
+
+.chat-turn:hover .chat-message-meta,
+.chat-message-meta:focus-within {
+  opacity: 1;
+}
+
+.chat-message-copy {
+  width: 24px;
+  height: 24px;
 }
 
 .chat-thumbs {
@@ -209,6 +246,7 @@
 }
 
 /* New items, the Working row and the notice rise 4px into place while they fade in; the image row is skipped so an image arriving mid-run does not replay it. */
+.chat-turn[data-fresh],
 .chat-message[data-fresh],
 .chat-stopped[data-fresh],
 .chat-steps[data-fresh] > :not(.chat-thumbs),
@@ -303,10 +341,11 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 8px;
-  border: 1px solid var(--line-strong);
+  padding: 10px 10px 8px;
+  border: 1px solid var(--line);
   border-radius: var(--radius-card);
-  background: var(--panel);
+  background: var(--sheet);
+  box-shadow: var(--shadow-composer);
 }
 
 /* A file dragged from the Files tree over the composer. */
@@ -458,10 +497,12 @@
 .chat-input {
   width: 100%;
   max-height: 224px;
-  padding: 4px 6px;
+  padding: 2px 4px;
   border: none;
   background: transparent;
   font: inherit;
+  font-size: calc(14px * var(--text-scale));
+  line-height: 1.625;
   color: inherit;
   resize: none;
 }
@@ -588,7 +629,8 @@
 .chat-send {
   display: inline-grid;
   place-items: center;
-  width: 28px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   margin-left: auto;
   border-radius: 50%;
@@ -597,6 +639,11 @@
 
 .chat-send:active:not(:disabled) {
   transform: scale(0.97);
+}
+
+.chat-send:disabled {
+  background: var(--selected);
+  color: var(--ink-muted);
 }
 
 .chat-empty {
@@ -622,6 +669,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .chat-turn[data-fresh],
   .chat-message[data-fresh],
   .chat-stopped[data-fresh],
   .chat-steps[data-fresh] > :not(.chat-thumbs),
@@ -713,9 +761,9 @@
   max-height: 372px;
   padding: 6px;
   overflow: hidden;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--line);
   border-radius: var(--radius-card);
-  background: var(--panel);
+  background: var(--sheet);
   box-shadow: var(--shadow-popover);
 }
 

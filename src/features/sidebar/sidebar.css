@@ -29,6 +29,20 @@
   padding: 0 8px 12px;
 }
 
+/* Matches the status bar's height and inset, so the gear sits where it would without the sidebar. */
+.sidebar-footer {
+  display: flex;
+  align-items: center;
+  flex: none;
+  height: 32px;
+  padding: 0 6px;
+}
+
+.sidebar-footer .icon-button {
+  width: 24px;
+  height: 24px;
+}
+
 .project-group + .project-group {
   margin-top: 14px;
 }
@@ -38,7 +52,7 @@
   font-size: calc(12px * var(--text-scale));
   font-weight: 500;
   line-height: 16px;
-  color: var(--ink);
+  color: var(--ink-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -56,11 +70,11 @@
 .worktree-card {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
   width: 100%;
-  padding: 7px 10px;
+  padding: 8px 10px;
   border: none;
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-inset);
   background: none;
   color: var(--ink-muted);
   text-align: left;
@@ -71,7 +85,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 18px;
+  min-height: 20px;
 }
 
 /* Branch, counts and hint differ in size, so they share a baseline instead of a center. */
@@ -98,8 +112,8 @@
 .worktree-title {
   flex: 1;
   color: var(--ink);
-  font-size: calc(13px * var(--text-scale));
-  line-height: 18px;
+  font-size: calc(14px * var(--text-scale));
+  line-height: 20px;
 }
 
 .worktree-status,
@@ -173,9 +187,13 @@
   color: var(--ink-secondary);
 }
 
-.worktree-card[aria-current="true"],
 .worktree-card:active {
+  background: var(--raised);
+}
+
+.worktree-card[aria-current="true"] {
   background: var(--selected);
+  box-shadow: inset 0 0 0 1px var(--selected-ring);
 }
 
 .worktree-card[aria-current="true"] .worktree-title {

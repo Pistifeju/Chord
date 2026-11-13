@@ -67,17 +67,22 @@ button:focus-visible {
 
 .button-secondary,
 .button-destructive {
-  background: var(--raised);
-  box-shadow: inset 0 0 0 1px var(--line-strong);
+  background: var(--sheet);
+  box-shadow: inset 0 0 0 1px var(--line-strong), var(--shadow-control);
 }
 
 .button-destructive {
   color: var(--danger);
 }
 
+.button-secondary:hover,
+.button-destructive:hover {
+  background: linear-gradient(var(--raised), var(--raised)), var(--sheet);
+}
+
 .button-secondary:active,
 .button-destructive:active {
-  background: var(--selected);
+  background: linear-gradient(var(--selected), var(--selected)), var(--sheet);
 }
 
 .spinner {
@@ -207,7 +212,7 @@ button:focus-visible {
   padding: 0 10px;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-control);
-  background: var(--canvas);
+  background: var(--sheet);
   font: inherit;
   color: inherit;
 }
