@@ -228,7 +228,7 @@ function applied(chat: Chat, event: HarnessEvent, now: number): Chat {
       return { ...chat, items: [], queued: [], report: null, historyLength: 0 };
     case "history_end":
       return { ...chat, historyLength: chat.items.length };
-    // Rust saves the session file; the store puts a draft in the composer and tells of an export; the transcript holds none of them.
+    // Rust saves the session; the store puts a draft in the composer and tells of an export; the transcript holds none of them.
     case "session_info":
     case "draft":
     case "exported":

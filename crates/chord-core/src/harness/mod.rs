@@ -1,13 +1,52 @@
 //! What a harness tells the chat: the events every adapter emits.
 
 pub mod pi;
+mod process;
 pub mod sessions;
 mod shell;
 
-use std::path::PathBuf;
+use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
+
+use crate::Error;
+
+/// One running agent of a pane. Each harness adapter implements it in `harness/<name>/`, emits `HarnessEvent`s and keeps its own records private; `start` names it. Dropping the agent ends its process and returns once it has ended.
+pub trait Agent: Send {
+    /// What this harness can do; the UI hides a control whose capability is missing.
+    fn capabilities(&self) -> Vec<Capability>;
+    /// Sends the user's message, or runs it as a session command. `held_elsewhere` are the sessions other panes hold, which a resume must not open.
+    fn send(&self, text: &str, images: &[Image], held_elsewhere: &[String]) -> Result<(), Error>;
+    /// Answers the dialog the agent opened with `id`.
+    fn answer_dialog(&self, id: &str, answer: &DialogAnswer) -> Result<(), Error>;
+    /// Stops the run; the agent keeps running.
+    fn abort(&self) -> Result<(), Error>;
+    /// Ends the agent and reports it as exited, for a pane that stays.
+    fn end_reported(self: Box<Self>);
+}
+
+/// Starts the agent of the harness named `harness` in `dir`. `session` is what the harness reported in `SessionInfo`, to open it again; `data_dir` is a folder the adapter may write its own files to. `on_event` hears every event, from the adapter's own thread.
+pub fn start(
+    harness: &str,
+    dir: &Path,
+    session: Option<&str>,
+    data_dir: &Path,
+    on_event: impl Fn(HarnessEvent) + Send + 'static,
+) -> Result<Box<dyn Agent>, Error> {
+    match harness {
+        pi::NAME => Ok(Box::new(pi::Session::start(
+            pi::DEFAULT_BINARY,
+            dir,
+            session,
+            data_dir,
+            on_event,
+        )?)),
+        other => Err(Error::Message(format!(
+            "Chord cannot run the harness \"{other}\""
+        ))),
+    }
+}
 
 /// What a harness can do; the adapter returns its list when a session starts, and the UI hides a control whose capability is missing.
 #[derive(Serialize, Type, Debug, Clone, Copy, PartialEq)]
@@ -78,7 +117,7 @@ pub enum SlashKind {
     Skill,
     Prompt,
     Extension,
-    /// A command of the harness itself that acts on the pane's session: model, thinking, new, resume, fork, clone, tree, reload, export.
+    /// A command of the harness itself that acts on the pane's session, such as picking the model or resuming another session; the adapter runs it when `send` gets it.
     Session,
 }
 
@@ -198,8 +237,8 @@ pub enum HarnessEvent {
     Aborted,
     /// Something the user should read: a refused command or a failed reply.
     Notice { text: String },
-    /// The session the pane's agent holds: the file that opens it again.
-    SessionInfo { file: PathBuf },
+    /// The session the pane's agent holds: what the harness opens it again by.
+    SessionInfo { id: String },
     /// The transcript starts over; the session's saved messages follow as the events a live reply produces, up to `HistoryEnd`.
     HistoryStart,
     /// The saved messages are all in; what follows is live.

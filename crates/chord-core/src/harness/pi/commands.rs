@@ -1,7 +1,5 @@
 //! The commands the pi adapter writes to pi's stdin: a prompt, the session commands, a picked model or thinking level, a fork and a dialog answer.
 
-use std::path::PathBuf;
-
 use serde_json::{Value, json};
 
 use super::{EXTENSION_PREFIX, SESSION_PROMPT};
@@ -16,7 +14,7 @@ pub(super) fn prompt_command(text: &str, images: &[Image]) -> Value {
 }
 
 // The RPC command a session command runs; resume and tree need a pick pi's RPC has no list for, so the extension runs them.
-pub(super) fn session_command(text: &str, held_elsewhere: &[PathBuf]) -> Option<Value> {
+pub(super) fn session_command(text: &str, held_elsewhere: &[String]) -> Option<Value> {
     let extension = |name: &str| json!({ "id": SESSION_PROMPT, "type": "prompt", "message": format!("/{EXTENSION_PREFIX}{name}") });
     // `/export` takes an optional output path; pi picks the file without one.
     if let Some(path) = text
@@ -30,13 +28,7 @@ pub(super) fn session_command(text: &str, held_elsewhere: &[PathBuf]) -> Option<
     }
     Some(match text {
         "/new" => json!({ "type": "new_session" }),
-        "/resume" => {
-            let held: Vec<_> = held_elsewhere
-                .iter()
-                .map(|file| file.to_string_lossy())
-                .collect();
-            extension(&format!("resume {}", json!(held)))
-        }
+        "/resume" => extension(&format!("resume {}", json!(held_elsewhere))),
         "/model" => json!({ "type": "get_available_models" }),
         "/thinking" => json!({ "type": "get_available_thinking_levels" }),
         "/fork" => json!({ "type": "get_fork_messages" }),

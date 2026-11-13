@@ -2,7 +2,6 @@
 
 use std::path::PathBuf;
 
-use chord_core::harness::pi::DEFAULT_BINARY;
 use chord_core::harness::sessions::Sessions;
 use chord_core::{Capability, DialogAnswer, Error, HarnessEvent, Image, images};
 use tauri::ipc::Channel;
@@ -23,7 +22,6 @@ pub async fn start_chat(
     blocking(app, move |app, _| {
         let (notified_worktree, notified_pane) = (worktree.clone(), pane.clone());
         app.state::<Sessions>().start(
-            DEFAULT_BINARY,
             worktree,
             pane,
             move |event| {

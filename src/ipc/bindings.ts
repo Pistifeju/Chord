@@ -184,8 +184,8 @@ export type HarnessEvent_Deserialize =
 { kind: "aborted" } | 
 /**  Something the user should read: a refused command or a failed reply. */
 { kind: "notice"; text: string } | 
-/**  The session the pane's agent holds: the file that opens it again. */
-{ kind: "session_info"; file: string } | 
+/**  The session the pane's agent holds: what the harness opens it again by. */
+{ kind: "session_info"; id: string } | 
 /**  The transcript starts over; the session's saved messages follow as the events a live reply produces, up to `HistoryEnd`. */
 { kind: "history_start" } | 
 /**  The saved messages are all in; what follows is live. */
@@ -234,8 +234,8 @@ export type HarnessEvent_Serialize =
 { kind: "aborted" } | 
 /**  Something the user should read: a refused command or a failed reply. */
 { kind: "notice"; text: string } | 
-/**  The session the pane's agent holds: the file that opens it again. */
-{ kind: "session_info"; file: string } | 
+/**  The session the pane's agent holds: what the harness opens it again by. */
+{ kind: "session_info"; id: string } | 
 /**  The transcript starts over; the session's saved messages follow as the events a live reply produces, up to `HistoryEnd`. */
 { kind: "history_start" } | 
 /**  The saved messages are all in; what follows is live. */
@@ -272,6 +272,20 @@ sizes: (number | null)[]; children: Layout[] };
 export type LineChanges = {
 	added: number,
 	removed: number,
+};
+
+export type PaneAgent = PaneAgent_Serialize | PaneAgent_Deserialize;
+
+export type PaneAgent_Deserialize = {
+	harness?: string,
+	/**  What the harness opens the session by; none until it reports one. */
+	session?: string | null,
+};
+
+export type PaneAgent_Serialize = {
+	harness: string,
+	/**  What the harness opens the session by; none until it reports one. */
+	session: string | null,
 };
 
 /**  One session tab: its name, its split layout and the pane that has the focus. */
@@ -374,7 +388,7 @@ export type SlashCommand_Serialize = {
 
 /**  Where a slash command is defined. */
 export type SlashKind = "skill" | "prompt" | "extension" | 
-/**  A command of the harness itself that acts on the pane's session: model, thinking, new, resume, fork, clone, tree, reload, export. */
+/**  A command of the harness itself that acts on the pane's session, such as picking the model or resuming another session; the adapter runs it when `send` gets it. */
 "session";
 
 export type State = State_Serialize | State_Deserialize;
@@ -428,8 +442,8 @@ export type State_Deserialize = {
 	bottomPanels?: { [key in string]: BottomPanel_Deserialize },
 	/**  The panes whose agent was started and not stopped; they start again on launch. */
 	runningPanes?: string[],
-	/**  The session file each pane's agent last held; a pane without one opens a file of its own. */
-	sessionFiles?: { [key in string]: string },
+	/**  What each pane's agent runs: its harness and the session it last held. */
+	agents?: { [key in string]: PaneAgent_Deserialize },
 };
 
 export type State_Serialize = {
@@ -450,8 +464,8 @@ export type State_Serialize = {
 	bottomPanels: { [key in string]: BottomPanel_Serialize },
 	/**  The panes whose agent was started and not stopped; they start again on launch. */
 	runningPanes: string[],
-	/**  The session file each pane's agent last held; a pane without one opens a file of its own. */
-	sessionFiles: { [key in string]: string },
+	/**  What each pane's agent runs: its harness and the session it last held. */
+	agents: { [key in string]: PaneAgent_Serialize },
 };
 
 export type Status = Status_Serialize | Status_Deserialize;

@@ -45,20 +45,20 @@ The pi side of ACP:
 
 ## 3. Contract
 
-One trait in `chord-core`, one implementation per harness. The frontend gets Chord events and never a harness record.
+The `Agent` trait and `start` in `crates/chord-core/src/harness/mod.rs`, one implementation per harness in `harness/<name>/`. The doc comments on the trait and on `HarnessEvent` are the reference; this section holds what they do not say.
 
-- **Events** (adapter to UI), named after ACP's session updates so the ACP adapter maps one to one: `message_chunk`, `thought_chunk`, `tool_call`, `tool_call_update`, `state` (running, waiting, idle with a stop reason), `commands`, `config_options`, `session_info`, `usage`, `notice`, `dialog`.
-- **Adapter lifecycle events**, no ACP equivalent: `message_end` (the streaming reply is complete), `exited` (the harness process ended), `history_start` and `history_end` (around a session's saved messages, replayed as live events), `draft` (text for the composer) and `exported` (the file an export wrote). A user's message arrives as `user_message_chunk`.
-- **Chord-only events**, behind capabilities: `status_line`, `widget`, `queue`, `plan_usage`.
-- **Commands** (UI to adapter): `prompt`, `cancel`, `answer_dialog`, `set_config_option`, `new_session`, `list_sessions`, `resume_session`; behind capabilities: `steer`, `fork`, `tree`, `compact`, `export`.
-- **Capabilities**: the adapter returns the list at start. The UI hides a control whose capability is missing. The names are the table in `SPEC.md` section 12.
-- **Status**: the adapter emits `state`; `status_for` and `exit_status` in Rust keep deciding the card status from it. The pi adapter reads the facts from pi's stdout (`ARCHITECTURE.md`, section 4).
+- **Events** (adapter to UI): the `HarnessEvent` variants, named after ACP's session updates where ACP has one. The frontend gets these and never a harness record. Core adds `status`; an adapter never emits it.
+- **Sessions**: `session_info` carries the adapter's own session key as a string (a pi file path, an ACP `sessionId`); `Sessions` saves it in `PaneAgent` and hands it back to `start`. On open, the adapter replays the saved messages as live events between `history_start` and `history_end`.
+- **Commands** (UI to adapter): the trait's methods, and dropping the agent to end it. Session commands (`/new`, `/resume`, `/fork`, `/model`) arrive as text through `send`: the adapter lists them in `commands` with kind `session` and runs them itself. A picker it needs opens as a `dialog`, and the answer comes back through `answer_dialog`.
+- **Capabilities**: `capabilities()` returns the list at start; the UI hides a control whose capability is missing. `SPEC.md` section 13 tells which features wait for a capability and which for an event.
+- **Status**: `status_for` folds the events into the card status; an adapter only emits events. The pi adapter reads the facts from pi's stdout (`ARCHITECTURE.md`, section 4).
+- **Process**: `harness/process.rs` starts the binary through the user's login shell on pipes, hands each stdout line to the adapter and reports the exit. An adapter that speaks over stdio builds on it.
 - **Version check**: the pi adapter runs `pi --version` at start and refuses a pi older than the tested one, with the upgrade command.
 
 ## 4. Adapter order
 
 1. pi over RPC. First release. Full capability list.
-2. ACP, one adapter for every ACP agent. Claude Code and Codex both have adapters in the `agentclientprotocol` GitHub organisation. Capabilities: chat, tools, dialogs, models, sessions, context. No steer, tree, widgets or status line.
+2. ACP, one adapter for every ACP agent. Claude Code and Codex both have adapters in the `agentclientprotocol` GitHub organisation. Capabilities: chat, tools, dialogs, models, sessions, context. No steer, tree, subagents or status line.
 3. Terminal pane for any other CLI. Status from process exit only.
 
 ## 5. Not verified

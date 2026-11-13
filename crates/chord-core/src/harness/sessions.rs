@@ -1,25 +1,28 @@
-//! The running agents, one per pane: start, send, abort, stop, and the saved facts that follow them: the running flag and the session file.
+//! The running agents, one per pane: start, send, abort, stop, and the saved facts that follow them: the running flag, the harness and the session.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
-use super::pi::{Session, session_file};
 use super::{
-    Capability, DialogAnswer, HarnessEvent, Image, Status, StatusReport, StatusTracker, status_for,
+    Agent, Capability, DialogAnswer, HarnessEvent, Image, Status, StatusReport, StatusTracker,
+    status_for,
 };
 use crate::awake::Awake;
 use crate::{Error, State, Store, WorktreePanes};
 
+/// Each pane's agent and the worktree it runs in.
+type Running = HashMap<String, (PathBuf, Box<dyn Agent>)>;
+
 pub struct Sessions {
-    running: Mutex<HashMap<String, (PathBuf, Session)>>,
+    running: Mutex<Running>,
     store: Arc<Store>,
     awake: Arc<Awake>,
     dir: PathBuf,
 }
 
 impl Sessions {
-    /// `dir` holds the session files and the extension the harness loads.
+    /// `dir` holds the files the harness adapters write for themselves.
     pub fn new(store: Arc<Store>, dir: PathBuf) -> Sessions {
         let awake = Arc::new(Awake::new(store.get().keep_awake));
         Sessions {
@@ -30,26 +33,25 @@ impl Sessions {
         }
     }
 
-    fn sessions(&self) -> MutexGuard<'_, HashMap<String, (PathBuf, Session)>> {
+    fn sessions(&self) -> MutexGuard<'_, Running> {
         self.running.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
     fn with(
         &self,
         pane: &str,
-        act: impl FnOnce(&Session) -> Result<(), Error>,
+        act: impl FnOnce(&dyn Agent) -> Result<(), Error>,
     ) -> Result<(), Error> {
         match self.sessions().get(pane) {
-            Some((_, session)) => act(session),
+            Some((_, session)) => act(session.as_ref()),
             None => Err(Error::Message("The agent is not running".into())),
         }
     }
 
-    /// Starts the pane's agent in the worktree, replaces the one the pane had, and saves the pane as running.
+    /// Starts the pane's agent in the worktree with the harness the pane saved, replaces the one the pane had, and saves the pane as running.
     /// `on_status_change` hears a status once per change, with the agent's last message, before `on_event` gets it.
     pub fn start(
         &self,
-        binary: &str,
         worktree: PathBuf,
         pane: String,
         on_event: impl Fn(HarnessEvent) + Send + 'static,
@@ -61,10 +63,13 @@ impl Sessions {
             awake: Arc::clone(&self.awake),
             tracker: StatusTracker::default(),
         });
-        let session = Session::start(
-            binary,
+        let agent = self
+            .store
+            .update(|state| state.agents.entry(pane.clone()).or_default().clone())?;
+        let session = super::start(
+            &agent.harness,
             &worktree,
-            &held_file(&self.store.get(), &self.dir, &pane)?,
+            agent.session.as_deref(),
             &self.dir,
             move |event| {
                 let mut watch = watch.lock().unwrap_or_else(PoisonError::into_inner);
@@ -83,7 +88,7 @@ impl Sessions {
             },
         )?;
         let capabilities = session.capabilities();
-        // The lock is free again before the old session drops: dropping kills pi and waits for it.
+        // The lock is free again before the old session drops: dropping kills the agent's process and waits for it.
         let replaced = self.sessions().insert(pane.clone(), (worktree, session));
         drop(replaced);
         self.store
@@ -98,8 +103,8 @@ impl Sessions {
             .values()
             .flat_map(WorktreePanes::pane_ids)
             .filter(|other| other != pane)
-            .map(|other| held_file(&state, &self.dir, &other))
-            .collect::<Result<Vec<_>, _>>()?;
+            .filter_map(|other| state.agents.get(&other)?.session.clone())
+            .collect::<Vec<_>>();
         self.with(pane, |session| session.send(text, images, &held_elsewhere))
     }
 
@@ -108,10 +113,10 @@ impl Sessions {
     }
 
     pub fn abort(&self, pane: &str) -> Result<(), Error> {
-        self.with(pane, Session::abort)
+        self.with(pane, |session| session.abort())
     }
 
-    /// The pane is gone: its agent stops and no longer starts on launch. Its session files stay for `/resume`.
+    /// The pane is gone: its agent stops and no longer starts on launch. Its sessions stay for `/resume`.
     pub fn stop_pane(&self, pane: &str) -> Result<(), Error> {
         let session = self.sessions().remove(pane);
         drop(session);
@@ -151,7 +156,7 @@ impl Sessions {
             .for_each(|(_, session)| session.end_reported());
     }
 
-    /// The worktree is gone: its layouts and running flags go with it. Its session files stay for `/resume`.
+    /// The worktree is gone: its layouts and running flags go with it. Its sessions stay for `/resume`.
     pub fn forget(&self, worktree: &Path) -> Result<(), Error> {
         self.stop(worktree);
         self.store.update(|state| {
@@ -167,10 +172,10 @@ impl Sessions {
     }
 }
 
-// A pane that is gone no longer starts on launch, and its next start opens a new session file.
+// A pane that is gone no longer starts on launch, and its next start opens a new session.
 fn drop_pane(state: &mut State, pane: &str) {
     state.running_panes.remove(pane);
-    state.session_files.remove(pane);
+    state.agents.remove(pane);
 }
 
 /// What one pane's agent events change: the saved facts, keep-awake and the status.
@@ -186,10 +191,10 @@ impl PaneWatch {
         match event {
             HarnessEvent::State { running } => self.awake.set_working(&self.pane, *running),
             // The next start opens the session the pane shows now.
-            HarnessEvent::SessionInfo { file, .. } => {
-                let _ = self
-                    .store
-                    .update(|state| state.session_files.insert(self.pane.clone(), file.clone()));
+            HarnessEvent::SessionInfo { id } => {
+                let _ = self.store.update(|state| {
+                    state.agents.entry(self.pane.clone()).or_default().session = Some(id.clone());
+                });
             }
             HarnessEvent::Exited { .. } => {
                 self.awake.set_working(&self.pane, false);
@@ -204,25 +209,22 @@ impl PaneWatch {
     }
 }
 
-// The session the pane's agent last held, or the file a pane held before Chord saved which one.
-fn held_file(state: &State, dir: &Path, pane: &str) -> Result<PathBuf, Error> {
-    match state.session_files.get(pane) {
-        Some(file) => Ok(file.clone()),
-        None => session_file(dir, pane),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Layout, PaneSession, WorktreePanes};
+    use crate::{Layout, PaneAgent, PaneSession, WorktreePanes};
+
+    fn held(session: &str) -> PaneAgent {
+        PaneAgent {
+            harness: "pi".into(),
+            session: Some(session.into()),
+        }
+    }
 
     #[test]
-    fn forgetting_a_worktree_drops_its_layout_and_running_flags_and_keeps_its_session_files()
-    -> Result<(), Error> {
+    fn forgetting_a_worktree_drops_its_layout_running_flags_and_agents() -> Result<(), Error> {
         let root = std::env::temp_dir().join(format!("chord-forget-{}", std::process::id()));
-        let dir = root.join("sessions");
-        std::fs::create_dir_all(&dir)?;
+        std::fs::create_dir_all(&root)?;
         let store = Arc::new(Store::open(root.join("state.json"))?);
         let pane = |id: &str| Layout::Pane { id: id.into() };
         store.update(|state| {
@@ -245,31 +247,20 @@ mod tests {
             state
                 .running_panes
                 .extend(["a".to_string(), "other".to_string()]);
-            state
-                .session_files
-                .insert("b".into(), dir.join("resumed.jsonl"));
+            state.agents.insert("b".into(), held("resumed.jsonl"));
+            state.agents.insert("other".into(), held("other.jsonl"));
         })?;
-        std::fs::write(dir.join("a.jsonl"), "")?;
-        std::fs::write(dir.join("resumed.jsonl"), "")?;
-        std::fs::write(dir.join("other.jsonl"), "")?;
 
-        let sessions = Sessions::new(Arc::clone(&store), dir.clone());
-        sessions.forget(Path::new("/w"))?;
+        Sessions::new(Arc::clone(&store), root.clone()).forget(Path::new("/w"))?;
 
         let state = store.get();
-        let left_files = (
-            dir.join("a.jsonl").exists(),
-            dir.join("resumed.jsonl").exists(),
-            dir.join("other.jsonl").exists(),
-        );
         let _ = std::fs::remove_dir_all(&root);
         assert!(state.panes.is_empty());
         assert_eq!(
             state.running_panes.into_iter().collect::<Vec<_>>(),
             ["other"]
         );
-        assert!(state.session_files.is_empty());
-        assert_eq!(left_files, (true, true, true));
+        assert_eq!(state.agents.keys().collect::<Vec<_>>(), ["other"]);
         Ok(())
     }
 
@@ -288,42 +279,62 @@ mod tests {
         };
 
         watch.observe(&HarnessEvent::SessionInfo {
-            file: PathBuf::from("/s/a.jsonl"),
+            id: "/s/a.jsonl".into(),
         });
         watch.observe(&HarnessEvent::Exited { code: Some(0) });
 
         let state = store.get();
         let _ = std::fs::remove_dir_all(&root);
         assert!(state.running_panes.is_empty());
-        assert_eq!(
-            state.session_files.get("a"),
-            Some(&PathBuf::from("/s/a.jsonl"))
-        );
+        assert_eq!(state.agents.get("a"), Some(&held("/s/a.jsonl")));
         Ok(())
     }
 
     #[test]
-    fn a_closed_pane_no_longer_starts_on_launch_and_keeps_its_session_file() -> Result<(), Error> {
+    fn a_closed_pane_no_longer_starts_on_launch_and_forgets_its_agent() -> Result<(), Error> {
         let root = std::env::temp_dir().join(format!("chord-close-{}", std::process::id()));
-        let dir = root.join("sessions");
-        std::fs::create_dir_all(&dir)?;
+        std::fs::create_dir_all(&root)?;
         let store = Arc::new(Store::open(root.join("state.json"))?);
         store.update(|state| {
             state.running_panes.insert("a".into());
-            state
-                .session_files
-                .insert("a".into(), dir.join("resumed.jsonl"));
+            state.agents.insert("a".into(), held("resumed.jsonl"));
         })?;
-        std::fs::write(dir.join("resumed.jsonl"), "")?;
 
-        Sessions::new(Arc::clone(&store), dir.clone()).stop_pane("a")?;
+        Sessions::new(Arc::clone(&store), root.clone()).stop_pane("a")?;
 
         let state = store.get();
-        let kept = dir.join("resumed.jsonl").exists();
         let _ = std::fs::remove_dir_all(&root);
         assert!(state.running_panes.is_empty());
-        assert!(state.session_files.is_empty());
-        assert!(kept);
+        assert!(state.agents.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn a_pane_saved_with_an_unknown_harness_does_not_start() -> Result<(), Error> {
+        let root = std::env::temp_dir().join(format!("chord-harness-{}", std::process::id()));
+        std::fs::create_dir_all(&root)?;
+        let store = Arc::new(Store::open(root.join("state.json"))?);
+        store.update(|state| {
+            state.agents.insert(
+                "a".into(),
+                PaneAgent {
+                    harness: "nope".into(),
+                    session: None,
+                },
+            );
+        })?;
+
+        let started = Sessions::new(Arc::clone(&store), root.clone()).start(
+            PathBuf::from("/w"),
+            "a".into(),
+            |_| {},
+            |_, _| {},
+        );
+
+        let state = store.get();
+        let _ = std::fs::remove_dir_all(&root);
+        assert!(started.is_err());
+        assert!(state.running_panes.is_empty());
         Ok(())
     }
 }

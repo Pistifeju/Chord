@@ -217,7 +217,7 @@ fn response(command: Option<&str>, data: &Value) -> Vec<HarnessEvent> {
         }
         Some("get_state") => data["sessionFile"]
             .as_str()
-            .map(|file| HarnessEvent::SessionInfo { file: file.into() })
+            .map(|file| HarnessEvent::SessionInfo { id: file.into() })
             .into_iter()
             .chain(chosen_model(data))
             .collect(),

@@ -104,7 +104,7 @@ Edge cases:
 - [x] E10 harness(context): context meter with a limit warning; `/new` resets it.
 - [x] E11 harness(usage): subscription usage (5h, weekly) in the status bar as a bar, the percentage and the time left to the reset; stale windows hidden. The windows come from the pi-powerbar extension; without it the bar shows no usage.
 - [x] E15 harness(chat): a slow (5 s or more) or failed call shows its run time ("55.4 s"); a step group shows its total. Live runs only; pi saves no run time in the session.
-- [x] E13 harness(widgets): background subagent runs as a lineage line at the end of the transcript. The pi adapter reads the snapshot a pi subagent extension writes. Without such an extension the line never shows.
+- [x] E13 harness(subagents): background subagent runs as a lineage line at the end of the transcript. The pi adapter reads the snapshot a pi subagent extension writes. Without such an extension the line never shows.
 - [x] E17 harness(chat): hovering a message shows a copy button and the time it was sent under it; history keeps the saved times.
 - [x] E18 harness(chat): a step group names what it did by kind ("2 searches, edited 2 files, ran 4 commands") and the lines its finished edits and writes added and removed ("+43 −5"); history keeps them.
 - [ ] E14 core: branch button in the composer: local branches newest first, switch, New Branch; branches another worktree holds stay disabled; locked while the agent runs.
@@ -202,19 +202,23 @@ Edge cases:
 
 ## 13. Harness capabilities these features need
 
-A harness that lacks one hides the features tagged with it.
+A tag with a capability is a `Capability` variant: the UI hides the feature when the adapter's list lacks it. A tag with an event shows its feature once the adapter sends that `HarnessEvent`; an adapter that never sends it hides the feature.
 
-| Capability | Used by | pi |
-|------------|---------|----------|
-| status | D1-D6 | RPC records on stdout |
-| chat | E1, E2 | `pi --mode rpc` records on stdout, commands on stdin |
-| attachments, tool-images | E4, E5, I3 | RPC |
-| dialogs | E6 | RPC extension UI requests |
-| commands | E7 | RPC |
-| sessions | E8, E16, C5 | RPC plus three commands from the extension Chord ships |
-| models | E9 | RPC |
-| context, usage, status-line | E10-E12 | RPC; usage comes from a pi extension that reports it |
-| widgets | E13 | a pi subagent extension |
+| Tag | Used by | Gate | pi |
+|-----|---------|------|----|
+| status | D1-D6 | events: `state`, `dialog`, `message_end`, `exited` | RPC records on stdout |
+| chat | E1, E2 | capability `chat` | `pi --mode rpc` records on stdout, commands on stdin |
+| attachments | E4, I3 | capability `attachments` | RPC |
+| tool-images | E5 | event: images in `tool_end` | RPC |
+| dialogs | E6 | event: `dialog` | RPC extension UI requests |
+| commands | E7 | event: `commands` | RPC |
+| sessions | E8, E16, C5 | event: `session_info`; the session commands come in `commands` | RPC plus three commands from the extension Chord ships |
+| models | E9 | capability `models` | RPC |
+| context | E10 | capability `context` | RPC |
+| usage | E11 | event: `usage` | a pi extension that reports it |
+| subagents | E13 | capability `subagents` | a pi subagent extension |
+
+Steering while a run goes (E1) waits for capability `steer`.
 
 ## 14. Left out
 

@@ -1,7 +1,5 @@
 //! Tests for the pi adapter: records fed to the reader, and the commands written to pi.
 
-use std::path::PathBuf;
-
 use serde_json::{Value, json};
 
 use super::commands::{
@@ -300,7 +298,7 @@ fn the_state_tells_the_session_file() {
     assert_eq!(
         events(record),
         vec![HarnessEvent::SessionInfo {
-            file: "sessions/a.jsonl".into()
+            id: "sessions/a.jsonl".into()
         }]
     );
 }
@@ -334,7 +332,7 @@ fn export_passes_the_path_it_was_given() {
 #[test]
 fn resume_leaves_out_the_sessions_other_panes_hold() {
     assert_eq!(
-        session_command("/resume", &[PathBuf::from("sessions/b.jsonl")]),
+        session_command("/resume", &["sessions/b.jsonl".to_string()]),
         Some(
             json!({ "id": "chord-session", "type": "prompt", "message": r#"/chord-resume ["sessions/b.jsonl"]"# })
         )
@@ -457,7 +455,7 @@ fn the_state_tells_the_model_and_a_picker_marks_it() {
         shown.feed(state.as_bytes()).events,
         vec![
             HarnessEvent::SessionInfo {
-                file: "a.jsonl".into()
+                id: "a.jsonl".into()
             },
             HarnessEvent::Model {
                 name: "Sonnet 4".into(),

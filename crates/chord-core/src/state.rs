@@ -33,8 +33,25 @@ pub struct State {
     pub bottom_panels: BTreeMap<PathBuf, BottomPanel>,
     /// The panes whose agent was started and not stopped; they start again on launch.
     pub running_panes: BTreeSet<String>,
-    /// The session file each pane's agent last held; a pane without one opens a file of its own.
-    pub session_files: BTreeMap<String, PathBuf>,
+    /// What each pane's agent runs: its harness and the session it last held.
+    pub agents: BTreeMap<String, PaneAgent>,
+}
+
+#[derive(Serialize, Deserialize, Type, Clone, Debug, PartialEq)]
+#[serde(default, rename_all = "camelCase")]
+pub struct PaneAgent {
+    pub harness: String,
+    /// What the harness opens the session by; none until it reports one.
+    pub session: Option<String>,
+}
+
+impl Default for PaneAgent {
+    fn default() -> Self {
+        PaneAgent {
+            harness: crate::harness::pi::NAME.into(),
+            session: None,
+        }
+    }
 }
 
 /// One change the frontend saves.

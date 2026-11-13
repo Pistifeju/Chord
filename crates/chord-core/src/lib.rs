@@ -20,7 +20,8 @@ pub use harness::{Capability, DialogAnswer, DialogAsk, HarnessEvent, Image, Slas
 pub use panes::{Direction, Layout, PaneSession, WorktreePanes};
 pub use projects::Project;
 pub use state::{
-    Appearance, BottomPanel, Shortcut, SidePanel, Sidebar, State, StateChange, Store, Theme,
+    Appearance, BottomPanel, PaneAgent, Shortcut, SidePanel, Sidebar, State, StateChange, Store,
+    Theme,
 };
 pub use terminal::{TerminalEvent, Terminals};
 pub use worktrees::{KeptBranch, Removal, Worktree};
