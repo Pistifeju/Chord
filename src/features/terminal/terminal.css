@@ -1,5 +1,6 @@
 /* The terminal in the bottom panel. Rules: DESIGN.md, Bottom panel and Terminal. */
 .terminal-part {
+  position: relative;
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -25,6 +26,11 @@
 
 .terminal-part:focus-within .terminal-title {
   color: var(--ink);
+}
+
+/* The find bar sits under the header, over the terminal's top right. */
+.terminal-part .find-bar {
+  top: 36px;
 }
 
 .terminal-hide {

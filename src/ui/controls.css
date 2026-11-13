@@ -1,4 +1,4 @@
-/* Shared controls: buttons, icon button, input, sheet, toast, drop target. Rules: DESIGN.md, Components. */
+/* Shared controls: buttons, icon button, input, sheet, toast, drop target, find bar. Rules: DESIGN.md, Components. */
 button {
   font: inherit;
   color: inherit;
@@ -403,6 +403,60 @@ button:focus-visible {
   transform: rotate(90deg);
 }
 
+/* The find bar floats over the top right of a transcript or terminal, so opening it resizes nothing. */
+.find-bar {
+  position: absolute;
+  top: 8px;
+  right: 16px;
+  z-index: 1;
+  display: flex;
+  max-width: calc(100% - 32px);
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  background: var(--canvas);
+  box-shadow: var(--shadow-popover);
+  animation: find-bar-in var(--t-med) var(--ease-out);
+}
+
+.find-bar-input {
+  flex: 1;
+  width: 160px;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  border: none;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+}
+
+.find-bar-input:focus-visible {
+  outline: none;
+}
+
+.find-bar-input::placeholder {
+  color: var(--ink-muted);
+}
+
+.find-bar-count {
+  min-width: 48px;
+  font-size: calc(12px * var(--text-scale));
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+@keyframes find-bar-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .turn-chevron {
     transition: none;
@@ -425,5 +479,9 @@ button:focus-visible {
   .sheet,
   .sheet-backdrop {
     animation: none;
+  }
+
+  .find-bar {
+    animation-name: scrim-in;
   }
 }

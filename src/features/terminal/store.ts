@@ -1,14 +1,16 @@
 // Each worktree's xterm, wired to its shell over IPC and kept with its scrollback while hidden.
 import { Channel } from "@tauri-apps/api/core";
 import { FitAddon } from "@xterm/addon-fit";
+import { SearchAddon, type ISearchResultChangeEvent } from "@xterm/addon-search";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal, type ITheme } from "@xterm/xterm";
 import { commands, type TerminalEvent } from "../../ipc/bindings";
 import { bottomPanelOf, bottomPanels, showBottomPanel } from "../bottompanel/store";
 import { appearance } from "../settings/store";
 import { fail } from "../worktrees/store";
+import { closeTerminalFind } from "./find";
 
-type Shell = { term: Terminal; fit: FitAddon; host: HTMLDivElement };
+type Shell = { term: Terminal; fit: FitAddon; search: SearchAddon; host: HTMLDivElement };
 
 const shells = new Map<string, Shell>();
 // The worktree whose terminal takes the focus once it shows: the one ⌘T just opened.
@@ -34,6 +36,37 @@ const theme = (): ITheme => ({
 // shortcut: xterm 6's private render service, a no-op if it moves; recheck after an xterm upgrade.
 const paintNow = (term: Terminal) => (term as any)._core?._renderService?._renderDebouncer?._innerRefresh?.();
 
+// xterm takes a match background only as #RRGGBB, so the translucent match color is laid over the canvas first.
+function opaque(color: string): string {
+  const paint = document.createElement("canvas").getContext("2d")!;
+  for (const layer of [token("canvas"), color]) {
+    paint.fillStyle = layer;
+    paint.fillRect(0, 0, 1, 1);
+  }
+  return `#${[...paint.getImageData(0, 0, 1, 1).data.slice(0, 3)].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+}
+
+const matchColors = () => {
+  const match = opaque(token("editor-match"));
+  const current = token("accent-ink");
+  return { matchBackground: match, matchOverviewRuler: match, activeMatchBackground: match, activeMatchBorder: current, activeMatchColorOverviewRuler: current };
+};
+
+/** Finds `query` in the worktree's terminal: `by` 0 keeps the current match while it still matches, 1 and -1 step to the next or previous. */
+export function findInTerminal(worktree: string, query: string, by: 0 | 1 | -1) {
+  const search = shells.get(worktree)?.search;
+  if (!query) return search?.clearDecorations();
+  const options = { decorations: matchColors() };
+  if (by === -1) search?.findPrevious(query, options);
+  else search?.findNext(query, { ...options, incremental: by === 0 });
+}
+
+export const onTerminalFindResults = (worktree: string, listener: (results: ISearchResultChangeEvent) => void) => shells.get(worktree)?.search.onDidChangeResults(listener);
+
+export const endTerminalFind = (worktree: string) => shells.get(worktree)?.search.clearDecorations();
+
+export const focusTerminal = (worktree: string) => shells.get(worktree)?.term.focus();
+
 function fitNow({ term, fit }: Shell) {
   fit.fit();
   paintNow(term);
@@ -49,15 +82,18 @@ export function toggleTerminal(worktree: string) {
 
 // The shell is gone: its terminal goes, and the panel closes.
 function forget(worktree: string) {
+  closeTerminalFind(worktree);
   shells.get(worktree)?.term.dispose();
   shells.delete(worktree);
   showBottomPanel(worktree, false);
 }
 
 function start(worktree: string, host: HTMLDivElement): Shell {
-  const term = new Terminal({ fontFamily: token("font-code"), fontSize: appearance.get().terminalFontSize, scrollback: 10000, theme: theme() });
+  const term = new Terminal({ fontFamily: token("font-code"), fontSize: appearance.get().terminalFontSize, scrollback: 10000, theme: theme(), allowProposedApi: true });
   const fit = new FitAddon();
   term.loadAddon(fit);
+  const search = new SearchAddon();
+  term.loadAddon(search);
   // ⌘ keys go to the app's shortcuts and the browser's copy and paste; every other key belongs to the shell.
   term.attachCustomKeyEventHandler((e) => !e.metaKey);
   host.addEventListener("keydown", (e) => {
@@ -79,7 +115,7 @@ function start(worktree: string, host: HTMLDivElement): Shell {
   };
   term.onData((text) => send(() => commands.writeTerminal(worktree, text)));
   term.onResize(({ cols, rows }) => send(() => commands.resizeTerminal(worktree, cols, rows)));
-  return { term, fit, host };
+  return { term, fit, search, host };
 }
 
 /** Shows the worktree's terminal in `container`, starting its shell the first time; the returned function hides it again. */

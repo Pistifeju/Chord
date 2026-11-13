@@ -138,7 +138,7 @@ Edge cases:
 ## 7. Terminal and logs (core)
 
 - [x] G1 One login shell per worktree (⌘T) in the bottom panel, shown or hidden per worktree. Settings row: terminal font size.
-- [ ] G2 ⌘F searches the terminal or log that has focus.
+- [x] G2 ⌘F searches the terminal or log that has focus.
 - [ ] G3 Drop files on the terminal to paste their paths; links open in the browser.
 
 Edge cases:

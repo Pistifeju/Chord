@@ -12,7 +12,7 @@ import { elapsedText } from "./elapsed";
 import { modelLabels } from "./model";
 import { appearance } from "../settings/store";
 import { StatusMark } from "../status/StatusMark";
-import { FindBar } from "./FindBar";
+import { TranscriptFind } from "./TranscriptFind";
 import { finds } from "./find";
 import { Markdown } from "./MarkdownView";
 import { Lightbox } from "./Lightbox";
@@ -344,7 +344,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
         <button type="button" className="chat-jump" data-shown={away || undefined} title="Jump to Latest" aria-label="Jump to Latest" onClick={jumpToEnd}>
           <ArrowDownIcon />
         </button>
-        {find && <FindBar pane={pane} find={find} transcript={transcript} items={shownItems.current} />}
+        {find && <TranscriptFind pane={pane} find={find} transcript={transcript} items={shownItems.current} />}
         {chat.running && <Working since={chat.since ?? Date.now()} />}
       </div>
       {viewing && <Lightbox images={viewing.images} index={viewing.index} onStep={(by) => stepLightbox(pane, by)} onClose={() => closeLightbox(pane)} />}
