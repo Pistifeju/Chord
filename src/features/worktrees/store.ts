@@ -98,7 +98,7 @@ export function confirmDeletion() {
 }
 
 // The card goes at once; git runs in the background and the list comes back if it refuses.
-export async function deleteWorktree(project: string, path: string, force = false) {
+async function deleteWorktree(project: string, path: string, force = false) {
   const branch = projects.get().worktrees[project]?.find((w) => w.path === path)?.branch ?? null;
   const before = projects.get().selected;
   update((p) => withoutWorktree(p, project, path));

@@ -58,7 +58,7 @@ export const canClosePane = (panes: WorktreePanes | undefined): boolean => !!pan
 export type PaneNames = Record<string, string | undefined>;
 
 // A session is named after its first user message, on one line and cut to 30 characters.
-export function sessionName(items: Item[]): string | undefined {
+function sessionName(items: Item[]): string | undefined {
   const first = items.find((item) => item.role === "user");
   if (first?.role !== "user") return undefined;
   // Every chunk asks again, so only the words that reach 30 characters are read.

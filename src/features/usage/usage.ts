@@ -14,7 +14,7 @@ export function usedPercent({ label }: UsageWindow): number | undefined {
 }
 
 /** The time until a reset in its two largest units: "4d 6h", "2h 48m", "12m". */
-export function timeLeft(ms: number): string {
+function timeLeft(ms: number): string {
   const minutes = Math.max(0, Math.floor(ms / MINUTE));
   const days = Math.floor(minutes / 1440);
   const hours = Math.floor(minutes / 60) % 24;

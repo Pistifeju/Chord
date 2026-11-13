@@ -22,7 +22,7 @@ const table: AppCommand[] = [...sidebarCommands, ...filesCommands, ...terminalCo
 const defaultShortcuts: ShortcutMap = Object.fromEntries(table.map((c) => [c.id, c.shortcut]));
 
 // The key a command has now: its default, or the one the user chose.
-export const shortcutOf = (id: string): Shortcut | undefined => currentShortcuts(defaultShortcuts, shortcutChanges.get())[id];
+const shortcutOf = (id: string): Shortcut | undefined => currentShortcuts(defaultShortcuts, shortcutChanges.get())[id];
 
 export function loadShortcutChanges(saved: ShortcutChanges) {
   shortcutChanges.set(loadedChanges(defaultShortcuts, saved));
@@ -73,7 +73,7 @@ export function tooltip(id: string): string {
 const accelerator = (s: Shortcut) => keyParts(s, 2).join("+");
 
 // A context-menu item that runs a command on the item it was opened for.
-export function menuItem(id: string, target: string) {
+function menuItem(id: string, target: string) {
   const command = table.find((c) => c.id === id);
   const shortcut = shortcutOf(id);
   return {

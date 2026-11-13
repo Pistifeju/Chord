@@ -12,7 +12,7 @@ type KeyPress = Pick<KeyboardEvent, "key" | "metaKey" | "ctrlKey" | "altKey" | "
 export const pressMatches = (s: Shortcut, e: KeyPress) =>
   e.key.toLowerCase() === s.key && e.metaKey === !!s.cmd && e.ctrlKey === !!s.ctrl && e.altKey === !!s.alt && e.shiftKey === !!s.shift;
 
-export const sameShortcut = (a: Shortcut | undefined, b: Shortcut | undefined) =>
+const sameShortcut = (a: Shortcut | undefined, b: Shortcut | undefined) =>
   !!a && !!b && a.key === b.key && !!a.cmd === !!b.cmd && !!a.ctrl === !!b.ctrl && !!a.alt === !!b.alt && !!a.shift === !!b.shift;
 
 const modifierKeys = ["meta", "control", "alt", "shift"];

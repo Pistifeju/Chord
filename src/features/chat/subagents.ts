@@ -15,7 +15,7 @@ export function subagentLine(node: SubagentNode, now: number): string {
 const runsOf = (nodes: SubagentNode[]) => nodes.filter((n) => n.depth === 0);
 
 // A chain's steps and a fan-out's workers are the agents the user counts, not the run that holds them.
-export const leafCount = (nodes: SubagentNode[]) => nodes.filter((n, i) => (nodes[i + 1]?.depth ?? 0) <= n.depth).length;
+const leafCount = (nodes: SubagentNode[]) => nodes.filter((n, i) => (nodes[i + 1]?.depth ?? 0) <= n.depth).length;
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 

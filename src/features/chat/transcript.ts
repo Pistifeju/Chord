@@ -12,7 +12,7 @@ export type Step =
 export type StepGroup = { role: "steps"; steps: Step[] };
 
 /** Marks where the user stopped a run. */
-export type StopMark = { role: "stopped" };
+type StopMark = { role: "stopped" };
 
 export type Item = Message | StepGroup | StopMark;
 
@@ -23,7 +23,7 @@ export type OpenDialog = { id: string; title: string; ask: DialogAsk };
 export type ModelChoice = { name: string; thinking: string | null };
 
 /** The model's context window and the tokens the session fills of it; null tokens right after a compaction. */
-export type ContextFill = { tokens: number | null; window: number };
+type ContextFill = { tokens: number | null; window: number };
 
 export type Chat = {
   /** idle: no agent runs (the Start button shows); starting: the process is coming up; ready: it takes messages. */

@@ -6,7 +6,7 @@ export type Split = Extract<Layout, { kind: "split" }>;
 export type FilePane = Extract<Layout, { kind: "file" }>;
 
 /** The share a child keeps at least, so a divider never hides a pane. */
-export const MIN_SIZE = 0.1;
+const MIN_SIZE = 0.1;
 
 export const paneIds = (layout: Layout): string[] => (layout.kind === "split" ? layout.children.flatMap(paneIds) : [layout.id]);
 

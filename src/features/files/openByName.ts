@@ -1,7 +1,7 @@
 // Rules for Open File by Name: which of the worktree's files match the typed name, best first.
 
 // shortcut: only the first rows render, so a huge repo stays quick; upgrade to a virtual list if someone misses a file past them.
-export const SHOWN_FILES = 100;
+const SHOWN_FILES = 100;
 
 // 0: the name starts with the query, 1: the name contains it, 2: only the path does; -1: no match.
 function rank(path: string, needle: string): number {

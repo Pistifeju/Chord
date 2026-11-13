@@ -8,9 +8,9 @@ export type Inline =
   | { kind: "link"; href: string; children: Inline[] }
   | { kind: "break" };
 
-export type ListItem = { checked: boolean | null; children: Block[] };
+type ListItem = { checked: boolean | null; children: Block[] };
 
-export type Align = "left" | "center" | "right" | null;
+type Align = "left" | "center" | "right" | null;
 
 export type Block =
   | { kind: "heading"; level: number; children: Inline[] }
