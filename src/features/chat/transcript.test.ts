@@ -7,8 +7,8 @@ test("chunks of one reply join into one streaming message until it ends", () => 
   let chat = chatAfter(emptyChat, { kind: "message_chunk", text: "Hel" }, 0);
   chat = chatAfter(chat, { kind: "message_chunk", text: "lo" }, 0);
   assert.deepEqual(chat.items, [{ role: "assistant", text: "Hello", streaming: true }]);
-  chat = chatAfter(chat, { kind: "message_end" }, 0);
-  assert.deepEqual(chat.items, [{ role: "assistant", text: "Hello", streaming: false }]);
+  chat = chatAfter(chat, { kind: "message_end", failed: false, at: 1000 }, 0);
+  assert.deepEqual(chat.items, [{ role: "assistant", text: "Hello", streaming: false, at: 1000 }]);
 });
 
 test("a chunk after a steer starts a new reply", () => {
@@ -124,16 +124,16 @@ test("a history start empties the transcript and the status, then the saved mess
   chat = chatAfter(chat, { kind: "status", status: { kind: "done" }, last_message: "Old reply" }, 5);
   chat = chatAfter(chat, { kind: "history_start" }, 9);
   assert.deepEqual([chat.items, chat.report], [[], null]);
-  chat = chatAfter(chat, { kind: "user_message_chunk", text: "Saved", images: [] }, 9);
-  assert.deepEqual(chat.items, [{ role: "user", text: "Saved", streaming: false, images: [] }]);
+  chat = chatAfter(chat, { kind: "user_message_chunk", text: "Saved", images: [], at: 7 }, 9);
+  assert.deepEqual(chat.items, [{ role: "user", text: "Saved", streaming: false, images: [], at: 7 }]);
 });
 
 test("a session's history changes the chat once, at its end", () => {
   let fed = chatFed(emptyChat, null, { kind: "history_start" }, 1);
-  fed = chatFed(fed.chat, fed.replay, { kind: "user_message_chunk", text: "Hi", images: [] }, 2);
+  fed = chatFed(fed.chat, fed.replay, { kind: "user_message_chunk", text: "Hi", images: [], at: 5 }, 2);
   assert.equal(fed.chat, emptyChat);
   fed = chatFed(fed.chat, fed.replay, { kind: "history_end" }, 3);
   assert.equal(fed.replay, null);
-  assert.deepEqual(fed.chat.items, [{ role: "user", text: "Hi", streaming: false, images: [] }]);
+  assert.deepEqual(fed.chat.items, [{ role: "user", text: "Hi", streaming: false, images: [], at: 5 }]);
   assert.equal(fed.chat.historyLength, 1);
 });

@@ -140,7 +140,8 @@ fn a_user_message_joins_its_text_blocks_and_keeps_its_images() {
             images: vec![Image {
                 data: "x".into(),
                 mime_type: "image/png".into()
-            }]
+            }],
+            at: None
         }]
     );
 }
@@ -152,7 +153,8 @@ fn an_expanded_skill_shows_as_the_command_the_user_typed() {
         events(record),
         vec![HarnessEvent::UserMessageChunk {
             text: "/skill:deploy to staging".into(),
-            images: vec![]
+            images: vec![],
+            at: None
         }]
     );
     assert_eq!(
@@ -206,14 +208,18 @@ fn saved_messages_come_back_as_the_events_of_their_run() {
             HarnessEvent::HistoryStart,
             HarnessEvent::UserMessageChunk {
                 text: "List it".into(),
-                images: vec![]
+                images: vec![],
+                at: None
             },
             HarnessEvent::ThoughtStart,
             HarnessEvent::ThoughtChunk { text: "hm".into() },
             HarnessEvent::MessageChunk {
                 text: "Sure.".into()
             },
-            HarnessEvent::MessageEnd { failed: false },
+            HarnessEvent::MessageEnd {
+                failed: false,
+                at: None
+            },
             HarnessEvent::ToolStart {
                 id: "c1".into(),
                 title: "List".into(),
@@ -742,7 +748,10 @@ fn a_failed_reply_ends_and_says_why() {
     assert_eq!(
         events(record),
         vec![
-            HarnessEvent::MessageEnd { failed: true },
+            HarnessEvent::MessageEnd {
+                failed: true,
+                at: None
+            },
             HarnessEvent::Notice {
                 text: "No API key".into()
             }

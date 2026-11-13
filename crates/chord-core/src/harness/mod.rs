@@ -132,8 +132,12 @@ pub enum ToolOutcome {
 #[derive(Serialize, Type, Debug, Clone, PartialEq)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum HarnessEvent {
-    /// A user message the agent took in, whether it started the run or steered it.
-    UserMessageChunk { text: String, images: Vec<Image> },
+    /// A user message the agent took in, whether it started the run or steered it; `at` is when it was sent, in epoch milliseconds, when the agent says.
+    UserMessageChunk {
+        text: String,
+        images: Vec<Image>,
+        at: Option<f64>,
+    },
     /// Text of the reply that is streaming now.
     MessageChunk { text: String },
     /// The agent began a new block of reasoning.
@@ -163,8 +167,8 @@ pub enum HarnessEvent {
         tokens: Option<u32>,
         window: Option<u32>,
     },
-    /// The streaming reply is complete; `failed` when it ended in an error.
-    MessageEnd { failed: bool },
+    /// The streaming reply is complete; `failed` when it ended in an error; `at` is when the reply was written, in epoch milliseconds, when the agent says.
+    MessageEnd { failed: bool, at: Option<f64> },
     /// The agent opened a dialog and waits for an answer; `id` goes back with it.
     Dialog {
         id: String,
@@ -289,7 +293,7 @@ pub fn status_for(tracker: &mut StatusTracker, event: &HarnessEvent) -> Option<S
             tracker.last_message.push_str(text);
             tracker.dialog = false;
         }
-        HarnessEvent::MessageEnd { failed } => {
+        HarnessEvent::MessageEnd { failed, .. } => {
             tracker.reply_open = false;
             tracker.failed |= failed;
         }
@@ -330,7 +334,10 @@ mod tests {
     fn reply(text: &str) -> [HarnessEvent; 2] {
         [
             HarnessEvent::MessageChunk { text: text.into() },
-            HarnessEvent::MessageEnd { failed: false },
+            HarnessEvent::MessageEnd {
+                failed: false,
+                at: None,
+            },
         ]
     }
 
@@ -378,7 +385,10 @@ mod tests {
 
     #[test]
     fn a_failed_reply_is_an_error_once_the_run_settles() {
-        let events = run(vec![HarnessEvent::MessageEnd { failed: true }]);
+        let events = run(vec![HarnessEvent::MessageEnd {
+            failed: true,
+            at: None,
+        }]);
         assert_eq!(last_status(&events), Some(Status::Error));
     }
 
@@ -411,7 +421,10 @@ mod tests {
         let mut tracker = StatusTracker::default();
         let reports = run(reply("Fixed.").into())
             .into_iter()
-            .chain([HarnessEvent::MessageEnd { failed: false }])
+            .chain([HarnessEvent::MessageEnd {
+                failed: false,
+                at: None,
+            }])
             .filter_map(|event| status_for(&mut tracker, &event))
             .map(|report| (report.status, report.changed))
             .collect::<Vec<_>>();

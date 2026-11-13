@@ -150,8 +150,8 @@ export type GitCounts_Serialize = {
 export type HarnessEvent = HarnessEvent_Serialize | HarnessEvent_Deserialize;
 
 export type HarnessEvent_Deserialize = 
-/**  A user message the agent took in, whether it started the run or steered it. */
-{ kind: "user_message_chunk"; text: string; images: Image[] } | 
+/**  A user message the agent took in, whether it started the run or steered it; `at` is when it was sent, in epoch milliseconds, when the agent says. */
+{ kind: "user_message_chunk"; text: string; images: Image[]; at?: number | null } | 
 /**  Text of the reply that is streaming now. */
 { kind: "message_chunk"; text: string } | 
 /**  The agent began a new block of reasoning. */
@@ -166,8 +166,8 @@ export type HarnessEvent_Deserialize =
 { kind: "model"; name: string; thinking?: string | null } | 
 /**  How many tokens the session fills of the model's context window; `tokens` is missing right after a compaction, until a reply measures it again; `window` is missing when the model has none. */
 { kind: "context"; tokens?: number | null; window?: number | null } | 
-/**  The streaming reply is complete; `failed` when it ended in an error. */
-{ kind: "message_end"; failed: boolean } | 
+/**  The streaming reply is complete; `failed` when it ended in an error; `at` is when the reply was written, in epoch milliseconds, when the agent says. */
+{ kind: "message_end"; failed: boolean; at?: number | null } | 
 /**  The agent opened a dialog and waits for an answer; `id` goes back with it. */
 { kind: "dialog"; id: string; title: string; ask: DialogAsk_Deserialize } | 
 /**  The commands the agent offers after a slash. */
@@ -202,8 +202,8 @@ export type HarnessEvent_Deserialize =
 { kind: "status"; status: Status_Deserialize; last_message: string };
 
 export type HarnessEvent_Serialize = 
-/**  A user message the agent took in, whether it started the run or steered it. */
-{ kind: "user_message_chunk"; text: string; images: Image[] } | 
+/**  A user message the agent took in, whether it started the run or steered it; `at` is when it was sent, in epoch milliseconds, when the agent says. */
+{ kind: "user_message_chunk"; text: string; images: Image[]; at: number | null } | 
 /**  Text of the reply that is streaming now. */
 { kind: "message_chunk"; text: string } | 
 /**  The agent began a new block of reasoning. */
@@ -218,8 +218,8 @@ export type HarnessEvent_Serialize =
 { kind: "model"; name: string; thinking: string | null } | 
 /**  How many tokens the session fills of the model's context window; `tokens` is missing right after a compaction, until a reply measures it again; `window` is missing when the model has none. */
 { kind: "context"; tokens: number | null; window: number | null } | 
-/**  The streaming reply is complete; `failed` when it ended in an error. */
-{ kind: "message_end"; failed: boolean } | 
+/**  The streaming reply is complete; `failed` when it ended in an error; `at` is when the reply was written, in epoch milliseconds, when the agent says. */
+{ kind: "message_end"; failed: boolean; at: number | null } | 
 /**  The agent opened a dialog and waits for an answer; `id` goes back with it. */
 { kind: "dialog"; id: string; title: string; ask: DialogAsk_Serialize } | 
 /**  The commands the agent offers after a slash. */

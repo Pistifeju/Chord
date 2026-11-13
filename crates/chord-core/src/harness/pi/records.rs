@@ -264,7 +264,9 @@ fn saved_message(message: &Value) -> Vec<HarnessEvent> {
         Some("user") => message_end(message),
         Some("assistant") => {
             let blocks = message["content"].as_array().into_iter().flatten();
-            let mut events: Vec<HarnessEvent> = blocks.flat_map(saved_block).collect();
+            let mut events: Vec<HarnessEvent> = blocks
+                .flat_map(|block| saved_block(block, message["timestamp"].as_f64()))
+                .collect();
             if message["stopReason"] == "aborted" {
                 events.push(HarnessEvent::Aborted);
             }
@@ -284,12 +286,12 @@ fn saved_message(message: &Value) -> Vec<HarnessEvent> {
     }
 }
 
-fn saved_block(block: &Value) -> Vec<HarnessEvent> {
+fn saved_block(block: &Value, at: Option<f64>) -> Vec<HarnessEvent> {
     match block["type"].as_str() {
         Some("text") => match block["text"].as_str() {
             Some(text) if !text.is_empty() => vec![
                 HarnessEvent::MessageChunk { text: text.into() },
-                HarnessEvent::MessageEnd { failed: false },
+                HarnessEvent::MessageEnd { failed: false, at },
             ],
             _ => vec![],
         },
@@ -553,14 +555,16 @@ fn argument_values(args: &Value) -> String {
 }
 
 fn message_end(message: &Value) -> Vec<HarnessEvent> {
+    let at = message["timestamp"].as_f64();
     match message["role"].as_str() {
         Some("user") => vec![HarnessEvent::UserMessageChunk {
             text: collapse_skill(&text_of(&message["content"])),
             images: images_of(&message["content"]),
+            at,
         }],
         Some("assistant") => {
             let failed = message["stopReason"] == "error";
-            let mut events = vec![HarnessEvent::MessageEnd { failed }];
+            let mut events = vec![HarnessEvent::MessageEnd { failed, at }];
             if failed {
                 events.push(HarnessEvent::Notice {
                     text: message["errorMessage"]

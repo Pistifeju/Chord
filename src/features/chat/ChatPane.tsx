@@ -15,7 +15,8 @@ import { appearance } from "../settings/store";
 import { StatusMark } from "../status/StatusMark";
 import { TranscriptFind } from "./TranscriptFind";
 import { finds } from "./find";
-import { Markdown } from "./MarkdownView";
+import { CopyButton, Markdown } from "./MarkdownView";
+import { messageTime } from "./messageTime";
 import { Lightbox } from "./Lightbox";
 import { SlashMenu } from "./SlashMenu";
 import { steppedIndex } from "./dialog";
@@ -95,9 +96,15 @@ function Thumbs({ pane, images }: { pane: string; images: Image[] }) {
 const MessageRow = memo(function MessageRow({ pane, message, fresh }: { pane: string; message: Message; fresh: boolean }) {
   const images = message.images ?? [];
   return (
-    <div className="chat-message" data-role={message.role} data-fresh={fresh || undefined}>
-      {message.role === "user" ? message.text : <Markdown text={message.text} />}
-      {images.length > 0 && <Thumbs pane={pane} images={images} />}
+    <div className="chat-turn" data-role={message.role} data-fresh={fresh || undefined}>
+      <div className="chat-message" data-role={message.role}>
+        {message.role === "user" ? message.text : <Markdown text={message.text} />}
+        {images.length > 0 && <Thumbs pane={pane} images={images} />}
+      </div>
+      <div className="chat-message-meta">
+        <CopyButton text={message.text} label="Copy Message" className="chat-message-copy" />
+        {message.at !== undefined && <time title={new Date(message.at).toLocaleString()}>{messageTime(message.at, Date.now())}</time>}
+      </div>
     </div>
   );
 });

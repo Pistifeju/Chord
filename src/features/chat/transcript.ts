@@ -2,7 +2,7 @@
 import type { Capability, DialogAsk, HarnessEvent, Image, SlashCommand, SubagentNode } from "../../ipc/bindings";
 import { stampedReport, type StatusReport } from "../status/status.ts";
 
-export type Message = { role: "user" | "assistant"; text: string; streaming: boolean; /** The images a user message carried. */ images?: Image[] };
+export type Message = { role: "user" | "assistant"; text: string; streaming: boolean; /** The images a user message carried. */ images?: Image[]; /** When it was sent or written, in ms since the epoch; none for a reply that never ended. */ at?: number };
 
 export type Step =
   | { kind: "thought"; /** Its place in the group; steps only append, so it stays stable. */ id: number; text: string }
@@ -152,7 +152,7 @@ export function chatFed(chat: Chat, replay: Replay, event: HarnessEvent, now: nu
 function applied(chat: Chat, event: HarnessEvent, now: number): Chat {
   switch (event.kind) {
     case "user_message_chunk":
-      return { ...chat, items: [...closed(chat.items), { role: "user", text: event.text, streaming: false, images: event.images }] };
+      return { ...chat, items: [...closed(chat.items), { role: "user", text: event.text, streaming: false, images: event.images, at: event.at ?? now }] };
     case "message_chunk": {
       const last = chat.items[chat.items.length - 1];
       if (last?.role === "assistant" && last.streaming) return { ...chat, items: withLast<Item>(chat.items, { ...last, text: last.text + event.text }) };
@@ -198,8 +198,11 @@ function applied(chat: Chat, event: HarnessEvent, now: number): Chat {
       return { ...chat, subagents: event.nodes };
     case "queue":
       return { ...chat, queued: event.steering };
-    case "message_end":
-      return { ...chat, items: closed(chat.items) };
+    case "message_end": {
+      const last = chat.items[chat.items.length - 1];
+      const items = last?.role === "assistant" && last.streaming ? withLast<Item>(chat.items, { ...last, at: event.at ?? now }) : chat.items;
+      return { ...chat, items: closed(items) };
+    }
     case "state":
       return {
         ...chat,

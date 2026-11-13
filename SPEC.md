@@ -106,6 +106,7 @@ Edge cases:
 - [x] E15 harness(chat): a slow (5 s or more) or failed call shows its run time ("55.4 s"); a step group shows its total. Live runs only; pi saves no run time in the session.
 - [x] E12 harness(status-line): extension status texts in the composer bar.
 - [x] E13 harness(widgets): background subagent runs as a lineage line at the end of the transcript. The pi adapter reads the snapshot a pi subagent extension writes. Without such an extension the line never shows.
+- [x] E17 harness(chat): hovering a message shows a copy button and the time it was sent under it; history keeps the saved times.
 - [ ] E14 core: branch button in the composer: local branches newest first, switch, New Branch; branches another worktree holds stay disabled; locked while the agent runs.
 
 Edge cases:

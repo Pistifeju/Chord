@@ -40,7 +40,8 @@ function Spans({ spans }: { spans: Inline[] }) {
 
 const HEADINGS = ["h1", "h2", "h3", "h4", "h5", "h6"] as const;
 
-function CodeBlock({ text }: { text: string }) {
+/** An icon button that copies `text` and shows a check for 1.5s after it copied. */
+export function CopyButton({ text, label, className }: { text: string; label: string; className: string }) {
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!copied) return;
@@ -48,16 +49,16 @@ function CodeBlock({ text }: { text: string }) {
     return () => clearTimeout(timer);
   }, [copied]);
   return (
+    <button type="button" className={`icon-button ${className}`} title={label} aria-label={label} onClick={() => navigator.clipboard.writeText(text).then(() => setCopied(true), console.error)}>
+      {copied ? <CheckIcon /> : <CopyIcon />}
+    </button>
+  );
+}
+
+function CodeBlock({ text }: { text: string }) {
+  return (
     <div className="md-code">
-      <button
-        type="button"
-        className="icon-button md-code-copy"
-        title="Copy Code"
-        aria-label="Copy Code"
-        onClick={() => navigator.clipboard.writeText(text).then(() => setCopied(true), console.error)}
-      >
-        {copied ? <CheckIcon /> : <CopyIcon />}
-      </button>
+      <CopyButton text={text} label="Copy Code" className="md-code-copy" />
       <pre>
         <code>{text}</code>
       </pre>
