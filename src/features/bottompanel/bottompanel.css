@@ -1,0 +1,11 @@
+/* The bottom panel: one row under the panes. Rules: DESIGN.md, Bottom panel and Terminal. */
+.bottom-panel {
+  position: relative;
+  display: flex;
+  flex: 0 0 240px;
+  min-height: 0;
+  /* The panes above keep room to work in. */
+  max-height: calc(100% - 160px);
+  border-top: 1px solid var(--line);
+  background: var(--canvas);
+}

@@ -1,5 +1,6 @@
-//! Commands for the app itself: quit it, keep the Mac awake, open a chat link.
+//! Commands for the app itself: quit it with its agents and shells, keep the Mac awake, open a chat link.
 
+use chord_core::Terminals;
 use chord_core::harness::sessions::Sessions;
 use tauri::{AppHandle, Manager};
 
@@ -11,6 +12,7 @@ use super::blocking;
 pub async fn quit_app(app: AppHandle) -> Result<(), String> {
     blocking(app, |app, _| {
         app.state::<Sessions>().stop_all();
+        app.state::<Terminals>().stop_all();
         app.exit(0);
         Ok(())
     })

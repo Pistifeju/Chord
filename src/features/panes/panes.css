@@ -132,6 +132,15 @@
   min-height: 0;
 }
 
+/* The shown file or the panes, with the bottom panel under them. */
+.panes-work {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
 /* Stays at the bar's right end while the tabs scroll. */
 .tabbar .tabbar-files {
   position: sticky;

@@ -53,6 +53,24 @@
   --syn-type: hsl(190, 80%, 30%);
   --syn-function: hsl(214, 70%, 42%);
 
+  /* The terminal's 16 ANSI colors, readable on canvas. */
+  --term-black: #24292f;
+  --term-red: #cf222e;
+  --term-green: #116329;
+  --term-yellow: #4d2d00;
+  --term-blue: #0969da;
+  --term-magenta: #8250df;
+  --term-cyan: #1b7c83;
+  --term-white: #6e7781;
+  --term-bright-black: #57606a;
+  --term-bright-red: #a40e26;
+  --term-bright-green: #1a7f37;
+  --term-bright-yellow: #633c01;
+  --term-bright-blue: #218bff;
+  --term-bright-magenta: #a475f9;
+  --term-bright-cyan: #3192aa;
+  --term-bright-white: #8c959f;
+
   --font-ui: -apple-system, BlinkMacSystemFont, "Inter Variable", "Helvetica Neue", sans-serif;
 
   font-family: var(--font-ui);
@@ -111,6 +129,24 @@
   --syn-number: hsl(32, 85%, 66%);
   --syn-type: hsl(190, 60%, 64%);
   --syn-function: hsl(214, 85%, 74%);
+
+  /* The terminal's 16 ANSI colors: xterm's own Tango palette. */
+  --term-black: #2e3436;
+  --term-red: #cc0000;
+  --term-green: #4e9a06;
+  --term-yellow: #c4a000;
+  --term-blue: #3465a4;
+  --term-magenta: #75507b;
+  --term-cyan: #06989a;
+  --term-white: #d3d7cf;
+  --term-bright-black: #555753;
+  --term-bright-red: #ef2929;
+  --term-bright-green: #8ae234;
+  --term-bright-yellow: #fce94f;
+  --term-bright-blue: #729fcf;
+  --term-bright-magenta: #ad7fa8;
+  --term-bright-cyan: #34e2e2;
+  --term-bright-white: #eeeeec;
 }
 
 .sidebar {

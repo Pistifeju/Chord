@@ -215,8 +215,8 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
       if (payload.type === "leave") return setDropping(false);
       if (payload.type === "enter") carriesImages = payload.paths.some((path) => imageMime(path));
       const rect = root.current?.getBoundingClientRect();
-      const x = payload.position.x / window.devicePixelRatio;
-      const y = payload.position.y / window.devicePixelRatio;
+      // On macOS wry sends the position in CSS points despite its PhysicalPosition type.
+      const { x, y } = payload.position;
       const inside = !!rect && x >= rect.left && x < rect.right && y >= rect.top && y < rect.bottom;
       setDropping(carriesImages && inside && payload.type !== "drop");
       if (payload.type === "drop" && inside) attachFiles(pane, payload.paths);

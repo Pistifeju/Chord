@@ -8,6 +8,7 @@ import { paneCommands } from "../features/panes/commands";
 import { settingsCommands } from "../features/settings/commands";
 import { shortcutChanges } from "../features/settings/store";
 import { sidebarCommands } from "../features/sidebar/commands";
+import { terminalCommands } from "../features/terminal/commands";
 import { worktreeCommands } from "../features/worktrees/commands";
 import { changedShortcut, currentShortcuts, loadedChanges, pressMatches, type Shortcut, type ShortcutChanges, type ShortcutMap } from "./shortcuts";
 
@@ -16,7 +17,7 @@ export type AppCommand = { id: string; title: string; shortcut?: Shortcut; run: 
   when?: () => boolean;
 };
 
-const table: AppCommand[] = [...sidebarCommands, ...filesCommands, ...settingsCommands, ...chatCommands, ...paneCommands, ...worktreeCommands];
+const table: AppCommand[] = [...sidebarCommands, ...filesCommands, ...terminalCommands, ...settingsCommands, ...chatCommands, ...paneCommands, ...worktreeCommands];
 
 const defaultShortcuts: ShortcutMap = Object.fromEntries(table.map((c) => [c.id, c.shortcut]));
 

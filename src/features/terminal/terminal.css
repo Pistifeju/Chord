@@ -1,0 +1,68 @@
+/* The terminal in the bottom panel. Rules: DESIGN.md, Bottom panel and Terminal. */
+.terminal-part {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.terminal-header {
+  display: flex;
+  align-items: center;
+  flex: none;
+  height: 28px;
+  padding: 0 4px 0 8px;
+  border-bottom: 1px solid var(--line);
+  font-size: calc(12px * var(--text-scale));
+}
+
+.terminal-title {
+  font-weight: 500;
+  color: var(--ink-secondary);
+  transition: color var(--t-fast) var(--ease-out);
+}
+
+.terminal-part:focus-within .terminal-title {
+  color: var(--ink);
+}
+
+.terminal-hide {
+  width: 24px;
+  height: 24px;
+  margin-left: auto;
+}
+
+.terminal-body {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: 8px 0 2px 8px;
+  overflow: clip;
+}
+
+/* The fit leaves less than one row over; it sits at the top, so the last line stays on the panel's bottom edge. */
+.terminal-host {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* xterm.css paints the viewport black; the strip the fit leaves takes the canvas instead. */
+.terminal-body .xterm,
+.terminal-body .xterm-viewport {
+  background-color: var(--canvas) !important;
+}
+
+/* xterm draws its own scrollbar in a 14px gutter; the slider takes the global 4px pill (tokens.css), 3px from the edge. */
+.terminal-body .xterm .xterm-scrollable-element > .scrollbar > .slider {
+  box-sizing: border-box;
+  border: 3px solid transparent;
+  border-left-width: 7px;
+  border-radius: 9px 5px 5px 9px / 5px;
+  background-clip: padding-box;
+}

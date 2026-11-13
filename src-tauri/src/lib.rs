@@ -5,8 +5,8 @@ mod notifications;
 
 use std::sync::Arc;
 
-use chord_core::Store;
 use chord_core::harness::sessions::Sessions;
+use chord_core::{Store, Terminals};
 use tauri::{Emitter, Manager};
 use tauri_specta::collect_commands;
 
@@ -39,6 +39,9 @@ pub fn ipc() -> tauri_specta::Builder<tauri::Wry> {
         commands::files::rename_file,
         commands::files::trash_file,
         commands::files::reveal_file,
+        commands::terminal::start_terminal,
+        commands::terminal::write_terminal,
+        commands::terminal::resize_terminal,
         commands::app::quit_app,
         commands::app::set_keep_awake,
         commands::app::open_link,
@@ -57,6 +60,7 @@ pub fn run() {
             let store = Arc::new(Store::open(dir.join("state.json"))?);
             app.manage(Sessions::new(Arc::clone(&store), dir.join("sessions")));
             app.manage(store);
+            app.manage(Terminals::default());
             app.manage(notifications::ShownPanes::default());
             notifications::listen_for_clicks(app.handle())?;
             Ok(())

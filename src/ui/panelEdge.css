@@ -1,0 +1,35 @@
+/* A panel's draggable edge: a 9px grab area centered on its 1px border, as a divider's. Rules: DESIGN.md, Side panel and Files. */
+.panel-edge {
+  position: absolute;
+  z-index: 1;
+}
+
+.panel-edge[data-side="left"] {
+  inset: 0 auto 0 -5px;
+  width: 9px;
+  cursor: col-resize;
+}
+
+.panel-edge[data-side="top"] {
+  inset: -5px 0 auto 0;
+  height: 9px;
+  cursor: row-resize;
+}
+
+.panel-edge::after {
+  content: "";
+  position: absolute;
+}
+
+.panel-edge[data-side="left"]::after {
+  inset: 0 4px;
+}
+
+.panel-edge[data-side="top"]::after {
+  inset: 4px 0;
+}
+
+.panel-edge:hover::after,
+.panel-edge:active::after {
+  background: var(--line-strong);
+}

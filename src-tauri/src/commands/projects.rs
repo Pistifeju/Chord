@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use chord_core::harness::sessions::Sessions;
 use chord_core::{
-    Error, GitCounts, Project, Removal, Worktree, git_counts, projects, worktrees,
+    Error, GitCounts, Project, Removal, Terminals, Worktree, git_counts, projects, worktrees,
 };
 use tauri::{AppHandle, Manager};
 use tauri_plugin_dialog::DialogExt;
@@ -87,6 +87,7 @@ pub async fn remove_worktree(
     force: bool,
 ) -> Result<Removal, String> {
     blocking(app, move |app, store| {
+        app.state::<Terminals>().stop(&worktree);
         worktrees::remove(
             &app.state::<Sessions>(),
             &projects::find(store, &project)?,

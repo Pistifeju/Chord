@@ -10,6 +10,7 @@ import type { Status } from "../../ipc/bindings";
 import { statusLabel, urgentReport } from "../status/status";
 import { StatusMark } from "../status/StatusMark";
 import { finished } from "../status/store";
+import { BottomPanel } from "../bottompanel/BottomPanel";
 import { SidePanel } from "../sidepanel/SidePanel";
 import { sidePanelOf, sidePanels, toggleSidePanel } from "../sidepanel/store";
 import { sidebar } from "../sidebar/store";
@@ -284,9 +285,12 @@ export function PaneArea({ worktree }: { worktree: string }) {
     <div className="panes">
       <SessionTabs worktree={worktree} />
       <div className="panes-body">
-        {shownFile && <FileView key={`${worktree}\0${shownFile}`} worktree={worktree} path={shownFile} autoFocus onGone={() => closeFile(worktree, shownFile)} />}
-        <div className="pane-layout" hidden={!!shownFile}>
-          <LayoutView key={session.id} layout={session.layout} path={[]} place={{ worktree, session: session.id, focused: session.focused, split: session.layout.kind === "split" }} />
+        <div className="panes-work">
+          {shownFile && <FileView key={`${worktree}\0${shownFile}`} worktree={worktree} path={shownFile} autoFocus onGone={() => closeFile(worktree, shownFile)} />}
+          <div className="pane-layout" hidden={!!shownFile}>
+            <LayoutView key={session.id} layout={session.layout} path={[]} place={{ worktree, session: session.id, focused: session.focused, split: session.layout.kind === "split" }} />
+          </div>
+          <BottomPanel worktree={worktree} />
         </div>
         <SidePanel worktree={worktree} />
       </div>

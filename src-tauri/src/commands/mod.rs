@@ -5,6 +5,7 @@ pub mod chat;
 pub mod files;
 pub mod projects;
 pub mod state;
+pub mod terminal;
 
 use std::sync::Arc;
 

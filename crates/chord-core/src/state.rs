@@ -29,6 +29,8 @@ pub struct State {
     pub panes: BTreeMap<PathBuf, WorktreePanes>,
     /// Each worktree's side panel: open or not, and its width.
     pub side_panels: BTreeMap<PathBuf, SidePanel>,
+    /// Each worktree's bottom panel: open or not, and its height.
+    pub bottom_panels: BTreeMap<PathBuf, BottomPanel>,
     /// The panes whose agent was started and not stopped; they start again on launch.
     pub running_panes: BTreeSet<String>,
     /// The session file each pane's agent last held; a pane without one opens a file of its own.
@@ -43,6 +45,7 @@ pub enum StateChange {
     SidebarHidden(bool),
     Theme(Theme),
     TextPercent(u8),
+    TerminalFontSize(u8),
     Shortcuts(BTreeMap<String, Option<Shortcut>>),
     /// `None` forgets the worktree's layouts.
     Panes {
@@ -53,6 +56,10 @@ pub enum StateChange {
         worktree: PathBuf,
         panel: SidePanel,
     },
+    BottomPanel {
+        worktree: PathBuf,
+        panel: BottomPanel,
+    },
 }
 
 impl State {
@@ -62,9 +69,13 @@ impl State {
             StateChange::SidebarHidden(hidden) => self.sidebar.hidden = hidden,
             StateChange::Theme(theme) => self.appearance.theme = theme,
             StateChange::TextPercent(percent) => self.appearance.set_text_percent(percent),
+            StateChange::TerminalFontSize(size) => self.appearance.set_terminal_font_size(size),
             StateChange::Shortcuts(shortcuts) => self.shortcuts = shortcuts,
             StateChange::SidePanel { worktree, panel } => {
                 self.side_panels.insert(worktree, panel);
+            }
+            StateChange::BottomPanel { worktree, panel } => {
+                self.bottom_panels.insert(worktree, panel);
             }
             StateChange::Panes { worktree, panes } => match panes {
                 Some(panes) => {
@@ -95,6 +106,23 @@ impl Default for SidePanel {
     }
 }
 
+#[derive(Serialize, Deserialize, Type, Clone, Debug, PartialEq)]
+#[serde(default, rename_all = "camelCase")]
+pub struct BottomPanel {
+    pub open: bool,
+    /// In pixels.
+    pub height: u16,
+}
+
+impl Default for BottomPanel {
+    fn default() -> Self {
+        BottomPanel {
+            open: false,
+            height: 240,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Type, Clone, Debug, Default, PartialEq)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Sidebar {
@@ -116,14 +144,24 @@ pub struct Appearance {
     pub theme: Theme,
     /// Text size as a percent of the default.
     pub text_percent: u8,
+    /// In pixels.
+    pub terminal_font_size: u8,
 }
 
 impl Appearance {
     pub const MIN_TEXT_PERCENT: u8 = 80;
     pub const MAX_TEXT_PERCENT: u8 = 150;
 
+    pub const MIN_TERMINAL_FONT_SIZE: u8 = 9;
+    pub const MAX_TERMINAL_FONT_SIZE: u8 = 24;
+
     fn set_text_percent(&mut self, percent: u8) {
         self.text_percent = percent.clamp(Self::MIN_TEXT_PERCENT, Self::MAX_TEXT_PERCENT);
+    }
+
+    fn set_terminal_font_size(&mut self, size: u8) {
+        self.terminal_font_size =
+            size.clamp(Self::MIN_TERMINAL_FONT_SIZE, Self::MAX_TERMINAL_FONT_SIZE);
     }
 }
 
@@ -132,6 +170,7 @@ impl Default for Appearance {
         Appearance {
             theme: Theme::default(),
             text_percent: 100,
+            terminal_font_size: 12,
         }
     }
 }

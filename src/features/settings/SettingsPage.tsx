@@ -5,7 +5,7 @@ import { changeShortcut, commandTitles, resetShortcut, shortcutLabel, tooltip } 
 import { sheet } from "../../app/sheet";
 import { recordedShortcut } from "../../app/shortcuts";
 import { AppearanceIcon, CloseIcon, KeyboardIcon, MinusIcon, PlusIcon, SlidersIcon } from "../../ui/icons";
-import { appearance, changeTextSize, closeSettings, keepAwake, setKeepAwake, setTheme, shortcutChanges } from "./store";
+import { appearance, changeTerminalFontSize, changeTextSize, closeSettings, keepAwake, setKeepAwake, setTheme, shortcutChanges } from "./store";
 import "./settings.css";
 
 const themes: { value: Theme; label: string }[] = [
@@ -81,33 +81,48 @@ function General() {
 }
 
 function Appearance() {
-  const { theme, textPercent } = appearance.use();
+  const { theme, textPercent, terminalFontSize } = appearance.use();
   return (
-    <Group heading="Window">
-      <Row title="Theme" description={<p className="settings-description">System follows the macOS appearance.</p>}>
-        <div className="segmented" role="radiogroup" aria-label="Theme">
-          {themes.map(({ value, label }) => (
-            <button key={value} type="button" role="radio" aria-checked={theme === value} onClick={() => setTheme(value)}>
-              {label}
+    <>
+      <Group heading="Window">
+        <Row title="Theme" description={<p className="settings-description">System follows the macOS appearance.</p>}>
+          <div className="segmented" role="radiogroup" aria-label="Theme">
+            {themes.map(({ value, label }) => (
+              <button key={value} type="button" role="radio" aria-checked={theme === value} onClick={() => setTheme(value)}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </Row>
+        <Row title="Text size" description={<p className="settings-description">Scales all text in the window.</p>}>
+          <div className="settings-stepper">
+            <button type="button" className="button-secondary settings-step" aria-label="Decrease text size" title={tooltip("text.smaller")} onClick={() => changeTextSize("smaller")}>
+              <MinusIcon />
             </button>
-          ))}
-        </div>
-      </Row>
-      <Row title="Text size" description={<p className="settings-description">Scales all text in the window.</p>}>
-        <div className="settings-stepper">
-          <button type="button" className="button-secondary settings-step" aria-label="Decrease text size" title={tooltip("text.smaller")} onClick={() => changeTextSize("smaller")}>
-            <MinusIcon />
-          </button>
-          <span className="settings-value">{textPercent}%</span>
-          <button type="button" className="button-secondary settings-step" aria-label="Increase text size" title={tooltip("text.larger")} onClick={() => changeTextSize("larger")}>
-            <PlusIcon />
-          </button>
-          <button type="button" className="button-secondary" title={tooltip("text.reset")} onClick={() => changeTextSize("reset")}>
-            Reset
-          </button>
-        </div>
-      </Row>
-    </Group>
+            <span className="settings-value">{textPercent}%</span>
+            <button type="button" className="button-secondary settings-step" aria-label="Increase text size" title={tooltip("text.larger")} onClick={() => changeTextSize("larger")}>
+              <PlusIcon />
+            </button>
+            <button type="button" className="button-secondary" title={tooltip("text.reset")} onClick={() => changeTextSize("reset")}>
+              Reset
+            </button>
+          </div>
+        </Row>
+      </Group>
+      <Group heading="Terminal">
+        <Row title="Font size" description={<p className="settings-description">The size of the terminal's text, in pixels.</p>}>
+          <div className="settings-stepper">
+            <button type="button" className="button-secondary settings-step" aria-label="Decrease terminal font size" onClick={() => changeTerminalFontSize(-1)}>
+              <MinusIcon />
+            </button>
+            <span className="settings-value">{terminalFontSize}</span>
+            <button type="button" className="button-secondary settings-step" aria-label="Increase terminal font size" onClick={() => changeTerminalFontSize(1)}>
+              <PlusIcon />
+            </button>
+          </div>
+        </Row>
+      </Group>
+    </>
   );
 }
 

@@ -22,7 +22,7 @@ pi --mode rpc                  one process per pane
 ```
 Cargo.toml                     workspace: src-tauri, crates/*
 crates/chord-core/src/
-  projects.rs  worktrees.rs  git.rs  state.rs  paths.rs  error.rs
+  projects.rs  worktrees.rs  git.rs  state.rs  paths.rs  error.rs  terminal.rs
   harness/mod.rs               trait, Event, Command, Capability, status_for
   harness/pi/                  the only module that knows pi's records
 src-tauri/src/
@@ -78,7 +78,7 @@ The trait, events, commands and capabilities: `docs/harness-contract.md`, sectio
 
 ## 8. Security
 
-1. **CSP on.** Scripts and styles from the bundle only; images from the bundle, the asset protocol and `data:`; connections to Tauri IPC only.
+1. **CSP on.** Scripts from the bundle only; styles from the bundle and inline, since xterm.js writes its renderer's `<style>` elements at run time (Tauri's style hashes stay off, or they would void `'unsafe-inline'`); images from the bundle, the asset protocol and `data:`; connections to Tauri IPC only.
 2. **Path check in one place.** A command that takes a path gets a worktree and a relative path. `paths.rs` accepts it when the worktree is one Chord knows and the resolved path stays inside it.
 3. **No shell strings from the UI.** Arguments travel as process arguments or env vars.
 
@@ -101,5 +101,4 @@ The trait, events, commands and capabilities: `docs/harness-contract.md`, sectio
 
 - `tauri-specta` for Tauri 2 is a release candidate (2.0.0-rc.28) and its docs pin exact versions. Fallback: `ts-rs` for the types and a hand-written `commands` object.
 - pi's own prompts (not from an extension) arriving as `extension_ui_request` in RPC mode. pi's docs describe the extension case.
-- The CSP against xterm.js (WebGL, workers) and CodeMirror (inline styles). Tune it when the terminal and the editor land.
 - Chat streaming speed with the extra parse in Rust, against sending pi's bytes to the webview untouched.
