@@ -219,7 +219,7 @@ Every color, shadow and radius lives in `src/ui/tokens.css` as a CSS variable na
 - **Success** (`success`): inline text only.
 - **Status** (`status-running`, `status-waiting`, `status-done`, `status-error`): blue, amber, green, red. Reserved for agent status marks, and the same in every place; the one other use is `status-waiting` on the context meter from 80% full. A status shows once, where you see the agent: the Working row in an open pane, the tab of a session that is not open, the card of a worktree that is not open (or of the open one while Settings covers it). An exit takes `status-error`. The mark is one component (`StatusMark`): the orbit while the agent runs, otherwise an 8px dot. The orbit is 10px: two 4px dots circle a shared center seen edge-on, once per 1.4s; the near dot grows to 115%, the far one shrinks to 50% at 40% opacity. The words come from `statusLabel` and the notification uses them too: "Working", "Awaiting input", "Done", "Failed", "Exited".
 - **Git Changed** (`git-changed`): amber, the changed file count on a worktree card.
-- **Scrim** (`scrim`): the wash behind the drop target and the lightbox. A sheet blurs the window behind it (12px) instead.
+- **Scrim** (`scrim`): the wash behind the window's drop target and the lightbox. A sheet blurs the window behind it (12px) instead.
 
 ### Named Rules
 
@@ -282,7 +282,7 @@ Tonal steps carry depth inside the window: canvas, panel, raised, selected. Bord
 
 - **Control** (`--shadow-control`): the selected segment in a segmented control, secondary buttons.
 - **Composer** (`--shadow-composer`): a soft lift under the composer card in light; none in dark.
-- **Popover** (`--shadow-popover`): the toast, the drop label and a dragged tab's chip.
+- **Popover** (`--shadow-popover`): the toast, the window's drop label and a dragged tab's chip.
 - **Sheet** (`--shadow-sheet`): sheets.
 
 Popover and sheet shadows include a 1px ring: black at 8% in light, white at 10% in dark. The ring keeps a floating surface's edge visible on a dark canvas.
@@ -296,7 +296,7 @@ Popover and sheet shadows include a 1px ring: black at 8% in light, white at 10%
 - A worktree card's status fades in and rises 4px over 200ms with `--ease-out` when it changes.
 - The send button changes color over 120ms and presses to 97% scale.
 - The lightbox and its scrim animate like a sheet.
-- Under Reduce Motion the sheet, its backdrop, the lightbox, scrim, toast and chevrons skip their animation, chat items, a message's copy button and time and a card's status only fade, the send button and the jump button do not move or scale, the jump scrolls instantly and spinners and the orbit run at a third of their speed.
+- Under Reduce Motion the sheet, its backdrop, the lightbox, the chat drop card, scrim, toast and chevrons skip their animation, chat items, the chat drop card's content, a message's copy button and time and a card's status only fade, the send button and the jump button do not move or scale, the jump scrolls instantly and spinners and the orbit run at a third of their speed.
 
 ## Shapes
 
@@ -417,7 +417,7 @@ One surface in the title bar row, 32px tall at least, 560px wide at most. It clo
 
 ### Drop target
 
-While the user drags an image over a chat pane that takes attachments, a 2px dashed `accent-ink` outline sits 8px inside the pane over the scrim, with the label "Drop images to attach". The window's folder drop stays off for images.
+While the user drags an image over a chat pane that takes attachments, a card with a 2px dashed `accent-ink` outline sits 8px inside the pane: `accent-wash` over `sheet` at 85%, so the transcript shows faintly through. In its center sit a 48px `accent` circle with a 24px image icon in `on-accent`, the title "Drop images to attach" (15px, 600) and the line "They go with your next message in this chat." in `ink-muted`. The card fades in over 200ms; its content fades in and rises 4px with it, using `--ease-out`. It closes at once. The window's folder drop stays off for images.
 
 While the user drags a folder over the window, a 2px dashed `accent-ink` outline sits 12px inside the window over the scrim, with its label on a small `sheet` chip. Over the terminal the folder drop stays off too, and no outline shows: files dropped there paste their paths into the shell.
 

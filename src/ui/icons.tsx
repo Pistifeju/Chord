@@ -138,6 +138,14 @@ export const ArrowRightIcon = () => (
   </Icon>
 );
 
+export const ImageIcon = ({ size }: { size?: number }) => (
+  <Icon size={size}>
+    <rect x="1.75" y="2.75" width="12.5" height="10.5" rx="1.75" />
+    <circle cx="5.5" cy="6.25" r="1.25" />
+    <path d="M14.25 10.5l-3.5-3.5-7.5 6.25" />
+  </Icon>
+);
+
 export const PaperclipIcon = () => (
   <Icon>
     <path d="M13.25 7.5l-4.9 4.9a3 3 0 0 1-4.25-4.25l5.1-5.1a2 2 0 0 1 2.85 2.85l-5.1 5.1a1 1 0 0 1-1.4-1.4L10.4 4.7" />

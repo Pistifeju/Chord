@@ -432,11 +432,50 @@
   background: var(--selected);
 }
 
-/* Inside the pane, not the window. */
-.drop-target.chat-drop {
+/* Inside the pane, not the window: the transcript shows faintly through the wash. */
+.chat-drop {
   position: absolute;
   inset: 8px;
   z-index: 2;
+  display: grid;
+  place-items: center;
+  border: 2px dashed var(--accent-ink);
+  border-radius: var(--radius-card);
+  background: linear-gradient(var(--accent-wash), var(--accent-wash)), color-mix(in srgb, var(--sheet) 85%, transparent);
+  pointer-events: none;
+  animation: scrim-in var(--t-med) var(--ease-out);
+}
+
+.chat-drop-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 0 24px;
+  text-align: center;
+  animation: chat-in var(--t-med) var(--ease-out);
+}
+
+.chat-drop-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.chat-drop-title {
+  font-size: calc(15px * var(--text-scale));
+  font-weight: 600;
+  text-wrap: balance;
+}
+
+.chat-drop-text {
+  color: var(--ink-muted);
+  text-wrap: balance;
 }
 
 .lightbox {
@@ -698,8 +737,13 @@
   }
 
   .lightbox,
-  .lightbox-image {
+  .lightbox-image,
+  .chat-drop {
     animation: none;
+  }
+
+  .chat-drop-content {
+    animation-name: chat-fade;
   }
 
   .chat-jump,

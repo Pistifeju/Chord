@@ -4,7 +4,7 @@ import { memo, useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent
 import { tooltip } from "../../app/commands";
 import type { Image, SlashCommand, SubagentNode } from "../../ipc/bindings";
 import { elementAtDrop } from "../../ui/dropPoint";
-import { ArrowDownIcon, ArrowUpIcon, ChevronIcon, CloseIcon, PaperclipIcon } from "../../ui/icons";
+import { ArrowDownIcon, ArrowUpIcon, ChevronIcon, CloseIcon, ImageIcon, PaperclipIcon } from "../../ui/icons";
 import { imageMime, imageUrl, isImageType, type Attachment } from "./attachments";
 import { DialogMenu, DialogPanel } from "./DialogPanel";
 import { contextMeter } from "./context";
@@ -356,8 +356,14 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
       </div>
       {viewing && <Lightbox images={viewing.images} index={viewing.index} onStep={(by) => stepLightbox(pane, by)} onClose={() => closeLightbox(pane)} />}
       {dropping && (
-        <div className="drop-target chat-drop">
-          <span className="drop-label">Drop images to attach</span>
+        <div className="chat-drop">
+          <div className="chat-drop-content">
+            <span className="chat-drop-icon">
+              <ImageIcon size={24} />
+            </span>
+            <span className="chat-drop-title">Drop images to attach</span>
+            <span className="chat-drop-text">They go with your next message in this chat.</span>
+          </div>
         </div>
       )}
       {chat.notice && <p className="chat-notice">{chat.notice}</p>}
