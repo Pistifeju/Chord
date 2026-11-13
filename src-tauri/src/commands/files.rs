@@ -1,4 +1,4 @@
-//! Commands for a worktree's files: list one folder, read a file, write a file.
+//! Commands for a worktree's files: list one folder, read a file, write a file, tell when a file changed.
 
 use std::path::PathBuf;
 
@@ -24,6 +24,16 @@ pub async fn read_file(
     file: String,
 ) -> Result<String, String> {
     blocking(app, move |_, _| files::read(&worktree, &file)).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn file_modified(
+    app: tauri::AppHandle,
+    worktree: PathBuf,
+    file: String,
+) -> Result<String, String> {
+    blocking(app, move |_, _| files::modified(&worktree, &file)).await
 }
 
 #[tauri::command]

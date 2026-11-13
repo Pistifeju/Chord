@@ -33,6 +33,7 @@ pub fn ipc() -> tauri_specta::Builder<tauri::Wry> {
         commands::files::list_folder,
         commands::files::read_file,
         commands::files::write_file,
+        commands::files::file_modified,
         commands::app::quit_app,
         commands::app::set_keep_awake,
         commands::app::open_link,

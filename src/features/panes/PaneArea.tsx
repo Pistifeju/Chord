@@ -2,6 +2,7 @@
 import { Fragment, useEffect, useRef, useState, type PointerEvent, type RefObject, type SyntheticEvent } from "react";
 import type { Direction, Layout } from "../../ipc/bindings";
 import { tooltip } from "../../app/commands";
+import { imageMime } from "../chat/attachments";
 import { ChatPane } from "../chat/ChatPane";
 import { chats, usePaneNames } from "../chat/store";
 import { shortcutChanges } from "../settings/store";
@@ -13,6 +14,7 @@ import { SidePanel } from "../sidepanel/SidePanel";
 import { sidePanelOf, sidePanels, toggleSidePanel } from "../sidepanel/store";
 import { sidebar } from "../sidebar/store";
 import { Editor } from "../editor/Editor";
+import { ImageView } from "../editor/ImageView";
 import { noFiles } from "../editor/openFiles";
 import { closeFile, openFile, openFiles, showSessions } from "../editor/store";
 import { ChatIcon, CloseIcon, FileIcon, PlusIcon, SidePanelIcon } from "../../ui/icons";
@@ -256,6 +258,7 @@ export function PaneArea({ worktree }: { worktree: string }) {
   const current = panes.use()[worktree];
   useEffect(() => ensurePanes(worktree), [worktree]);
   const shownFile = openFiles.use()[worktree]?.active ?? null;
+  const shownMime = shownFile && imageMime(shownFile);
   const session = current && activeSession(current);
   // A session or pane that opens on its own (a notification click, a new tab) takes the view from the file.
   const seen = useRef("");
@@ -269,7 +272,7 @@ export function PaneArea({ worktree }: { worktree: string }) {
     <div className="panes">
       <SessionTabs worktree={worktree} />
       <div className="panes-body">
-        {shownFile && <Editor key={`${worktree}\0${shownFile}`} worktree={worktree} path={shownFile} />}
+        {shownFile && (shownMime ? <ImageView key={`${worktree}\0${shownFile}`} worktree={worktree} path={shownFile} mime={shownMime} /> : <Editor key={`${worktree}\0${shownFile}`} worktree={worktree} path={shownFile} />)}
         <div className="pane-layout" hidden={!!shownFile}>
           <LayoutView key={session.id} layout={session.layout} path={[]} place={{ worktree, session: session.id, focused: session.focused, split: session.layout.kind === "split" }} />
         </div>

@@ -1,4 +1,4 @@
-/* The editor: fills the work area beside the side panel. Rules: DESIGN.md, Editor. */
+/* The editor and the image view: fill the work area beside the side panel. Rules: DESIGN.md, Editor. */
 .editor {
   position: relative;
   display: flex;
@@ -17,4 +17,16 @@
 .editor .spinner {
   border-color: var(--ink-muted);
   border-right-color: transparent;
+}
+
+.image-view {
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.image-view img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }

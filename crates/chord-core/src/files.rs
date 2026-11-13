@@ -1,4 +1,4 @@
-//! A worktree's files on disk: one folder's entries for the Files view, without `.git`, and a text file's read and write for the editor.
+//! A worktree's files on disk: one folder's entries for the Files view, without `.git`, a text file's read and write for the editor, and a file's change time for the image view.
 
 use std::cmp::Ordering;
 use std::fs;
@@ -59,6 +59,18 @@ pub fn read(root: &Path, file: &str) -> Result<String, Error> {
         std::io::ErrorKind::InvalidData => Error::Message(format!("{file} is not a text file")),
         _ => error.into(),
     })
+}
+
+/// A key of when `file` (relative to `root`) last changed and its length, so the image view reloads only on a change.
+pub fn modified(root: &Path, file: &str) -> Result<String, Error> {
+    let metadata = fs::metadata(inside(root, file)?)?;
+    let nanos = metadata
+        .modified()?
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    // The length tells a truncate from the write that follows it within the clock's resolution.
+    Ok(format!("{nanos}-{}", metadata.len()))
 }
 
 /// Replaces the text of `file` (relative to `root`) when the disk still holds `expected`, the text the editor last read or wrote; an agent's change stops the save.
