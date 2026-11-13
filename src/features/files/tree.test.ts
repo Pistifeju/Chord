@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { FileEntry } from "../../ipc/bindings.ts";
-import { emptyTree, visibleRows } from "./tree.ts";
+import { emptyTree, treeKeyAction, visibleRows } from "./tree.ts";
 
 const dir = (path: string): FileEntry => ({ name: path.split("/").pop()!, path, isDir: true });
 const file = (path: string): FileEntry => ({ name: path.split("/").pop()!, path, isDir: false });
@@ -24,4 +24,16 @@ test("an open folder shows its children one level deeper", () => {
 test("a filter keeps the matches and opens the folders above them", () => {
   const rows = visibleRows({ ...tree, filter: "MAIN" });
   assert.deepEqual(rows.map((r) => r.entry.path), ["src", "src/main.ts"]);
+});
+
+test("arrow keys move between rows, open and close folders, and jump to the parent", () => {
+  const closed = visibleRows(tree);
+  const open = visibleRows({ ...tree, open: ["src"] });
+  assert.deepEqual(treeKeyAction(closed, "src", "ArrowDown"), { focus: "a.md" });
+  assert.deepEqual(treeKeyAction(closed, "src", "ArrowUp"), null);
+  assert.deepEqual(treeKeyAction(closed, "src", "ArrowRight"), { toggle: "src" });
+  assert.deepEqual(treeKeyAction(open, "src", "ArrowRight"), null);
+  assert.deepEqual(treeKeyAction(open, "src", "ArrowLeft"), { toggle: "src" });
+  assert.deepEqual(treeKeyAction(open, "src/util.ts", "ArrowLeft"), { focus: "src" });
+  assert.deepEqual(treeKeyAction(open, "a.md", "ArrowLeft"), null);
 });

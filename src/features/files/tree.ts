@@ -31,6 +31,24 @@ export function visibleRows(tree: Tree): Row[] {
   return rows;
 }
 
+/** What an arrow key on the row at `path` does: move the focus to a row, open or close a folder, or nothing. */
+export type TreeKeyAction = { focus: string } | { toggle: string } | null;
+
+export function treeKeyAction(rows: Row[], path: string, key: string): TreeKeyAction {
+  const at = rows.findIndex((row) => row.entry.path === path);
+  if (at < 0) return null;
+  const row = rows[at];
+  const focus = (target: Row | undefined) => (target ? { focus: target.entry.path } : null);
+  if (key === "ArrowDown") return focus(rows[at + 1]);
+  if (key === "ArrowUp") return focus(rows[at - 1]);
+  if (key === "ArrowRight") return row.entry.isDir && !row.open ? { toggle: path } : null;
+  if (key !== "ArrowLeft") return null;
+  if (row.open) return { toggle: path };
+  // The parent is the nearest row above one level up; a folder chain row has no row per folder.
+  for (let i = at - 1; i >= 0; i--) if (rows[i].depth < row.depth) return focus(rows[i]);
+  return null;
+}
+
 /** The folder that holds `path`; "" for the worktree root. */
 export const parentFolder = (path: string) => path.slice(0, Math.max(path.lastIndexOf("/"), 0));
 

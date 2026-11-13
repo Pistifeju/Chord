@@ -3,7 +3,7 @@ import { Fragment, useEffect, useRef, type CSSProperties } from "react";
 import { showMenu } from "../../app/commands";
 import { ChevronIcon, CollapseAllIcon, FileIcon, FilterIcon, FolderIcon, ReloadIcon } from "../../ui/icons";
 import { collapseAll, finishNameEdit, loadRoot, nameEdit, reloadFiles, setFilter, showFile, toggleFolder, trees } from "./store";
-import { emptyTree, parentFolder, stemLength, visibleRows, type Row } from "./tree";
+import { emptyTree, parentFolder, stemLength, treeKeyAction, visibleRows, type Row } from "./tree";
 import type { FileEntry } from "../../ipc/bindings";
 import "./files.css";
 
@@ -49,6 +49,15 @@ export function FilesView({ worktree }: { worktree: string }) {
         role="tree"
         aria-label="Files"
         onContextMenu={(e) => showMenu(e, [["files.newFile", ""], ["files.newFolder", ""]])}
+        onKeyDown={(e) => {
+          // Only a row's keys move through the tree; a name field keeps its arrows.
+          const path = (e.target as HTMLElement).dataset.path;
+          const action = path === undefined || e.metaKey || e.altKey || e.ctrlKey || e.shiftKey ? null : treeKeyAction(rows, path, e.key);
+          if (!action) return;
+          e.preventDefault();
+          if ("toggle" in action) toggleFolder(worktree, action.toggle);
+          else list.current?.querySelector<HTMLElement>(`[data-path="${CSS.escape(action.focus)}"]`)?.focus();
+        }}
       >
         {folderAt < 0 && newField}
         {rows.map((row, i) => (
