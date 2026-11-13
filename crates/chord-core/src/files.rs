@@ -1,8 +1,8 @@
-//! A worktree's files on disk: one folder's entries for the Files view, without `.git`.
+//! A worktree's files on disk: one folder's entries for the Files view, without `.git`, and a text file's read and write for the editor.
 
 use std::cmp::Ordering;
 use std::fs;
-use std::path::{Component, Path};
+use std::path::{Component, Path, PathBuf};
 
 use serde::Serialize;
 use specta::Type;
@@ -21,17 +21,8 @@ pub struct FileEntry {
 
 /// The entries of `folder` (relative to `root`, empty for the root): folders first, in natural order.
 pub fn list(root: &Path, folder: &str) -> Result<Vec<FileEntry>, Error> {
-    let relative = Path::new(folder);
-    if relative
-        .components()
-        .any(|part| !matches!(part, Component::Normal(_)))
-    {
-        return Err(Error::Message(format!(
-            "{folder} is not inside the worktree"
-        )));
-    }
     let mut entries = Vec::new();
-    for entry in fs::read_dir(root.join(relative))? {
+    for entry in fs::read_dir(inside(root, folder)?)? {
         let entry = entry?;
         let name = entry.file_name().to_string_lossy().into_owned();
         if name == ".git" {
@@ -60,6 +51,34 @@ pub fn list(root: &Path, folder: &str) -> Result<Vec<FileEntry>, Error> {
             .then_with(|| a.name.cmp(&b.name))
     });
     Ok(entries)
+}
+
+/// The text of `file` (relative to `root`); a file that is not UTF-8 text is an error.
+pub fn read(root: &Path, file: &str) -> Result<String, Error> {
+    fs::read_to_string(inside(root, file)?).map_err(|error| match error.kind() {
+        std::io::ErrorKind::InvalidData => Error::Message(format!("{file} is not a text file")),
+        _ => error.into(),
+    })
+}
+
+/// Replaces the text of `file` (relative to `root`).
+pub fn write(root: &Path, file: &str, text: &str) -> Result<(), Error> {
+    Ok(fs::write(inside(root, file)?, text)?)
+}
+
+// The path under `root`; a relative path that climbs out or is absolute is refused.
+fn inside(root: &Path, relative: &str) -> Result<PathBuf, Error> {
+    let relative = Path::new(relative);
+    if relative
+        .components()
+        .any(|part| !matches!(part, Component::Normal(_)))
+    {
+        return Err(Error::Message(format!(
+            "{} is not inside the worktree",
+            relative.display()
+        )));
+    }
+    Ok(root.join(relative))
 }
 
 fn join(folder: &str, name: &str) -> String {
@@ -159,6 +178,23 @@ mod tests {
             expected.map(|(name, path, is_dir)| (name.to_owned(), path.to_owned(), is_dir))
         );
         assert!(list(&root, "../x").is_err());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn writes_and_reads_text_and_refuses_paths_outside_the_worktree() {
+        let root = std::env::temp_dir().join(format!("chord-edit-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        write(&root, "a.txt", "héllo\n").unwrap();
+        assert_eq!(read(&root, "a.txt").unwrap(), "héllo\n");
+        fs::write(root.join("b.bin"), [0xff, 0xfe]).unwrap();
+        assert_eq!(
+            read(&root, "b.bin").unwrap_err().to_string(),
+            "b.bin is not a text file"
+        );
+        assert!(read(&root, "../a.txt").is_err());
+        assert!(write(&root, "/tmp/x", "").is_err());
         let _ = fs::remove_dir_all(&root);
     }
 }

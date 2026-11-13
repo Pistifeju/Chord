@@ -1,7 +1,8 @@
 // The Files view: the worktree folder's name with Collapse All and Reload, its filter field and its tree.
 import { useEffect, useRef, type CSSProperties } from "react";
 import { ChevronIcon, CollapseAllIcon, FileIcon, FilterIcon, FolderIcon, ReloadIcon } from "../../ui/icons";
-import { collapseAll, loadRoot, reloadFiles, selectFile, setFilter, toggleFolder, trees } from "./store";
+import { openFile } from "../editor/store";
+import { collapseAll, loadRoot, reloadFiles, setFilter, toggleFolder, trees } from "./store";
 import { emptyTree, visibleRows } from "./tree";
 import "./files.css";
 
@@ -47,7 +48,7 @@ export function FilesView({ worktree }: { worktree: string }) {
             aria-level={depth + 1}
             aria-expanded={entry.isDir ? open : undefined}
             aria-selected={entry.path === tree.selected}
-            onClick={() => (entry.isDir ? toggleFolder(worktree, entry.path) : selectFile(worktree, entry.path))}
+            onClick={() => (entry.isDir ? toggleFolder(worktree, entry.path) : openFile(worktree, entry.path))}
           >
             <span className="turn-chevron files-chevron" data-open={open} data-hidden={!entry.isDir}>
               <ChevronIcon />

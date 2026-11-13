@@ -12,7 +12,10 @@ import { finished } from "../status/store";
 import { SidePanel } from "../sidepanel/SidePanel";
 import { sidePanelOf, sidePanels, toggleSidePanel } from "../sidepanel/store";
 import { sidebar } from "../sidebar/store";
-import { ChatIcon, CloseIcon, PlusIcon, SidePanelIcon } from "../../ui/icons";
+import { Editor } from "../editor/Editor";
+import { noFiles } from "../editor/openFiles";
+import { closeFile, openFile, openFiles, showSessions } from "../editor/store";
+import { ChatIcon, CloseIcon, FileIcon, PlusIcon, SidePanelIcon } from "../../ui/icons";
 import { dropEdge, dropPreview, paneIds, resizedSizes, type Box, type Edge } from "./layout";
 import { activeSession, tabName } from "./sessions";
 import { closePane, closeSession, dropSession, endResize, ensurePanes, evenOutSplit, focusPane, newSession, panes, resizeSplit, selectSession } from "./store";
@@ -53,10 +56,11 @@ function SessionTabs({ worktree }: { worktree: string }) {
   const [drop, setDrop] = useState<Drop | null>(null);
   const dropRef = useRef<Drop | null>(null);
   const bar = useRef<HTMLDivElement>(null);
+  const { files, active: shownFile } = openFiles.use()[worktree] ?? noFiles;
   const filesShown = sidePanelOf(sidePanels.use(), worktree).open;
   useEffect(() => {
     bar.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest", inline: "nearest" });
-  }, [current?.active]);
+  }, [current?.active, shownFile]);
   if (!current) return null;
 
   const onTabDown = (e: PointerEvent<HTMLElement>, session: string) => {
@@ -98,19 +102,22 @@ function SessionTabs({ worktree }: { worktree: string }) {
         const unseenDone = paneIds(session.layout).some((pane) => finishedPanes.includes(pane));
         const status = report?.kind === "done" && !unseenDone ? null : report;
         return (
-          <div key={session.id} className="tab" data-selected={session.id === current.active} data-dragging={session.id === dragging}>
+          <div key={session.id} className="tab" data-selected={session.id === current.active && !shownFile} data-dragging={session.id === dragging}>
             <button
               type="button"
               role="tab"
               className="tab-name"
-              aria-selected={session.id === current.active}
+              aria-selected={session.id === current.active && !shownFile}
               onPointerDown={(e) => onTabDown(e, session.id)}
               onPointerMove={onTabMove}
               onPointerUp={onTabEnd}
               onPointerCancel={onTabEnd}
               onClick={() => {
                 if (suppressClick.current) suppressClick.current = false;
-                else selectSession(worktree, session.id);
+                else {
+                  showSessions(worktree);
+                  selectSession(worktree, session.id);
+                }
               }}
             >
               <span className="tab-status" data-status={status?.kind} title={status ? statusLabel(status) : undefined}>
@@ -126,6 +133,19 @@ function SessionTabs({ worktree }: { worktree: string }) {
           </div>
         );
       })}
+      {files.map((file) => (
+        <div key={file} className="tab" data-selected={file === shownFile}>
+          <button type="button" role="tab" className="tab-name" aria-selected={file === shownFile} title={file} onClick={() => openFile(worktree, file)}>
+            <span className="tab-status">
+              <FileIcon />
+            </span>
+            <span className="tab-label">{file.split("/").pop()}</span>
+          </button>
+          <button type="button" className="tab-close" title="Close File" aria-label="Close File" onClick={() => closeFile(worktree, file)}>
+            <CloseIcon />
+          </button>
+        </div>
+      ))}
       <button type="button" className="icon-button" title={tooltip("session.new")} aria-label="New Session" onClick={() => newSession(worktree)}>
         <PlusIcon />
       </button>
@@ -235,13 +255,22 @@ function LayoutView({ layout, path, place }: { layout: Layout; path: number[]; p
 export function PaneArea({ worktree }: { worktree: string }) {
   const current = panes.use()[worktree];
   useEffect(() => ensurePanes(worktree), [worktree]);
-  if (!current) return null;
-  const session = activeSession(current);
+  const shownFile = openFiles.use()[worktree]?.active ?? null;
+  const session = current && activeSession(current);
+  // A session or pane that opens on its own (a notification click, a new tab) takes the view from the file.
+  const seen = useRef("");
+  const sessionKey = session ? `${worktree}\0${session.id}\0${session.focused}` : "";
+  useEffect(() => {
+    if (seen.current.startsWith(`${worktree}\0`) && seen.current !== sessionKey) showSessions(worktree);
+    seen.current = sessionKey;
+  }, [worktree, sessionKey]);
+  if (!session) return null;
   return (
     <div className="panes">
       <SessionTabs worktree={worktree} />
       <div className="panes-body">
-        <div className="pane-layout">
+        {shownFile && <Editor key={`${worktree}\0${shownFile}`} worktree={worktree} path={shownFile} />}
+        <div className="pane-layout" hidden={!!shownFile}>
           <LayoutView key={session.id} layout={session.layout} path={[]} place={{ worktree, session: session.id, focused: session.focused, split: session.layout.kind === "split" }} />
         </div>
         <SidePanel worktree={worktree} />

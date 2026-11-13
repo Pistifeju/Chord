@@ -1,0 +1,20 @@
+/* The editor: fills the work area beside the side panel. Rules: DESIGN.md, Editor. */
+.editor {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  background: var(--canvas);
+}
+
+.editor-host {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.editor .spinner {
+  border-color: var(--ink-muted);
+  border-right-color: transparent;
+}

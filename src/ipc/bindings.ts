@@ -26,6 +26,8 @@ export const commands = {
 	/**  Tells Rust which panes the window shows, so a notification skips a pane the user is looking at. */
 	showPanes: (panes: string[]) => __TAURI_INVOKE<void>("show_panes", { panes }),
 	listFolder: (worktree: string, folder: string) => __TAURI_INVOKE<FileEntry[]>("list_folder", { worktree, folder }),
+	readFile: (worktree: string, file: string) => __TAURI_INVOKE<string>("read_file", { worktree, file }),
+	writeFile: (worktree: string, file: string, text: string) => __TAURI_INVOKE<null>("write_file", { worktree, file, text }),
 	/**  Stops every agent and ends the app once the user confirmed the quit. Panes stay saved as running, so they start again on launch. */
 	quitApp: () => __TAURI_INVOKE<null>("quit_app"),
 	/**  Saves the setting and applies it; a missing `caffeinate` fails before anything is saved, even with no agent working. */

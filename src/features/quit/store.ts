@@ -3,13 +3,16 @@ import { listen } from "@tauri-apps/api/event";
 import { commands } from "../../ipc/bindings";
 import { chats } from "../chat/store";
 import { closeSheet, openSheet } from "../../app/sheet";
+import { flushAllSaves } from "../editor/store";
 import { quitNeedsAsking } from "./rules";
 
 export const cancelQuit = () => closeSheet("quit");
 
 // The menu item and the window's close button reach the same ask.
 export const confirmQuit = () => {
-  commands.quitApp().catch(console.error);
+  flushAllSaves()
+    .then(() => commands.quitApp())
+    .catch(console.error);
 };
 
 export const requestQuit = () => {
