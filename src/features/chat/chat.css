@@ -176,7 +176,7 @@
 }
 
 .chat-steps-summary[data-changed] {
-  animation: chat-in var(--t-med) var(--ease-out);
+  animation: chat-fade var(--t-med) var(--ease-out);
 }
 
 .chat-steps-toggle:hover {
@@ -744,8 +744,7 @@
   .chat-steps[data-fresh] > :not(.chat-thumbs),
   .chat-working,
   .chat-notice,
-  .chat-slash-menu,
-  .chat-steps-summary[data-changed] {
+  .chat-slash-menu {
     animation-name: chat-fade;
   }
 
