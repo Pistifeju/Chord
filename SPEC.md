@@ -123,7 +123,7 @@ Edge cases:
 - [x] F4 Image view, reloads on change.
 - [x] F5 Right click: New File, New Folder, Rename (inline, the name without its extension selected), Copy Path, Copy Relative Path, Reveal in Finder, Move to Trash (⌘⌫) after asking.
 - [x] F6 Needs C1: drag a file tab onto a pane edge to show the file beside a chat; ⌘D on a file tab puts an agent beside it.
-- [ ] F7 Open file by name (⌘⇧O).
+- [x] F7 Open file by name (⌘⇧O).
 - [ ] F8 Keyboard in the tree: ↑ ↓ move, → opens a folder, ← closes it or jumps to the parent, Return opens the file.
 - [ ] F9 Drag a file from the tree into the composer to put its relative path in the draft.
 

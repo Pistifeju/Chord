@@ -1,4 +1,4 @@
-// Connects the Files tree rules to IPC: one tree per worktree, its folders read when opened, and the right-click changes to its entries.
+// Connects the Files tree rules to IPC: one tree per worktree, its folders read when opened, the right-click changes to its entries, and the file list Open File by Name picks from.
 import { closeSheet, openSheet, sheet, sheetOf } from "../../app/sheet";
 import { commands } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
@@ -132,3 +132,23 @@ export async function confirmTrash() {
 }
 
 export const revealFile = (worktree: string, path: string) => commands.revealFile(worktree, path).catch(fail);
+
+// The worktree's files while Open File by Name shows; null until they are read.
+export const namedFiles = externalStore<string[] | null>(null);
+
+export async function openFileByName(worktree: string) {
+  namedFiles.set(null);
+  openSheet({ kind: "openFileByName", worktree });
+  try {
+    const files = await commands.listFiles(worktree);
+    if (sheetOf(sheet.get(), "openFileByName")?.worktree === worktree) namedFiles.set(files);
+  } catch (error) {
+    closeSheet("openFileByName");
+    fail(error);
+  }
+}
+
+export function pickFileByName(worktree: string, path: string) {
+  closeSheet("openFileByName");
+  showFile(worktree, path);
+}

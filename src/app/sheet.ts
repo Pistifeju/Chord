@@ -6,6 +6,7 @@ export type Sheet =
   | { kind: "deleteWorktree"; project: string; path: string; name: string }
   | { kind: "forceRemoval"; project: string; path: string; branch: string | null; reason: string }
   | { kind: "trashFile"; worktree: string; path: string }
+  | { kind: "openFileByName"; worktree: string }
   | { kind: "quit" }
   | { kind: "closeAgents"; worktree: string; target: "pane" | "session"; id: string };
 

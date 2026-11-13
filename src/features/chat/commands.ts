@@ -11,8 +11,9 @@ import { closeLightbox, lightboxes, stepLightbox } from "./viewing";
 import { slashMenu } from "./slash";
 import { abortRun, answerDialog, chatOf, chats, closeSlash, drafts, pickAttachments, slashClosed } from "./store";
 
-// A focused file pane is no chat.
+// A focused file pane is no chat; an open sheet owns the keys.
 const focusedPane = (): string | null => {
+  if (sheet.get() !== null) return null;
   const shown = shownSession(panes.get(), projects.get().selected, settingsOpen.get());
   return shown?.focused && chatPaneIds(shown.layout).includes(shown.focused) ? shown.focused : null;
 };
@@ -29,12 +30,12 @@ const findingPane = (): string | null => {
 
 const dialogPane = (): string | null => {
   const pane = focusedPane();
-  return pane && sheet.get() === null && chatOf(chats.get(), pane).dialog ? pane : null;
+  return pane && chatOf(chats.get(), pane).dialog ? pane : null;
 };
 
 const slashPane = (): string | null => {
   const pane = focusedPane();
-  if (!pane || sheet.get() !== null) return null;
+  if (!pane) return null;
   const draft = drafts.get()[pane] ?? "";
   return slashMenu(chatOf(chats.get(), pane).commands, draft, slashClosed.get()[pane]).length > 0 ? pane : null;
 };

@@ -1,4 +1,4 @@
-//! A worktree's files on disk: one folder's entries for the Files view, without `.git`, a text file's read and write for the editor, a file's change time for the image view, and the tree's create, rename, trash and reveal.
+//! A worktree's files on disk: one folder's entries for the Files view, without `.git`, every file git does not ignore for Open File by Name, a text file's read and write for the editor, a file's change time for the image view, and the tree's create, rename, trash and reveal.
 
 use std::cmp::Ordering;
 use std::fs;
@@ -51,6 +51,26 @@ pub fn list(root: &Path, folder: &str) -> Result<Vec<FileEntry>, Error> {
             .then_with(|| a.name.cmp(&b.name))
     });
     Ok(entries)
+}
+
+/// Every file under `root` that git tracks or does not ignore, relative and `/`-separated, in git's order; a tracked file gone from disk is left out.
+pub fn all(root: &Path) -> Result<Vec<String>, Error> {
+    let listed = crate::git::run(
+        root,
+        &[
+            "ls-files",
+            "-z",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+            "--deduplicate",
+        ],
+    )?;
+    Ok(listed
+        .split('\0')
+        .filter(|path| !path.is_empty() && root.join(path).is_file())
+        .map(str::to_owned)
+        .collect())
 }
 
 /// The text of `file` (relative to `root`); a file that is not UTF-8 text is an error.
@@ -303,6 +323,27 @@ mod tests {
         rename(&root, "A.txt", "docs/b.txt").unwrap();
         assert_eq!(fs::read_to_string(root.join("docs/b.txt")).unwrap(), "kept");
         assert!(rename(&root, "docs/b.txt", "../b.txt").is_err());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn all_lists_tracked_and_untracked_files_but_not_ignored_or_gone_ones() {
+        let root = std::env::temp_dir().join(format!("chord-all-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("src")).unwrap();
+        crate::git::run(&root, &["init", "-q"]).unwrap();
+        fs::write(root.join(".gitignore"), "build/\n").unwrap();
+        fs::write(root.join("src/a.ts"), "").unwrap();
+        fs::write(root.join("gone.ts"), "").unwrap();
+        crate::git::run(&root, &["add", "."]).unwrap();
+        fs::remove_file(root.join("gone.ts")).unwrap();
+        fs::write(root.join("new.ts"), "").unwrap();
+        fs::create_dir_all(root.join("build")).unwrap();
+        fs::write(root.join("build/out.js"), "").unwrap();
+
+        let mut files = all(&root).unwrap();
+        files.sort();
+        assert_eq!(files, [".gitignore", "new.ts", "src/a.ts"]);
         let _ = fs::remove_dir_all(&root);
     }
 

@@ -1,9 +1,9 @@
-// The Files view's commands for the commands table: show the view, and the tree's right-click actions on an entry's relative path.
+// The Files view's commands for the commands table: show the view, open a file by name, and the tree's right-click actions on an entry's relative path.
 import type { AppCommand } from "../../app/commands";
 import { settingsOpen } from "../settings/store";
 import { toggleSidePanel } from "../sidepanel/store";
 import { fail, projects } from "../worktrees/store";
-import { requestTrash, revealFile, startNew, startRename } from "./store";
+import { openFileByName, requestTrash, revealFile, startNew, startRename } from "./store";
 import { joinPath } from "./tree";
 
 // The tree row that holds the keyboard focus, so ⌘⌫ never acts on a row the user did not pick.
@@ -26,6 +26,13 @@ export const filesCommands: AppCommand[] = [
     shortcut: { key: "e", cmd: true, shift: true },
     when: () => !settingsOpen.get() && projects.get().selected !== null,
     run: () => toggleSidePanel(projects.get().selected!),
+  },
+  {
+    id: "files.openByName",
+    title: "Open File by Name",
+    shortcut: { key: "o", cmd: true, shift: true },
+    when: () => !settingsOpen.get() && projects.get().selected !== null,
+    run: () => void openFileByName(projects.get().selected!),
   },
   { id: "files.newFile", title: "New File", run: onEntry((worktree, folder) => startNew(worktree, folder, "newFile"), "folder") },
   { id: "files.newFolder", title: "New Folder", run: onEntry((worktree, folder) => startNew(worktree, folder, "newFolder"), "folder") },

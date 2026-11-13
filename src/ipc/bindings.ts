@@ -26,6 +26,7 @@ export const commands = {
 	/**  Tells Rust which panes the window shows, so a notification skips a pane the user is looking at. */
 	showPanes: (panes: string[]) => __TAURI_INVOKE<void>("show_panes", { panes }),
 	listFolder: (worktree: string, folder: string) => __TAURI_INVOKE<FileEntry[]>("list_folder", { worktree, folder }),
+	listFiles: (worktree: string) => __TAURI_INVOKE<string[]>("list_files", { worktree }),
 	readFile: (worktree: string, file: string) => __TAURI_INVOKE<string>("read_file", { worktree, file }),
 	writeFile: (worktree: string, file: string, expected: string, text: string) => __TAURI_INVOKE<null>("write_file", { worktree, file, expected, text }),
 	fileModified: (worktree: string, file: string) => __TAURI_INVOKE<string>("file_modified", { worktree, file }),
