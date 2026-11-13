@@ -4,10 +4,11 @@ import type { Direction } from "../../ipc/bindings";
 import { settingsOpen } from "../settings/store";
 import { chatOf, chats } from "../chat/store";
 import { projects } from "../worktrees/store";
+import { splitFile } from "../editor/showing";
 import { openFiles } from "../editor/store";
 import { filePanes } from "./layout";
 import { canClosePane, shownSession } from "./sessions";
-import { closeFocused, newSession, panes, splitFile, splitFocused } from "./store";
+import { closeFocused, newSession, panes, splitFocused } from "./store";
 
 const openWorktree = (): string | null => (settingsOpen.get() ? null : projects.get().selected);
 

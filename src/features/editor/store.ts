@@ -2,9 +2,8 @@
 import type { Text } from "@codemirror/state";
 import { commands } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
-import { selectFile } from "../files/store";
 import { fail } from "../worktrees/store";
-import { isAtOrInside, noFiles, withFileClosed, withFileOpened, withFilesMoved, withSessionsShown, type OpenFiles } from "./openFiles";
+import { noFiles, withFileClosed, withFileOpened, withFilesMoved, withSessionsShown, type OpenFiles } from "./openFiles";
 
 export const openFiles = externalStore<Record<string, OpenFiles>>({});
 
@@ -14,23 +13,15 @@ const SAVE_DELAY = 1000;
 const filesOf = (worktree: string): OpenFiles => openFiles.get()[worktree] ?? noFiles;
 const update = (worktree: string, change: (open: OpenFiles) => OpenFiles) => openFiles.set({ ...openFiles.get(), [worktree]: change(filesOf(worktree)) });
 
-export function openFile(worktree: string, path: string) {
-  update(worktree, (open) => withFileOpened(open, path));
-  selectFile(worktree, path);
-}
+export const openTab = (worktree: string, path: string) => update(worktree, (open) => withFileOpened(open, path));
 
-export function closeFile(worktree: string, path: string) {
+/** Closes the tab of `path` and returns the file shown after it. */
+export function closeTab(worktree: string, path: string): string | null {
   update(worktree, (open) => withFileClosed(open, path));
-  const { active } = filesOf(worktree);
-  if (active) selectFile(worktree, active);
+  return filesOf(worktree).active;
 }
 
 export const moveFiles = (worktree: string, from: string, to: string) => update(worktree, (open) => withFilesMoved(open, from, to));
-
-// Closes the tabs of `path` and of everything inside it.
-export function closeFilesAt(worktree: string, path: string) {
-  for (const file of filesOf(worktree).files) if (isAtOrInside(file, path)) closeFile(worktree, file);
-}
 
 export const showSessions = (worktree: string) => {
   if (filesOf(worktree).active !== null) update(worktree, withSessionsShown);

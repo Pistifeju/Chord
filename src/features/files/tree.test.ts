@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { FileEntry } from "../../ipc/bindings.ts";
-import { emptyTree, treeKeyAction, visibleRows } from "./tree.ts";
+import { emptyTree, treeKeyAction, visibleRows, withTreeMoved } from "./tree.ts";
 
 const dir = (path: string): FileEntry => ({ name: path.split("/").pop()!, path, isDir: true });
 const file = (path: string): FileEntry => ({ name: path.split("/").pop()!, path, isDir: false });
@@ -36,4 +36,12 @@ test("arrow keys move between rows, open and close folders, and jump to the pare
   assert.deepEqual(treeKeyAction(open, "src", "ArrowLeft"), { toggle: "src" });
   assert.deepEqual(treeKeyAction(open, "src/util.ts", "ArrowLeft"), { focus: "src" });
   assert.deepEqual(treeKeyAction(open, "a.md", "ArrowLeft"), null);
+});
+
+test("a rename moves the open folders and the selection inside it, and keeps the rest", () => {
+  const tree = { ...emptyTree, open: ["src", "src/app", "docs"], selected: "src/app/App.tsx" };
+  const moved = withTreeMoved(tree, "src", "lib");
+  assert.deepEqual(moved.open, ["lib", "lib/app", "docs"]);
+  assert.equal(moved.selected, "lib/app/App.tsx");
+  assert.equal(withTreeMoved({ ...tree, selected: "srcx.ts" }, "src", "lib").selected, "srcx.ts");
 });

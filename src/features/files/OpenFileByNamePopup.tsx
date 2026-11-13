@@ -4,7 +4,8 @@ import { closeSheet, sheet, sheetOf } from "../../app/sheet";
 import { FileIcon } from "../../ui/icons";
 import { steppedIndex } from "../chat/dialog";
 import { matchingFiles } from "./openByName";
-import { namedFiles, pickFileByName } from "./store";
+import { pickFileByName } from "../editor/showing";
+import { namedFiles } from "./store";
 import "./files.css";
 
 export function OpenFileByNamePopup() {

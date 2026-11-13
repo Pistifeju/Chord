@@ -1,6 +1,6 @@
 // Rules for one split layout: split a pane, close one, its file panes, and the sizes of a split's children.
 import type { Direction, Layout } from "../../ipc/bindings";
-import { isAtOrInside, movedPath } from "../editor/openFiles.ts";
+import { isAtOrInside, movedPath } from "../files/paths.ts";
 
 export type Split = Extract<Layout, { kind: "split" }>;
 export type FilePane = Extract<Layout, { kind: "file" }>;

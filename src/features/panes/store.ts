@@ -4,8 +4,7 @@ import { externalStore } from "../../ui/externalStore";
 import { closeSheet, openSheet, type Sheet } from "../../app/sheet";
 import { chats, forgetChat, startChat } from "../chat/store";
 import { paneChanges, resumedPanes, vanishedWorktrees } from "./agents";
-import { closeFile, showSessions } from "../editor/store";
-import { isAtOrInside } from "../editor/openFiles";
+import { isAtOrInside } from "../files/paths";
 import { filePanes, withEvenSizes, withFilePanesMoved, withSizes, type Edge, type FilePane } from "./layout";
 import {
   activeSession,
@@ -106,20 +105,12 @@ export const dropSession = (worktree: string, session: string, pane: string, edg
 
 const filePane = (path: string): FilePane => ({ kind: "file", id: newId(), path });
 
-// The file leaves its tab for a pane beside `pane`.
-export function dropFile(worktree: string, path: string, pane: string, edge: Edge) {
-  change(worktree, (p) => withFileDropped(p, filePane(path), pane, edge));
-  closeFile(worktree, path);
-  showSessions(worktree);
-}
+// A pane of the file beside `pane`.
+export const dropFilePane = (worktree: string, path: string, pane: string, edge: Edge) => change(worktree, (p) => withFileDropped(p, filePane(path), pane, edge));
 
-// The file leaves its tab for a new session tab, with a new agent beside it.
-export function splitFile(worktree: string, path: string, direction: Direction) {
+// A new session tab with a pane of the file and a new agent beside it.
+export const splitFileSession = (worktree: string, path: string, direction: Direction) =>
   change(worktree, (p) => withFileSession(p, newId(), filePane(path), newId(), direction));
-  // Hidden first, so closing the tab does not select a neighbour that is not shown.
-  showSessions(worktree);
-  closeFile(worktree, path);
-}
 
 export function moveFilePanes(worktree: string, from: string, to: string) {
   if (!panes.get()[worktree]) return;

@@ -16,12 +16,13 @@ import { sidebar } from "../sidebar/store";
 import { Editor } from "../editor/Editor";
 import { ImageView } from "../editor/ImageView";
 import { noFiles } from "../editor/openFiles";
-import { closeFile, openFile, openFiles, showSessions } from "../editor/store";
+import { closeFile, dropFile, openFile } from "../editor/showing";
+import { openFiles, showSessions } from "../editor/store";
 import { ChatIcon, CloseIcon, FileIcon, PlusIcon, SidePanelIcon } from "../../ui/icons";
 import { usePointerDrag } from "../../ui/pointerDrag";
 import { dropEdge, dropPreview, paneIds, resizedSizes, type Box, type Edge } from "./layout";
 import { activeSession, namedPane, tabName } from "./sessions";
-import { closeFilePane, closePane, closeSession, dropFile, dropSession, endResize, ensurePanes, evenOutSplit, focusPane, newSession, panes, resizeSplit, selectSession } from "./store";
+import { closeFilePane, closePane, closeSession, dropSession, endResize, ensurePanes, evenOutSplit, focusPane, newSession, panes, resizeSplit, selectSession } from "./store";
 import "./panes.css";
 
 type Place = { worktree: string; session: string; focused: string; split: boolean };

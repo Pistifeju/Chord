@@ -1,5 +1,6 @@
 // Rules for the Files tree: which rows show for the loaded folders, the open ones and the filter.
 import type { FileEntry } from "../../ipc/bindings.ts";
+import { movedPath } from "./paths.ts";
 
 /** `children` holds each loaded folder's entries by relative path; the worktree root is "". */
 export type Tree = { children: Record<string, FileEntry[]>; open: string[]; selected: string | null; filter: string };
@@ -49,10 +50,11 @@ export function treeKeyAction(rows: Row[], path: string, key: string): TreeKeyAc
   return null;
 }
 
-/** The folder that holds `path`; "" for the worktree root. */
-export const parentFolder = (path: string) => path.slice(0, Math.max(path.lastIndexOf("/"), 0));
-
-export const joinPath = (folder: string, name: string) => (folder ? `${folder}/${name}` : name);
+// A rename keeps the open folders and the selection of the entry and of everything inside it, under their new paths.
+export function withTreeMoved(tree: Tree, from: string, to: string): Tree {
+  const moved = (path: string) => movedPath(path, from, to);
+  return { ...tree, open: tree.open.map(moved), selected: tree.selected && moved(tree.selected) };
+}
 
 // The length of a name without its extension; a dotfile like `.env` is all name.
 export function stemLength(name: string): number {

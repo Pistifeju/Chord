@@ -1,12 +1,9 @@
-// Connects the Files tree rules to IPC: one tree per worktree, its folders read when opened, the right-click changes to its entries, and the file list Open File by Name picks from.
+// Connects the Files tree rules to IPC: one tree per worktree, its folders read when opened, the entry whose name shows as a field, and the file list Open File by Name picks from.
 import { closeSheet, openSheet, sheet, sheetOf } from "../../app/sheet";
 import { commands } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
-import { movedPath } from "../editor/openFiles";
-import { closeFilesAt, flushAllSaves, moveFiles, openFile, showSessions } from "../editor/store";
-import { closeFilePanesAt, filePaneOf, focusPane, moveFilePanes } from "../panes/store";
 import { fail } from "../worktrees/store";
-import { emptyTree, joinPath, parentFolder, type Tree } from "./tree";
+import { emptyTree, withTreeMoved, type Tree } from "./tree";
 
 export const trees = externalStore<Record<string, Tree>>({});
 
@@ -38,14 +35,7 @@ export function toggleFolder(worktree: string, folder: string) {
 
 export const selectFile = (worktree: string, path: string) => update(worktree, (tree) => ({ ...tree, selected: path }));
 
-// A file a pane already shows focuses that pane; any other opens in a tab.
-export function showFile(worktree: string, path: string) {
-  const pane = filePaneOf(worktree, path);
-  if (!pane) return openFile(worktree, path);
-  selectFile(worktree, path);
-  focusPane(worktree, pane.id);
-  showSessions(worktree);
-}
+export const moveTreeEntries = (worktree: string, from: string, to: string) => update(worktree, (tree) => withTreeMoved(tree, from, to));
 
 export const collapseAll = (worktree: string) => update(worktree, (tree) => ({ ...tree, open: [] }));
 
@@ -84,53 +74,7 @@ export function startNew(worktree: string, folder: string, kind: "newFile" | "ne
 
 export const startRename = (worktree: string, path: string) => nameEdit.set({ worktree, kind: "rename", path });
 
-// An empty or unchanged name cancels.
-export async function finishNameEdit(name: string) {
-  const edit = nameEdit.get();
-  nameEdit.set(null);
-  name = name.trim();
-  if (!edit || !name) return;
-  const { worktree } = edit;
-  try {
-    if (edit.kind === "rename") {
-      const to = joinPath(parentFolder(edit.path), name);
-      if (to === edit.path) return;
-      // Pending edits land under the old name first, so no save goes to a path that is gone.
-      await flushAllSaves();
-      await commands.renameFile(worktree, edit.path, to);
-      moveFiles(worktree, edit.path, to);
-      moveFilePanes(worktree, edit.path, to);
-      const moved = (path: string) => movedPath(path, edit.path, to);
-      update(worktree, (tree) => ({ ...tree, open: tree.open.map(moved), selected: tree.selected && moved(tree.selected) }));
-    } else {
-      const path = joinPath(edit.folder, name);
-      await commands.createFile(worktree, path, edit.kind === "newFolder");
-      // A pane can still show a file of this name deleted outside the app; a second editor would save over it.
-      if (edit.kind === "newFile") showFile(worktree, path);
-    }
-  } catch (error) {
-    fail(error);
-  }
-  await reloadFiles(worktree);
-}
-
 export const requestTrash = (worktree: string, path: string) => openSheet({ kind: "trashFile", worktree, path });
-
-export async function confirmTrash() {
-  const pending = sheetOf(sheet.get(), "trashFile");
-  closeSheet("trashFile");
-  if (!pending) return;
-  const { worktree, path } = pending;
-  try {
-    await flushAllSaves();
-    await commands.trashFile(worktree, path);
-    closeFilesAt(worktree, path);
-    closeFilePanesAt(worktree, path);
-  } catch (error) {
-    fail(error);
-  }
-  await reloadFiles(worktree);
-}
 
 export const revealFile = (worktree: string, path: string) => commands.revealFile(worktree, path).catch(fail);
 
@@ -147,9 +91,4 @@ export async function openFileByName(worktree: string) {
     if (sheetOf(sheet.get(), "openFileByName")?.worktree === worktree) closeSheet("openFileByName");
     fail(error);
   }
-}
-
-export function pickFileByName(worktree: string, path: string) {
-  closeSheet("openFileByName");
-  showFile(worktree, path);
 }

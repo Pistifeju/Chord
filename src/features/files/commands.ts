@@ -4,7 +4,7 @@ import { settingsOpen } from "../settings/store";
 import { toggleSidePanel } from "../sidepanel/store";
 import { fail, projects } from "../worktrees/store";
 import { openFileByName, requestTrash, revealFile, startNew, startRename } from "./store";
-import { joinPath } from "./tree";
+import { joinPath } from "./paths";
 
 // The tree row that holds the keyboard focus, so ⌘⌫ never acts on a row the user did not pick.
 const focusedEntry = (key: "path" | "folder" = "path") =>

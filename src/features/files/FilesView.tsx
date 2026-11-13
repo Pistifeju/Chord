@@ -4,8 +4,11 @@ import { addPathToDraft, pathDropPane } from "../chat/store";
 import { showMenu } from "../../app/commands";
 import { usePointerDrag } from "../../ui/pointerDrag";
 import { ChevronIcon, CollapseAllIcon, FileIcon, FilterIcon, FolderIcon, ReloadIcon } from "../../ui/icons";
-import { collapseAll, finishNameEdit, loadRoot, nameEdit, reloadFiles, setFilter, showFile, toggleFolder, trees } from "./store";
-import { emptyTree, parentFolder, stemLength, treeKeyAction, visibleRows, type Row } from "./tree";
+import { showFile } from "../editor/showing";
+import { finishNameEdit } from "./entries";
+import { parentFolder } from "./paths";
+import { collapseAll, loadRoot, nameEdit, reloadFiles, setFilter, toggleFolder, trees } from "./store";
+import { emptyTree, stemLength, treeKeyAction, visibleRows, type Row } from "./tree";
 import type { FileEntry } from "../../ipc/bindings";
 import "./files.css";
 
