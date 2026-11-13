@@ -6,7 +6,7 @@ import { paneNames, type PaneNames } from "../panes/sessions";
 import { usage } from "../usage/store";
 import { notify } from "../worktrees/store";
 import { fileName, imageExtensions, imageMime, type Attachment } from "./attachments";
-import { chatAfter, emptyChat, type Chat } from "./transcript";
+import { chatFed, emptyChat, type Chat, type Replay } from "./transcript";
 
 export const chats = externalStore<Record<string, Chat>>({});
 
@@ -32,42 +32,35 @@ export const slashClosed = externalStore<Record<string, string>>({});
 
 export const closeSlash = (pane: string, draft: string) => slashClosed.set({ ...slashClosed.get(), [pane]: draft });
 
-// The latest start per pane; events of an older agent are dropped.
-const starts = new Map<string, number>();
+// Each pane's latest agent start and the history it replays; events of an older start are dropped.
+const intakes = new Map<string, { start: number; replay: Replay }>();
 let startCount = 0;
 
-// A session's history arrives as one event per saved message; they wait here so the transcript changes once.
-const replays = new Map<string, HarnessEvent[]>();
+const latest = (pane: string, start: number) => intakes.get(pane)?.start === start;
 
-function received(pane: string, event: HarnessEvent) {
+function received(pane: string, start: number, event: HarnessEvent) {
+  const intake = intakes.get(pane);
+  if (intake?.start !== start) return;
   if (event.kind === "draft") setDraft(pane, event.text);
   if (event.kind === "usage") usage.set(event.windows);
   if (event.kind === "exported") notify(`Exported to ${event.path}`);
-  if (event.kind === "history_start") replays.set(pane, []);
-  const replay = replays.get(pane);
-  if (!replay) return update(pane, (chat) => chatAfter(chat, event, Date.now()));
-  replay.push(event);
-  if (event.kind !== "history_end") return;
-  replays.delete(pane);
-  const now = Date.now();
-  update(pane, (chat) => replay.reduce((next, replayed) => chatAfter(next, replayed, now), chat));
+  const fed = chatFed(chatOf(chats.get(), pane), intake.replay, event, Date.now());
+  intake.replay = fed.replay;
+  update(pane, () => fed.chat);
 }
 
 export async function startChat(worktree: string, pane: string) {
   if (chatOf(chats.get(), pane).agent !== "idle") return;
   const start = ++startCount;
-  starts.set(pane, start);
+  intakes.set(pane, { start, replay: null });
   const channel = new Channel<HarnessEvent>();
-  channel.onmessage = (event) => {
-    if (starts.get(pane) === start) received(pane, event);
-  };
-  replays.delete(pane);
+  channel.onmessage = (event) => received(pane, start, event);
   update(pane, (chat) => ({ ...chat, agent: "starting", notice: null, report: null, commands: [] }));
   try {
     const capabilities = await commands.startChat(worktree, pane, channel);
-    if (starts.get(pane) === start) update(pane, (chat) => (chat.agent === "starting" ? { ...chat, agent: "ready", capabilities } : chat));
+    if (latest(pane, start)) update(pane, (chat) => (chat.agent === "starting" ? { ...chat, agent: "ready", capabilities } : chat));
   } catch (error) {
-    if (starts.get(pane) === start) update(pane, (chat) => ({ ...chat, agent: "idle", notice: String(error) }));
+    if (latest(pane, start)) update(pane, (chat) => ({ ...chat, agent: "idle", notice: String(error) }));
   }
 }
 
@@ -142,8 +135,7 @@ export function abortRun(pane: string) {
 
 // The pane is gone: its agent stops and its transcript and draft go.
 export function forgetChat(pane: string) {
-  starts.delete(pane);
-  replays.delete(pane);
+  intakes.delete(pane);
   const { [pane]: gone, ...rest } = chats.get();
   chats.set(rest);
   const { [pane]: goneDraft, ...restDrafts } = drafts.get();

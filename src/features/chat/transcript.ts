@@ -137,6 +137,18 @@ export function chatAfter(chat: Chat, event: HarnessEvent, now: number): Chat {
   return next.dialog && movesOn(event) ? { ...next, dialog: null } : next;
 }
 
+/** The history events held until the replay ends, or null while events apply one by one. */
+export type Replay = HarnessEvent[] | null;
+
+/** The chat and the held replay after `event`: a session's history changes the chat once, at its end, stamped with that `now`. The held array is the caller's to pass back. */
+export function chatFed(chat: Chat, replay: Replay, event: HarnessEvent, now: number): { chat: Chat; replay: Replay } {
+  const held = event.kind === "history_start" ? [] : replay;
+  if (!held) return { chat: chatAfter(chat, event, now), replay: null };
+  held.push(event);
+  if (event.kind !== "history_end") return { chat, replay: held };
+  return { chat: held.reduce((next, replayed) => chatAfter(next, replayed, now), chat), replay: null };
+}
+
 function applied(chat: Chat, event: HarnessEvent, now: number): Chat {
   switch (event.kind) {
     case "user_message_chunk":

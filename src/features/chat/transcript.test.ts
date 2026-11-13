@@ -1,7 +1,7 @@
 // Tests for the transcript rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { chatAfter, emptyChat, shownSteps, stepImages, type Step } from "./transcript.ts";
+import { chatAfter, chatFed, emptyChat, shownSteps, stepImages, type Step } from "./transcript.ts";
 
 test("chunks of one reply join into one streaming message until it ends", () => {
   let chat = chatAfter(emptyChat, { kind: "message_chunk", text: "Hel" }, 0);
@@ -126,4 +126,14 @@ test("a history start empties the transcript and the status, then the saved mess
   assert.deepEqual([chat.items, chat.report], [[], null]);
   chat = chatAfter(chat, { kind: "user_message_chunk", text: "Saved", images: [] }, 9);
   assert.deepEqual(chat.items, [{ role: "user", text: "Saved", streaming: false, images: [] }]);
+});
+
+test("a session's history changes the chat once, at its end", () => {
+  let fed = chatFed(emptyChat, null, { kind: "history_start" }, 1);
+  fed = chatFed(fed.chat, fed.replay, { kind: "user_message_chunk", text: "Hi", images: [] }, 2);
+  assert.equal(fed.chat, emptyChat);
+  fed = chatFed(fed.chat, fed.replay, { kind: "history_end" }, 3);
+  assert.equal(fed.replay, null);
+  assert.deepEqual(fed.chat.items, [{ role: "user", text: "Hi", streaming: false, images: [] }]);
+  assert.equal(fed.chat.historyLength, 1);
 });
