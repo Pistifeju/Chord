@@ -1,14 +1,22 @@
-// The Files view: the worktree folder's name with Collapse All and Reload, its filter field and its tree.
-import { useEffect, useRef, type CSSProperties } from "react";
+// The Files view: the worktree folder's name with Collapse All and Reload, its filter field and its tree with its right-click menu and name fields.
+import { Fragment, useEffect, useRef, type CSSProperties } from "react";
+import { showMenu } from "../../app/commands";
 import { ChevronIcon, CollapseAllIcon, FileIcon, FilterIcon, FolderIcon, ReloadIcon } from "../../ui/icons";
 import { openFile } from "../editor/store";
-import { collapseAll, loadRoot, reloadFiles, setFilter, toggleFolder, trees } from "./store";
-import { emptyTree, visibleRows } from "./tree";
+import { collapseAll, finishNameEdit, loadRoot, nameEdit, reloadFiles, setFilter, toggleFolder, trees } from "./store";
+import { emptyTree, parentFolder, stemLength, visibleRows, type Row } from "./tree";
+import type { FileEntry } from "../../ipc/bindings";
 import "./files.css";
 
 export function FilesView({ worktree }: { worktree: string }) {
   const tree = trees.use()[worktree] ?? emptyTree;
   const rows = visibleRows(tree);
+  const edit = nameEdit.use();
+  const editing = edit?.worktree === worktree ? edit : null;
+  const creating = editing?.kind === "rename" ? null : editing;
+  // A new entry's field sits first inside its folder; the root's ("") sits at the top.
+  const folderAt = creating ? rows.findIndex((row) => row.entry.path === creating.folder) : -1;
+  const newField = creating && <NewEntryField isDir={creating.kind === "newFolder"} depth={folderAt < 0 ? 0 : rows[folderAt].depth + 1} />;
   const list = useRef<HTMLDivElement>(null);
   useEffect(() => {
     loadRoot(worktree);
@@ -36,29 +44,105 @@ export function FilesView({ worktree }: { worktree: string }) {
         <FilterIcon />
         <input className="input" placeholder="Filter" aria-label="Filter Files" value={tree.filter} onChange={(e) => setFilter(worktree, e.target.value)} />
       </div>
-      <div ref={list} className="files-tree" role="tree" aria-label="Files">
-        {rows.map(({ entry, depth, open }) => (
-          <button
-            key={entry.path}
-            type="button"
-            role="treeitem"
-            className="files-row"
-            style={{ "--depth": depth } as CSSProperties}
-            title={entry.path}
-            aria-level={depth + 1}
-            aria-expanded={entry.isDir ? open : undefined}
-            aria-selected={entry.path === tree.selected}
-            onClick={() => (entry.isDir ? toggleFolder(worktree, entry.path) : openFile(worktree, entry.path))}
-          >
-            <span className="turn-chevron files-chevron" data-open={open} data-hidden={!entry.isDir}>
-              <ChevronIcon />
-            </span>
-            <span className="files-icon">{entry.isDir ? <FolderIcon size={16} /> : <FileIcon />}</span>
-            <span className="files-name">{entry.name}</span>
-          </button>
+      <div
+        ref={list}
+        className="files-tree"
+        role="tree"
+        aria-label="Files"
+        onContextMenu={(e) => showMenu(e, [["files.newFile", ""], ["files.newFolder", ""]])}
+      >
+        {folderAt < 0 && newField}
+        {rows.map((row, i) => (
+          <Fragment key={row.entry.path}>
+            {editing?.kind === "rename" && editing.path === row.entry.path ? (
+              <NameField row={row} />
+            ) : (
+              <EntryRow worktree={worktree} row={row} selected={row.entry.path === tree.selected} />
+            )}
+            {i === folderAt && newField}
+          </Fragment>
         ))}
         {rows.length === 0 && tree.filter && <div className="files-empty">No matches</div>}
       </div>
+    </div>
+  );
+}
+
+function EntryRow({ worktree, row: { entry, depth, open }, selected }: { worktree: string; row: Row; selected: boolean }) {
+  const folder = entry.isDir ? entry.path : parentFolder(entry.path);
+  return (
+    <button
+      type="button"
+      role="treeitem"
+      className="files-row"
+      style={{ "--depth": depth } as CSSProperties}
+      title={entry.path}
+      data-path={entry.path}
+      data-folder={folder}
+      aria-level={depth + 1}
+      aria-expanded={entry.isDir ? open : undefined}
+      aria-selected={selected}
+      // WebKit does not focus a clicked button, and ⌘⌫ acts on the focused row.
+      onMouseDown={(event) => event.currentTarget.focus()}
+      onClick={() => (entry.isDir ? toggleFolder(worktree, entry.path) : openFile(worktree, entry.path))}
+      onContextMenu={(e) =>
+        showMenu(e, [
+          ["files.newFile", folder],
+          ["files.newFolder", folder],
+          ["files.rename", entry.path],
+          ["files.copyPath", entry.path],
+          ["files.copyRelativePath", entry.path],
+          ["files.reveal", entry.path],
+          ["files.trash", entry.path],
+        ])
+      }
+    >
+      <RowStart entry={entry} open={open} />
+      <span className="files-name">{entry.name}</span>
+    </button>
+  );
+}
+
+function RowStart({ entry, open }: { entry: Pick<FileEntry, "isDir">; open: boolean }) {
+  return (
+    <>
+      <span className="turn-chevron files-chevron" data-open={open} data-hidden={!entry.isDir}>
+        <ChevronIcon />
+      </span>
+      <span className="files-icon">{entry.isDir ? <FolderIcon size={16} /> : <FileIcon />}</span>
+    </>
+  );
+}
+
+const NewEntryField = ({ isDir, depth }: { isDir: boolean; depth: number }) => <NameField row={{ entry: { name: "", path: "", isDir }, depth, open: false }} />;
+
+// The row's name as a field, its name without the extension selected: Return or leaving it keeps the name, Esc drops it.
+function NameField({ row: { entry, depth, open } }: { row: Row }) {
+  const name = entry.path.split("/").pop() ?? "";
+  const field = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    field.current?.focus();
+    field.current?.setSelectionRange(0, entry.isDir ? name.length : stemLength(name));
+  }, [entry.isDir, name]);
+  return (
+    <div className="files-row" style={{ "--depth": depth } as CSSProperties}>
+      <RowStart entry={entry} open={open} />
+      <input
+        ref={field}
+        className="files-name-field"
+        aria-label={name ? `Rename ${name}` : entry.isDir ? "New Folder Name" : "New File Name"}
+        defaultValue={name}
+        spellCheck={false}
+        onContextMenu={(e) => e.stopPropagation()}
+        onBlur={(e) => void finishNameEdit(e.currentTarget.value)}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter" && e.key !== "Escape") return;
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.key === "Escape") nameEdit.set(null);
+          else void finishNameEdit(e.currentTarget.value);
+        }}
+      />
     </div>
   );
 }

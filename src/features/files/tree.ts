@@ -30,3 +30,14 @@ export function visibleRows(tree: Tree): Row[] {
   add("", 0);
   return rows;
 }
+
+/** The folder that holds `path`; "" for the worktree root. */
+export const parentFolder = (path: string) => path.slice(0, Math.max(path.lastIndexOf("/"), 0));
+
+export const joinPath = (folder: string, name: string) => (folder ? `${folder}/${name}` : name);
+
+// The length of a name without its extension; a dotfile like `.env` is all name.
+export function stemLength(name: string): number {
+  const dot = name.lastIndexOf(".");
+  return dot > 0 ? dot : name.length;
+}

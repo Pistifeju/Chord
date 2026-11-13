@@ -1,4 +1,6 @@
 // The commands table: every feature's commands, the shortcuts that run them, their menu accelerators and tooltips.
+import { Menu } from "@tauri-apps/api/menu";
+import type { MouseEvent } from "react";
 import { commands } from "../ipc/bindings";
 import { chatCommands } from "../features/chat/commands";
 import { filesCommands } from "../features/files/commands";
@@ -52,7 +54,9 @@ const modifiers = [
   ["cmd", "⌘", "Cmd"],
 ] as const;
 
-const keyParts = (s: Shortcut, form: 1 | 2) => [...modifiers.filter(([flag]) => s[flag]).map((m) => m[form]), s.key.toUpperCase()];
+const keySymbols: Record<string, string> = { backspace: "⌫" };
+
+const keyParts = (s: Shortcut, form: 1 | 2) => [...modifiers.filter(([flag]) => s[flag]).map((m) => m[form]), (form === 1 && keySymbols[s.key]) || s.key.toUpperCase()];
 
 export function shortcutLabel(id: string): string | undefined {
   const s = shortcutOf(id);
@@ -77,4 +81,12 @@ export function menuItem(id: string, target: string) {
     accelerator: shortcut && accelerator(shortcut),
     action: () => command?.run(target),
   };
+}
+
+// Opens a context menu of commands, each run on its target.
+export async function showMenu(event: MouseEvent, items: [commandId: string, target: string][]) {
+  event.preventDefault();
+  event.stopPropagation();
+  const menu = await Menu.new({ items: items.map(([id, target]) => menuItem(id, target)) });
+  await menu.popup();
 }

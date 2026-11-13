@@ -362,6 +362,8 @@ The status roles keep the app's values, so a card shows a status in the same col
 - **Files header:** 8px padding (18px on the left), the worktree folder's name at Label weight in `ink` that truncates and holds the full path as its tooltip, then Collapse All (two chevrons pointing in at each other, disabled while no folder is open) and Reload icon buttons 4px apart.
 - **Files filter:** a Field (placeholder "Filter") under the header with 8px side padding, a 16px `ink-muted` filter icon 10px inside its left edge and the text 32px in.
 - **Tree:** rows are 26px, Control radius, `ink-secondary` text, 16px more indent per level, a 12px `ink-muted` chevron (turns like a step group's; a file keeps its space and shows none), then a 16px `ink-muted` folder or file icon (`ink-secondary` on the selected row), 4px apart, then the name truncating. Hover takes `raised`, pressed takes `selected`; the selected file takes `selected` and `ink`. A folder chain reads as one row (`src/app/views`). The focus ring sits inside the row. A filter with no match reads "No matches" in meta text.
+- **Tree menu:** right-click on a row opens New File and New Folder (inside a folder, beside a file), Rename, Copy Path, Copy Relative Path, Reveal in Finder and Move to Trash (⌘⌫ on the focused row); right-click on the empty tree opens New File and New Folder at the root. Move to Trash asks with a confirm sheet first.
+- **Name field:** Rename turns the row's name into a 22px field (`canvas`, 1px `line-strong` border, Control radius) with the name without its extension selected; New File and New Folder show the same field as the first row inside their folder. Return or leaving the field keeps the name, Esc or an empty name drops it. A new file opens in its tab.
 
 ### Editor
 

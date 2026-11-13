@@ -18,3 +18,15 @@ export function withFileClosed(open: OpenFiles, path: string): OpenFiles {
 }
 
 export const withSessionsShown = (open: OpenFiles): OpenFiles => (open.active === null ? open : { ...open, active: null });
+
+/** `path` is `at` or lies inside the folder `at`. */
+export const isAtOrInside = (path: string, at: string) => path === at || path.startsWith(`${at}/`);
+
+/** Where `path` is after a rename of `from` to `to`. */
+export const movedPath = (path: string, from: string, to: string) => (isAtOrInside(path, from) ? to + path.slice(from.length) : path);
+
+// A rename keeps the tabs of the entry and of everything inside it, under their new paths.
+export const withFilesMoved = (open: OpenFiles, from: string, to: string): OpenFiles => ({
+  files: open.files.map((path) => movedPath(path, from, to)),
+  active: open.active && movedPath(open.active, from, to),
+});

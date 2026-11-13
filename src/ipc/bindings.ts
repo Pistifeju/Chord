@@ -29,6 +29,10 @@ export const commands = {
 	readFile: (worktree: string, file: string) => __TAURI_INVOKE<string>("read_file", { worktree, file }),
 	writeFile: (worktree: string, file: string, expected: string, text: string) => __TAURI_INVOKE<null>("write_file", { worktree, file, expected, text }),
 	fileModified: (worktree: string, file: string) => __TAURI_INVOKE<string>("file_modified", { worktree, file }),
+	createFile: (worktree: string, path: string, folder: boolean) => __TAURI_INVOKE<null>("create_file", { worktree, path, folder }),
+	renameFile: (worktree: string, from: string, to: string) => __TAURI_INVOKE<null>("rename_file", { worktree, from, to }),
+	trashFile: (worktree: string, path: string) => __TAURI_INVOKE<null>("trash_file", { worktree, path }),
+	revealFile: (worktree: string, path: string) => __TAURI_INVOKE<null>("reveal_file", { worktree, path }),
 	/**  Stops every agent and ends the app once the user confirmed the quit. Panes stay saved as running, so they start again on launch. */
 	quitApp: () => __TAURI_INVOKE<null>("quit_app"),
 	/**  Saves the setting and applies it; a missing `caffeinate` fails before anything is saved, even with no agent working. */

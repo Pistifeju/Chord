@@ -1,4 +1,4 @@
-//! A worktree's files on disk: one folder's entries for the Files view, without `.git`, a text file's read and write for the editor, and a file's change time for the image view.
+//! A worktree's files on disk: one folder's entries for the Files view, without `.git`, a text file's read and write for the editor, a file's change time for the image view, and the tree's create, rename, trash and reveal.
 
 use std::cmp::Ordering;
 use std::fs;
@@ -83,6 +83,72 @@ pub fn write(root: &Path, file: &str, expected: &str, text: &str) -> Result<(), 
         )));
     }
     Ok(fs::write(path, text)?)
+}
+
+/// Makes an empty file, or a folder, at `path` (relative to `root`); an existing entry is never replaced.
+pub fn create(root: &Path, path: &str, folder: bool) -> Result<(), Error> {
+    let target = inside(root, path)?;
+    let made = if folder {
+        fs::create_dir(&target)
+    } else {
+        fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&target)
+            .map(drop)
+    };
+    made.map_err(|error| match error.kind() {
+        std::io::ErrorKind::AlreadyExists => Error::Message(format!("{path} already exists")),
+        _ => error.into(),
+    })
+}
+
+/// Moves `from` to `to` (both relative to `root`); an existing `to` stops it, unless it is `from` itself, as in a case-only rename on a case-insensitive volume.
+pub fn rename(root: &Path, from: &str, to: &str) -> Result<(), Error> {
+    refuse_root(from)?;
+    let (source, target) = (inside(root, from)?, inside(root, to)?);
+    // shortcut: a file created at `to` between this check and the rename is replaced; upgrade to renamex_np with RENAME_EXCL if that is reported.
+    if let Ok(existing) = target.symlink_metadata() {
+        use std::os::unix::fs::MetadataExt;
+        let moved = source.symlink_metadata()?;
+        if (existing.dev(), existing.ino()) != (moved.dev(), moved.ino()) {
+            return Err(Error::Message(format!("{to} already exists")));
+        }
+    }
+    Ok(fs::rename(source, target)?)
+}
+
+/// Moves `path` (relative to `root`) to the user's Trash, where Finder can put it back.
+pub fn trash(root: &Path, path: &str) -> Result<(), Error> {
+    use objc2_foundation::{NSFileManager, NSString, NSURL};
+    refuse_root(path)?;
+    let target = inside(root, path)?;
+    let url = NSURL::fileURLWithPath(&NSString::from_str(&target.to_string_lossy()));
+    NSFileManager::defaultManager()
+        .trashItemAtURL_resultingItemURL_error(&url, None)
+        .map_err(|error| Error::Message(error.localizedDescription().to_string()))
+}
+
+/// Shows `path` (relative to `root`) selected in a Finder window.
+pub fn reveal(root: &Path, path: &str) -> Result<(), Error> {
+    let status = std::process::Command::new("open")
+        .arg("-R")
+        .arg(inside(root, path)?)
+        .status()?;
+    if !status.success() {
+        return Err(Error::Message(format!("Cannot show {path} in Finder")));
+    }
+    Ok(())
+}
+
+// An empty path names the worktree itself, which `inside` would accept.
+fn refuse_root(path: &str) -> Result<(), Error> {
+    if path.is_empty() {
+        return Err(Error::Message(
+            "The worktree itself cannot be trashed or renamed".into(),
+        ));
+    }
+    Ok(())
 }
 
 // The path under `root`; a relative path that climbs out or is absolute is refused.
@@ -215,6 +281,28 @@ mod tests {
         );
         assert!(read(&root, "../a.txt").is_err());
         assert!(write(&root, "/tmp/x", "", "").is_err());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn create_and_rename_never_replace_an_entry() {
+        let root = std::env::temp_dir().join(format!("chord-create-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        create(&root, "a.txt", false).unwrap();
+        create(&root, "docs", true).unwrap();
+        fs::write(root.join("a.txt"), "kept").unwrap();
+        assert_eq!(
+            create(&root, "a.txt", false).unwrap_err().to_string(),
+            "a.txt already exists"
+        );
+        assert!(create(&root, "docs", true).is_err());
+        assert!(rename(&root, "docs", "a.txt").is_err());
+        assert_eq!(fs::read_to_string(root.join("a.txt")).unwrap(), "kept");
+        rename(&root, "a.txt", "A.txt").unwrap();
+        rename(&root, "A.txt", "docs/b.txt").unwrap();
+        assert_eq!(fs::read_to_string(root.join("docs/b.txt")).unwrap(), "kept");
+        assert!(rename(&root, "docs/b.txt", "../b.txt").is_err());
         let _ = fs::remove_dir_all(&root);
     }
 

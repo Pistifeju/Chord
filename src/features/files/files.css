@@ -108,6 +108,22 @@
   text-overflow: ellipsis;
 }
 
+.files-name-field {
+  flex: 1;
+  min-width: 0;
+  height: 22px;
+  padding: 0 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  background: var(--canvas);
+  font: inherit;
+  color: var(--ink);
+}
+
+.files-name-field:focus-visible {
+  outline: none;
+}
+
 .files-empty {
   padding: 6px 10px;
   font-size: calc(12px * var(--text-scale));

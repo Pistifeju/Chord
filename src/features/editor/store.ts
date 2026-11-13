@@ -4,7 +4,7 @@ import { commands } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
 import { selectFile } from "../files/store";
 import { fail } from "../worktrees/store";
-import { noFiles, withFileClosed, withFileOpened, withSessionsShown, type OpenFiles } from "./openFiles";
+import { isAtOrInside, noFiles, withFileClosed, withFileOpened, withFilesMoved, withSessionsShown, type OpenFiles } from "./openFiles";
 
 export const openFiles = externalStore<Record<string, OpenFiles>>({});
 
@@ -23,6 +23,13 @@ export function closeFile(worktree: string, path: string) {
   update(worktree, (open) => withFileClosed(open, path));
   const { active } = filesOf(worktree);
   if (active) selectFile(worktree, active);
+}
+
+export const moveFiles = (worktree: string, from: string, to: string) => update(worktree, (open) => withFilesMoved(open, from, to));
+
+// Closes the tabs of `path` and of everything inside it.
+export function closeFilesAt(worktree: string, path: string) {
+  for (const file of filesOf(worktree).files) if (isAtOrInside(file, path)) closeFile(worktree, file);
 }
 
 export const showSessions = (worktree: string) => {

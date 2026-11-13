@@ -1,8 +1,7 @@
 // The sidebar: each project's worktrees as cards under its name, in project order, and its show/hide button.
-import { Menu } from "@tauri-apps/api/menu";
-import { useEffect, useState, type MouseEvent } from "react";
+import { useEffect, useState } from "react";
 import type { GitCounts_Serialize as GitCounts, Project, Worktree_Serialize as Worktree } from "../../ipc/bindings";
-import { menuItem, shortcutLabel, tooltip } from "../../app/commands";
+import { shortcutLabel, showMenu, tooltip } from "../../app/commands";
 import { chats, usePaneNames } from "../chat/store";
 import { allPaneIds } from "../panes/agents";
 import { panes } from "../panes/store";
@@ -107,12 +106,6 @@ function WorktreeStatus({ paneIdList, unseenDone }: { paneIdList: string[]; unse
       {kind === "running" ? age !== "now" && age : label}
     </span>
   );
-}
-
-async function showMenu(event: MouseEvent, items: [commandId: string, target: string][]) {
-  event.preventDefault();
-  const menu = await Menu.new({ items: items.map(([id, target]) => menuItem(id, target)) });
-  await menu.popup();
 }
 
 // Reads only its own worktree's panes, so a resize or a focus in another worktree leaves it alone.

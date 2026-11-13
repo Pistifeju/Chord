@@ -1,5 +1,6 @@
 // The window's layout. Each feature adds its own region.
 import { useEffect } from "react";
+import { TrashFilePopup } from "../features/files/TrashFilePopup";
 import { CloseAgentsPopup } from "../features/panes/CloseAgentsPopup";
 import { PaneArea } from "../features/panes/PaneArea";
 import { QuitPopup } from "../features/quit/QuitPopup";
@@ -66,6 +67,7 @@ export default function App() {
       <NewWorktreePopup />
       <DeleteWorktreePopup />
       <ForceRemovalPopup />
+      <TrashFilePopup />
       <QuitPopup />
       <CloseAgentsPopup />
       {error && <WarningToast text={error} notice={errorIsNotice} onDismiss={dismissError} />}

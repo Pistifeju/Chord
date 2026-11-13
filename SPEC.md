@@ -121,7 +121,7 @@ Edge cases:
 - [x] F2 CodeMirror editor with syntax highlighting; a file opens in a file tab of the tab bar; saves 1 s after you stop typing and on file switch.
 - [x] F3 Saving never overwrites an agent's change on disk; a conflict stops the save.
 - [x] F4 Image view, reloads on change.
-- [ ] F5 Right click: New File, New Folder, Rename (inline, the name without its extension selected), Copy Path, Copy Relative Path, Reveal in Finder, Move to Trash (⌘⌫) after asking.
+- [x] F5 Right click: New File, New Folder, Rename (inline, the name without its extension selected), Copy Path, Copy Relative Path, Reveal in Finder, Move to Trash (⌘⌫) after asking.
 - [ ] F6 Needs C1: drag a file tab onto a pane edge to show the file beside a chat; ⌘D on a file tab puts an agent beside it.
 - [ ] F7 Open file by name (⌘⇧O).
 - [ ] F8 Keyboard in the tree: ↑ ↓ move, → opens a folder, ← closes it or jumps to the parent, Return opens the file.

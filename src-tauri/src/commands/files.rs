@@ -1,4 +1,4 @@
-//! Commands for a worktree's files: list one folder, read a file, write a file, tell when a file changed.
+//! Commands for a worktree's files: list one folder, read a file, write a file, tell when a file changed, create, rename, trash and reveal one.
 
 use std::path::PathBuf;
 
@@ -49,4 +49,46 @@ pub async fn write_file(
         files::write(&worktree, &file, &expected, &text)
     })
     .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn create_file(
+    app: tauri::AppHandle,
+    worktree: PathBuf,
+    path: String,
+    folder: bool,
+) -> Result<(), String> {
+    blocking(app, move |_, _| files::create(&worktree, &path, folder)).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn rename_file(
+    app: tauri::AppHandle,
+    worktree: PathBuf,
+    from: String,
+    to: String,
+) -> Result<(), String> {
+    blocking(app, move |_, _| files::rename(&worktree, &from, &to)).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn trash_file(
+    app: tauri::AppHandle,
+    worktree: PathBuf,
+    path: String,
+) -> Result<(), String> {
+    blocking(app, move |_, _| files::trash(&worktree, &path)).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn reveal_file(
+    app: tauri::AppHandle,
+    worktree: PathBuf,
+    path: String,
+) -> Result<(), String> {
+    blocking(app, move |_, _| files::reveal(&worktree, &path)).await
 }
