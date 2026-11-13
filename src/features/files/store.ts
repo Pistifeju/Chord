@@ -105,7 +105,8 @@ export async function finishNameEdit(name: string) {
     } else {
       const path = joinPath(edit.folder, name);
       await commands.createFile(worktree, path, edit.kind === "newFolder");
-      if (edit.kind === "newFile") openFile(worktree, path);
+      // A pane can still show a file of this name deleted outside the app; a second editor would save over it.
+      if (edit.kind === "newFile") showFile(worktree, path);
     }
   } catch (error) {
     fail(error);
@@ -143,7 +144,7 @@ export async function openFileByName(worktree: string) {
     const files = await commands.listFiles(worktree);
     if (sheetOf(sheet.get(), "openFileByName")?.worktree === worktree) namedFiles.set(files);
   } catch (error) {
-    closeSheet("openFileByName");
+    if (sheetOf(sheet.get(), "openFileByName")?.worktree === worktree) closeSheet("openFileByName");
     fail(error);
   }
 }

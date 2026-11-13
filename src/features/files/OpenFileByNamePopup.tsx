@@ -1,5 +1,5 @@
 // The Open File by Name sheet: a field for the name, the worktree's matching files under it; Return or a click opens one.
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { closeSheet, sheet, sheetOf } from "../../app/sheet";
 import { FileIcon } from "../../ui/icons";
 import { steppedIndex } from "../chat/dialog";
@@ -18,7 +18,7 @@ function OpenFileByName({ worktree }: { worktree: string }) {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const list = useRef<HTMLDivElement>(null);
-  const shown = matchingFiles(files ?? [], query);
+  const shown = useMemo(() => matchingFiles(files ?? [], query), [files, query]);
   const close = () => closeSheet("openFileByName");
 
   useEffect(() => {
