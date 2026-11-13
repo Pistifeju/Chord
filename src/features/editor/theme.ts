@@ -6,7 +6,7 @@ import { tags } from "@lezer/highlight";
 const surface = EditorView.theme({
   "&": { height: "100%", color: "var(--ink)", backgroundColor: "var(--canvas)", fontSize: "12px" },
   "&.cm-focused": { outline: "none" },
-  ".cm-scroller": { fontFamily: "ui-monospace, monospace", lineHeight: "1.45" },
+  ".cm-scroller": { fontFamily: "var(--font-code)", lineHeight: "1.45" },
   ".cm-content": { caretColor: "var(--accent-ink)", padding: "8px 0" },
   ".cm-cursor": { borderLeftColor: "var(--accent-ink)" },
   ".cm-gutters": { backgroundColor: "var(--canvas)", color: "var(--ink-disabled)", border: "none" },

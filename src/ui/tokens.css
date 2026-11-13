@@ -72,6 +72,7 @@
   --term-bright-white: #8c959f;
 
   --font-ui: -apple-system, BlinkMacSystemFont, "Inter Variable", "Helvetica Neue", sans-serif;
+  --font-code: ui-monospace, "SF Mono", Menlo, monospace;
 
   font-family: var(--font-ui);
   --text-scale: 1;
@@ -179,6 +180,8 @@
 * { box-sizing: border-box; }
 html, body { overflow: hidden; overscroll-behavior: none; }
 body { margin: 0; -webkit-user-select: none; user-select: none; }
+/* WebKit's own monospace is Courier. */
+code, pre { font-family: var(--font-code); }
 input, textarea, [data-selectable] { -webkit-user-select: text; user-select: text; }
 ::selection { background: var(--accent-wash); }
 ::-webkit-scrollbar { width: 10px; height: 10px; background: transparent; }

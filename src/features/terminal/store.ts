@@ -55,7 +55,7 @@ function forget(worktree: string) {
 }
 
 function start(worktree: string, host: HTMLDivElement): Shell {
-  const term = new Terminal({ fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace', fontSize: appearance.get().terminalFontSize, scrollback: 10000, theme: theme() });
+  const term = new Terminal({ fontFamily: token("font-code"), fontSize: appearance.get().terminalFontSize, scrollback: 10000, theme: theme() });
   const fit = new FitAddon();
   term.loadAddon(fit);
   // ⌘ keys go to the app's shortcuts and the browser's copy and paste; every other key belongs to the shell.

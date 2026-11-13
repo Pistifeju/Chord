@@ -234,6 +234,8 @@ The dark neutrals, lines, inks, danger, success and status tones come from Linea
 
 **Body Font:** the system font (SF Pro on macOS), with Inter Variable from `@fontsource-variable/inter` as the bundled fallback (`--font-ui`)
 
+**Code Font:** `ui-monospace` (SF Mono on macOS), then Menlo (`--font-code`), for code in chat, the editor and the terminal. `tokens.css` sets it on every `code` and `pre`; WebKit's own monospace is Courier.
+
 **Character:** One family, four weights of emphasis: size, semibold, medium, muted color.
 
 Sizes multiply by `--text-scale`, which the text size setting changes (⌘=, ⌘-, ⌘0). Write a size as `calc(12px * var(--text-scale))`; the root sets the 13px body.
