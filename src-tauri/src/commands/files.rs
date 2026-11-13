@@ -32,7 +32,11 @@ pub async fn write_file(
     app: tauri::AppHandle,
     worktree: PathBuf,
     file: String,
+    expected: String,
     text: String,
 ) -> Result<(), String> {
-    blocking(app, move |_, _| files::write(&worktree, &file, &text)).await
+    blocking(app, move |_, _| {
+        files::write(&worktree, &file, &expected, &text)
+    })
+    .await
 }

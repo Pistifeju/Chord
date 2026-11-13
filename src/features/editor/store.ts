@@ -1,4 +1,4 @@
-// Connects the file tab rules to IPC: each worktree's open files, a file read when its tab shows, saved 1 s after the last edit and when the tab goes.
+// Connects the file tab rules to IPC: each worktree's open files, a file read when its tab shows, saved 1 s after the last edit and when the tab goes, unless the file changed on disk.
 import type { Text } from "@codemirror/state";
 import { commands } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
@@ -35,6 +35,8 @@ type Edit = { worktree: string; path: string; text: Text; timer: number };
 const edits = new Map<string, Edit>();
 // The last write of each file, so a read or the next write waits for it.
 const writes = new Map<string, Promise<unknown>>();
+// The text each file held on disk when the editor last read or wrote it; a save only lands while the disk still holds it.
+const onDisk = new Map<string, string>();
 const keyOf = (worktree: string, path: string) => `${worktree}\0${path}`;
 
 export function scheduleSave(worktree: string, path: string, text: Text) {
@@ -49,7 +51,11 @@ export function flushSave(worktree: string, path: string) {
   if (!edit) return;
   clearTimeout(edit.timer);
   edits.delete(key);
-  const write = (writes.get(key) ?? Promise.resolve()).then(() => commands.writeFile(worktree, path, edit.text.toString())).catch(fail);
+  const text = edit.text.toString();
+  const write = (writes.get(key) ?? Promise.resolve())
+    .then(() => commands.writeFile(worktree, path, onDisk.get(key) ?? "", text))
+    .then(() => onDisk.set(key, text))
+    .catch(fail);
   writes.set(key, write);
 }
 
@@ -60,6 +66,9 @@ export async function flushAllSaves() {
 }
 
 export async function readFile(worktree: string, path: string): Promise<string> {
-  await writes.get(keyOf(worktree, path));
-  return commands.readFile(worktree, path);
+  const key = keyOf(worktree, path);
+  await writes.get(key);
+  const text = await commands.readFile(worktree, path);
+  onDisk.set(key, text);
+  return text;
 }

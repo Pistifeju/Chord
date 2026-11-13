@@ -61,9 +61,16 @@ pub fn read(root: &Path, file: &str) -> Result<String, Error> {
     })
 }
 
-/// Replaces the text of `file` (relative to `root`).
-pub fn write(root: &Path, file: &str, text: &str) -> Result<(), Error> {
-    Ok(fs::write(inside(root, file)?, text)?)
+/// Replaces the text of `file` (relative to `root`) when the disk still holds `expected`, the text the editor last read or wrote; an agent's change stops the save.
+pub fn write(root: &Path, file: &str, expected: &str, text: &str) -> Result<(), Error> {
+    let path = inside(root, file)?;
+    // shortcut: an agent write between this read and the write below is still overwritten; agents ignore advisory locks, so upgrade only if such a loss is reported.
+    if fs::read(&path)? != expected.as_bytes() {
+        return Err(Error::Message(format!(
+            "{file} changed on disk, so the save stopped. Reopen the file to see the change."
+        )));
+    }
+    Ok(fs::write(path, text)?)
 }
 
 // The path under `root`; a relative path that climbs out or is absolute is refused.
@@ -186,7 +193,8 @@ mod tests {
         let root = std::env::temp_dir().join(format!("chord-edit-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(&root).unwrap();
-        write(&root, "a.txt", "héllo\n").unwrap();
+        fs::write(root.join("a.txt"), "").unwrap();
+        write(&root, "a.txt", "", "héllo\n").unwrap();
         assert_eq!(read(&root, "a.txt").unwrap(), "héllo\n");
         fs::write(root.join("b.bin"), [0xff, 0xfe]).unwrap();
         assert_eq!(
@@ -194,7 +202,18 @@ mod tests {
             "b.bin is not a text file"
         );
         assert!(read(&root, "../a.txt").is_err());
-        assert!(write(&root, "/tmp/x", "").is_err());
+        assert!(write(&root, "/tmp/x", "", "").is_err());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_change_on_disk_stops_the_save() {
+        let root = std::env::temp_dir().join(format!("chord-conflict-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("a.txt"), "agent\n").unwrap();
+        assert!(write(&root, "a.txt", "mine\n", "edited\n").is_err());
+        assert_eq!(fs::read_to_string(root.join("a.txt")).unwrap(), "agent\n");
         let _ = fs::remove_dir_all(&root);
     }
 }
