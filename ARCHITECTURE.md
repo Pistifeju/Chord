@@ -88,6 +88,8 @@ The trait, events, commands and capabilities: `docs/harness-contract.md`, sectio
 
 `chord-ios` depends on `chord-core`; `chord-core` cannot name `chord-ios`, so a leak fails to compile. `src-tauri` wires both and registers the iOS commands. The worktree record carries `xcode: bool`; that flag is the only iOS fact core holds.
 
+How worktrees stay apart (DerivedData, build slot, simulator), how ⌘R runs and the order of the iOS rows: `docs/ios.md`.
+
 ## 10. What enforces each rule
 
 | Rule | Enforced by |

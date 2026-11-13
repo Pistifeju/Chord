@@ -153,15 +153,26 @@ Edge cases:
 - [ ] H1 **hard** ⌘R builds into the worktree's own DerivedData and runs on its own simulator; ⌘B builds only; ⌘. stops. Play / stop button in the tab bar.
 - [ ] H2 Run destination picker in the tab bar, per project: connected devices above simulators. Settings row: the project's run destination.
 - [ ] H3 Build log and app console (stdout, stderr, OSLog) in the bottom panel, 10,000 lines, ⌘F. Build log toggle in the status bar.
-- [ ] H4 **hard** One build per worktree: ⌘R takes over; a preview build waits, then follows.
+- [ ] H4 **hard** One build per worktree: ⌘R and ⌘B take over the worktree's running build.
 - [ ] H5 Caches: DerivedData, hot reload folders and simulators per worktree; one forget, one prune; stop other worktrees' simulators. Cache size and running simulators in the status bar.
 - [ ] H7 a missing `xcodebuild` or `xcrun` shows the install step.
+- [ ] H8 At most `max(1, RAM in GB / 6)` of Chord's run simulators stay booted; one more shuts down the one whose worktree was opened longest ago and has no run in progress.
+- [ ] H9 harness(tools): `build` builds the worktree like ⌘B and returns the error lines, 30 at most, and no log.
+- [ ] H10 harness(tools): `run` builds and runs like ⌘R on the worktree's simulator and returns "Launched" or the error lines.
 
 Edge cases:
 - ⌘R opens the selected Xcode's simulator app (DeviceHub from Xcode 27, Simulator.app before).
 - The console reads output lossily; a failed launch fails the run; multi-line OSLog messages stay whole.
 - A fresh simulator warms up during the build.
 - The build log rewrites once per 100 KB past its cap.
+- Chord's build, an agent's `xcodebuild` and Xcode share one DerivedData folder per worktree: Chord passes no `-derivedDataPath` and no build setting.
+- A build waits while a build Chord did not start holds the worktree's build database, and says so in the log.
+- After a stop, a takeover or a quit, no process of the build holds the build database.
+- A failed build scrolls the log to its first error; an error line with a path opens the file at that line.
+- A run destination is a model and iOS version that exist together among the user's simulators.
+- A simulator that does not report Booted after its boot fails the run with that reason.
+- Chord never stops or deletes a simulator or a DerivedData folder it does not own.
+- H9 and H10: each tool's description tells the agent to build and run through the tools and never to use `simctl … booted`; a call that runs long reports every 30 s that it still runs.
 
 ## 9. Simulator (iOS, private API)
 
@@ -169,10 +180,11 @@ Edge cases:
 - [ ] I2 Fallback message and "Open in Simulator / DeviceHub" when the private API fails to load.
 - [ ] I3 Screenshot: thumbnail at the bottom right; drag it into Finder or any app. With harness(attachments): drag it into a pane, or click to paste it into the focused agent. Settings row, off by default: a folder to save screenshots in.
 - [ ] I4 No frame callbacks while the window is hidden.
+- [ ] I5 **hard** harness(tools): screenshot, tap, swipe and type on the worktree's simulator; an action returns the settled screen.
 
 ## 10. SwiftUI previews (iOS, private API)
 
-- [ ] J1 **hard** Preview view in the side panel (⌘⇧P), on a second simulator in Chord's own device set; model picker per project; at most two preview simulators.
+- [ ] J1 **hard** Preview view in the side panel (⌘⇧P), on a second simulator in Chord's own device set; model picker per project; at most two preview simulators; a preview build waits for the worktree's ⌘R build, then follows.
 - [ ] J2 **hard** Hot reload of the shown preview's file and the view files between it and the saved file; any other change rebuilds.
 - [ ] J3 Previews tab in the sidebar: every `#Preview` by file, search, ↑↓, search text and scroll kept per worktree.
 - [ ] J4 Compile error keeps the last frame under a red bar that opens the build log.
@@ -218,6 +230,7 @@ A tag with a capability is a `Capability` variant: the UI hides the feature when
 | context | E10 | capability `context` | RPC |
 | usage | E11 | event: `usage` | a pi extension that reports it |
 | subagents | E13 | capability `subagents` | a pi subagent extension |
+| tools | H9, H10, I5 | capability `tools` | tools the extension Chord ships registers; its channel back to Chord is open (`docs/ios.md`, 3.6) |
 
 Steering while a run goes (E1) waits for capability `steer`.
 
@@ -230,6 +243,7 @@ Steering while a run goes (E1) waits for capability `steer`.
 | Side chat | A read-only chat about the focused chat |
 | Dictation | On-device speech to text in the composer |
 | Swift check for agents | A type-check command agents can call |
+| Tests | ⌘U, and a test tool for agents on the worktree's simulator |
 | Setup script | A per-project script that runs in each new worktree |
 | Next waiting agent | A shortcut that jumps to the next pane waiting for input |
 | Command palette | Worktrees and actions with fuzzy search |
