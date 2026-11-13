@@ -125,7 +125,7 @@ Edge cases:
 - [x] F6 Needs C1: drag a file tab onto a pane edge to show the file beside a chat; ⌘D on a file tab puts an agent beside it.
 - [x] F7 Open file by name (⌘⇧O).
 - [x] F8 Keyboard in the tree: ↑ ↓ move, → opens a folder, ← closes it or jumps to the parent, Return opens the file.
-- [ ] F9 Drag a file from the tree into the composer to put its relative path in the draft.
+- [x] F9 Drag a file from the tree into the composer to put its relative path in the draft.
 
 Edge cases:
 - The tree refreshes on window focus and on Reload; open folders and the selection survive a refresh.

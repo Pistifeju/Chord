@@ -27,6 +27,15 @@ export const drafts = externalStore<Record<string, string>>({});
 
 export const setDraft = (pane: string, text: string) => drafts.set({ ...drafts.get(), [pane]: text });
 
+/** Adds a file's relative path to the end of a pane's draft, a space apart from the text before it and after it. */
+export function addPathToDraft(pane: string, path: string) {
+  const draft = drafts.get()[pane] ?? "";
+  setDraft(pane, `${draft}${draft && !/\s$/.test(draft) ? " " : ""}${path} `);
+}
+
+// The pane whose composer a file dragged from the Files tree is over.
+export const pathDropPane = externalStore<string | null>(null);
+
 // The draft each pane's slash menu was closed on with Esc; it stays closed until the draft changes.
 export const slashClosed = externalStore<Record<string, string>>({});
 

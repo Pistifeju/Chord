@@ -78,6 +78,10 @@
   color: var(--ink);
 }
 
+.files-row[data-dragging] {
+  opacity: 0.6;
+}
+
 .files-row:focus-visible {
   outline-offset: -2px;
 }

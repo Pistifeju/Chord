@@ -21,7 +21,7 @@ import { steppedIndex } from "./dialog";
 import { isTicking, subagentLine, subagentSummary } from "./subagents";
 import { completion, slashMenu, slashQuery } from "./slash";
 import { closeLightbox, lightboxes, openLightbox, stepLightbox } from "./viewing";
-import { answerDialog, attachFiles, attachments, attachPasted, chatOf, chats, closeSlash, drafts, openPicker, pickAttachments, removeAttachment, sendMessage, setDraft, slashClosed, startChat } from "./store";
+import { answerDialog, attachFiles, attachments, attachPasted, chatOf, chats, closeSlash, drafts, openPicker, pathDropPane, pickAttachments, removeAttachment, sendMessage, setDraft, slashClosed, startChat } from "./store";
 import { callTime, isStreaming, shownSteps, statusLine, stepImages, stepsSummary, stepsTime, type Item, type Message, type StepGroup } from "./transcript";
 import "./chat.css";
 
@@ -184,6 +184,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
   const viewing = lightboxes.usePart((all) => all[pane]);
   const closedOn = slashClosed.usePart((all) => all[pane]);
   const waiting = attachments.usePart((all) => all[pane]) ?? noAttachments;
+  const pathOver = pathDropPane.usePart((over) => over === pane);
   const root = useRef<HTMLDivElement>(null);
   const [dropping, setDropping] = useState(false);
   const composer = useRef<HTMLTextAreaElement>(null);
@@ -364,7 +365,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
         <div className="chat-composer-anchor">
           {menu && <DialogMenu key={menu.dialog.id} pane={pane} dialog={menu.dialog} options={menu.ask.options} current={menu.ask.current ?? null} filter={menu.ask.filter} />}
           {!menu && slashRows.length > 0 && <SlashMenu commands={slashRows} query={slashQuery(draft) ?? ""} active={slashAt} onActive={setSlashActive} onPick={pickSlash} onDismiss={() => closeSlash(pane, draft)} />}
-          <div className="chat-composer">
+          <div className="chat-composer" data-path-drop={pathOver || undefined}>
             {waiting.length > 0 && (
               <div className="chat-attachments">
                 {waiting.map((a, i) => (

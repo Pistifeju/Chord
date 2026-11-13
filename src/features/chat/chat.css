@@ -356,6 +356,13 @@
   background: var(--panel);
 }
 
+/* A file dragged from the Files tree over the composer. */
+.chat-composer[data-path-drop] {
+  outline: 2px dashed var(--accent-ink);
+  outline-offset: -1px;
+  background: var(--accent-wash);
+}
+
 .chat-attachments {
   display: flex;
   flex-wrap: wrap;

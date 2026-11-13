@@ -1,5 +1,6 @@
 // The Files view: the worktree folder's name with Collapse All and Reload, its filter field and its tree with its right-click menu and name fields.
-import { Fragment, useEffect, useRef, type CSSProperties } from "react";
+import { Fragment, useEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
+import { addPathToDraft, pathDropPane } from "../chat/store";
 import { showMenu } from "../../app/commands";
 import { ChevronIcon, CollapseAllIcon, FileIcon, FilterIcon, FolderIcon, ReloadIcon } from "../../ui/icons";
 import { collapseAll, finishNameEdit, loadRoot, nameEdit, reloadFiles, setFilter, showFile, toggleFolder, trees } from "./store";
@@ -76,8 +77,68 @@ export function FilesView({ worktree }: { worktree: string }) {
   );
 }
 
+/** Pixels a row moves before a press becomes a drag, so a click still opens. */
+const DRAG_THRESHOLD = 5;
+
+// The pane of the enabled composer under the pointer.
+function composerPaneAt(x: number, y: number): string | null {
+  const composer = document.elementFromPoint(x, y)?.closest(".chat-composer");
+  if (!composer || composer.querySelector("textarea")?.disabled !== false) return null;
+  return composer.closest<HTMLElement>("[data-pane]")?.dataset.pane ?? null;
+}
+
+// A file row dragged onto a composer puts its relative path in the draft.
+function usePathDrag(path: string) {
+  const drag = useRef<{ startX: number; startY: number; started: boolean } | null>(null);
+  const suppressClick = useRef(false);
+  const [dragging, setDragging] = useState(false);
+  const end = (e: PointerEvent) => {
+    const d = drag.current;
+    drag.current = null;
+    if (!d?.started) return;
+    suppressClick.current = true;
+    setDragging(false);
+    const pane = pathDropPane.get();
+    pathDropPane.set(null);
+    if (e.type !== "pointerup" || !pane) return;
+    addPathToDraft(pane, path);
+    document.querySelector<HTMLElement>(`[data-pane="${CSS.escape(pane)}"] .chat-input`)?.focus();
+  };
+  return {
+    dragging,
+    handlers: {
+      onPointerDown: (e: PointerEvent<HTMLElement>) => {
+        suppressClick.current = false;
+        if (e.button !== 0) return;
+        e.currentTarget.setPointerCapture(e.pointerId);
+        drag.current = { startX: e.clientX, startY: e.clientY, started: false };
+      },
+      onPointerMove: (e: PointerEvent) => {
+        const d = drag.current;
+        if (!d) return;
+        if (!d.started) {
+          if (Math.hypot(e.clientX - d.startX, e.clientY - d.startY) < DRAG_THRESHOLD) return;
+          d.started = true;
+          setDragging(true);
+        }
+        const pane = composerPaneAt(e.clientX, e.clientY);
+        if (pane !== pathDropPane.get()) pathDropPane.set(pane);
+      },
+      onPointerUp: end,
+      onPointerCancel: end,
+    },
+    // A press that ended a drag is no click.
+    clicked: () => {
+      const clicked = !suppressClick.current;
+      suppressClick.current = false;
+      return clicked;
+    },
+  };
+}
+
 function EntryRow({ worktree, row: { entry, depth, open }, selected }: { worktree: string; row: Row; selected: boolean }) {
   const folder = entry.isDir ? entry.path : parentFolder(entry.path);
+  const pathDrag = usePathDrag(entry.path);
   return (
     <button
       type="button"
@@ -90,9 +151,11 @@ function EntryRow({ worktree, row: { entry, depth, open }, selected }: { worktre
       aria-level={depth + 1}
       aria-expanded={entry.isDir ? open : undefined}
       aria-selected={selected}
+      data-dragging={pathDrag.dragging || undefined}
+      {...(entry.isDir ? {} : pathDrag.handlers)}
       // WebKit does not focus a clicked button, and ⌘⌫ acts on the focused row.
       onMouseDown={(event) => event.currentTarget.focus()}
-      onClick={() => (entry.isDir ? toggleFolder(worktree, entry.path) : showFile(worktree, entry.path))}
+      onClick={() => (entry.isDir ? toggleFolder(worktree, entry.path) : pathDrag.clicked() && showFile(worktree, entry.path))}
       onContextMenu={(e) =>
         showMenu(e, [
           ["files.newFile", folder],
