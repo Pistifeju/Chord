@@ -68,6 +68,7 @@
   height: 32px;
   padding: 0 12px 0 6px;
   border-top: 1px solid var(--line);
+  background: var(--panel);
   font-size: calc(12px * var(--text-scale));
   color: var(--ink-muted);
 }
