@@ -29,12 +29,6 @@
   padding: 0 8px 12px;
 }
 
-.sidebar-footer {
-  flex: none;
-  display: flex;
-  padding: 4px var(--sidebar-inset) 8px;
-}
-
 .project-group + .project-group {
   margin-top: 14px;
 }

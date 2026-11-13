@@ -6,11 +6,11 @@ import { menuItem, shortcutLabel, tooltip } from "../../app/commands";
 import { chats, usePaneNames } from "../chat/store";
 import { allPaneIds } from "../panes/agents";
 import { panes } from "../panes/store";
-import { openSettings, settingsOpen, shortcutChanges } from "../settings/store";
+import { settingsOpen, shortcutChanges } from "../settings/store";
 import { finished } from "../status/store";
 import { ageLabel, statusLabel, urgentReport } from "../status/status";
 import { StatusMark } from "../status/StatusMark";
-import { BranchIcon, GearIcon, PlusIcon, SidebarIcon } from "../../ui/icons";
+import { BranchIcon, PlusIcon, SidebarIcon } from "../../ui/icons";
 import { countsLabel, countsTitle } from "../worktrees/gitCounts";
 import { gitCounts } from "../worktrees/gitCountsRefresh";
 import { worktreeName, worktreeOrder } from "../worktrees/projects";
@@ -70,11 +70,6 @@ export function Sidebar() {
             </ul>
           </section>
         ))}
-      </div>
-      <div className="sidebar-footer">
-        <button type="button" className="icon-button" title={tooltip("settings.open")} aria-label="Settings" onClick={openSettings}>
-          <GearIcon />
-        </button>
       </div>
     </nav>
   );

@@ -102,7 +102,7 @@ Edge cases:
 - [x] E16 harness(sessions): `/reload` reloads extensions, skills, prompts and context files in the running agent, without a restart; the slash menu reads the commands again.
 - [x] E9 harness(models): model picker with search; thinking level picker.
 - [x] E10 harness(context): context meter with a limit warning; `/new` resets it.
-- [x] E11 harness(usage): subscription usage (5h, weekly) in the status bar, with the reset as a clock time; stale windows hidden. The windows come from the pi-powerbar extension; without it the bar never shows.
+- [x] E11 harness(usage): subscription usage (5h, weekly) in the status bar, with the reset as a clock time; stale windows hidden. The windows come from the pi-powerbar extension; without it the bar shows no usage.
 - [x] E15 harness(chat): a slow (5 s or more) or failed call shows its run time ("55.4 s"); a step group shows its total. Live runs only; pi saves no run time in the session.
 - [x] E12 harness(status-line): extension status texts in the composer bar.
 - [x] E13 harness(widgets): background subagent runs as a lineage line at the end of the transcript. The pi adapter reads the snapshot a pi subagent extension writes. Without such an extension the line never shows.
