@@ -7,7 +7,7 @@ A macOS workspace for coding agents: one git worktree per task, each with its ow
 
 ## Boundaries
 
-- Only `crates/chord-core/src/harness/pi.rs` knows pi's records. The frontend gets Chord events.
+- Only `crates/chord-core/src/harness/pi/` knows pi's records. The frontend gets Chord events.
 - `chord-core` has no `tauri` dependency and never names `chord-ios`.
 - Rust decides every status (`status_for`). TS stores it.
 - A Tauri command runs git, filesystem and process work on `spawn_blocking`.
@@ -46,7 +46,7 @@ Never test copy, CSS classes, constants, third-party libraries, private state, t
 
 - New Tauri command: a function in `src-tauri/src/commands/<area>.rs`, one line in the command list in `lib.rs`, then regenerate the bindings.
 - New shortcut or menu item: one entry in the feature's commands, listed in `src/app/commands.ts`.
-- New harness capability: a variant in `Capability`, emit it in `harness/pi.rs`, check it in the view, add a row to `SPEC.md`.
+- New harness capability: a variant in `Capability`, emit it in `harness/pi/`, check it in the view, add a row to `SPEC.md`.
 
 ## Done
 
