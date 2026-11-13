@@ -43,6 +43,23 @@
   transition: background-color var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out);
 }
 
+.tab[data-fresh] {
+  animation: tab-in var(--t-med) var(--ease-out);
+}
+
+@keyframes tab-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+@keyframes tab-fade {
+  from {
+    opacity: 0;
+  }
+}
+
 .tab:hover {
   background: var(--raised);
   color: var(--ink);
@@ -267,6 +284,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .tab[data-fresh] {
+    animation-name: tab-fade;
+  }
+
   .pane[data-split]::before {
     transform: translateX(-50%);
   }

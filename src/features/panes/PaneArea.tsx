@@ -18,7 +18,7 @@ import { ImageView } from "../editor/ImageView";
 import { selectFile } from "../files/store";
 import { ChatIcon, CloseIcon, FileIcon, PlusIcon, SidePanelIcon } from "../../ui/icons";
 import { usePointerDrag } from "../../ui/pointerDrag";
-import { chatPaneIds, dropEdge, dropPreview, groupOf, resizedSizes, type Box, type Group } from "./layout";
+import { chatPaneIds, dropEdge, dropPreview, groupOf, paneIds, resizedSizes, type Box, type Group } from "./layout";
 import { canClosePane, movesTab, tabName, type PaneNames, type TabDrop } from "./sessions";
 import { closeFilePane, closePane, endResize, ensurePanes, evenOutSplit, focusPane, moveTab, newSession, panes, resizeSplit } from "./store";
 import "./panes.css";
@@ -31,7 +31,8 @@ type TabDrag = { handlers: (tab: string) => object; clicked: () => boolean; drag
 /** Which window edges a group touches: its bar holds the room for the traffic lights or the Files button there. */
 type Edges = { top: boolean; left: boolean; right: boolean };
 
-type Place = { worktree: string; focused: string; split: boolean; names: PaneNames; drag: TabDrag };
+// seen: the tabs already shown, so a tab that remounts after a split or a move does not animate in again.
+type Place = { worktree: string; focused: string; split: boolean; names: PaneNames; drag: TabDrag; seen: Set<string> };
 
 const rectOf = (element: Element): Box => {
   const { left, top, width, height } = element.getBoundingClientRect();
@@ -98,13 +99,15 @@ function TabView({ tab, group, place, status, closable }: { tab: Tab; group: Gro
   const { worktree, drag } = place;
   const open = tab.id === group.active;
   const file = tab.kind === "file";
+  const [fresh] = useState(() => !place.seen.has(tab.id));
+  useEffect(() => void place.seen.add(tab.id), [place.seen, tab.id]);
   const show = () => {
     if (!drag.clicked()) return;
     focusPane(worktree, tab.id);
     if (tab.kind === "file") selectFile(worktree, tab.path);
   };
   return (
-    <div className="tab" data-selected={open} data-dragging={tab.id === drag.dragging}>
+    <div className="tab" data-selected={open} data-dragging={tab.id === drag.dragging} data-fresh={fresh || undefined}>
       <button type="button" role="tab" className="tab-name" aria-selected={open} title={file ? tab.path : undefined} {...drag.handlers(tab.id)} onClick={show}>
         <span className="tab-status" data-status={status?.kind} title={status ? statusLabel(status) : undefined}>
           {status ? <StatusMark kind={status.kind} /> : file ? <FileIcon /> : <ChatIcon />}
@@ -278,8 +281,11 @@ export function PaneArea({ worktree }: { worktree: string }) {
   useEffect(() => ensurePanes(worktree), [worktree]);
   const names = usePaneNames(current ? chatPaneIds(current.layout) : []);
   const { tabDrag, drop, pointer } = useTabDrag(worktree);
+  const seen = useRef<Set<string> | null>(null);
   if (!current) return null;
-  const place: Place = { worktree, focused: current.focused, split: current.layout.kind === "split", names, drag: tabDrag };
+  // The tabs a worktree opens with show still.
+  seen.current ??= new Set(paneIds(current.layout));
+  const place: Place = { worktree, focused: current.focused, split: current.layout.kind === "split", names, drag: tabDrag, seen: seen.current };
   const dragged = tabDrag.dragging ? groupOf(current.layout, tabDrag.dragging)?.tabs.find((t) => t.id === tabDrag.dragging) : undefined;
   return (
     <div className="panes">

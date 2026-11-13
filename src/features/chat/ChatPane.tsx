@@ -115,13 +115,18 @@ const StepsRow = memo(function StepsRow({ pane, group, running, fresh }: { pane:
   const images = stepImages(group.steps);
   const total = stepsTime(group.steps);
   const changes = stepsChanges(group.steps);
+  const summary = stepsSummary(group.steps);
+  // The summary the row mounted with shows still; each later one animates in.
+  const firstSummary = useRef(summary);
   return (
     <div className="chat-steps" data-fresh={fresh || undefined}>
       <button type="button" className="chat-steps-toggle" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
         <span className="turn-chevron" data-open={expanded}>
           <ChevronIcon />
         </span>
-        {stepsSummary(group.steps)}
+        <span key={summary} className="chat-steps-summary" data-changed={summary !== firstSummary.current || undefined}>
+          {summary}
+        </span>
         {changes && changes.added > 0 && <span className="chat-steps-added">+{changes.added}</span>}
         {changes && changes.removed > 0 && <span className="chat-steps-removed">−{changes.removed}</span>}
         {total && <span className="chat-step-time">{total}</span>}
@@ -429,7 +434,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
                 <span className={context.warning ? "chat-context chat-context-warning" : "chat-context"} title={context.title} aria-label={context.title}>
                   <svg className="chat-context-ring" viewBox="0 0 14 14" aria-hidden="true">
                     <circle cx="7" cy="7" r="5.5" pathLength="100" />
-                    <circle cx="7" cy="7" r="5.5" pathLength="100" strokeDasharray={`${context.percent ?? 0} 100`} />
+                    <circle cx="7" cy="7" r="5.5" pathLength="100" style={{ strokeDasharray: `${context.percent ?? 0} 100` }} />
                   </svg>
                   {context.percent === null ? "?" : `${context.percent}%`}
                 </span>
