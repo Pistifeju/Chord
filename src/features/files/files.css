@@ -28,6 +28,28 @@
   height: 24px;
 }
 
+/* While a folder is open the chevrons point out; Collapse All folds them in as the button greys out. */
+.collapse-all {
+  transition: color var(--t-med) var(--ease-out);
+}
+
+.collapse-chevron {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform var(--t-med) var(--ease-out);
+}
+
+.collapse-all:not(:disabled) .collapse-chevron {
+  transform: scaleY(-1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .collapse-all,
+  .collapse-chevron {
+    transition: none;
+  }
+}
+
 .files-filter {
   position: relative;
   display: flex;

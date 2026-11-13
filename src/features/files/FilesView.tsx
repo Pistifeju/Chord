@@ -37,7 +37,7 @@ export function FilesView({ worktree }: { worktree: string }) {
         <span className="files-title" title={worktree}>
           {worktree.split("/").pop()}
         </span>
-        <button type="button" className="icon-button" title="Collapse All" aria-label="Collapse All" disabled={tree.open.length === 0} onClick={() => collapseAll(worktree)}>
+        <button type="button" className="icon-button collapse-all" title="Collapse All" aria-label="Collapse All" disabled={tree.open.length === 0} onClick={() => collapseAll(worktree)}>
           <CollapseAllIcon />
         </button>
         <button type="button" className="icon-button" title="Reload" aria-label="Reload" onClick={() => void reloadFiles(worktree)}>

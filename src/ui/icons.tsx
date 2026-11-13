@@ -173,9 +173,11 @@ export const BranchIcon = () => (
   </Icon>
 );
 
+// Two paths, so each chevron can flip on its own.
 export const CollapseAllIcon = () => (
   <Icon>
-    <path d="M4.5 2.5L8 6l3.5-3.5M4.5 13.5L8 10l3.5 3.5" />
+    <path className="collapse-chevron" d="M4.5 2.5L8 6l3.5-3.5" />
+    <path className="collapse-chevron" d="M4.5 13.5L8 10l3.5 3.5" />
   </Icon>
 );
 
