@@ -1,7 +1,7 @@
 // Tests for the transcript rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { chatAfter, chatFed, emptyChat, shownSteps, stepImages, stepsChanges, stepsSummary, type Step } from "./transcript.ts";
+import { callTime, chatAfter, chatFed, emptyChat, shownSteps, stepImages, stepsChanges, stepsSummary, type Step } from "./transcript.ts";
 
 test("chunks of one reply join into one streaming message until it ends", () => {
   let chat = chatAfter(emptyChat, { kind: "message_chunk", text: "Hel" }, 0);
@@ -160,4 +160,10 @@ test("the step changes sum the finished calls' lines", () => {
   const steps = [call("Edit", "x.ts", "done", { added: 3, removed: 1 }), call("Write", "y.ts", "done", { added: 40, removed: 0 }), call("Edit", "z.ts", "failed", { added: 9, removed: 9 })];
   assert.deepEqual(stepsChanges(steps), { added: 43, removed: 1 });
   assert.equal(stepsChanges([call("Run", "ls")]), null);
+});
+
+test("a run time of a minute or more reads in minutes", () => {
+  const slow = (ms: number): Step => ({ kind: "call", id: "c", title: "Run", detail: "ls", state: "done", images: [], ms });
+  assert.equal(callTime(slow(6600)), "6.6 s");
+  assert.equal(callTime(slow(556_000)), "9m 16s");
 });

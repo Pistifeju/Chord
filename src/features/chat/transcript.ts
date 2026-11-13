@@ -1,4 +1,5 @@
 // Rules for a chat's transcript: how each harness event changes the messages, the run flag, the notice and the status report.
+import { elapsedText } from "./elapsed.ts";
 import type { Capability, DialogAsk, HarnessEvent, Image, LineChanges, SlashCommand, SubagentNode } from "../../ipc/bindings";
 import { stampedReport, type StatusReport } from "../status/status.ts";
 
@@ -118,7 +119,7 @@ export function stepsChanges(steps: Step[]): LineChanges | null {
 // Below this a call's run time is noise.
 const SLOW_MS = 5000;
 
-const seconds = (ms: number) => (ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`);
+const seconds = (ms: number) => (ms < 1000 ? `${ms} ms` : ms < 60_000 ? `${(ms / 1000).toFixed(1)} s` : elapsedText(ms));
 
 /** A call's run time, shown when it ran slow or failed. */
 export function callTime(step: Step): string | null {

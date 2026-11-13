@@ -116,21 +116,28 @@ const StepsRow = memo(function StepsRow({ pane, group, running, fresh }: { pane:
   const total = stepsTime(group.steps);
   const changes = stepsChanges(group.steps);
   const summary = stepsSummary(group.steps);
-  // The summary the row mounted with shows still; each later one animates in.
-  const firstSummary = useRef(summary);
+  // The parts the row mounted with show still; only a part whose text changes fades in, so the rest of the line holds.
+  const firstParts = useRef(summary.split(", "));
   return (
     <div className="chat-steps" data-fresh={fresh || undefined}>
-      <button type="button" className="chat-steps-toggle" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
-        <span className="turn-chevron" data-open={expanded}>
-          <ChevronIcon />
-        </span>
-        <span key={summary} className="chat-steps-summary" data-changed={summary !== firstSummary.current || undefined}>
-          {summary}
-        </span>
-        {changes && changes.added > 0 && <span className="chat-steps-added">+{changes.added}</span>}
-        {changes && changes.removed > 0 && <span className="chat-steps-removed">−{changes.removed}</span>}
+      <div className="chat-steps-head">
+        <button type="button" className="chat-steps-toggle" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
+          <span className="turn-chevron" data-open={expanded}>
+            <ChevronIcon />
+          </span>
+          <span className="chat-steps-summary">
+            {summary.split(", ").map((part, i) => (
+              <span key={part} data-changed={!firstParts.current.includes(part) || undefined}>
+                {i > 0 && ", "}
+                {part}
+              </span>
+            ))}
+          </span>
+          {changes && changes.added > 0 && <span className="chat-steps-added">+{changes.added}</span>}
+          {changes && changes.removed > 0 && <span className="chat-steps-removed">−{changes.removed}</span>}
+        </button>
         {total && <span className="chat-step-time">{total}</span>}
-      </button>
+      </div>
       {shown.map((step) =>
         step.kind === "thought" ? (
           <p key={`thought-${step.id}`} className="chat-step-thought">
