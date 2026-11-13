@@ -48,6 +48,7 @@
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --t-fast: 120ms;
   --t-med: 200ms;
+  --t-slow: 400ms;
 
   --syn-keyword: hsl(256, 55%, 48%);
   --syn-string: hsl(140, 60%, 28%);

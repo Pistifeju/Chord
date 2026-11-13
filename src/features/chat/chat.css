@@ -181,8 +181,16 @@
   white-space: nowrap;
 }
 
+/* `--ease-out` reaches most of its opacity in the first 40ms, too fast to see on meta text. */
 .chat-steps-summary > [data-changed] {
-  animation: chat-fade var(--t-med) var(--ease-out);
+  animation: chat-reveal var(--t-slow) ease-out;
+}
+
+@keyframes chat-reveal {
+  from {
+    opacity: 0;
+    filter: blur(2px);
+  }
 }
 
 .chat-steps-toggle:hover {
@@ -746,7 +754,8 @@
   .chat-steps[data-fresh] > :not(.chat-thumbs),
   .chat-working,
   .chat-notice,
-  .chat-slash-menu {
+  .chat-slash-menu,
+  .chat-steps-summary > [data-changed] {
     animation-name: chat-fade;
   }
 
