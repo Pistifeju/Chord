@@ -78,7 +78,10 @@
   -webkit-user-select: none;
   user-select: none;
   opacity: 0;
-  transition: opacity var(--t-fast) var(--ease-out);
+  transform: translateY(-3px);
+  filter: blur(2px);
+  /* The short delay keeps the row from flickering when the pointer crosses the gap between messages. */
+  transition: opacity var(--t-fast) var(--ease-out) 60ms, transform var(--t-fast) var(--ease-out) 60ms, filter var(--t-fast) var(--ease-out) 60ms;
 }
 
 .chat-turn[data-role="user"] .chat-message-meta {
@@ -89,6 +92,10 @@
 .chat-turn:hover .chat-message-meta,
 .chat-message-meta:focus-within {
   opacity: 1;
+  transform: none;
+  filter: none;
+  transition-duration: var(--t-med);
+  transition-delay: 0s;
 }
 
 .chat-message-copy {
@@ -683,6 +690,11 @@
 
   .chat-send:active:not(:disabled) {
     transform: none;
+  }
+
+  .chat-message-meta {
+    transform: none;
+    filter: none;
   }
 
   .lightbox,
