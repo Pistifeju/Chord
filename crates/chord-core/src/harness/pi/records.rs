@@ -5,8 +5,8 @@ use serde_json::Value;
 use super::{EXTENSION_PREFIX, FORK_DIALOG, Picker, SESSION_COMMANDS, USAGE_STATUS};
 use crate::harness::shell::read_only_title;
 use crate::harness::{
-    DialogAsk, HarnessEvent, Image, SlashCommand, SlashKind, SubagentNode, SubagentState,
-    ToolOutcome, UsageWindow,
+    DialogAsk, HarnessEvent, Image, LineChanges, SlashCommand, SlashKind, SubagentNode,
+    SubagentState, ToolOutcome, UsageWindow,
 };
 
 // The model label shows pi's name for the model; the thinking level shows only for a model that reasons.
@@ -116,6 +116,7 @@ impl OpenCalls {
                 outcome: ToolOutcome::Stopped,
                 images: vec![],
                 ms: None,
+                changes: None,
             })
             .collect()
     }
@@ -133,15 +134,11 @@ pub(super) fn events_from(record: &Value) -> Vec<HarnessEvent> {
         Some("agent_settled") => vec![HarnessEvent::State { running: false }],
         Some("message_update") => message_update(&record["assistantMessageEvent"]),
         Some("tool_execution_start") => {
-            let (title, detail) = describe_tool(
-                record["toolName"].as_str().unwrap_or("tool"),
+            vec![tool_start(
+                record["toolCallId"].as_str(),
+                record["toolName"].as_str(),
                 &record["args"],
-            );
-            vec![HarnessEvent::ToolStart {
-                id: record["toolCallId"].as_str().unwrap_or_default().into(),
-                title,
-                detail,
-            }]
+            )]
         }
         Some("tool_execution_end") => vec![HarnessEvent::ToolEnd {
             id: record["toolCallId"].as_str().unwrap_or_default().into(),
@@ -152,6 +149,7 @@ pub(super) fn events_from(record: &Value) -> Vec<HarnessEvent> {
             },
             images: images_of(&record["result"]["content"]),
             ms: record["durationMs"].as_f64().map(|ms| ms.round() as u32),
+            changes: edit_changes(record["toolName"].as_str(), &record["result"]["details"]),
         }],
         Some("message_end") => message_end(&record["message"]),
         Some("queue_update") => vec![HarnessEvent::Queue {
@@ -281,6 +279,7 @@ fn saved_message(message: &Value) -> Vec<HarnessEvent> {
             },
             images: images_of(&message["content"]),
             ms: None,
+            changes: edit_changes(message["toolName"].as_str(), &message["details"]),
         }],
         _ => vec![],
     }
@@ -301,17 +300,11 @@ fn saved_block(block: &Value, at: Option<f64>) -> Vec<HarnessEvent> {
                 text: block["thinking"].as_str().unwrap_or_default().into(),
             },
         ],
-        Some("toolCall") => {
-            let (title, detail) = describe_tool(
-                block["name"].as_str().unwrap_or("tool"),
-                &block["arguments"],
-            );
-            vec![HarnessEvent::ToolStart {
-                id: block["id"].as_str().unwrap_or_default().into(),
-                title,
-                detail,
-            }]
-        }
+        Some("toolCall") => vec![tool_start(
+            block["id"].as_str(),
+            block["name"].as_str(),
+            &block["arguments"],
+        )],
         _ => vec![],
     }
 }
@@ -368,21 +361,7 @@ fn package_name(source_info: &Value) -> Option<String> {
     (!name.is_empty()).then(|| name.to_string())
 }
 
-// Extensions colour their status with the terminal theme; the bar shows plain text.
-fn without_ansi(text: &str) -> String {
-    let mut plain = String::with_capacity(text.len());
-    let mut chars = text.chars().peekable();
-    while let Some(c) = chars.next() {
-        if c != '\u{1b}' {
-            plain.push(c);
-        } else if chars.next_if_eq(&'[').is_some() {
-            while chars.next().is_some_and(|c| !('@'..='~').contains(&c)) {}
-        }
-    }
-    plain
-}
-
-// Select, confirm and input wait for an answer; the editor text goes in the composer; the usage status is read; the other status texts go to the composer bar; notify is not.
+// Select, confirm and input wait for an answer; the editor text goes in the composer; the usage status is read; other status texts and notify are not.
 fn ui_request(record: &Value) -> Option<HarnessEvent> {
     let text = |key: &str| record[key].as_str().unwrap_or_default().to_string();
     let ask = match record["method"].as_str()? {
@@ -391,12 +370,7 @@ fn ui_request(record: &Value) -> Option<HarnessEvent> {
                 windows: usage_windows(record["statusText"].as_str().unwrap_or("[]")),
             });
         }
-        "setStatus" => {
-            return Some(HarnessEvent::StatusText {
-                key: text("statusKey"),
-                text: record["statusText"].as_str().map(without_ansi),
-            });
-        }
+        "setStatus" => return None,
         "set_editor_text" => return Some(HarnessEvent::Draft { text: text("text") }),
         "select" => DialogAsk::Select {
             options: record["options"]
@@ -509,6 +483,34 @@ pub(super) fn message_update(update: &Value) -> Vec<HarnessEvent> {
 }
 
 // A shell command that only reads shows as Read, Search or List; an unknown tool shows its name and argument values.
+fn tool_start(id: Option<&str>, name: Option<&str>, args: &Value) -> HarnessEvent {
+    let name = name.unwrap_or("tool");
+    let (title, detail) = describe_tool(name, args);
+    HarnessEvent::ToolStart {
+        id: id.unwrap_or_default().into(),
+        title,
+        detail,
+        // shortcut: a write that replaces a file counts every line as added, as pi reports no diff for it; count removed lines once pi does.
+        changes: match (name, args["content"].as_str()) {
+            ("write", Some(content)) => Some(LineChanges {
+                added: content.lines().count() as u32,
+                removed: 0,
+            }),
+            _ => None,
+        },
+    }
+}
+
+// pi's edit result holds a diff whose changed lines start with + or -.
+fn edit_changes(name: Option<&str>, details: &Value) -> Option<LineChanges> {
+    let diff = details["diff"].as_str().filter(|_| name == Some("edit"))?;
+    let count = |sign: char| diff.lines().filter(|line| line.starts_with(sign)).count() as u32;
+    Some(LineChanges {
+        added: count('+'),
+        removed: count('-'),
+    })
+}
+
 fn describe_tool(name: &str, args: &Value) -> (String, String) {
     let text = |key: &str| args[key].as_str().unwrap_or_default().to_string();
     match name {

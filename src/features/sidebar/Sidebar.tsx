@@ -1,22 +1,30 @@
-// The sidebar: each project's worktrees as cards under its name, in project order, and its show/hide button.
+// The sidebar: each project's worktrees as cards under its name, in project order, its show/hide button and the Settings button at its foot.
 import { useEffect, useState } from "react";
 import type { GitCounts_Serialize as GitCounts, Project, Worktree_Serialize as Worktree } from "../../ipc/bindings";
 import { shortcutLabel, showMenu, tooltip } from "../../app/commands";
-import { SettingsButton } from "../../app/StatusBar";
 import { chats, usePaneNames } from "../chat/store";
 import { allPaneIds } from "../panes/agents";
 import { panes } from "../panes/store";
-import { settingsOpen, shortcutChanges } from "../settings/store";
+import { openSettings, settingsOpen, shortcutChanges } from "../settings/store";
 import { finished } from "../status/store";
 import { ageLabel, seenDone, statusLabel, urgentReport } from "../status/status";
 import { StatusMark } from "../status/StatusMark";
-import { BranchIcon, PlusIcon, SidebarIcon } from "../../ui/icons";
+import { BranchIcon, GearIcon, PlusIcon, SidebarIcon } from "../../ui/icons";
 import { countsLabel, countsTitle } from "../worktrees/gitCounts";
 import { gitCounts } from "../worktrees/gitCountsRefresh";
 import { worktreeName, worktreeOrder } from "../worktrees/projects";
 import { pickProject, projects, selectWorktree } from "../worktrees/store";
 import { sidebar, toggleSidebar } from "./store";
 import "./sidebar.css";
+
+function SettingsButton() {
+  shortcutChanges.use();
+  return (
+    <button type="button" className="icon-button" title={tooltip("settings.open")} aria-label="Settings" onClick={openSettings}>
+      <GearIcon />
+    </button>
+  );
+}
 
 export function SidebarToggle() {
   shortcutChanges.use();

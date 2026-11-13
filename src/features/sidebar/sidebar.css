@@ -29,18 +29,13 @@
   padding: 0 8px 12px;
 }
 
-/* Matches the status bar's height and inset, so the gear sits where it would without the sidebar. */
+/* The title bar row's height and the tab bar's 8px inset, so the gear mirrors the Files button at the top right. */
 .sidebar-footer {
   display: flex;
   align-items: center;
   flex: none;
-  height: 32px;
-  padding: 0 6px;
-}
-
-.sidebar-footer .icon-button {
-  width: 24px;
-  height: 24px;
+  height: var(--titlebar-height);
+  padding: 0 8px;
 }
 
 .project-group + .project-group {

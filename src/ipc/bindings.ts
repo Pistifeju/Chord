@@ -158,10 +158,10 @@ export type HarnessEvent_Deserialize =
 { kind: "thought_start" } | 
 /**  Text of the reasoning block that is streaming now. */
 { kind: "thought_chunk"; text: string } | 
-/**  A tool call began; `title` is what it does (Read, Search, List, Run, Edit, Write, a tool's name) and `detail` its path, command or arguments. */
-{ kind: "tool_start"; id: string; title: string; detail: string } | 
-/**  A tool call ended; `Stopped` means the run ended or was aborted before it reported. `images` are the ones the tool returned; `ms` is how long it ran, missing when the agent did not measure it. */
-{ kind: "tool_end"; id: string; outcome: ToolOutcome; images: Image[]; ms?: number | null } | 
+/**  A tool call began; `title` is what it does (Read, Search, List, Run, Edit, Write, a tool's name) and `detail` its path, command or arguments. `changes` holds the lines a write puts in its file, known before it runs. */
+{ kind: "tool_start"; id: string; title: string; detail: string; changes?: LineChanges | null } | 
+/**  A tool call ended; `Stopped` means the run ended or was aborted before it reported. `images` are the ones the tool returned; `ms` is how long it ran, missing when the agent did not measure it; `changes` the lines an edit added and removed. */
+{ kind: "tool_end"; id: string; outcome: ToolOutcome; images: Image[]; ms?: number | null; changes?: LineChanges | null } | 
 /**  The model the agent runs and, when that model reasons, its thinking level; sent when a session starts and after each pick. */
 { kind: "model"; name: string; thinking?: string | null } | 
 /**  How many tokens the session fills of the model's context window; `tokens` is missing right after a compaction, until a reply measures it again; `window` is missing when the model has none. */
@@ -176,8 +176,6 @@ export type HarnessEvent_Deserialize =
 { kind: "usage"; windows: UsageWindow_Deserialize[] } | 
 /**  The background subagent runs as a lineage, each node before its children; the whole list each time, empty when none applies. */
 { kind: "subagents"; nodes: SubagentNode_Deserialize[] } | 
-/**  An extension set or cleared its status text; `text` is none when cleared. */
-{ kind: "status_text"; key: string; text?: string | null } | 
 /**  The steering messages the agent has not taken in yet, oldest first; the whole queue each time. */
 { kind: "queue"; steering: string[] } | 
 /**  The agent started or finished work. */
@@ -210,10 +208,10 @@ export type HarnessEvent_Serialize =
 { kind: "thought_start" } | 
 /**  Text of the reasoning block that is streaming now. */
 { kind: "thought_chunk"; text: string } | 
-/**  A tool call began; `title` is what it does (Read, Search, List, Run, Edit, Write, a tool's name) and `detail` its path, command or arguments. */
-{ kind: "tool_start"; id: string; title: string; detail: string } | 
-/**  A tool call ended; `Stopped` means the run ended or was aborted before it reported. `images` are the ones the tool returned; `ms` is how long it ran, missing when the agent did not measure it. */
-{ kind: "tool_end"; id: string; outcome: ToolOutcome; images: Image[]; ms: number | null } | 
+/**  A tool call began; `title` is what it does (Read, Search, List, Run, Edit, Write, a tool's name) and `detail` its path, command or arguments. `changes` holds the lines a write puts in its file, known before it runs. */
+{ kind: "tool_start"; id: string; title: string; detail: string; changes: LineChanges | null } | 
+/**  A tool call ended; `Stopped` means the run ended or was aborted before it reported. `images` are the ones the tool returned; `ms` is how long it ran, missing when the agent did not measure it; `changes` the lines an edit added and removed. */
+{ kind: "tool_end"; id: string; outcome: ToolOutcome; images: Image[]; ms: number | null; changes: LineChanges | null } | 
 /**  The model the agent runs and, when that model reasons, its thinking level; sent when a session starts and after each pick. */
 { kind: "model"; name: string; thinking: string | null } | 
 /**  How many tokens the session fills of the model's context window; `tokens` is missing right after a compaction, until a reply measures it again; `window` is missing when the model has none. */
@@ -228,8 +226,6 @@ export type HarnessEvent_Serialize =
 { kind: "usage"; windows: UsageWindow_Serialize[] } | 
 /**  The background subagent runs as a lineage, each node before its children; the whole list each time, empty when none applies. */
 { kind: "subagents"; nodes: SubagentNode_Serialize[] } | 
-/**  An extension set or cleared its status text; `text` is none when cleared. */
-{ kind: "status_text"; key: string; text: string | null } | 
 /**  The steering messages the agent has not taken in yet, oldest first; the whole queue each time. */
 { kind: "queue"; steering: string[] } | 
 /**  The agent started or finished work. */
@@ -271,6 +267,12 @@ export type Layout =
 { kind: "file"; id: string; path: string } | { kind: "split"; direction: Direction; 
 /**  Each child's share of the split; they add up to 1. */
 sizes: (number | null)[]; children: Layout[] };
+
+/**  The lines a call added to and removed from a file. */
+export type LineChanges = {
+	added: number,
+	removed: number,
+};
 
 /**  One session tab: its name, its split layout and the pane that has the focus. */
 export type PaneSession = {

@@ -24,7 +24,7 @@ import { isTicking, subagentLine, subagentSummary } from "./subagents";
 import { completion, slashMenu, slashQuery } from "./slash";
 import { closeLightbox, lightboxes, openLightbox, stepLightbox } from "./viewing";
 import { answerDialog, attachFiles, attachments, attachPasted, chatOf, chats, closeSlash, drafts, openPicker, pathDropPane, pickAttachments, removeAttachment, sendMessage, setDraft, slashClosed, startChat } from "./store";
-import { callTime, isStreaming, shownSteps, statusLine, stepImages, stepsSummary, stepsTime, type Item, type Message, type StepGroup } from "./transcript";
+import { callTime, isStreaming, shownSteps, stepImages, stepsChanges, stepsSummary, stepsTime, type Item, type Message, type StepGroup } from "./transcript";
 import "./chat.css";
 
 function SubagentLine({ mark, text }: { mark: SubagentNode["state"]; text: string }) {
@@ -114,6 +114,7 @@ const StepsRow = memo(function StepsRow({ pane, group, running, fresh }: { pane:
   const shown = shownSteps(group.steps, running, expanded);
   const images = stepImages(group.steps);
   const total = stepsTime(group.steps);
+  const changes = stepsChanges(group.steps);
   return (
     <div className="chat-steps" data-fresh={fresh || undefined}>
       <button type="button" className="chat-steps-toggle" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
@@ -121,6 +122,8 @@ const StepsRow = memo(function StepsRow({ pane, group, running, fresh }: { pane:
           <ChevronIcon />
         </span>
         {stepsSummary(group.steps)}
+        {changes && changes.added > 0 && <span className="chat-steps-added">+{changes.added}</span>}
+        {changes && changes.removed > 0 && <span className="chat-steps-removed">−{changes.removed}</span>}
         {total && <span className="chat-step-time">{total}</span>}
       </button>
       {shown.map((step) =>
@@ -208,7 +211,6 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
   const slashAt = Math.min(slashActive, slashRows.length - 1);
   const labels = modelLabels(chat);
   const context = contextMeter(chat);
-  const statusText = statusLine(chat);
   const canSend = ready && (!chat.running || steers);
   const textPercent = appearance.usePart((a) => a.textPercent);
   const dialogOpen = chat.dialog !== null;
@@ -404,11 +406,6 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
                 <button type="button" className="icon-button" title={tooltip("chat.attach")} aria-label="Attach Images" disabled={!ready} onClick={() => pickAttachments(pane)}>
                   <PaperclipIcon />
                 </button>
-              )}
-              {statusText && (
-                <span className="chat-status-text" title={statusText}>
-                  {statusText}
-                </span>
               )}
               {labels && (
                 <div className="chat-pickers">

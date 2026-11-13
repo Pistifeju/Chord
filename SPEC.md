@@ -104,9 +104,9 @@ Edge cases:
 - [x] E10 harness(context): context meter with a limit warning; `/new` resets it.
 - [x] E11 harness(usage): subscription usage (5h, weekly) in the status bar as a bar, the percentage and the time left to the reset; stale windows hidden. The windows come from the pi-powerbar extension; without it the bar shows no usage.
 - [x] E15 harness(chat): a slow (5 s or more) or failed call shows its run time ("55.4 s"); a step group shows its total. Live runs only; pi saves no run time in the session.
-- [x] E12 harness(status-line): extension status texts in the composer bar.
 - [x] E13 harness(widgets): background subagent runs as a lineage line at the end of the transcript. The pi adapter reads the snapshot a pi subagent extension writes. Without such an extension the line never shows.
 - [x] E17 harness(chat): hovering a message shows a copy button and the time it was sent under it; history keeps the saved times.
+- [x] E18 harness(chat): a step group names what it did by kind ("2 searches, edited 2 files, ran 4 commands") and the lines its finished edits and writes added and removed ("+43 −5"); history keeps them.
 - [ ] E14 core: branch button in the composer: local branches newest first, switch, New Branch; branches another worktree holds stay disabled; locked while the agent runs.
 
 Edge cases:
@@ -228,4 +228,5 @@ A harness that lacks one hides the features tagged with it.
 | Setup script | A per-project script that runs in each new worktree |
 | Next waiting agent | A shortcut that jumps to the next pane waiting for input |
 | Command palette | Worktrees and actions with fuzzy search |
+| Extension status texts | The lines pi extensions set with `setStatus` (a mode, an MCP server count), anywhere in the window; only the usage status is read |
 | Status for an agent started by hand in the terminal | The terminal is a shell; chat panes report status |

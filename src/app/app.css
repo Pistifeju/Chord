@@ -67,13 +67,9 @@
   flex: none;
   height: 32px;
   padding: 0 12px 0 6px;
+  border-top: 1px solid var(--line);
   font-size: calc(12px * var(--text-scale));
   color: var(--ink-muted);
-}
-
-.statusbar .icon-button {
-  width: 24px;
-  height: 24px;
 }
 
 .statusbar-usage {

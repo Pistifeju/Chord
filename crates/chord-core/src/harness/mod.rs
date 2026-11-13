@@ -64,6 +64,13 @@ pub struct Image {
     pub mime_type: String,
 }
 
+/// The lines a call added to and removed from a file.
+#[derive(Serialize, Type, Debug, Clone, Copy, PartialEq)]
+pub struct LineChanges {
+    pub added: u32,
+    pub removed: u32,
+}
+
 /// Where a slash command is defined.
 #[derive(Serialize, Type, Debug, Clone, Copy, PartialEq)]
 #[serde(rename_all = "snake_case")]
@@ -144,18 +151,20 @@ pub enum HarnessEvent {
     ThoughtStart,
     /// Text of the reasoning block that is streaming now.
     ThoughtChunk { text: String },
-    /// A tool call began; `title` is what it does (Read, Search, List, Run, Edit, Write, a tool's name) and `detail` its path, command or arguments.
+    /// A tool call began; `title` is what it does (Read, Search, List, Run, Edit, Write, a tool's name) and `detail` its path, command or arguments. `changes` holds the lines a write puts in its file, known before it runs.
     ToolStart {
         id: String,
         title: String,
         detail: String,
+        changes: Option<LineChanges>,
     },
-    /// A tool call ended; `Stopped` means the run ended or was aborted before it reported. `images` are the ones the tool returned; `ms` is how long it ran, missing when the agent did not measure it.
+    /// A tool call ended; `Stopped` means the run ended or was aborted before it reported. `images` are the ones the tool returned; `ms` is how long it ran, missing when the agent did not measure it; `changes` the lines an edit added and removed.
     ToolEnd {
         id: String,
         outcome: ToolOutcome,
         images: Vec<Image>,
         ms: Option<u32>,
+        changes: Option<LineChanges>,
     },
     /// The model the agent runs and, when that model reasons, its thinking level; sent when a session starts and after each pick.
     Model {
@@ -181,8 +190,6 @@ pub enum HarnessEvent {
     Usage { windows: Vec<UsageWindow> },
     /// The background subagent runs as a lineage, each node before its children; the whole list each time, empty when none applies.
     Subagents { nodes: Vec<SubagentNode> },
-    /// An extension set or cleared its status text; `text` is none when cleared.
-    StatusText { key: String, text: Option<String> },
     /// The steering messages the agent has not taken in yet, oldest first; the whole queue each time.
     Queue { steering: Vec<String> },
     /// The agent started or finished work.
@@ -379,6 +386,7 @@ mod tests {
             outcome: ToolOutcome::Done,
             images: vec![],
             ms: None,
+            changes: None,
         });
         assert_eq!(last_status(&events), Some(Status::Running));
     }

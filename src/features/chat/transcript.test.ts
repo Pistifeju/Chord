@@ -1,7 +1,7 @@
 // Tests for the transcript rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { chatAfter, chatFed, emptyChat, shownSteps, stepImages, type Step } from "./transcript.ts";
+import { chatAfter, chatFed, emptyChat, shownSteps, stepImages, stepsChanges, stepsSummary, type Step } from "./transcript.ts";
 
 test("chunks of one reply join into one streaming message until it ends", () => {
   let chat = chatAfter(emptyChat, { kind: "message_chunk", text: "Hel" }, 0);
@@ -136,4 +136,18 @@ test("a session's history changes the chat once, at its end", () => {
   assert.equal(fed.replay, null);
   assert.deepEqual(fed.chat.items, [{ role: "user", text: "Hi", streaming: false, images: [], at: 5 }]);
   assert.equal(fed.chat.historyLength, 1);
+});
+
+const call = (title: string, detail: string, state: "done" | "failed" = "done", changes?: { added: number; removed: number }): Step => ({ kind: "call", id: `${title}-${detail}`, title, detail, state, ...(changes && { changes }) });
+
+test("the step summary counts calls by kind and edited files once each", () => {
+  const steps = [call("Search", "a"), call("Search", "b"), call("Edit", "x.ts"), call("Edit", "x.ts"), call("Write", "y.ts"), call("Run", "ls"), call("Github list", "z")];
+  assert.equal(stepsSummary(steps), "2 searches, edited 2 files, ran 1 command, 1 tool call");
+  assert.equal(stepsSummary([{ kind: "thought", id: 0, text: "" }, call("Read", "a")]), "1 thought, read 1 file");
+});
+
+test("the step changes sum the finished calls' lines", () => {
+  const steps = [call("Edit", "x.ts", "done", { added: 3, removed: 1 }), call("Write", "y.ts", "done", { added: 40, removed: 0 }), call("Edit", "z.ts", "failed", { added: 9, removed: 9 })];
+  assert.deepEqual(stepsChanges(steps), { added: 43, removed: 1 });
+  assert.equal(stepsChanges([call("Run", "ls")]), null);
 });

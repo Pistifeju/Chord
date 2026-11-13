@@ -11,8 +11,8 @@ use super::reader::Reader;
 use super::records::{OpenCalls, collapse_skill};
 use super::*;
 use crate::harness::{
-    DialogAnswer, DialogAsk, HarnessEvent, Image, SlashCommand, SlashKind, SubagentNode,
-    SubagentState, ToolOutcome, UsageWindow,
+    DialogAnswer, DialogAsk, HarnessEvent, Image, LineChanges, SlashCommand, SlashKind,
+    SubagentNode, SubagentState, ToolOutcome, UsageWindow,
 };
 
 fn events(record: &str) -> Vec<HarnessEvent> {
@@ -45,7 +45,8 @@ fn a_read_only_shell_command_is_titled_by_what_it_does() {
         vec![HarnessEvent::ToolStart {
             id: "c1".into(),
             title: "Search".into(),
-            detail: "grep -rn foo src".into()
+            detail: "grep -rn foo src".into(),
+            changes: None,
         }]
     );
 }
@@ -58,7 +59,8 @@ fn an_unknown_tool_shows_its_name_and_argument_values() {
         vec![HarnessEvent::ToolStart {
             id: "c2".into(),
             title: "Github list issues".into(),
-            detail: "a/b".into()
+            detail: "a/b".into(),
+            changes: None,
         }]
     );
 }
@@ -70,6 +72,7 @@ fn a_settled_run_stops_the_calls_it_left_open() {
         id: id.into(),
         title: "Run".into(),
         detail: "sleep 9".into(),
+        changes: None,
     };
     assert_eq!(open.track(vec![started("a"), started("b")]).len(), 2);
     let ended = HarnessEvent::ToolEnd {
@@ -77,6 +80,7 @@ fn a_settled_run_stops_the_calls_it_left_open() {
         outcome: ToolOutcome::Done,
         images: vec![],
         ms: None,
+        changes: None,
     };
     open.track(vec![ended]);
     assert_eq!(
@@ -87,6 +91,7 @@ fn a_settled_run_stops_the_calls_it_left_open() {
                 outcome: ToolOutcome::Stopped,
                 images: vec![],
                 ms: None,
+                changes: None,
             },
             HarnessEvent::State { running: false }
         ]
@@ -109,6 +114,42 @@ fn a_failed_tool_call_ends_failed() {
             outcome: ToolOutcome::Failed,
             images: vec![],
             ms: Some(55400),
+            changes: None,
+        }]
+    );
+}
+
+#[test]
+fn an_edit_counts_the_lines_its_diff_added_and_removed() {
+    let record = r#"{"type":"tool_execution_end","toolCallId":"c1","toolName":"edit","result":{"content":[],"details":{"diff":"  1 a\n-2 b\n+2 c\n+3 d\n  4 e"}},"isError":false}"#;
+    assert_eq!(
+        events(record),
+        vec![HarnessEvent::ToolEnd {
+            id: "c1".into(),
+            outcome: ToolOutcome::Done,
+            images: vec![],
+            ms: None,
+            changes: Some(LineChanges {
+                added: 2,
+                removed: 1
+            }),
+        }]
+    );
+}
+
+#[test]
+fn a_write_counts_its_content_lines_as_added() {
+    let record = r#"{"type":"tool_execution_start","toolCallId":"c1","toolName":"write","args":{"path":"a.ts","content":"one\ntwo\nthree\n"}}"#;
+    assert_eq!(
+        events(record),
+        vec![HarnessEvent::ToolStart {
+            id: "c1".into(),
+            title: "Write".into(),
+            detail: "a.ts".into(),
+            changes: Some(LineChanges {
+                added: 3,
+                removed: 0
+            }),
         }]
     );
 }
@@ -126,6 +167,7 @@ fn a_tool_result_keeps_its_images() {
                 mime_type: "image/png".into()
             }],
             ms: None,
+            changes: None,
         }]
     );
 }
@@ -223,18 +265,21 @@ fn saved_messages_come_back_as_the_events_of_their_run() {
             HarnessEvent::ToolStart {
                 id: "c1".into(),
                 title: "List".into(),
-                detail: "src".into()
+                detail: "src".into(),
+                changes: None,
             },
             HarnessEvent::ToolStart {
                 id: "c2".into(),
                 title: "Read".into(),
-                detail: "a.rs".into()
+                detail: "a.rs".into(),
+                changes: None,
             },
             HarnessEvent::ToolEnd {
                 id: "c1".into(),
                 outcome: ToolOutcome::Failed,
                 images: vec![],
                 ms: None,
+                changes: None,
             },
             HarnessEvent::Aborted,
             HarnessEvent::ToolEnd {
@@ -242,6 +287,7 @@ fn saved_messages_come_back_as_the_events_of_their_run() {
                 outcome: ToolOutcome::Stopped,
                 images: vec![],
                 ms: None,
+                changes: None,
             },
             HarnessEvent::HistoryEnd,
         ]
@@ -613,30 +659,7 @@ fn a_usage_status_becomes_the_usage_windows() {
         vec![HarnessEvent::Usage { windows: vec![] }]
     );
     let other = r#"{"type":"extension_ui_request","id":"u3","method":"setStatus","statusKey":"other","statusText":"x"}"#;
-    assert_eq!(
-        events(other),
-        vec![HarnessEvent::StatusText {
-            key: "other".into(),
-            text: Some("x".into())
-        }]
-    );
-    let colored = r#"{"type":"extension_ui_request","id":"u5","method":"setStatus","statusKey":"other","statusText":"\u001b[32m●\u001b[39m\u001b[2m Turn 3\u001b[0m"}"#;
-    assert_eq!(
-        events(colored),
-        vec![HarnessEvent::StatusText {
-            key: "other".into(),
-            text: Some("● Turn 3".into())
-        }]
-    );
-    let other_cleared =
-        r#"{"type":"extension_ui_request","id":"u4","method":"setStatus","statusKey":"other"}"#;
-    assert_eq!(
-        events(other_cleared),
-        vec![HarnessEvent::StatusText {
-            key: "other".into(),
-            text: None
-        }]
-    );
+    assert_eq!(events(other), vec![]);
 }
 
 #[test]

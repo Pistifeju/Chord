@@ -236,16 +236,16 @@
 
 .pane-close {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: 6px;
+  right: 6px;
   z-index: 1;
   display: grid;
   place-items: center;
-  width: 18px;
-  height: 18px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   border: none;
-  border-radius: var(--radius-inset);
+  border-radius: var(--radius-control);
   background: none;
   color: var(--ink-muted);
 }
