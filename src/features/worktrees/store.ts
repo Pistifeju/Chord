@@ -2,11 +2,20 @@
 import { commands, type Project } from "../../ipc/bindings";
 import { closeSheet, openSheet, sheet, sheetOf } from "../../app/sheet";
 import { externalStore } from "../../ui/externalStore";
-import { forgetPanes, forgetPanesExcept } from "../panes/store";
+import { shownSession } from "../panes/sessions";
+import { forgetPanes, forgetPanesExcept, panes } from "../panes/store";
 import { settingsOpen } from "../settings/store";
 import { noProjects, withProject, withoutProject, withoutWorktree, withSavedSelection, withSelectionRestored, withWorktrees, worktreeOrder, type Projects } from "./projects";
 
 export const projects = externalStore(noProjects);
+
+// The worktree the window shows: the selected one, none while Settings covers the window.
+export const openWorktree = (): string | null => (settingsOpen.get() ? null : projects.get().selected);
+
+export const shownPanes = () => shownSession(panes.get(), projects.get().selected, settingsOpen.get());
+
+/** The stores `shownPanes` reads, for a watcher that follows it. */
+export const shownPanesStores = () => [panes, projects, settingsOpen];
 
 const update = (change: (p: Projects) => Projects) => {
   const before = projects.get().selected;

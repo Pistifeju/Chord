@@ -11,10 +11,14 @@ function deleteWorktreeAt(path?: string) {
   if (owner && path) requestDelete(owner.path, path);
 }
 
+// A shortcut that opens a sheet or a dialog, or changes what an open sheet sits on, waits until the sheet closes.
+const noSheet = () => sheet.get() === null;
+
 const selectCommands: AppCommand[] = Array.from({ length: 9 }, (_, i) => ({
   id: `worktree.select.${i + 1}`,
   title: `Select Worktree ${i + 1}`,
   shortcut: { key: String(i + 1), cmd: true },
+  when: noSheet,
   run: () => {
     const path = worktreeOrder(projects.get())[i];
     if (path) selectWorktree(path);
@@ -22,8 +26,8 @@ const selectCommands: AppCommand[] = Array.from({ length: 9 }, (_, i) => ({
 }));
 
 export const worktreeCommands: AppCommand[] = [
-  { id: "project.add", title: "Add Project", shortcut: { key: "o", cmd: true }, run: pickProject },
-  { id: "worktree.new", title: "New Worktree", shortcut: { key: "n", cmd: true }, run: openNewWorktree },
+  { id: "project.add", title: "Add Project", shortcut: { key: "o", cmd: true }, when: noSheet, run: pickProject },
+  { id: "worktree.new", title: "New Worktree", shortcut: { key: "n", cmd: true }, when: noSheet, run: openNewWorktree },
   { id: "project.remove", title: "Remove Project", run: (path) => path && void removeProject(path) },
   { id: "worktree.delete", title: "Delete Worktree", run: deleteWorktreeAt },
   { id: "sheet.close", title: "Close", shortcut: { key: "escape" }, when: () => sheet.get() !== null, run: () => closeSheet() },

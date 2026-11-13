@@ -42,18 +42,19 @@ export function loadedChanges(defaults: ShortcutMap, saved: ShortcutChanges): Sh
   return hasTwoCommandsOnOneKey(defaults, currentShortcuts(defaults, known)) ? {} : known;
 }
 
-// Gives a command a key, or null for no key. The command that held the key loses it and is named in `lost`.
+// Gives a command a key, or null for no key. Every command that held the key loses it and is named in `lost`, except one that shares it by default.
 export function changedShortcut(
   defaults: ShortcutMap,
   changes: ShortcutChanges,
   id: string,
   shortcut: Shortcut | null,
-): { changes: ShortcutChanges; lost?: string } {
+): { changes: ShortcutChanges; lost: string[] } {
   const current = currentShortcuts(defaults, changes);
-  const lost = shortcut ? Object.keys(current).find((other) => other !== id && sameShortcut(current[other], shortcut)) : undefined;
+  const sharedByDefault = (other: string) => sameShortcut(defaults[id], shortcut ?? undefined) && sameShortcut(defaults[other], shortcut ?? undefined);
+  const lost = shortcut ? Object.keys(current).filter((other) => other !== id && sameShortcut(current[other], shortcut) && !sharedByDefault(other)) : [];
   const next: ShortcutChanges = { ...changes, [id]: shortcut };
-  if (lost) next[lost] = null;
+  for (const other of lost) next[other] = null;
   const isDefault = (changed: string) => (next[changed] === null ? !defaults[changed] : sameShortcut(next[changed] ?? undefined, defaults[changed]));
-  for (const changed of [id, lost]) if (changed && isDefault(changed)) delete next[changed];
+  for (const changed of [id, ...lost]) if (isDefault(changed)) delete next[changed];
   return { changes: next, lost };
 }

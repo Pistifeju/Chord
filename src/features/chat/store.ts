@@ -125,14 +125,17 @@ export function attachPasted(pane: string, file: File) {
   reader.readAsDataURL(file);
 }
 
-// The waiting images leave the composer once the harness took the message; a failed send keeps them.
+// The waiting images leave the composer once the harness took the message; a failed send keeps them and puts the text back in an empty draft.
 export function sendMessage(pane: string, text: string) {
   const sent = attachments.get()[pane] ?? [];
   update(pane, (chat) => ({ ...chat, notice: null }));
   commands
     .sendMessage(pane, text, sent.map((a) => a.image))
     .then(() => attachments.set({ ...attachments.get(), [pane]: (attachments.get()[pane] ?? []).filter((a) => !sent.includes(a)) }))
-    .catch((error) => noticeOf(pane, error));
+    .catch((error) => {
+      if (!drafts.get()[pane]) setDraft(pane, text);
+      noticeOf(pane, error);
+    });
 }
 
 // The dialog closes at once; a refused answer shows as a notice.

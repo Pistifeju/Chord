@@ -7,7 +7,7 @@ import { allPaneIds } from "../panes/agents";
 import { panes } from "../panes/store";
 import { settingsOpen, shortcutChanges } from "../settings/store";
 import { finished } from "../status/store";
-import { ageLabel, statusLabel, urgentReport } from "../status/status";
+import { ageLabel, seenDone, statusLabel, urgentReport } from "../status/status";
 import { StatusMark } from "../status/StatusMark";
 import { BranchIcon, PlusIcon, SidebarIcon } from "../../ui/icons";
 import { countsLabel, countsTitle } from "../worktrees/gitCounts";
@@ -84,11 +84,14 @@ function useNow(): number {
 }
 
 // The card's right slot: "Done" for a finish nobody opened, the mark and age while an agent runs, the status word while it needs attention, otherwise the age of the last status.
-function WorktreeStatus({ paneIdList, unseenDone }: { paneIdList: string[]; unseenDone: boolean }) {
+function WorktreeStatus({ paneIdList, finishedPanes }: { paneIdList: string[]; finishedPanes: string[] }) {
   const report = chats.usePart((all) => urgentReport(paneIdList.map((pane) => all[pane]?.report)));
   const now = useNow();
-  const kind = report?.status.kind;
-  if (unseenDone && (kind === undefined || kind === "done")) {
+  if (!report) return null;
+  const kind = report.status.kind;
+  const age = ageLabel(report.since, now);
+  if (seenDone(kind, paneIdList, finishedPanes)) return <span key="age" className="worktree-age">{age}</span>;
+  if (kind === "done") {
     return (
       <span key="unseen-done" className="worktree-status" data-status="done">
         <StatusMark kind="done" />
@@ -96,9 +99,6 @@ function WorktreeStatus({ paneIdList, unseenDone }: { paneIdList: string[]; unse
       </span>
     );
   }
-  if (!report) return null;
-  const age = ageLabel(report.since, now);
-  if (kind === "done") return <span key="age" className="worktree-age">{age}</span>;
   const label = statusLabel(report.status);
   return (
     <span key={kind} className="worktree-status" data-status={kind} title={report.lastMessage.trim() || label}>
@@ -133,7 +133,6 @@ function WorktreeCard({
   const names = usePaneNames(paneIdList);
   const branch = worktreeName(worktree);
   const title = paneIdList.map((pane) => names[pane]).find(Boolean);
-  const unseenDone = paneIdList.some((pane) => finishedPanes.includes(pane));
   const menu: [string, string][] = [["worktree.new", project.path]];
   if (worktree.path !== project.path) menu.push(["worktree.delete", worktree.path]);
   return (
@@ -148,7 +147,7 @@ function WorktreeCard({
       >
         <span className="worktree-line">
           <span className="worktree-title">{title ?? branch}</span>
-          {!shown && <WorktreeStatus paneIdList={paneIdList} unseenDone={unseenDone} />}
+          {!shown && <WorktreeStatus paneIdList={paneIdList} finishedPanes={finishedPanes} />}
         </span>
         <span className="worktree-line worktree-meta">
           {title && <span className="worktree-branch">

@@ -9,7 +9,7 @@ export function BottomPanel({ worktree }: { worktree: string }) {
   if (!open) return null;
   return (
     <section className="bottom-panel" style={{ flexBasis: height }} aria-label="Terminal">
-      <PanelEdge side="top" size={height} onResize={(size) => resizeBottomPanel(worktree, size)} onEnd={() => endBottomPanelResize(worktree)} />
+      <PanelEdge side="top" onResize={(size) => resizeBottomPanel(worktree, size)} onEnd={() => endBottomPanelResize(worktree)} />
       <TerminalView key={worktree} worktree={worktree} />
     </section>
   );

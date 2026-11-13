@@ -131,7 +131,7 @@ function Shortcuts() {
   const [recording, setRecording] = useState<string>();
   const [notice, setNotice] = useState("");
 
-  const announce = (lost?: string) => setNotice(lost ? `${lost} lost its shortcut.` : "");
+  const announce = (lost: string[]) => setNotice(lost.length ? `${lost.join(" and ")} lost ${lost.length > 1 ? "their shortcuts" : "its shortcut"}.` : "");
 
   const record = (id: string, e: KeyboardEvent) => {
     e.preventDefault();

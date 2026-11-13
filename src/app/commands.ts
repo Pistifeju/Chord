@@ -28,12 +28,12 @@ export function loadShortcutChanges(saved: ShortcutChanges) {
   shortcutChanges.set(loadedChanges(defaultShortcuts, saved));
 }
 
-// Returns the title of the command that lost the key, if one did.
-export function changeShortcut(id: string, shortcut: Shortcut | null): string | undefined {
+// Returns the titles of the commands that lost the key.
+export function changeShortcut(id: string, shortcut: Shortcut | null): string[] {
   const { changes, lost } = changedShortcut(defaultShortcuts, shortcutChanges.get(), id, shortcut);
   shortcutChanges.set(changes);
   commands.changeState({ shortcuts: changes }).catch(console.error);
-  return table.find((c) => c.id === lost)?.title;
+  return table.filter((c) => lost.includes(c.id)).map((c) => c.title);
 }
 
 export const resetShortcut = (id: string) => changeShortcut(id, defaultShortcuts[id] ?? null);

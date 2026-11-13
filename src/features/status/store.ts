@@ -4,10 +4,8 @@ import { commands } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
 import { chats } from "../chat/store";
 import { paneIds } from "../panes/layout";
-import { shownSession } from "../panes/sessions";
-import { focusPane, panes } from "../panes/store";
-import { settingsOpen } from "../settings/store";
-import { projects, selectWorktree } from "../worktrees/store";
+import { focusPane } from "../panes/store";
+import { selectWorktree, shownPanes, shownPanesStores } from "../worktrees/store";
 import { keptMarks, turnedDone, type PaneKinds } from "./finished";
 
 export const finished = externalStore<string[]>([]);
@@ -16,7 +14,7 @@ const kindsNow = (): PaneKinds =>
   Object.fromEntries(Object.entries(chats.get()).flatMap(([pane, chat]) => (chat.report ? [[pane, chat.report.status.kind]] : [])));
 
 function openPanes(): string[] {
-  const shown = shownSession(panes.get(), projects.get().selected, settingsOpen.get());
+  const shown = shownPanes();
   return shown ? paneIds(shown.layout) : [];
 }
 
@@ -28,7 +26,7 @@ export function watchFinished(): () => void {
     before = now;
     if (marks.join() !== finished.get().join()) finished.set(marks);
   };
-  const unsubscribe = [chats, panes, projects, settingsOpen].map((store) => store.subscribe(sync));
+  const unsubscribe = [chats, ...shownPanesStores()].map((store) => store.subscribe(sync));
   return () => unsubscribe.forEach((off) => off());
 }
 
@@ -42,7 +40,7 @@ export function watchShownPanes(): () => void {
     commands.showPanes(shown).catch(console.error);
   };
   sync();
-  const unsubscribe = [panes, projects, settingsOpen].map((store) => store.subscribe(sync));
+  const unsubscribe = shownPanesStores().map((store) => store.subscribe(sync));
   return () => unsubscribe.forEach((off) => off());
 }
 

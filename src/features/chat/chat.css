@@ -386,6 +386,7 @@
   display: grid;
   place-items: center;
   background: var(--scrim);
+  outline: none;
   animation: scrim-in var(--t-med) var(--ease-out);
 }
 

@@ -9,7 +9,7 @@ export function SidePanel({ worktree }: { worktree: string }) {
   if (!open) return null;
   return (
     <aside className="side-panel" style={{ flexBasis: width }} aria-label="Files">
-      <PanelEdge side="left" size={width} onResize={(size) => resizeSidePanel(worktree, size)} onEnd={() => endSidePanelResize(worktree)} />
+      <PanelEdge side="left" onResize={(size) => resizeSidePanel(worktree, size)} onEnd={() => endSidePanelResize(worktree)} />
       <FilesView worktree={worktree} />
     </aside>
   );

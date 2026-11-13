@@ -14,14 +14,29 @@ test("a recorded press needs cmd, ctrl or alt and is not a bare modifier", () =>
 
 test("taking a key from another command names it and leaves it without a key", () => {
   const result = changedShortcut(defaults, {}, "c", { key: "k", cmd: true });
-  assert.equal(result.lost, "a");
+  assert.deepEqual(result.lost, ["a"]);
   assert.deepEqual(result.changes, { c: { key: "k", cmd: true }, a: null });
 });
 
 test("giving a command its default key back removes the change", () => {
   const result = changedShortcut(defaults, { b: { key: "x", cmd: true } }, "b", { key: "j", cmd: true });
   assert.deepEqual(result.changes, {});
-  assert.equal(result.lost, undefined);
+  assert.deepEqual(result.lost, []);
+});
+
+const shared = { a: { key: "f", cmd: true }, b: { key: "f", cmd: true }, c: undefined };
+
+test("taking a key two commands share by default takes it from both", () => {
+  const result = changedShortcut(shared, {}, "c", { key: "f", cmd: true });
+  assert.deepEqual(result.lost, ["a", "b"]);
+  assert.deepEqual(result.changes, { c: { key: "f", cmd: true }, a: null, b: null });
+  assert.deepEqual(loadedChanges(shared, result.changes), result.changes);
+});
+
+test("giving a command its shared default key leaves the other command its key", () => {
+  const result = changedShortcut(shared, {}, "a", { key: "f", cmd: true });
+  assert.deepEqual(result.lost, []);
+  assert.deepEqual(result.changes, {});
 });
 
 test("saved changes for missing commands are dropped, and a clash loads the defaults", () => {

@@ -1,16 +1,13 @@
 // The pane and session-tab commands for the commands table.
 import type { AppCommand } from "../../app/commands";
 import type { Direction } from "../../ipc/bindings";
-import { settingsOpen } from "../settings/store";
 import { chatOf, chats } from "../chat/store";
-import { projects } from "../worktrees/store";
+import { openWorktree, shownPanes } from "../worktrees/store";
 import { splitFile } from "../editor/showing";
 import { openFiles } from "../editor/store";
 import { filePanes } from "./layout";
-import { canClosePane, shownSession } from "./sessions";
+import { canClosePane } from "./sessions";
 import { closeFocused, newSession, panes, splitFocused } from "./store";
-
-const openWorktree = (): string | null => (settingsOpen.get() ? null : projects.get().selected);
 
 const shownFile = (): string | null => {
   const worktree = openWorktree();
@@ -19,7 +16,7 @@ const shownFile = (): string | null => {
 
 // A split goes beside a shown file tab, a focused file pane, or a chat whose agent started.
 const canSplit = (): boolean => {
-  const shown = shownSession(panes.get(), projects.get().selected, settingsOpen.get());
+  const shown = shownPanes();
   if (!shown) return false;
   if (shownFile() || filePanes(shown.layout).some((file) => file.id === shown.focused)) return true;
   return chatOf(chats.get(), shown.focused).agent !== "idle";

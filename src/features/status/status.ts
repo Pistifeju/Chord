@@ -15,6 +15,10 @@ export function urgentReport(reports: (StatusReport | null | undefined)[]): Stat
   return urgent;
 }
 
+/** A set of panes' status is a done you already saw: done, and none of its panes carries the finished mark. */
+export const seenDone = (kind: Status["kind"] | undefined, panes: string[], finished: string[]): boolean =>
+  kind === "done" && !panes.some((pane) => finished.includes(pane));
+
 function sameStatus(a: Status, b: Status): boolean {
   return a.kind === b.kind && (a.kind !== "exited" || b.kind !== "exited" || (a.code ?? null) === (b.code ?? null));
 }

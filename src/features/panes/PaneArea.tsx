@@ -7,7 +7,7 @@ import { ChatPane } from "../chat/ChatPane";
 import { chats, usePaneNames } from "../chat/store";
 import { shortcutChanges } from "../settings/store";
 import type { Status } from "../../ipc/bindings";
-import { statusLabel, urgentReport } from "../status/status";
+import { seenDone, statusLabel, urgentReport } from "../status/status";
 import { StatusMark } from "../status/StatusMark";
 import { finished } from "../status/store";
 import { BottomPanel } from "../bottompanel/BottomPanel";
@@ -103,8 +103,7 @@ function SessionTabs({ worktree }: { worktree: string }) {
       {current.sessions.map((session, i) => {
         // The open session's panes show their own Working row, so its tab shows no status; a done you already saw shows none either.
         const report = session.id === current.active ? null : statuses[i];
-        const unseenDone = paneIds(session.layout).some((pane) => finishedPanes.includes(pane));
-        const status = report?.kind === "done" && !unseenDone ? null : report;
+        const status = seenDone(report?.kind, paneIds(session.layout), finishedPanes) ? null : report;
         return (
           <div key={session.id} className="tab" data-selected={session.id === current.active && !shownFile} data-dragging={session.id === dragging}>
             <button

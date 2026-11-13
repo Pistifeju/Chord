@@ -16,10 +16,12 @@ function rank(path: string, needle: string): number {
 export function matchingFiles(paths: string[], query: string): string[] {
   const needle = query.trim().toLowerCase();
   if (!needle) return paths.slice(0, SHOWN_FILES);
-  return paths
-    .map((path) => ({ path, rank: rank(path, needle) }))
-    .filter((match) => match.rank !== -1)
-    .sort((a, b) => a.rank - b.rank)
-    .slice(0, SHOWN_FILES)
-    .map((match) => match.path);
+  // One pass into rank buckets; a full first bucket already holds the answer.
+  const ranked: string[][] = [[], [], []];
+  for (const path of paths) {
+    const at = rank(path, needle);
+    if (at !== -1) ranked[at].push(path);
+    if (ranked[0].length === SHOWN_FILES) break;
+  }
+  return ranked.flat().slice(0, SHOWN_FILES);
 }

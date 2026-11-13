@@ -1,20 +1,19 @@
 // The chat's commands for the commands table.
 import type { AppCommand } from "../../app/commands";
 import { chatPaneIds } from "../panes/layout";
-import { shownSession } from "../panes/sessions";
-import { panes } from "../panes/store";
-import { settingsOpen } from "../settings/store";
-import { projects } from "../worktrees/store";
+import { projects, shownPanes } from "../worktrees/store";
 import { sheet } from "../../app/sheet";
+import { openFiles } from "../editor/store";
 import { closeFind, finds, openFind } from "./find";
 import { closeLightbox, lightboxes, stepLightbox } from "./viewing";
 import { slashMenu } from "./slash";
 import { abortRun, answerDialog, chatOf, chats, closeSlash, drafts, pickAttachments, slashClosed } from "./store";
 
-// A focused file pane is no chat; an open sheet owns the keys.
+// A focused file pane is no chat; an open sheet, a shown file tab and the focus in a side or bottom panel own the keys.
 const focusedPane = (): string | null => {
-  if (sheet.get() !== null) return null;
-  const shown = shownSession(panes.get(), projects.get().selected, settingsOpen.get());
+  const { selected } = projects.get();
+  if (sheet.get() !== null || (selected && openFiles.get()[selected]?.active) || document.activeElement?.closest(".side-panel, .bottom-panel")) return null;
+  const shown = shownPanes();
   return shown?.focused && chatPaneIds(shown.layout).includes(shown.focused) ? shown.focused : null;
 };
 
