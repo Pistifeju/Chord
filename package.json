@@ -8,6 +8,8 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "tauri": "tauri",
+    "app:dev": "tauri dev --config src-tauri/tauri.dev.conf.json",
+    "app:install": "sh scripts/install-app.sh",
     "map": "sh scripts/map.sh",
     "check": "sh scripts/check.sh",
     "bindings": "UPDATE_BINDINGS=1 cargo test -p chord bindings"
