@@ -25,6 +25,7 @@ export const commands = {
 	stopChat: (pane: string) => __TAURI_INVOKE<null>("stop_chat", { pane }),
 	/**  Tells Rust which panes the window shows, so a notification skips a pane the user is looking at. */
 	showPanes: (panes: string[]) => __TAURI_INVOKE<void>("show_panes", { panes }),
+	listFolder: (worktree: string, folder: string) => __TAURI_INVOKE<FileEntry[]>("list_folder", { worktree, folder }),
 	/**  Stops every agent and ends the app once the user confirmed the quit. Panes stay saved as running, so they start again on launch. */
 	quitApp: () => __TAURI_INVOKE<null>("quit_app"),
 	/**  Saves the setting and applies it; a missing `caffeinate` fails before anything is saved, even with no agent working. */
@@ -90,6 +91,14 @@ export type Direction =
 "row" | 
 /**  Children sit one above the other. */
 "column";
+
+export type FileEntry = {
+	/**  What the row shows: a chain of single-child folders reads as one name, `src/app/views`. */
+	name: string,
+	/**  Relative to the worktree, `/`-separated; for a chain, the deepest folder's. */
+	path: string,
+	isDir: boolean,
+};
 
 export type GitCounts = GitCounts_Serialize | GitCounts_Deserialize;
 
@@ -285,6 +294,20 @@ export type Shortcut_Serialize = {
 	shift: boolean,
 };
 
+export type SidePanel = SidePanel_Serialize | SidePanel_Deserialize;
+
+export type SidePanel_Deserialize = {
+	open?: boolean,
+	/**  In pixels. */
+	width?: number,
+};
+
+export type SidePanel_Serialize = {
+	open: boolean,
+	/**  In pixels. */
+	width: number,
+};
+
 export type Sidebar = Sidebar_Serialize | Sidebar_Deserialize;
 
 export type Sidebar_Deserialize = {
@@ -325,20 +348,26 @@ export type State = State_Serialize | State_Deserialize;
 export type StateChange = StateChange_Serialize | StateChange_Deserialize;
 
 /**  One change the frontend saves. */
-export type StateChange_Deserialize = ({ selectedWorktree?: string | null }) & { panes?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ sidebarHidden: boolean }) & { panes?: never; selectedWorktree?: never; shortcuts?: never; textPercent?: never; theme?: never } | ({ theme: Theme }) & { panes?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never } | ({ textPercent: number }) & { panes?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; theme?: never } | ({ shortcuts: { [key in string]: Shortcut_Deserialize | null } }) & { panes?: never; selectedWorktree?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | 
+export type StateChange_Deserialize = ({ selectedWorktree?: string | null }) & { panes?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ sidebarHidden: boolean }) & { panes?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; textPercent?: never; theme?: never } | ({ theme: Theme }) & { panes?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; textPercent?: never } | ({ textPercent: number }) & { panes?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; theme?: never } | ({ shortcuts: { [key in string]: Shortcut_Deserialize | null } }) & { panes?: never; selectedWorktree?: never; sidePanel?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | 
 /**  `None` forgets the worktree's layouts. */
 ({ panes: {
 	worktree: string,
 	panes?: WorktreePanes | null,
-} }) & { selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never; theme?: never };
+} }) & { selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ sidePanel: {
+	worktree: string,
+	panel: SidePanel_Deserialize,
+} }) & { panes?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never; theme?: never };
 
 /**  One change the frontend saves. */
-export type StateChange_Serialize = ({ selectedWorktree: string | null }) & { panes?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ sidebarHidden: boolean }) & { panes?: never; selectedWorktree?: never; shortcuts?: never; textPercent?: never; theme?: never } | ({ theme: Theme }) & { panes?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never } | ({ textPercent: number }) & { panes?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; theme?: never } | ({ shortcuts: { [key in string]: Shortcut_Serialize | null } }) & { panes?: never; selectedWorktree?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | 
+export type StateChange_Serialize = ({ selectedWorktree: string | null }) & { panes?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ sidebarHidden: boolean }) & { panes?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; textPercent?: never; theme?: never } | ({ theme: Theme }) & { panes?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; textPercent?: never } | ({ textPercent: number }) & { panes?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; theme?: never } | ({ shortcuts: { [key in string]: Shortcut_Serialize | null } }) & { panes?: never; selectedWorktree?: never; sidePanel?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | 
 /**  `None` forgets the worktree's layouts. */
 ({ panes: {
 	worktree: string,
 	panes: WorktreePanes | null,
-} }) & { selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never; theme?: never };
+} }) & { selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ sidePanel: {
+	worktree: string,
+	panel: SidePanel_Serialize,
+} }) & { panes?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; textPercent?: never; theme?: never };
 
 export type State_Deserialize = {
 	projects?: Project[],
@@ -352,6 +381,8 @@ export type State_Deserialize = {
 	selected?: string | null,
 	/**  Each worktree's session tabs and split layouts. */
 	panes?: { [key in string]: WorktreePanes },
+	/**  Each worktree's side panel: open or not, and its width. */
+	sidePanels?: { [key in string]: SidePanel_Deserialize },
 	/**  The panes whose agent was started and not stopped; they start again on launch. */
 	runningPanes?: string[],
 	/**  The session file each pane's agent last held; a pane without one opens a file of its own. */
@@ -370,6 +401,8 @@ export type State_Serialize = {
 	selected: string | null,
 	/**  Each worktree's session tabs and split layouts. */
 	panes: { [key in string]: WorktreePanes },
+	/**  Each worktree's side panel: open or not, and its width. */
+	sidePanels: { [key in string]: SidePanel_Serialize },
 	/**  The panes whose agent was started and not stopped; they start again on launch. */
 	runningPanes: string[],
 	/**  The session file each pane's agent last held; a pane without one opens a file of its own. */

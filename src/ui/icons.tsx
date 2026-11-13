@@ -22,6 +22,13 @@ export const ChevronIcon = () => (
   </Icon>
 );
 
+export const SidePanelIcon = () => (
+  <Icon>
+    <rect x="1.75" y="2.75" width="12.5" height="10.5" rx="2.25" />
+    <path d="M10 2.75v10.5" />
+  </Icon>
+);
+
 export const ArrowUpIcon = () => (
   <Icon>
     <path d="M8 13V3M3.5 7.5L8 3l4.5 4.5" strokeWidth="1.8" />
@@ -93,8 +100,8 @@ export const KeyboardIcon = () => (
   </Icon>
 );
 
-export const FolderIcon = () => (
-  <Icon size={24}>
+export const FolderIcon = ({ size = 24 }: { size?: number }) => (
+  <Icon size={size}>
     <path d="M1.75 4.25c0-.83.67-1.5 1.5-1.5h3l1.5 1.75h5c.83 0 1.5.67 1.5 1.5v6.25c0 .83-.67 1.5-1.5 1.5h-9.5c-.83 0-1.5-.67-1.5-1.5z" />
   </Icon>
 );
@@ -163,5 +170,30 @@ export const BranchIcon = () => (
     <circle cx="4.5" cy="12.5" r="1.5" />
     <circle cx="11.5" cy="4.5" r="1.5" />
     <path d="M4.5 5v6M11.5 6c0 3.5-7 1.5-7 5" />
+  </Icon>
+);
+
+export const CollapseAllIcon = () => (
+  <Icon>
+    <path d="M4.5 2.5L8 6l3.5-3.5M4.5 13.5L8 10l3.5 3.5" />
+  </Icon>
+);
+
+export const ReloadIcon = () => (
+  <Icon>
+    <path d="M13 8a5 5 0 1 1-1.6-3.67M13 2.5v3h-3" />
+  </Icon>
+);
+
+export const FileIcon = () => (
+  <Icon>
+    <path d="M4.5 1.75h4.75l3.25 3.25v8a1.25 1.25 0 0 1-1.25 1.25h-6.75A1.25 1.25 0 0 1 3.25 13V3A1.25 1.25 0 0 1 4.5 1.75z" />
+    <path d="M9 1.75V5h3.5" />
+  </Icon>
+);
+
+export const FilterIcon = () => (
+  <Icon>
+    <path d="M2.5 4.5h11M4.5 8h7M6.5 11.5h3" />
   </Icon>
 );

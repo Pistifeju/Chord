@@ -1,6 +1,7 @@
 // The commands table: every feature's commands, the shortcuts that run them, their menu accelerators and tooltips.
 import { commands } from "../ipc/bindings";
 import { chatCommands } from "../features/chat/commands";
+import { filesCommands } from "../features/files/commands";
 import { paneCommands } from "../features/panes/commands";
 import { settingsCommands } from "../features/settings/commands";
 import { shortcutChanges } from "../features/settings/store";
@@ -13,7 +14,7 @@ export type AppCommand = { id: string; title: string; shortcut?: Shortcut; run: 
   when?: () => boolean;
 };
 
-const table: AppCommand[] = [...sidebarCommands, ...settingsCommands, ...chatCommands, ...paneCommands, ...worktreeCommands];
+const table: AppCommand[] = [...sidebarCommands, ...filesCommands, ...settingsCommands, ...chatCommands, ...paneCommands, ...worktreeCommands];
 
 const defaultShortcuts: ShortcutMap = Object.fromEntries(table.map((c) => [c.id, c.shortcut]));
 

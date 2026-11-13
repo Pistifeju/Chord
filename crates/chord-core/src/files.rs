@@ -1,0 +1,164 @@
+//! A worktree's files on disk: one folder's entries for the Files view, without `.git`.
+
+use std::cmp::Ordering;
+use std::fs;
+use std::path::{Component, Path};
+
+use serde::Serialize;
+use specta::Type;
+
+use crate::Error;
+
+#[derive(Serialize, Type, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct FileEntry {
+    /// What the row shows: a chain of single-child folders reads as one name, `src/app/views`.
+    pub name: String,
+    /// Relative to the worktree, `/`-separated; for a chain, the deepest folder's.
+    pub path: String,
+    pub is_dir: bool,
+}
+
+/// The entries of `folder` (relative to `root`, empty for the root): folders first, in natural order.
+pub fn list(root: &Path, folder: &str) -> Result<Vec<FileEntry>, Error> {
+    let relative = Path::new(folder);
+    if relative
+        .components()
+        .any(|part| !matches!(part, Component::Normal(_)))
+    {
+        return Err(Error::Message(format!(
+            "{folder} is not inside the worktree"
+        )));
+    }
+    let mut entries = Vec::new();
+    for entry in fs::read_dir(root.join(relative))? {
+        let entry = entry?;
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if name == ".git" {
+            continue;
+        }
+        let file_type = entry.file_type()?;
+        let is_dir = file_type.is_dir() || (file_type.is_symlink() && entry.path().is_dir());
+        let mut path = join(folder, &name);
+        let mut shown = name;
+        if file_type.is_dir() {
+            while let Some(only) = only_folder(&root.join(&path)) {
+                path = join(&path, &only);
+                shown = join(&shown, &only);
+            }
+        }
+        entries.push(FileEntry {
+            name: shown,
+            path,
+            is_dir,
+        });
+    }
+    entries.sort_by(|a, b| {
+        b.is_dir
+            .cmp(&a.is_dir)
+            .then_with(|| natural_cmp(&a.name, &b.name))
+            .then_with(|| a.name.cmp(&b.name))
+    });
+    Ok(entries)
+}
+
+fn join(folder: &str, name: &str) -> String {
+    if folder.is_empty() {
+        name.to_owned()
+    } else {
+        format!("{folder}/{name}")
+    }
+}
+
+// The name of the folder inside `folder` when it is all that `folder` holds.
+fn only_folder(folder: &Path) -> Option<String> {
+    let mut visible = fs::read_dir(folder)
+        .ok()?
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_name() != ".git");
+    let only = visible.next()?;
+    if visible.next().is_some() || !only.file_type().ok()?.is_dir() {
+        return None;
+    }
+    Some(only.file_name().to_string_lossy().into_owned())
+}
+
+// Digit runs compare as numbers and letters ignore case, so `file2` comes before `file10`.
+fn natural_cmp(a: &str, b: &str) -> Ordering {
+    let (mut a, mut b) = (a.chars().peekable(), b.chars().peekable());
+    loop {
+        match (a.peek().copied(), b.peek().copied()) {
+            (None, None) => return Ordering::Equal,
+            (None, Some(_)) => return Ordering::Less,
+            (Some(_), None) => return Ordering::Greater,
+            (Some(x), Some(y)) if x.is_ascii_digit() && y.is_ascii_digit() => {
+                let (x, y) = (digit_run(&mut a), digit_run(&mut b));
+                let (x, y) = (x.trim_start_matches('0'), y.trim_start_matches('0'));
+                let order = x.len().cmp(&y.len()).then_with(|| x.cmp(y));
+                if order != Ordering::Equal {
+                    return order;
+                }
+            }
+            (Some(x), Some(y)) => {
+                let order = x.to_lowercase().cmp(y.to_lowercase());
+                if order != Ordering::Equal {
+                    return order;
+                }
+                a.next();
+                b.next();
+            }
+        }
+    }
+}
+
+fn digit_run(chars: &mut std::iter::Peekable<std::str::Chars>) -> String {
+    let mut run = String::new();
+    while let Some(digit) = chars.next_if(char::is_ascii_digit) {
+        run.push(digit);
+    }
+    run
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn natural_order_reads_numbers_whole() {
+        assert_eq!(natural_cmp("file2", "file10"), Ordering::Less);
+        assert_eq!(natural_cmp("File2", "file1"), Ordering::Greater);
+        assert_eq!(natural_cmp("a", "B"), Ordering::Less);
+    }
+
+    #[test]
+    fn lists_folders_first_without_git_and_joins_single_child_chains() {
+        let root = std::env::temp_dir().join(format!("chord-files-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join(".git")).unwrap();
+        fs::create_dir_all(root.join("src/app/views")).unwrap();
+        fs::create_dir_all(root.join("docs")).unwrap();
+        fs::write(root.join("docs/a.md"), "").unwrap();
+        fs::write(root.join("docs/b.md"), "").unwrap();
+        fs::write(root.join("src/app/views/x.tsx"), "").unwrap();
+        fs::write(root.join("file10"), "").unwrap();
+        fs::write(root.join("file2"), "").unwrap();
+
+        let names: Vec<_> = list(&root, "")
+            .unwrap()
+            .into_iter()
+            .map(|entry| (entry.name, entry.path, entry.is_dir))
+            .collect();
+        let expected = [
+            ("docs", "docs", true),
+            ("src/app/views", "src/app/views", true),
+            ("file2", "file2", false),
+            ("file10", "file10", false),
+        ];
+        assert_eq!(
+            names,
+            expected.map(|(name, path, is_dir)| (name.to_owned(), path.to_owned(), is_dir))
+        );
+        assert!(list(&root, "../x").is_err());
+        let _ = fs::remove_dir_all(&root);
+    }
+}

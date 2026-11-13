@@ -1,0 +1,28 @@
+/* The side panel: one column right of the panes. Rules: DESIGN.md, Side panel and Files. */
+.side-panel {
+  position: relative;
+  flex: 0 0 300px;
+  min-width: 0;
+  border-left: 1px solid var(--line);
+  background: var(--panel);
+}
+
+/* A 9px grab area centered on the 1px left border, as a divider's. */
+.side-panel-edge {
+  position: absolute;
+  inset: 0 auto 0 -5px;
+  width: 9px;
+  z-index: 1;
+  cursor: col-resize;
+}
+
+.side-panel-edge::after {
+  content: "";
+  position: absolute;
+  inset: 0 4px;
+}
+
+.side-panel-edge:hover::after,
+.side-panel-edge:active::after {
+  background: var(--line-strong);
+}

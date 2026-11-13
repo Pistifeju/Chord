@@ -216,6 +216,10 @@ button:focus-visible {
   outline: none;
 }
 
+.input::placeholder {
+  color: var(--ink-muted);
+}
+
 .field {
   display: flex;
   flex-direction: column;

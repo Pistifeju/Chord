@@ -126,9 +126,34 @@
   margin: 0 8px 0 5px;
 }
 
+.panes-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Stays at the bar's right end while the tabs scroll. */
+.tabbar .tabbar-files {
+  position: sticky;
+  right: 0;
+  margin: 0 8px 0 auto;
+  background: var(--panel);
+}
+
+.tabbar .tabbar-files:hover {
+  background: var(--raised);
+}
+
+.tabbar .tabbar-files[aria-pressed="true"],
+.tabbar .tabbar-files:active {
+  background: var(--selected);
+  color: var(--ink);
+}
+
 .pane-layout {
   display: flex;
   flex: 1;
+  min-width: 0;
   min-height: 0;
 }
 

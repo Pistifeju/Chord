@@ -9,8 +9,10 @@ import type { Status } from "../../ipc/bindings";
 import { statusLabel, urgentReport } from "../status/status";
 import { StatusMark } from "../status/StatusMark";
 import { finished } from "../status/store";
+import { SidePanel } from "../sidepanel/SidePanel";
+import { sidePanelOf, sidePanels, toggleSidePanel } from "../sidepanel/store";
 import { sidebar } from "../sidebar/store";
-import { ChatIcon, CloseIcon, PlusIcon } from "../../ui/icons";
+import { ChatIcon, CloseIcon, PlusIcon, SidePanelIcon } from "../../ui/icons";
 import { dropEdge, dropPreview, paneIds, resizedSizes, type Box, type Edge } from "./layout";
 import { activeSession, tabName } from "./sessions";
 import { closePane, closeSession, dropSession, endResize, ensurePanes, evenOutSplit, focusPane, newSession, panes, resizeSplit, selectSession } from "./store";
@@ -51,6 +53,7 @@ function SessionTabs({ worktree }: { worktree: string }) {
   const [drop, setDrop] = useState<Drop | null>(null);
   const dropRef = useRef<Drop | null>(null);
   const bar = useRef<HTMLDivElement>(null);
+  const filesShown = sidePanelOf(sidePanels.use(), worktree).open;
   useEffect(() => {
     bar.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [current?.active]);
@@ -125,6 +128,16 @@ function SessionTabs({ worktree }: { worktree: string }) {
       })}
       <button type="button" className="icon-button" title={tooltip("session.new")} aria-label="New Session" onClick={() => newSession(worktree)}>
         <PlusIcon />
+      </button>
+      <button
+        type="button"
+        className="icon-button tabbar-files"
+        title={tooltip("files.toggle")}
+        aria-label="Show or Hide Files"
+        aria-pressed={filesShown}
+        onClick={() => toggleSidePanel(worktree)}
+      >
+        <SidePanelIcon />
       </button>
       {drop && <div className="drop-edge" style={drop.box} />}
     </div>
@@ -227,8 +240,11 @@ export function PaneArea({ worktree }: { worktree: string }) {
   return (
     <div className="panes">
       <SessionTabs worktree={worktree} />
-      <div className="pane-layout">
-        <LayoutView key={session.id} layout={session.layout} path={[]} place={{ worktree, session: session.id, focused: session.focused, split: session.layout.kind === "split" }} />
+      <div className="panes-body">
+        <div className="pane-layout">
+          <LayoutView key={session.id} layout={session.layout} path={[]} place={{ worktree, session: session.id, focused: session.focused, split: session.layout.kind === "split" }} />
+        </div>
+        <SidePanel worktree={worktree} />
       </div>
     </div>
   );

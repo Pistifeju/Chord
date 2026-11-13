@@ -287,7 +287,7 @@ Popover and sheet shadows include a 1px ring: black at 8% in light, white at 10%
 ### Motion
 
 - A sheet fades in and rises 8px from 98% scale over 200ms; its backdrop blur fades in with it. A sheet closes at once. The toast drops 8px into place over 200ms. Both use `--ease-out`.
-- The project chevron and a step group's chevron turn in 120ms.
+- The project chevron, a step group's chevron and a Files folder's chevron turn in 120ms.
 - In the chat, a message, a step row, the Working row, the find bar and the notice fade in and rise 4px over 200ms with `--ease-out` when they arrive. A chat that opens with history shows it still.
 - A worktree card's status fades in and rises 4px over 200ms with `--ease-out` when it changes.
 - The send button changes color over 120ms and presses to 97% scale.
@@ -317,7 +317,7 @@ No pills. A circle appears only as the spinner, the status dot and orbit, the se
 
 ### Inputs
 
-- **Field** (`.input`): 30px tall, `canvas` fill, 1px `line-strong` border. The label sits above at 12px/500; the hint sits below at 12px muted and reserves its line so the sheet keeps its height. A hint that holds an error (a branch git refuses, a failed create) takes `danger`.
+- **Field** (`.input`): 30px tall, `canvas` fill, 1px `line-strong` border, `ink-muted` placeholder. The label sits above at 12px/500; the hint sits below at 12px muted and reserves its line so the sheet keeps its height. A hint that holds an error (a branch git refuses, a failed create) takes `danger`.
 - **Focus:** no visual change. The caret shows where you type. No outline, no blue border, no halo.
 - **Segmented control** (`.segmented`): a `raised` track with 2px padding. The selected segment is a `control-selected` chip with the control shadow.
 - **Shortcut recorder:** a secondary button that shows the shortcut, or "None" in muted ink. While recording it gets a `canvas` fill, a 1px `accent-ink` inset border and a 3px `accent-wash` halo, and reads "Press keys".
@@ -354,6 +354,13 @@ The status roles keep the app's values, so a card shows a status in the same col
 - **Focused pane:** with the session split, the focused pane shows a 28×3px `accent` bar, fully rounded, centered 6px below its top edge. On a focus change the old bar shrinks out and the new one grows from its center while fading in, over 200ms with `--ease-out`; with reduced motion it only fades. A single pane shows none.
 - **Divider:** a 1px `line` rule between panes with a 9px grab area. Hover and drag step it to `line-strong`. Double-click evens the split out. A pane keeps 10% at least.
 - **Pane close:** in a split, each pane has an 18px close button 8px from its top-right corner, with a 14px X, smaller than the tab's. `ink-muted` at rest; hover takes `raised` and `ink`. Its tooltip shows the Close Pane shortcut.
+
+### Side panel and Files
+
+- **Side panel:** one column right of the panes, under the tab bar, 300px wide by default, on `panel` with a 1px `line` left edge. Dragging the left edge resizes it between 200px and 640px; the edge has a divider's 9px grab area centered on the border and takes `line-strong` on hover and drag. Open state and width are saved per worktree. It shows one view at a time. The tab bar's right end holds the view's icon button (a window with its right column marked, the mirror of the sidebar button, tooltip "Show or Hide Files (⌘⇧E)"), which stays in place while the tabs scroll and takes `selected` while its view shows.
+- **Files header:** 8px padding (18px on the left), the worktree folder's name at Label weight in `ink` that truncates and holds the full path as its tooltip, then Collapse All (two chevrons pointing in at each other, disabled while no folder is open) and Reload icon buttons 4px apart.
+- **Files filter:** a Field (placeholder "Filter") under the header with 8px side padding, a 16px `ink-muted` filter icon 10px inside its left edge and the text 32px in.
+- **Tree:** rows are 26px, Control radius, `ink-secondary` text, 16px more indent per level, a 12px `ink-muted` chevron (turns like a step group's; a file keeps its space and shows none), then a 16px `ink-muted` folder or file icon (`ink-secondary` on the selected row), 4px apart, then the name truncating. Hover takes `raised`, pressed takes `selected`; the selected file takes `selected` and `ink`. A folder chain reads as one row (`src/app/views`). The focus ring sits inside the row. A filter with no match reads "No matches" in meta text.
 
 ### Status bar
 

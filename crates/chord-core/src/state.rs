@@ -27,6 +27,8 @@ pub struct State {
     pub selected: Option<PathBuf>,
     /// Each worktree's session tabs and split layouts.
     pub panes: BTreeMap<PathBuf, WorktreePanes>,
+    /// Each worktree's side panel: open or not, and its width.
+    pub side_panels: BTreeMap<PathBuf, SidePanel>,
     /// The panes whose agent was started and not stopped; they start again on launch.
     pub running_panes: BTreeSet<String>,
     /// The session file each pane's agent last held; a pane without one opens a file of its own.
@@ -47,6 +49,10 @@ pub enum StateChange {
         worktree: PathBuf,
         panes: Option<WorktreePanes>,
     },
+    SidePanel {
+        worktree: PathBuf,
+        panel: SidePanel,
+    },
 }
 
 impl State {
@@ -57,6 +63,9 @@ impl State {
             StateChange::Theme(theme) => self.appearance.theme = theme,
             StateChange::TextPercent(percent) => self.appearance.set_text_percent(percent),
             StateChange::Shortcuts(shortcuts) => self.shortcuts = shortcuts,
+            StateChange::SidePanel { worktree, panel } => {
+                self.side_panels.insert(worktree, panel);
+            }
             StateChange::Panes { worktree, panes } => match panes {
                 Some(panes) => {
                     self.panes.insert(worktree, panes);
@@ -65,6 +74,23 @@ impl State {
                     self.panes.remove(&worktree);
                 }
             },
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Type, Clone, Debug, PartialEq)]
+#[serde(default, rename_all = "camelCase")]
+pub struct SidePanel {
+    pub open: bool,
+    /// In pixels.
+    pub width: u16,
+}
+
+impl Default for SidePanel {
+    fn default() -> Self {
+        SidePanel {
+            open: false,
+            width: 300,
         }
     }
 }
