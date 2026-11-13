@@ -119,6 +119,16 @@ test("a dialog stays open until the agent goes on", () => {
   assert.equal(chat.dialog, null);
 });
 
+test("a picker menu stays open while the agent works, until it exits", () => {
+  const ask = { kind: "menu", options: ["a", "b"], current: "a", filter: false } as const;
+  let chat = chatAfter(emptyChat, { kind: "dialog", id: "m1", title: "Model", ask }, 0);
+  chat = chatAfter(chat, { kind: "message_chunk", text: "hi" }, 0);
+  chat = chatAfter(chat, { kind: "tool_start", id: "t", title: "Read", detail: "a" }, 0);
+  assert.equal(chat.dialog?.id, "m1");
+  chat = chatAfter(chat, { kind: "exited", code: 0 }, 0);
+  assert.equal(chat.dialog, null);
+});
+
 test("a history start empties the transcript and the status, then the saved messages fill it", () => {
   let chat = chatAfter(emptyChat, { kind: "user_message_chunk", text: "Old", images: [] }, 0);
   chat = chatAfter(chat, { kind: "status", status: { kind: "done" }, last_message: "Old reply" }, 5);

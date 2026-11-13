@@ -145,7 +145,9 @@ const movesOn = (event: HarnessEvent): boolean =>
 /** `now` is the event's arrival time in ms since the epoch; it stamps when a run starts and when the status changes. */
 export function chatAfter(chat: Chat, event: HarnessEvent, now: number): Chat {
   const next = applied(chat, event, now);
-  return next.dialog && movesOn(event) ? { ...next, dialog: null } : next;
+  // A picker menu the user opened waits for the user, not for the run.
+  const keeps = next.dialog?.ask.kind === "menu" && event.kind !== "exited";
+  return next.dialog && !keeps && movesOn(event) ? { ...next, dialog: null } : next;
 }
 
 /** The history events held until the replay ends, or null while events apply one by one. */
