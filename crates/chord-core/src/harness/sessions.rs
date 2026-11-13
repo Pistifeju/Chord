@@ -131,7 +131,7 @@ impl Sessions {
         self.awake.set_enabled(enabled)
     }
 
-    /// Returns once every agent in the worktree has ended, so git can remove its directory. Its saved panes stay, in case git refuses.
+    /// Returns once every agent in the worktree has ended, so git can remove its directory. Its layouts stay in case git refuses, and each chat hears its agent exit.
     pub fn stop(&self, worktree: &Path) {
         let mut stopped = Vec::new();
         {
@@ -146,7 +146,9 @@ impl Sessions {
                 self.awake.set_working(pane, false);
             }
         }
-        drop(stopped);
+        stopped
+            .into_iter()
+            .for_each(|(_, session)| session.end_reported());
     }
 
     /// The worktree is gone: its layouts and running flags go with it. Its session files stay for `/resume`.

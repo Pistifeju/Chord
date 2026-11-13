@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 use specta::Type;
 
-use crate::{Error, git, harness::sessions::Sessions, projects::Project};
+use crate::{Error, Terminals, git, harness::sessions::Sessions, projects::Project};
 
 #[derive(Serialize, Type, Clone, Debug, PartialEq)]
 pub struct Worktree {
@@ -216,10 +216,29 @@ pub struct KeptBranch {
 /// Stops the worktree's agents, removes the worktree, forgets its panes and deletes its branch when it is merged.
 pub fn remove(
     sessions: &Sessions,
+    terminals: &Terminals,
     project: &Project,
     path: &Path,
     force: bool,
 ) -> Result<Removal, Error> {
+    // Git's own check for a dirty worktree, asked before the agents stop, so a refusal the user cancels leaves them running.
+    if !force {
+        let status = git::run(
+            path,
+            &[
+                "--no-optional-locks",
+                "status",
+                "--porcelain",
+                "--ignore-submodules=none",
+            ],
+        )?;
+        if !status.trim().is_empty() {
+            return Ok(Removal::NeedsForce {
+                reason: format!("{} contains modified or untracked files", path.display()),
+            });
+        }
+    }
+    terminals.stop(path);
     sessions.stop(path);
     // git lists real paths, so a path through a symlink must resolve before it is compared.
     let real = path.canonicalize()?;
@@ -372,8 +391,20 @@ mod tests {
             std::sync::Arc::new(crate::Store::open(root.join("state.json"))?),
             root.join("sessions"),
         );
-        let merged_removal = remove(&sessions, &project, &made.path, false)?;
-        let unmerged_removal = remove(&sessions, &project, &unmerged.path, false)?;
+        let merged_removal = remove(
+            &sessions,
+            &Terminals::default(),
+            &project,
+            &made.path,
+            false,
+        )?;
+        let unmerged_removal = remove(
+            &sessions,
+            &Terminals::default(),
+            &project,
+            &unmerged.path,
+            false,
+        )?;
 
         assert_eq!(merged_removal, Removal::Removed { kept_branch: None });
         assert_eq!(
@@ -387,7 +418,7 @@ mod tests {
         );
         assert!(!made.path.exists());
         assert!(matches!(
-            remove(&sessions, &project, &repo, false),
+            remove(&sessions, &Terminals::default(), &project, &repo, false),
             Err(Error::Message(_))
         ));
         assert!(

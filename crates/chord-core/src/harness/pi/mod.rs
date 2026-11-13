@@ -104,6 +104,8 @@ pub struct Session {
     stdin: Arc<Mutex<ChildStdin>>,
     stopped: Arc<AtomicBool>,
     running: Arc<AtomicBool>,
+    /// Set when the pane stays, so its chat hears the end as an exit.
+    reports_end: bool,
 }
 
 /// The file that holds a pane's pi session, so the pane's agent can open the same session again.
@@ -210,6 +212,7 @@ impl Session {
             stdin,
             stopped,
             running,
+            reports_end: false,
         };
         // Without the list the slash menu stays hidden; the agent works without it.
         let _ = session.write(&json!({ "type": "get_commands" }));
@@ -284,6 +287,11 @@ impl Session {
     fn write(&self, command: &Value) -> Result<(), Error> {
         write_to(&self.stdin, command)
     }
+
+    /// Ends the agent and reports it as exited, for a pane that stays.
+    pub fn end_reported(mut self) {
+        self.reports_end = true;
+    }
 }
 
 fn write_to(stdin: &Mutex<ChildStdin>, command: &Value) -> Result<(), Error> {
@@ -295,7 +303,9 @@ fn write_to(stdin: &Mutex<ChildStdin>, command: &Value) -> Result<(), Error> {
 
 impl Drop for Session {
     fn drop(&mut self) {
-        self.stopped.store(true, Ordering::SeqCst);
+        if !self.reports_end {
+            self.stopped.store(true, Ordering::SeqCst);
+        }
         let mut child = self.child.lock().unwrap_or_else(PoisonError::into_inner);
         let _ = child.kill();
         let _ = child.wait();

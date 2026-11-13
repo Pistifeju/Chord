@@ -40,7 +40,14 @@ pub async fn add_project(app: AppHandle, folder: PathBuf) -> Result<Project, Str
 #[tauri::command]
 #[specta::specta]
 pub async fn remove_project(app: AppHandle, project: PathBuf) -> Result<(), String> {
-    blocking(app, move |_, store| projects::remove(store, &project)).await
+    blocking(app, move |app, store| {
+        // The frontend stops the agents; the shells are Rust's to end.
+        for worktree in worktrees::list(&project).unwrap_or_default() {
+            app.state::<Terminals>().stop(&worktree.path);
+        }
+        projects::remove(store, &project)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -87,9 +94,9 @@ pub async fn remove_worktree(
     force: bool,
 ) -> Result<Removal, String> {
     blocking(app, move |app, store| {
-        app.state::<Terminals>().stop(&worktree);
         worktrees::remove(
             &app.state::<Sessions>(),
+            &app.state::<Terminals>(),
             &projects::find(store, &project)?,
             &worktree,
             force,
