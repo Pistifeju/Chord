@@ -330,6 +330,52 @@ fn export_passes_the_path_it_was_given() {
 }
 
 #[test]
+fn compact_passes_what_to_keep() {
+    assert_eq!(
+        session_command("/compact", &[]),
+        Some(json!({ "type": "compact" }))
+    );
+    assert_eq!(
+        session_command("/compact keep the login fix", &[]),
+        Some(json!({ "type": "compact", "customInstructions": "keep the login fix" }))
+    );
+}
+
+#[test]
+fn only_a_manual_compaction_is_a_run() {
+    assert_eq!(
+        events(r#"{"type":"compaction_start","reason":"manual"}"#),
+        vec![HarnessEvent::State { running: true }]
+    );
+    assert_eq!(
+        events(r#"{"type":"compaction_end","reason":"manual","aborted":false,"willRetry":false}"#),
+        vec![HarnessEvent::State { running: false }]
+    );
+    assert_eq!(
+        events(
+            r#"{"type":"compaction_end","reason":"threshold","aborted":false,"willRetry":false}"#
+        ),
+        vec![]
+    );
+}
+
+#[test]
+fn a_saved_compaction_comes_back_as_its_summary() {
+    let record = r#"{"type":"response","command":"get_messages","success":true,"data":{"messages":[{"role":"compactionSummary","summary":"Fixed the login.","tokensBefore":150000,"timestamp":1}]}}"#;
+    assert_eq!(
+        events(record),
+        vec![
+            HarnessEvent::HistoryStart,
+            HarnessEvent::Compaction {
+                summary: "Fixed the login.".into(),
+                tokens_before: Some(150000)
+            },
+            HarnessEvent::HistoryEnd,
+        ]
+    );
+}
+
+#[test]
 fn resume_leaves_out_the_sessions_other_panes_hold() {
     assert_eq!(
         session_command("/resume", &["sessions/b.jsonl".to_string()]),

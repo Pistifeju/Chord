@@ -186,6 +186,11 @@ pub enum HarnessEvent {
     },
     /// Text of the reply that is streaming now.
     MessageChunk { text: String },
+    /// The agent replaced the session's earlier messages with this summary to free the context; `tokens_before` is how many tokens they filled, when the agent says.
+    Compaction {
+        summary: String,
+        tokens_before: Option<u32>,
+    },
     /// The agent began a new block of reasoning.
     ThoughtStart,
     /// Text of the reasoning block that is streaming now.

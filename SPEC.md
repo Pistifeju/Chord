@@ -100,6 +100,7 @@ Edge cases:
 - [x] E7 harness(commands): slash menu with the typed part marked; a bubble shows `/skill:name`, not the expanded skill.
 - [x] E8 **hard** harness(sessions): resume, fork, clone, tree, export, new; the session's name on its tab; history on restart.
 - [x] E16 harness(sessions): `/reload` reloads extensions, skills, prompts and context files in the running agent, without a restart; the slash menu reads the commands again.
+- [x] E19 harness(sessions): `/compact` in the slash menu summarizes the session to free the context; text after it says what the summary keeps. The chat shows Working while it runs, Esc stops it, and the transcript then holds what the agent still sees: a folded row with the summary, then the newest messages.
 - [x] E9 harness(models): model picker with search; thinking level picker.
 - [x] E10 harness(context): context meter with a limit warning; `/new` resets it.
 - [x] E11 harness(usage): subscription usage (5h, weekly) in the status bar as a bar, the percentage and the time left to the reset; stale windows hidden. The windows come from the pi-powerbar extension; without it the bar shows no usage.
@@ -212,7 +213,7 @@ A tag with a capability is a `Capability` variant: the UI hides the feature when
 | tool-images | E5 | event: images in `tool_end` | RPC |
 | dialogs | E6 | event: `dialog` | RPC extension UI requests |
 | commands | E7 | event: `commands` | RPC |
-| sessions | E8, E16, C5 | event: `session_info`; the session commands come in `commands` | RPC plus three commands from the extension Chord ships |
+| sessions | E8, E16, E19, C5 | event: `session_info`; the session commands come in `commands` | RPC plus three commands from the extension Chord ships |
 | models | E9 | capability `models` | RPC |
 | context | E10 | capability `context` | RPC |
 | usage | E11 | event: `usage` | a pi extension that reports it |

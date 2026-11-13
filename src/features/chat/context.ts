@@ -20,3 +20,6 @@ export function contextMeter({ capabilities, context }: Chat): ContextMeter | nu
   const level = contextLevel(percent);
   return { percent, level, title: `Context: ${tokenLabel(context.tokens)} of ${tokenLabel(context.window)} tokens${level === "critical" ? ", nearly full" : ""}` };
 }
+
+/** The folded line of a compaction in the transcript. */
+export const compactionLabel = (tokensBefore: number | null): string => (tokensBefore === null ? "Compacted the context" : `Compacted ${tokenLabel(tokensBefore)} tokens`);

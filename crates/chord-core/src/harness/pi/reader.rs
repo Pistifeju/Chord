@@ -207,7 +207,8 @@ fn read_line(line: &[u8], shown: &mut ShownSession) -> Read {
 fn requests_after(record: &Value) -> Vec<Value> {
     let changed = record["success"] == true && record["data"]["cancelled"] != true;
     match (record["type"].as_str(), record["command"].as_str()) {
-        (Some("response"), Some("new_session" | "fork" | "clone")) if changed => {
+        // A compaction leaves only the summary and the newest messages in the session.
+        (Some("response"), Some("new_session" | "fork" | "clone" | "compact")) if changed => {
             session_requests().into()
         }
         // A reload can add or drop commands, so the slash menu is read again too.

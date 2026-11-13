@@ -16,25 +16,21 @@ pub(super) fn prompt_command(text: &str, images: &[Image]) -> Value {
 // The RPC command a session command runs; resume and tree need a pick pi's RPC has no list for, so the extension runs them.
 pub(super) fn session_command(text: &str, held_elsewhere: &[String]) -> Option<Value> {
     let extension = |name: &str| json!({ "id": SESSION_PROMPT, "type": "prompt", "message": format!("/{EXTENSION_PREFIX}{name}") });
-    // `/export` takes an optional output path; pi picks the file without one.
-    if let Some(path) = text
-        .strip_prefix("/export")
-        .filter(|_| command_name(text) == "/export")
-    {
-        return Some(match path.trim() {
-            "" => json!({ "type": "export_html" }),
-            path => json!({ "type": "export_html", "outputPath": path }),
-        });
-    }
-    Some(match text {
-        "/new" => json!({ "type": "new_session" }),
-        "/resume" => extension(&format!("resume {}", json!(held_elsewhere))),
-        "/model" => json!({ "type": "get_available_models" }),
-        "/thinking" => json!({ "type": "get_available_thinking_levels" }),
-        "/fork" => json!({ "type": "get_fork_messages" }),
-        "/clone" => json!({ "type": "clone" }),
-        "/tree" => extension("tree"),
-        "/reload" => extension("reload"),
+    let name = command_name(text);
+    // `/export` takes an optional output path and `/compact` optional instructions for the summary; the others take nothing.
+    Some(match (name, text[name.len()..].trim()) {
+        ("/export", "") => json!({ "type": "export_html" }),
+        ("/export", path) => json!({ "type": "export_html", "outputPath": path }),
+        ("/compact", "") => json!({ "type": "compact" }),
+        ("/compact", focus) => json!({ "type": "compact", "customInstructions": focus }),
+        ("/new", "") => json!({ "type": "new_session" }),
+        ("/resume", "") => extension(&format!("resume {}", json!(held_elsewhere))),
+        ("/model", "") => json!({ "type": "get_available_models" }),
+        ("/thinking", "") => json!({ "type": "get_available_thinking_levels" }),
+        ("/fork", "") => json!({ "type": "get_fork_messages" }),
+        ("/clone", "") => json!({ "type": "clone" }),
+        ("/tree", "") => extension("tree"),
+        ("/reload", "") => extension("reload"),
         _ => return None,
     })
 }

@@ -132,6 +132,13 @@ pub(super) fn events_from(record: &Value) -> Vec<HarnessEvent> {
             ]
         }
         Some("agent_settled") => vec![HarnessEvent::State { running: false }],
+        // A `/compact` runs outside an agent run, so its start and end are the run; an automatic one happens inside a run.
+        Some("compaction_start") if record["reason"] == "manual" => {
+            vec![HarnessEvent::State { running: true }]
+        }
+        Some("compaction_end") if record["reason"] == "manual" => {
+            vec![HarnessEvent::State { running: false }]
+        }
         Some("message_update") => message_update(&record["assistantMessageEvent"]),
         Some("tool_execution_start") => {
             vec![tool_start(
@@ -280,6 +287,10 @@ fn saved_message(message: &Value) -> Vec<HarnessEvent> {
             images: images_of(&message["content"]),
             ms: None,
             changes: edit_changes(message["toolName"].as_str(), &message["details"]),
+        }],
+        Some("compactionSummary") => vec![HarnessEvent::Compaction {
+            summary: message["summary"].as_str().unwrap_or_default().into(),
+            tokens_before: count(&message["tokensBefore"]),
         }],
         _ => vec![],
     }

@@ -154,6 +154,8 @@ export type HarnessEvent_Deserialize =
 { kind: "user_message_chunk"; text: string; images: Image[]; at?: number | null } | 
 /**  Text of the reply that is streaming now. */
 { kind: "message_chunk"; text: string } | 
+/**  The agent replaced the session's earlier messages with this summary to free the context; `tokens_before` is how many tokens they filled, when the agent says. */
+{ kind: "compaction"; summary: string; tokens_before?: number | null } | 
 /**  The agent began a new block of reasoning. */
 { kind: "thought_start" } | 
 /**  Text of the reasoning block that is streaming now. */
@@ -204,6 +206,8 @@ export type HarnessEvent_Serialize =
 { kind: "user_message_chunk"; text: string; images: Image[]; at: number | null } | 
 /**  Text of the reply that is streaming now. */
 { kind: "message_chunk"; text: string } | 
+/**  The agent replaced the session's earlier messages with this summary to free the context; `tokens_before` is how many tokens they filled, when the agent says. */
+{ kind: "compaction"; summary: string; tokens_before: number | null } | 
 /**  The agent began a new block of reasoning. */
 { kind: "thought_start" } | 
 /**  Text of the reasoning block that is streaming now. */

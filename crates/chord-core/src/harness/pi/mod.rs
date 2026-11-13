@@ -80,7 +80,7 @@ impl Picker {
 }
 
 /// What pi offers after a slash in its own terminal and RPC does not list: each name and its description.
-const SESSION_COMMANDS: [(&str, &str); 9] = [
+const SESSION_COMMANDS: [(&str, &str); 10] = [
     ("model", "Pick the model"),
     ("thinking", "Pick the thinking level"),
     ("new", "Start a new session"),
@@ -91,6 +91,10 @@ const SESSION_COMMANDS: [(&str, &str); 9] = [
     (
         "reload",
         "Reload extensions, skills, prompts and context files",
+    ),
+    (
+        "compact",
+        "Summarize the session to free the context, optionally with what to keep",
     ),
     (
         "export",

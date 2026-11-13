@@ -7,7 +7,7 @@ import { elementAtDrop } from "../../ui/dropPoint";
 import { ArrowDownIcon, ArrowUpIcon, ChevronIcon, CloseIcon, ImageIcon, PaperclipIcon } from "../../ui/icons";
 import { imageMime, imageUrl, isImageType, type Attachment } from "./attachments";
 import { DialogMenu, DialogPanel } from "./DialogPanel";
-import { contextMeter } from "./context";
+import { compactionLabel, contextMeter } from "./context";
 import { useClock } from "./clock";
 import { elapsedText } from "./elapsed";
 import { modelLabels } from "./model";
@@ -24,7 +24,7 @@ import { isTicking, subagentLine, subagentSummary } from "./subagents";
 import { completion, slashMenu, slashQuery } from "./slash";
 import { closeLightbox, lightboxes, openLightbox, stepLightbox } from "./viewing";
 import { answerDialog, attachFiles, attachments, attachPasted, chatOf, chats, closeSlash, drafts, openPicker, pathDropPane, pickAttachments, removeAttachment, sendMessage, setDraft, slashClosed, startChat } from "./store";
-import { callTime, isStreaming, shownSteps, stepImages, stepsChanges, stepsSummary, stepsTime, type Item, type Message, type StepGroup } from "./transcript";
+import { callTime, isStreaming, shownSteps, stepImages, stepsChanges, stepsSummary, stepsTime, type CompactionMark, type Item, type Message, type StepGroup } from "./transcript";
 import "./chat.css";
 
 function SubagentLine({ mark, text }: { mark: SubagentNode["state"]; text: string }) {
@@ -156,6 +156,27 @@ const StepsRow = memo(function StepsRow({ pane, group, running, fresh }: { pane:
   );
 });
 
+const CompactionRow = memo(function CompactionRow({ mark, fresh }: { mark: CompactionMark; fresh: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="chat-steps" data-fresh={fresh || undefined}>
+      <div className="chat-steps-head">
+        <button type="button" className="chat-steps-toggle" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
+          <span className="turn-chevron" data-open={expanded}>
+            <ChevronIcon />
+          </span>
+          <span className="chat-steps-summary">{compactionLabel(mark.tokensBefore)}</span>
+        </button>
+      </div>
+      {expanded && (
+        <div className="chat-compaction-summary">
+          <Markdown text={mark.summary} />
+        </div>
+      )}
+    </div>
+  );
+});
+
 // A streaming reply renders nothing, so its chunks leave the rows as they are.
 type Rows = { items: Item[]; running: boolean; queued: string[]; subagents: SubagentNode[]; /** How many items are the session's history. */ historyLength: number };
 const sameItems = (a: Item[], b: Item[]) => a.length === b.length && a.every((item, i) => item === b[i] || (isStreaming(item) && isStreaming(b[i])));
@@ -174,6 +195,8 @@ const Messages = memo(function Messages({ pane, items, running, queued, subagent
       {items.map((item, i) =>
         item.role === "steps" ? (
           <StepsRow key={i} pane={pane} group={item} running={running && i === items.length - 1} fresh={i >= still} />
+        ) : item.role === "compaction" ? (
+          <CompactionRow key={i} mark={item} fresh={i >= still} />
         ) : item.role === "stopped" ? (
           <div key={i} className="chat-stopped" data-fresh={i >= still || undefined}>
             Stopped

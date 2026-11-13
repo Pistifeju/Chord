@@ -220,6 +220,12 @@
   min-width: 0;
 }
 
+.chat-compaction-summary {
+  padding-left: 18px;
+  font-size: calc(14px * var(--text-scale));
+  color: var(--ink-secondary);
+}
+
 .chat-steps > .chat-thumbs {
   margin-top: 4px;
   padding-left: 18px;

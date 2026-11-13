@@ -15,7 +15,10 @@ export type StepGroup = { role: "steps"; steps: Step[] };
 /** Marks where the user stopped a run. */
 type StopMark = { role: "stopped" };
 
-export type Item = Message | StepGroup | StopMark;
+/** Where the agent replaced the earlier messages with a summary to free the context. */
+export type CompactionMark = { role: "compaction"; summary: string; /** How many tokens the replaced messages filled, when the agent says. */ tokensBefore: number | null };
+
+export type Item = Message | StepGroup | StopMark | CompactionMark;
 
 /** A dialog the agent waits on; `id` goes back with the answer. */
 export type OpenDialog = { id: string; title: string; ask: DialogAsk };
@@ -56,9 +59,9 @@ export type Chat = {
 
 export const emptyChat: Chat = { agent: "idle", items: [], running: false, since: null, capabilities: null, notice: null, dialog: null, model: null, context: null, commands: [], subagents: [], queued: [], report: null, historyLength: 0 };
 
-export const isStreaming = (item: Item) => item.role !== "steps" && item.role !== "stopped" && item.streaming;
+export const isStreaming = (item: Item) => "streaming" in item && item.streaming;
 
-const closed = (items: Item[]): Item[] => items.map((item) => (item.role !== "steps" && item.role !== "stopped" && item.streaming ? { ...item, streaming: false } : item));
+const closed = (items: Item[]): Item[] => items.map((item) => ("streaming" in item && item.streaming ? { ...item, streaming: false } : item));
 
 // One copy of the list instead of the two a spread of a slice makes; it runs on every chunk.
 const withLast = <T,>(list: T[], last: T): T[] => {
@@ -222,6 +225,8 @@ function applied(chat: Chat, event: HarnessEvent, now: number): Chat {
       };
     case "aborted":
       return { ...chat, items: [...chat.items, { role: "stopped" }] };
+    case "compaction":
+      return { ...chat, items: [...closed(chat.items), { role: "compaction", summary: event.summary, tokensBefore: event.tokens_before ?? null }] };
     case "status":
       return { ...chat, report: stampedReport(chat.report, { status: event.status, lastMessage: event.last_message, since: now }, now) };
     case "notice":
