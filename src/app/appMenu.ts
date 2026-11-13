@@ -2,11 +2,12 @@
 import { Menu, MenuItem, PredefinedMenuItem, type Submenu } from "@tauri-apps/api/menu";
 import { requestQuit } from "../features/quit/store";
 import { openSettings } from "../features/settings/store";
+import { launched } from "./launch";
 
 export async function installAppMenu() {
   const menu = await Menu.default();
   const appMenu = (await menu.items())[0] as Submenu;
-  const settings = await MenuItem.new({ id: "settings", text: "Settings", action: openSettings });
+  const settings = await MenuItem.new({ id: "settings", text: "Settings", action: () => launched.get() && openSettings() });
   const separator = await PredefinedMenuItem.new({ item: "Separator" });
   await appMenu.insert([separator, settings], 1);
   // The predefined Quit ends the app without a request the window could answer.

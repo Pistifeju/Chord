@@ -9,6 +9,14 @@ const REFRESH_MS = 10_000;
 
 export const gitCounts = externalStore<Record<string, GitCounts>>({});
 
+// The first counts, read once at launch so the cards show with them; a failure is left to the watch to report.
+export async function loadGitCounts() {
+  const paths = worktreeOrder(projects.get());
+  if (paths.length === 0) return;
+  const fresh = await commands.readGitCounts(paths).catch(() => null);
+  if (fresh) gitCounts.set(nextCounts(gitCounts.get(), worktreeOrder(projects.get()), paths, fresh));
+}
+
 export function watchGitCounts(): () => void {
   let timer: number | undefined;
   let running = false;

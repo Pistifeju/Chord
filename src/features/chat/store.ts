@@ -41,8 +41,8 @@ export const slashClosed = externalStore<Record<string, string>>({});
 
 export const closeSlash = (pane: string, draft: string) => slashClosed.set({ ...slashClosed.get(), [pane]: draft });
 
-// Each pane's latest agent start and the history it replays; events of an older start are dropped.
-const intakes = new Map<string, { start: number; replay: Replay }>();
+// Each pane's latest agent start, the history it replays, and the call that ends its wait for that history; events of an older start are dropped.
+const intakes = new Map<string, { start: number; replay: Replay; loaded: () => void }>();
 let startCount = 0;
 
 const latest = (pane: string, start: number) => intakes.get(pane)?.start === start;
@@ -53,15 +53,19 @@ function received(pane: string, start: number, event: HarnessEvent) {
   if (event.kind === "draft") setDraft(pane, event.text);
   if (event.kind === "usage") usage.set(event.windows);
   if (event.kind === "exported") notify(`Exported to ${event.path}`);
+  if (event.kind === "history_end" || event.kind === "exited") intake.loaded();
   const fed = chatFed(chatOf(chats.get(), pane), intake.replay, event, Date.now());
   intake.replay = fed.replay;
   update(pane, () => fed.chat);
 }
 
+// Resolves once the agent's history has arrived, or the start failed.
 export async function startChat(worktree: string, pane: string) {
   if (chatOf(chats.get(), pane).agent !== "idle") return;
   const start = ++startCount;
-  intakes.set(pane, { start, replay: null });
+  let loaded = () => {};
+  const history = new Promise<void>((resolve) => (loaded = resolve));
+  intakes.set(pane, { start, replay: null, loaded });
   const channel = new Channel<HarnessEvent>();
   channel.onmessage = (event) => received(pane, start, event);
   update(pane, (chat) => ({ ...chat, agent: "starting", notice: null, report: null, commands: [] }));
@@ -70,7 +74,9 @@ export async function startChat(worktree: string, pane: string) {
     if (latest(pane, start)) update(pane, (chat) => (chat.agent === "starting" ? { ...chat, agent: "ready", capabilities } : chat));
   } catch (error) {
     if (latest(pane, start)) update(pane, (chat) => ({ ...chat, agent: "idle", notice: String(error) }));
+    loaded();
   }
+  return history;
 }
 
 // The images waiting in each pane's composer.
@@ -144,6 +150,7 @@ export function abortRun(pane: string) {
 
 // The pane is gone: its agent stops and its transcript and draft go.
 export function forgetChat(pane: string) {
+  intakes.get(pane)?.loaded();
   intakes.delete(pane);
   const { [pane]: gone, ...rest } = chats.get();
   chats.set(rest);

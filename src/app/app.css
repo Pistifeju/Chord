@@ -74,3 +74,8 @@
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
+
+.launch-spinner {
+  border-color: var(--ink-muted);
+  border-right-color: transparent;
+}

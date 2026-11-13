@@ -22,8 +22,11 @@ import { WarningToast } from "../ui/Toast";
 import { StatusBar } from "./StatusBar";
 import { runShortcut } from "./commands";
 import { sheet } from "./sheet";
-import { launch } from "./launch";
+import { launch, launched } from "./launch";
 import "./app.css";
+
+// A shortcut during launch would open a sheet the window does not show yet.
+const shortcutWhenLaunched = (e: KeyboardEvent) => launched.get() && runShortcut(e);
 
 export default function App() {
   const state = projects.use();
@@ -31,16 +34,17 @@ export default function App() {
   const { hidden } = sidebar.use();
   const settings = settingsOpen.use();
   const sheetOpen = sheet.use() !== null;
+  const ready = launched.use();
   useEffect(() => {
     launch().catch(console.error);
-    window.addEventListener("keydown", runShortcut);
+    window.addEventListener("keydown", shortcutWhenLaunched);
     const unwatch = watchGitCounts();
     const unwatchQuit = watchQuit();
     const unwatchFinished = watchFinished();
     const unwatchClicks = watchNotificationClicks();
     const unwatchShown = watchShownPanes();
     return () => {
-      window.removeEventListener("keydown", runShortcut);
+      window.removeEventListener("keydown", shortcutWhenLaunched);
       unwatch();
       unwatchQuit();
       unwatchFinished();
@@ -48,6 +52,13 @@ export default function App() {
       unwatchShown();
     };
   }, []);
+  if (!ready) {
+    return (
+      <div className="app">
+        <span className="spinner launch-spinner" role="status" aria-label="Loading" />
+      </div>
+    );
+  }
   return (
     <div className="app">
       {/* An open sheet or Settings keeps keyboard focus and clicks inside itself. */}
