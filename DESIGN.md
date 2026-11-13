@@ -181,7 +181,7 @@ The app keeps the platform conventions a Mac user expects: traffic lights on a t
 - Zinc neutrals, one blue accent, hairline borders; dark is pure black with a `#111` sidebar.
 - 8px controls, 16px cards, no pills.
 - The system font at 13px for chrome, 14px for the transcript, the composer and sidebar titles.
-- Worktree cards grouped under project names in the sidebar, two lines each; 44px rows in Settings.
+- Worktree cards grouped under project names in the sidebar, a two-line head and a row per session; 44px rows in Settings.
 - Light and dark use the same roles; the app follows the system by default.
 
 ## Colors
@@ -204,7 +204,7 @@ Every color, shadow and radius lives in `src/ui/tokens.css` as a CSS variable na
 - **Panel** (`panel`): the sidebar, code blocks, table headers, the Settings section list and cards.
 - **Raised** (`raised`): the open tab, hovered rows, tabs and icon buttons, the segmented track.
 - **Bubble** (`bubble`): the user's message.
-- **Selected** (`selected`): the open worktree's row and every pressed neutral control.
+- **Selected** (`selected`): the open worktree's card and every pressed neutral control.
 - **Sheet** (`sheet`): the composer, the slash and picker menus, inputs, secondary buttons, sheets, the toast, the drop label.
 - **Line** (`line`): the sidebar's edge and the rules between Settings rows, the border of a Settings group.
 - **Strong Line** (`line-strong`): the border of an input, the composer and a secondary button.
@@ -217,7 +217,7 @@ Every color, shadow and radius lives in `src/ui/tokens.css` as a CSS variable na
 
 - **Danger** (`danger`): text and icons only. The destructive button's label, the chat notice, a field hint that holds an error, the toast's warning icon.
 - **Success** (`success`): inline text only.
-- **Status** (`status-running`, `status-waiting`, `status-done`, `status-error`): blue, amber, green, red. Reserved for agent status marks, and the same in every place; the one other use is `status-waiting` on the context meter from 80% full. A status shows once, where you see the agent: the Working row in an open pane, a tab its group does not show, the session row of a worktree that is not open (or of the open one while Settings covers it). An exit takes `status-error`. The mark is one component (`StatusMark`): the orbit while the agent runs, otherwise an 8px dot. The orbit is 10px: two 4px dots circle a shared center seen edge-on, once per 1.4s; the near dot grows to 115%, the far one shrinks to 50% at 40% opacity. The words come from `statusLabel` and the notification uses them too: "Working", "Awaiting input", "Done", "Failed", "Exited".
+- **Status** (`status-running`, `status-waiting`, `status-done`, `status-error`): blue, amber, green, red. Reserved for agent status marks, and the same in every place; the one other use is `status-waiting` on the context meter from 80% full. A status shows once, where you see the agent: the Working row in an open pane, a tab its group does not show, every session row in the sidebar except a running one whose pane is on screen, where the Working row shows it. An exit takes `status-error`. The mark is one component (`StatusMark`): the orbit while the agent runs, otherwise an 8px dot. The orbit is 10px: two 4px dots circle a shared center seen edge-on, once per 1.4s; the near dot grows to 115%, the far one shrinks to 50% at 40% opacity. The words come from `statusLabel` and the notification uses them too: "Working", "Awaiting input", "Done", "Failed", "Exited".
 - **Git Changed** (`git-changed`): amber, the changed file count on a worktree card.
 - **Scrim** (`scrim`): the wash behind the window's drop target and the lightbox. A sheet blurs the window behind it (12px) instead.
 
@@ -294,14 +294,14 @@ Popover and sheet shadows include a 1px ring: black at 8% in light, white at 10%
 - In the chat, a message, a step row, the Working row, the find bar and the notice fade in and rise 4px over 200ms with `--ease-out` when they arrive. A chat that opens with history shows it still.
 - The slash menu and a composer picker menu fade in and rise 4px over 200ms with `--ease-out` when they open. An extension's dialog in place of the composer fades in over 120ms.
 - A message's copy button and time fade in, drop 3px and unblur from 2px over 200ms with `--ease-out` on hover. They leave the same way over 120ms after a 60ms delay.
-- A worktree card's status fades in and rises 4px over 200ms with `--ease-out` when it changes.
+- A session row's status fades in and rises 4px over 200ms with `--ease-out` when it changes.
 - The send button changes color over 120ms and presses to 97% scale.
 - The lightbox and its scrim animate like a sheet.
 - Under Reduce Motion the sheet, its backdrop, the lightbox, the chat drop card, scrim, toast and chevrons skip their animation, chat items, the slash and picker menus, the chat drop card's content, a message's copy button and time and a card's status only fade, the send button and the jump button do not move or scale, the jump scrolls instantly and spinners and the orbit run at a third of their speed.
 
 ## Shapes
 
-- **Controls** (8px, `--radius-control`): buttons, icon buttons, inputs, worktree cards, the segmented track, the toast.
+- **Controls** (8px, `--radius-control`): buttons, icon buttons, inputs, the segmented track, the toast.
 - **Cards** (16px, `--radius-card`): the composer, the user's message, sheets, the drop target.
 - **Inset** (6px, `--radius-inset`): a segment inside the segmented track, the close button inside a tab, the sidebar's worktree cards.
 
@@ -334,12 +334,12 @@ It uses the app's roles; `src/ui/tokens.css` overrides only `selected` inside `.
 - 264px, full window height, `panel` fill with a 1px `line` right edge. The header holds the "Workspaces" title (12px/500 `ink-muted`) and the add button.
 - **List:** one group per project, in project order, 14px apart, scrolling inside. A group is the project name (12px/500 `ink-muted`, 16px line, 10px left padding so it aligns with the card text, truncates; right-click opens New Worktree and Remove Project), then its worktree cards 2px apart. No folding.
 - **Shortcuts:** ⌘1 to ⌘9 follow the cards top to bottom.
-- **Worktree card:** 8px 10px padding, Inset radius, 2px between its lines, `ink-muted` meta text, two lines:
+- **Worktree card:** one Inset-radius card holds the worktree's head and its session rows. Only the head and the rows take clicks. The head has 8px 10px padding, 2px between its lines, `ink-muted` meta text, two lines:
   - **Title line** (20px): the branch at 14px `ink`, which truncates.
   - **Meta line** (16px, 12px meta): the git counts at 11px/500 tabular ("↑2 ↓1" in the meta color, then the changed files as "~33" in `git-changed`), and the shortcut hint at 11px `ink-disabled` at the right end (`ink-muted` on hover and when open); the line aligns on the text baseline, and counts and hint never shrink.
-- **Session rows:** under each card, one 26px row per chat tab of the worktree, in layout order, 22px left and 10px right padding, Inset radius, 8px between its name and its status slot. The name is the tab's name (see Tab bar and panes) at 13px `ink-muted`, which truncates. A click opens the worktree and that tab in its group, with the focus. Hover takes `raised` and `ink`; the open worktree's focused tab takes `ink` at 500. The status slot sits at the row's right end. The slot stays empty on the open worktree's rows, whose tabs show the status. Elsewhere it never shrinks, 11px/500 in the status color, the tooltip holds the pane's last message: the orbit and the run's age ("4m", none in the first minute) while its agent runs, an 8px dot and "Awaiting input", "Failed" or the exit; a finished session nobody opened shows a dot and "Done" in `status-done`. A session that is done and seen shows the time since that status began ("now", "5m", "3h", "2d") in 11px `ink-muted`, tabular.
+- **Session rows:** inside the card under the head, 4px bottom padding after the last, one 26px row per chat tab of the worktree, in layout order, 22px left and 10px right padding, Inset radius, 8px between its name and its status slot. The name is the tab's name (see Tab bar and panes) at 13px `ink-muted`, which truncates. A click opens the worktree and that tab in its group, with the focus. Hover only brightens the name to `ink` over 120ms, with no fill; the open worktree's focused tab takes `ink` at 500. The status slot sits at the row's right end, on every worktree's rows, open or not. It stays empty while the agent runs in a pane on screen, whose Working row shows the run. It never shrinks, 11px/500 in the status color, the tooltip holds the pane's last message: the orbit and the run's age ("4m", none in the first minute) while its agent runs, an 8px dot and "Awaiting input", "Failed" or the exit; a finished session nobody opened shows a dot and "Done" in `status-done`. A session that is done and seen shows the time since that status began ("now", "5m", "3h", "2d") in 11px `ink-muted`, tabular.
 - **Card menu:** right-click opens New Worktree (for its project), Delete Worktree (not on the main checkout) and Remove Project.
-- **States:** hover takes `raised` over 120ms, pressed takes `raised`. The open worktree takes the sidebar's `selected` and `selected-ring`, a 500 `ink` title and `ink-secondary` meta text. The focus ring sits inside the card, so it clears the cards above and below.
+- **States:** no hover or pressed fill on the head or the rows; hover on the head brings the shortcut hint to `ink-muted`. The open worktree's whole card, head and rows, takes the sidebar's `selected` and `selected-ring`, a 500 `ink` title and `ink-secondary` meta text. The focus ring sits inside the head or the row, so it clears its neighbors.
 
 ### Tab bar and panes
 
