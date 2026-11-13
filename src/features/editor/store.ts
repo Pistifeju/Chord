@@ -1,4 +1,4 @@
-// Connects the file tab rules to IPC: each worktree's open files, a file read when its tab shows, saved 1 s after the last edit and when the tab goes, unless the file changed on disk.
+// Connects the file tab rules to IPC: each worktree's open files, a file read when its tab shows and again when it changes on disk, saved 1 s after the last edit and when the tab goes, unless the file changed on disk.
 import type { Text } from "@codemirror/state";
 import { commands } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
@@ -28,7 +28,7 @@ export const showSessions = (worktree: string) => {
 };
 
 // The document is kept as is and turned into a string only when it saves, not on every keystroke.
-type Edit = { worktree: string; path: string; text: Text; timer: number };
+type Edit = { worktree: string; path: string; text: Text; lineBreak: string; timer: number };
 
 const edits = new Map<string, Edit>();
 // The last write of each file, so a read or the next write waits for it.
@@ -37,10 +37,10 @@ const writes = new Map<string, Promise<unknown>>();
 const onDisk = new Map<string, string>();
 const keyOf = (worktree: string, path: string) => `${worktree}\0${path}`;
 
-export function scheduleSave(worktree: string, path: string, text: Text) {
+export function scheduleSave(worktree: string, path: string, text: Text, lineBreak: string) {
   const key = keyOf(worktree, path);
   clearTimeout(edits.get(key)?.timer);
-  edits.set(key, { worktree, path, text, timer: window.setTimeout(() => flushSave(worktree, path), SAVE_DELAY) });
+  edits.set(key, { worktree, path, text, lineBreak, timer: window.setTimeout(() => flushSave(worktree, path), SAVE_DELAY) });
 }
 
 export function flushSave(worktree: string, path: string) {
@@ -49,7 +49,7 @@ export function flushSave(worktree: string, path: string) {
   if (!edit) return;
   clearTimeout(edit.timer);
   edits.delete(key);
-  const text = edit.text.toString();
+  const text = edit.text.sliceString(0, edit.text.length, edit.lineBreak);
   const write = (writes.get(key) ?? Promise.resolve())
     .then(() => commands.writeFile(worktree, path, onDisk.get(key) ?? "", text))
     .then(() => onDisk.set(key, text))
@@ -67,6 +67,18 @@ export async function readFile(worktree: string, path: string): Promise<string> 
   const key = keyOf(worktree, path);
   await writes.get(key);
   const text = await commands.readFile(worktree, path);
+  onDisk.set(key, text);
+  return text;
+}
+
+/** The file's text when it changed on disk since the editor last read or wrote it and holds no unsaved edit; null otherwise. */
+export async function changedOnDisk(worktree: string, path: string): Promise<string | null> {
+  const key = keyOf(worktree, path);
+  const write = writes.get(key);
+  if (edits.has(key)) return null;
+  await write;
+  const text = await commands.readFile(worktree, path);
+  if (edits.has(key) || writes.get(key) !== write || text === onDisk.get(key)) return null;
   onDisk.set(key, text);
   return text;
 }
