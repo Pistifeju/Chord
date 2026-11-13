@@ -6,11 +6,10 @@ import { loadDeferredViews } from "./deferredViews";
 import { keepAwake, loadAppearance } from "../features/settings/store";
 import { loadPanes, resumeAgents } from "../features/panes/store";
 import { sidebar } from "../features/sidebar/store";
-import { worktreeOrder } from "../features/worktrees/projects";
 import { loadSidePanels } from "../features/sidepanel/store";
 import { loadBottomPanels } from "../features/bottompanel/store";
 import { loadGitCounts } from "../features/worktrees/gitCountsRefresh";
-import { loadProjects, projects } from "../features/worktrees/store";
+import { loadProjects } from "../features/worktrees/store";
 import { externalStore } from "../ui/externalStore";
 
 export const launched = externalStore(false);
@@ -30,9 +29,9 @@ export async function launch() {
     loadPanes(state.panes);
     loadSidePanels(state.sidePanels);
     loadBottomPanels(state.bottomPanels);
-    await loadProjects(state.projects, state.selected);
     // A pi that never sends its history must not keep the window hidden; its chat fills in once it does.
-    const resumed = Promise.race([resumeAgents(state.runningPanes, worktreeOrder(projects.get())), historyWait()]);
+    const resumed = Promise.race([resumeAgents(state.runningPanes), historyWait()]);
+    await loadProjects(state.projects, state.selected);
     await Promise.all([loadGitCounts(), resumed, views]);
   } finally {
     launched.set(true);

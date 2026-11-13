@@ -11,9 +11,9 @@ test("a split starts the new pane and closing a worktree forgets all of its pane
   assert.deepEqual(paneChanges(two, undefined), { started: [], gone: ["p1", "p2"] });
 });
 
-test("only running panes of existing worktrees resume, and missing worktrees vanish", () => {
+test("only running panes resume, and missing worktrees vanish", () => {
   const saved = { "/a": withSplitFocused(firstPanes("s1", "p1"), "p2", "column"), "/gone": firstPanes("s2", "p3") };
-  assert.deepEqual(resumedPanes(saved, ["p2", "p3"], ["/a"]), [["/a", "p2"]]);
+  assert.deepEqual(resumedPanes(saved, ["p2"]), [["/a", "p2"]]);
   assert.deepEqual(vanishedWorktrees(saved, ["/a"]), ["/gone"]);
 });
 

@@ -11,11 +11,9 @@ export function paneChanges(before: WorktreePanes | undefined, after: WorktreePa
   return { started: now.filter((pane) => !was.includes(pane)), gone: was.filter((pane) => !now.includes(pane)) };
 }
 
-// Agents that ran at quit start again, only in worktrees that still exist; each opens its pane's saved session.
-export function resumedPanes(saved: Record<string, WorktreePanes>, running: string[], existing: string[]): [worktree: string, pane: string][] {
-  return Object.entries(saved).flatMap(([worktree, panes]) =>
-    existing.includes(worktree) ? allPaneIds(panes).filter((pane) => running.includes(pane)).map((pane): [string, string] => [worktree, pane]) : [],
-  );
+// Agents that ran at quit start again, each on its pane's saved session; a worktree found gone later forgets its panes, which stops them.
+export function resumedPanes(saved: Record<string, WorktreePanes>, running: string[]): [worktree: string, pane: string][] {
+  return Object.entries(saved).flatMap(([worktree, panes]) => allPaneIds(panes).filter((pane) => running.includes(pane)).map((pane): [string, string] => [worktree, pane]));
 }
 
 export const vanishedWorktrees = (saved: Record<string, WorktreePanes>, existing: string[]): string[] => Object.keys(saved).filter((worktree) => !existing.includes(worktree));

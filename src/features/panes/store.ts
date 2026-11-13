@@ -26,8 +26,8 @@ export const panes = externalStore<Record<string, WorktreePanes>>({});
 
 export const loadPanes = (saved: Record<string, WorktreePanes>) => panes.set(saved);
 
-export function resumeAgents(running: string[], existing: string[]) {
-  return Promise.all(resumedPanes(panes.get(), running, existing).map(([worktree, pane]) => startChat(worktree, pane)));
+export function resumeAgents(running: string[]) {
+  return Promise.all(resumedPanes(panes.get(), running).map(([worktree, pane]) => startChat(worktree, pane)));
 }
 
 const newId = () => crypto.randomUUID();
