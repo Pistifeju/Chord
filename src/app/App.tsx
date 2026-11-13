@@ -54,7 +54,7 @@ export default function App() {
   }, []);
   if (!ready) {
     return (
-      <div className="app">
+      <div className="app" data-tauri-drag-region>
         <span className="spinner launch-spinner" role="status" aria-label="Loading" />
       </div>
     );
