@@ -3,7 +3,8 @@ import { closeSheet, openSheet, sheet, sheetOf } from "../../app/sheet";
 import { commands } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
 import { movedPath } from "../editor/openFiles";
-import { closeFilesAt, flushAllSaves, moveFiles, openFile } from "../editor/store";
+import { closeFilesAt, flushAllSaves, moveFiles, openFile, showSessions } from "../editor/store";
+import { closeFilePanesAt, filePaneOf, focusPane, moveFilePanes } from "../panes/store";
 import { fail } from "../worktrees/store";
 import { emptyTree, joinPath, parentFolder, type Tree } from "./tree";
 
@@ -36,6 +37,15 @@ export function toggleFolder(worktree: string, folder: string) {
 }
 
 export const selectFile = (worktree: string, path: string) => update(worktree, (tree) => ({ ...tree, selected: path }));
+
+// A file a pane already shows focuses that pane; any other opens in a tab.
+export function showFile(worktree: string, path: string) {
+  const pane = filePaneOf(worktree, path);
+  if (!pane) return openFile(worktree, path);
+  selectFile(worktree, path);
+  focusPane(worktree, pane.id);
+  showSessions(worktree);
+}
 
 export const collapseAll = (worktree: string) => update(worktree, (tree) => ({ ...tree, open: [] }));
 
@@ -89,6 +99,7 @@ export async function finishNameEdit(name: string) {
       await flushAllSaves();
       await commands.renameFile(worktree, edit.path, to);
       moveFiles(worktree, edit.path, to);
+      moveFilePanes(worktree, edit.path, to);
       const moved = (path: string) => movedPath(path, edit.path, to);
       update(worktree, (tree) => ({ ...tree, open: tree.open.map(moved), selected: tree.selected && moved(tree.selected) }));
     } else {
@@ -113,6 +124,7 @@ export async function confirmTrash() {
     await flushAllSaves();
     await commands.trashFile(worktree, path);
     closeFilesAt(worktree, path);
+    closeFilePanesAt(worktree, path);
   } catch (error) {
     fail(error);
   }

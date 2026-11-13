@@ -33,9 +33,10 @@ pub struct PaneSession {
 #[derive(Serialize, Deserialize, Type, Clone, Debug, PartialEq)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Layout {
-    Pane {
-        id: String,
-    },
+    /// A pane that holds a chat.
+    Pane { id: String },
+    /// A pane that shows a file of the worktree, by its relative path.
+    File { id: String, path: String },
     Split {
         direction: Direction,
         /// Each child's share of the split; they add up to 1.
@@ -47,7 +48,7 @@ pub enum Layout {
 impl Layout {
     fn pane_ids(&self) -> Vec<String> {
         match self {
-            Layout::Pane { id } => vec![id.clone()],
+            Layout::Pane { id } | Layout::File { id, .. } => vec![id.clone()],
             Layout::Split { children, .. } => children.iter().flat_map(Layout::pane_ids).collect(),
         }
     }

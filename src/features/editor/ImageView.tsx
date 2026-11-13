@@ -3,13 +3,13 @@ import { useEffect, useState } from "react";
 import { commands } from "../../ipc/bindings";
 import { imageUrl } from "../chat/attachments";
 import { fail } from "../worktrees/store";
-import { closeFile } from "./store";
 import "./editor.css";
 
 /** Milliseconds between two looks at the file's change time. */
 const CHANGE_CHECK_DELAY = 1000;
 
-export function ImageView({ worktree, path, mime }: { worktree: string; path: string; mime: string }) {
+// `onGone` closes whatever shows the file, a tab or a pane, once it is gone from disk.
+export function ImageView({ worktree, path, mime, onGone }: { worktree: string; path: string; mime: string; onGone: () => void }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     let gone = false;
@@ -27,9 +27,9 @@ export function ImageView({ worktree, path, mime }: { worktree: string; path: st
         setUrl(imageUrl({ data, mime_type: mime }));
       } catch (error) {
         if (gone) return;
-        // A file gone from disk closes its tab; only the first read reports why.
+        // A file gone from disk closes its tab or pane; only the first read reports why.
         if (shown === null) fail(error);
-        closeFile(worktree, path);
+        onGone();
       } finally {
         checking = false;
       }

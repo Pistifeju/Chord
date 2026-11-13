@@ -19,13 +19,15 @@ import { noFiles } from "../editor/openFiles";
 import { closeFile, openFile, openFiles, showSessions } from "../editor/store";
 import { ChatIcon, CloseIcon, FileIcon, PlusIcon, SidePanelIcon } from "../../ui/icons";
 import { dropEdge, dropPreview, paneIds, resizedSizes, type Box, type Edge } from "./layout";
-import { activeSession, tabName } from "./sessions";
-import { closePane, closeSession, dropSession, endResize, ensurePanes, evenOutSplit, focusPane, newSession, panes, resizeSplit, selectSession } from "./store";
+import { activeSession, namedPane, tabName } from "./sessions";
+import { closeFilePane, closePane, closeSession, dropFile, dropSession, endResize, ensurePanes, evenOutSplit, focusPane, newSession, panes, resizeSplit, selectSession } from "./store";
 import "./panes.css";
 
 type Place = { worktree: string; session: string; focused: string; split: boolean };
 
-type TabDrag = { session: string; startX: number; startY: number; started: boolean };
+/** A dragged tab: a session's id, or an open file's path. */
+type DraggedTab = { session: string } | { file: string };
+type TabDrag = { tab: DraggedTab; key: string; startX: number; startY: number; started: boolean; shownBefore: string | null };
 type Drop = { pane: string; edge: Edge; box: Box };
 
 /** Pixels a tab moves before a press becomes a drag, so a click still selects. */
@@ -50,7 +52,7 @@ function SessionTabs({ worktree }: { worktree: string }) {
     JSON.stringify((current?.sessions ?? []).map((s) => urgentReport(paneIds(s.layout).map((pane) => all[pane]?.report))?.status ?? null)),
   );
   const statuses: (Status | null)[] = JSON.parse(statusesJson);
-  const names = usePaneNames((current?.sessions ?? []).map((s) => s.focused));
+  const names = usePaneNames((current?.sessions ?? []).flatMap((s) => namedPane(s) ?? []));
   const finishedPanes = finished.use();
   const drag = useRef<TabDrag | null>(null);
   const suppressClick = useRef(false);
@@ -65,10 +67,10 @@ function SessionTabs({ worktree }: { worktree: string }) {
   }, [current?.active, shownFile]);
   if (!current) return null;
 
-  const onTabDown = (e: PointerEvent<HTMLElement>, session: string) => {
+  const onTabDown = (e: PointerEvent<HTMLElement>, tab: DraggedTab) => {
     if (e.button !== 0) return;
     e.currentTarget.setPointerCapture(e.pointerId);
-    drag.current = { session, startX: e.clientX, startY: e.clientY, started: false };
+    drag.current = { tab, key: "session" in tab ? tab.session : tab.file, startX: e.clientX, startY: e.clientY, started: false, shownBefore: null };
   };
 
   const onTabMove = (e: PointerEvent) => {
@@ -77,10 +79,15 @@ function SessionTabs({ worktree }: { worktree: string }) {
     if (!d.started) {
       if (Math.hypot(e.clientX - d.startX, e.clientY - d.startY) < DRAG_THRESHOLD) return;
       d.started = true;
-      setDragging(d.session);
+      setDragging(d.key);
+      // A dragged file tab shows the panes it can drop on.
+      if ("file" in d.tab) {
+        d.shownBefore = openFiles.get()[worktree]?.active ?? null;
+        showSessions(worktree);
+      }
     }
     // The open session's own tab has nowhere to go.
-    dropRef.current = d.session === current.active ? null : dropAt(e.clientX, e.clientY);
+    dropRef.current = "session" in d.tab && d.tab.session === current.active ? null : dropAt(e.clientX, e.clientY);
     setDrop(dropRef.current);
   };
 
@@ -93,7 +100,26 @@ function SessionTabs({ worktree }: { worktree: string }) {
     setDrop(null);
     const target = dropRef.current;
     dropRef.current = null;
-    if (e.type === "pointerup" && target) dropSession(worktree, d.session, target.pane, target.edge);
+    if (e.type !== "pointerup" || !target) {
+      // A cancelled file drag shows again the file shown before it, if any.
+      if ("file" in d.tab && d.shownBefore) openFile(worktree, d.shownBefore);
+      return;
+    }
+    if ("session" in d.tab) dropSession(worktree, d.tab.session, target.pane, target.edge);
+    else dropFile(worktree, d.tab.file, target.pane, target.edge);
+  };
+
+  const dragHandlers = (tab: DraggedTab) => ({
+    onPointerDown: (e: PointerEvent<HTMLElement>) => onTabDown(e, tab),
+    onPointerMove: onTabMove,
+    onPointerUp: onTabEnd,
+    onPointerCancel: onTabEnd,
+  });
+
+  // A press that ended a drag is no click.
+  const onTabClick = (open: () => void) => () => {
+    if (suppressClick.current) suppressClick.current = false;
+    else open();
   };
 
   return (
@@ -110,17 +136,11 @@ function SessionTabs({ worktree }: { worktree: string }) {
               role="tab"
               className="tab-name"
               aria-selected={session.id === current.active && !shownFile}
-              onPointerDown={(e) => onTabDown(e, session.id)}
-              onPointerMove={onTabMove}
-              onPointerUp={onTabEnd}
-              onPointerCancel={onTabEnd}
-              onClick={() => {
-                if (suppressClick.current) suppressClick.current = false;
-                else {
-                  showSessions(worktree);
-                  selectSession(worktree, session.id);
-                }
-              }}
+              {...dragHandlers({ session: session.id })}
+              onClick={onTabClick(() => {
+                showSessions(worktree);
+                selectSession(worktree, session.id);
+              })}
             >
               <span className="tab-status" data-status={status?.kind} title={status ? statusLabel(status) : undefined}>
                 {status ? <StatusMark kind={status.kind} /> : <ChatIcon />}
@@ -136,8 +156,16 @@ function SessionTabs({ worktree }: { worktree: string }) {
         );
       })}
       {files.map((file) => (
-        <div key={file} className="tab" data-selected={file === shownFile}>
-          <button type="button" role="tab" className="tab-name" aria-selected={file === shownFile} title={file} onClick={() => openFile(worktree, file)}>
+        <div key={file} className="tab" data-selected={file === shownFile} data-dragging={file === dragging}>
+          <button
+            type="button"
+            role="tab"
+            className="tab-name"
+            aria-selected={file === shownFile}
+            title={file}
+            {...dragHandlers({ file })}
+            onClick={onTabClick(() => openFile(worktree, file))}
+          >
             <span className="tab-status">
               <FileIcon />
             </span>
@@ -220,9 +248,15 @@ function Divider({ place, path, index, direction, sizes, container }: DividerPro
   );
 }
 
+// An open file: the image view for an image, otherwise the editor.
+function FileView({ worktree, path, autoFocus, onGone }: { worktree: string; path: string; autoFocus: boolean; onGone: () => void }) {
+  const mime = imageMime(path);
+  return mime ? <ImageView worktree={worktree} path={path} mime={mime} onGone={onGone} /> : <Editor worktree={worktree} path={path} autoFocus={autoFocus} onGone={onGone} />;
+}
+
 function LayoutView({ layout, path, place }: { layout: Layout; path: number[]; place: Place }) {
   const container = useRef<HTMLDivElement>(null);
-  if (layout.kind === "pane") {
+  if (layout.kind !== "split") {
     const { id } = layout;
     // A press on the pane's close button keeps the focus where it was.
     const focusUnlessClose = (e: SyntheticEvent) => {
@@ -230,7 +264,11 @@ function LayoutView({ layout, path, place }: { layout: Layout; path: number[]; p
     };
     return (
       <div className="pane" data-pane={id} data-split={place.split || undefined} data-focused={id === place.focused || undefined} onPointerDownCapture={focusUnlessClose} onFocusCapture={focusUnlessClose}>
-        <ChatPane worktree={place.worktree} pane={id} focused={id === place.focused} />
+        {layout.kind === "file" ? (
+          <FileView worktree={place.worktree} path={layout.path} autoFocus={id === place.focused} onGone={() => closeFilePane(place.worktree, id)} />
+        ) : (
+          <ChatPane worktree={place.worktree} pane={id} focused={id === place.focused} />
+        )}
         {place.split && (
           <button type="button" className="pane-close" title={tooltip("pane.close")} aria-label="Close Pane" onClick={() => closePane(place.worktree, id)}>
             <CloseIcon size={15} />
@@ -243,7 +281,7 @@ function LayoutView({ layout, path, place }: { layout: Layout; path: number[]; p
   return (
     <div className="split" data-direction={layout.direction} ref={container}>
       {layout.children.map((child, i) => (
-        <Fragment key={child.kind === "pane" ? child.id : `split-${i}`}>
+        <Fragment key={child.kind === "split" ? `split-${i}` : child.id}>
           {i > 0 && <Divider place={place} path={path} index={i - 1} direction={layout.direction} sizes={sizes} container={container} />}
           <div className="split-child" style={{ flex: `${sizes[i]} 1 0` }}>
             <LayoutView layout={child} path={[...path, i]} place={place} />
@@ -258,7 +296,6 @@ export function PaneArea({ worktree }: { worktree: string }) {
   const current = panes.use()[worktree];
   useEffect(() => ensurePanes(worktree), [worktree]);
   const shownFile = openFiles.use()[worktree]?.active ?? null;
-  const shownMime = shownFile && imageMime(shownFile);
   const session = current && activeSession(current);
   // A session or pane that opens on its own (a notification click, a new tab) takes the view from the file.
   const seen = useRef("");
@@ -272,7 +309,7 @@ export function PaneArea({ worktree }: { worktree: string }) {
     <div className="panes">
       <SessionTabs worktree={worktree} />
       <div className="panes-body">
-        {shownFile && (shownMime ? <ImageView key={`${worktree}\0${shownFile}`} worktree={worktree} path={shownFile} mime={shownMime} /> : <Editor key={`${worktree}\0${shownFile}`} worktree={worktree} path={shownFile} />)}
+        {shownFile && <FileView key={`${worktree}\0${shownFile}`} worktree={worktree} path={shownFile} autoFocus onGone={() => closeFile(worktree, shownFile)} />}
         <div className="pane-layout" hidden={!!shownFile}>
           <LayoutView key={session.id} layout={session.layout} path={[]} place={{ worktree, session: session.id, focused: session.focused, split: session.layout.kind === "split" }} />
         </div>

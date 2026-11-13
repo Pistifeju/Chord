@@ -4,8 +4,24 @@ import { externalStore } from "../../ui/externalStore";
 import { closeSheet, openSheet, type Sheet } from "../../app/sheet";
 import { chats, forgetChat, startChat } from "../chat/store";
 import { paneChanges, resumedPanes, vanishedWorktrees } from "./agents";
-import { withEvenSizes, withSizes, type Edge } from "./layout";
-import { activeSession, firstPanes, withActiveSession, withFocus, withLayout, withNewSession, withoutPaneClosed, withSessionClosed, withSessionDropped, withSplitFocused } from "./sessions";
+import { closeFile, showSessions } from "../editor/store";
+import { isAtOrInside } from "../editor/openFiles";
+import { filePanes, withEvenSizes, withFilePanesMoved, withSizes, type Edge, type FilePane } from "./layout";
+import {
+  activeSession,
+  firstPanes,
+  paneCount,
+  withActiveSession,
+  withFileDropped,
+  withFileSession,
+  withFocus,
+  withLayout,
+  withNewSession,
+  withoutPaneClosed,
+  withSessionClosed,
+  withSessionDropped,
+  withSplitFocused,
+} from "./sessions";
 
 export const panes = externalStore<Record<string, WorktreePanes>>({});
 
@@ -87,6 +103,44 @@ export function confirmClose(sheet: CloseAgents) {
 export const selectSession = (worktree: string, session: string) => change(worktree, (p) => withActiveSession(p, session));
 
 export const dropSession = (worktree: string, session: string, pane: string, edge: Edge) => change(worktree, (p) => withSessionDropped(p, session, pane, edge));
+
+const filePane = (path: string): FilePane => ({ kind: "file", id: newId(), path });
+
+// The file leaves its tab for a pane beside `pane`.
+export function dropFile(worktree: string, path: string, pane: string, edge: Edge) {
+  change(worktree, (p) => withFileDropped(p, filePane(path), pane, edge));
+  closeFile(worktree, path);
+  showSessions(worktree);
+}
+
+// The file leaves its tab for a new session tab, with a new agent beside it.
+export function splitFile(worktree: string, path: string, direction: Direction) {
+  change(worktree, (p) => withFileSession(p, newId(), filePane(path), newId(), direction));
+  // Hidden first, so closing the tab does not select a neighbour that is not shown.
+  showSessions(worktree);
+  closeFile(worktree, path);
+}
+
+export function moveFilePanes(worktree: string, from: string, to: string) {
+  if (!panes.get()[worktree]) return;
+  change(worktree, (p) => ({ ...p, sessions: p.sessions.map((s) => ({ ...s, layout: withFilePanesMoved(s.layout, from, to) })) }));
+}
+
+// A file pane that is the last pane of all gives its place to a new agent pane, since the last pane stays.
+export function closeFilePane(worktree: string, pane: string) {
+  const ensureAnother = (p: WorktreePanes) => (paneCount(p) === 1 ? withSplitFocused(p, newId(), "row") : p);
+  change(worktree, (p) => withoutPaneClosed(ensureAnother(p), pane));
+}
+
+// Closes the file panes of `path` and of everything inside it.
+export function closeFilePanesAt(worktree: string, path: string) {
+  for (const session of panes.get()[worktree]?.sessions ?? [])
+    for (const file of filePanes(session.layout)) if (isAtOrInside(file.path, path)) closeFilePane(worktree, file.id);
+}
+
+// The pane that shows `path`, if any, so the file opens there instead of in a second editor that would save over it.
+export const filePaneOf = (worktree: string, path: string): FilePane | undefined =>
+  panes.get()[worktree]?.sessions.flatMap((s) => filePanes(s.layout)).find((f) => f.path === path);
 
 // Focus stays in memory; the next layout save writes it.
 export const focusPane = (worktree: string, pane: string) => change(worktree, (p) => withFocus(p, pane), false);

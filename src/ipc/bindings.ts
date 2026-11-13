@@ -242,7 +242,11 @@ export type KeptBranch = {
 	reason: string,
 };
 
-export type Layout = { kind: "pane"; id: string } | { kind: "split"; direction: Direction; 
+export type Layout = 
+/**  A pane that holds a chat. */
+{ kind: "pane"; id: string } | 
+/**  A pane that shows a file of the worktree, by its relative path. */
+{ kind: "file"; id: string; path: string } | { kind: "split"; direction: Direction; 
 /**  Each child's share of the split; they add up to 1. */
 sizes: (number | null)[]; children: Layout[] };
 

@@ -2,8 +2,7 @@
 import { Fragment, useEffect, useRef, type CSSProperties } from "react";
 import { showMenu } from "../../app/commands";
 import { ChevronIcon, CollapseAllIcon, FileIcon, FilterIcon, FolderIcon, ReloadIcon } from "../../ui/icons";
-import { openFile } from "../editor/store";
-import { collapseAll, finishNameEdit, loadRoot, nameEdit, reloadFiles, setFilter, toggleFolder, trees } from "./store";
+import { collapseAll, finishNameEdit, loadRoot, nameEdit, reloadFiles, setFilter, showFile, toggleFolder, trees } from "./store";
 import { emptyTree, parentFolder, stemLength, visibleRows, type Row } from "./tree";
 import type { FileEntry } from "../../ipc/bindings";
 import "./files.css";
@@ -84,7 +83,7 @@ function EntryRow({ worktree, row: { entry, depth, open }, selected }: { worktre
       aria-selected={selected}
       // WebKit does not focus a clicked button, and ⌘⌫ acts on the focused row.
       onMouseDown={(event) => event.currentTarget.focus()}
-      onClick={() => (entry.isDir ? toggleFolder(worktree, entry.path) : openFile(worktree, entry.path))}
+      onClick={() => (entry.isDir ? toggleFolder(worktree, entry.path) : showFile(worktree, entry.path))}
       onContextMenu={(e) =>
         showMenu(e, [
           ["files.newFile", folder],

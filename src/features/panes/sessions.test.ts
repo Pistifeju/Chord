@@ -1,7 +1,7 @@
 // Tests for the session tab rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { activeSession, firstPanes, paneNames, shownSession, tabName, withFocus, withNewSession, withoutPaneClosed, withSplitFocused } from "./sessions.ts";
+import { activeSession, firstPanes, paneNames, shownSession, tabName, withFileDropped, withFileSession, withFocus, withNewSession, withoutPaneClosed, withSplitFocused } from "./sessions.ts";
 
 test("a new session is named after the highest number and opens", () => {
   const two = withNewSession(firstPanes("s1", "p1"), "s2", "p2");
@@ -56,4 +56,26 @@ test("the window shows the selected worktree's open tab, and none under Settings
   assert.equal(shownSession(all, "/w", true), null);
   assert.equal(shownSession(all, null, false), null);
   assert.equal(shownSession(all, "/other", false), null);
+});
+
+test("a file dropped on a pane's left edge shows before it and takes the focus", () => {
+  const dropped = withFileDropped(firstPanes("s1", "p1"), { kind: "file", id: "f1", path: "a.ts" }, "p1", "left");
+  assert.deepEqual(activeSession(dropped), {
+    id: "s1",
+    name: "Session 1",
+    layout: { kind: "split", direction: "row", sizes: [0.5, 0.5], children: [{ kind: "file", id: "f1", path: "a.ts" }, { kind: "pane", id: "p1" }] },
+    focused: "f1",
+  });
+  assert.equal(tabName(activeSession(dropped), { p1: "Fix the login bug" }), "Fix the login bug");
+});
+
+test("a file put beside an agent opens a new session with the file first and the agent focused", () => {
+  const next = withFileSession(firstPanes("s1", "p1"), "s2", { kind: "file", id: "f1", path: "a.ts" }, "p2", "column");
+  assert.equal(next.active, "s2");
+  assert.deepEqual(activeSession(next), {
+    id: "s2",
+    name: "Session 2",
+    layout: { kind: "split", direction: "column", sizes: [0.5, 0.5], children: [{ kind: "file", id: "f1", path: "a.ts" }, { kind: "pane", id: "p2" }] },
+    focused: "p2",
+  });
 });

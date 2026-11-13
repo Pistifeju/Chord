@@ -1,7 +1,7 @@
 // Rules for a worktree's session tabs: new, open, split, drop, close, and which pane has the focus.
 import type { Direction, Layout, PaneSession, WorktreePanes } from "../../ipc/bindings";
 import type { Item } from "../chat/transcript.ts";
-import { edgeDirection, paneIds, withBeside, withoutPane, withSplit, type Edge } from "./layout.ts";
+import { chatPaneIds, edgeDirection, paneIds, withBeside, withoutPane, withSplit, type Edge, type FilePane } from "./layout.ts";
 
 export const firstPanes = (session: string, pane: string): WorktreePanes => ({
   sessions: [{ id: session, name: "Session 1", layout: { kind: "pane", id: pane }, focused: pane }],
@@ -76,8 +76,14 @@ export const paneNames = (chats: Record<string, { items: Item[] } | undefined>, 
     return name ? [[pane, name]] : [];
   }));
 
-// A tab shows the name of its focused pane's agent session once that has one.
-export const tabName = (session: PaneSession, names: PaneNames): string => names[session.focused] ?? session.name;
+// The chat pane a tab is named after: the focused one, or the first while a file pane has the focus.
+export const namedPane = (session: PaneSession): string | undefined => {
+  const chat = chatPaneIds(session.layout);
+  return chat.includes(session.focused) ? session.focused : chat[0];
+};
+
+// A tab shows the name of its named pane's agent session once that has one.
+export const tabName = (session: PaneSession, names: PaneNames): string => names[namedPane(session) ?? ""] ?? session.name;
 
 // Closes a session tab with all its panes; the tab beside it opens. The last session stays.
 export function withSessionClosed(panes: WorktreePanes, session: string): WorktreePanes {
@@ -106,12 +112,28 @@ export function withoutPaneClosed(panes: WorktreePanes, pane: string): WorktreeP
   return { sessions, active };
 }
 
+// `inserted` goes beside `pane` on `edge` and `focused` takes the focus; the pane's session opens.
+function withInserted(panes: WorktreePanes, inserted: Layout, focused: string, pane: string, edge: Edge): WorktreePanes {
+  const target = panes.sessions.find((s) => paneIds(s.layout).includes(pane));
+  if (!target) return panes;
+  const layout = withBeside(target.layout, pane, inserted, edgeDirection(edge), edge === "left" || edge === "top");
+  return { sessions: panes.sessions.map((s) => (s === target ? { ...s, layout, focused } : s)), active: target.id };
+}
+
 // A session tab dropped on a pane edge: its whole layout joins that pane's session beside the pane, and its tab goes.
 export function withSessionDropped(panes: WorktreePanes, source: string, pane: string, edge: Edge): WorktreePanes {
   const moved = panes.sessions.find((s) => s.id === source);
   const target = panes.sessions.find((s) => paneIds(s.layout).includes(pane));
   if (!moved || !target || moved === target) return panes;
-  const layout = withBeside(target.layout, pane, moved.layout, edgeDirection(edge), edge === "left" || edge === "top");
-  const joined = { ...target, layout, focused: moved.focused };
-  return { sessions: panes.sessions.filter((s) => s !== moved).map((s) => (s === target ? joined : s)), active: target.id };
+  const joined = withInserted(panes, moved.layout, moved.focused, pane, edge);
+  return { ...joined, sessions: joined.sessions.filter((s) => s !== moved) };
+}
+
+// A file tab dropped on a pane edge: the file shows in a pane there.
+export const withFileDropped = (panes: WorktreePanes, file: FilePane, pane: string, edge: Edge): WorktreePanes => withInserted(panes, file, file.id, pane, edge);
+
+// The file opens in a new session tab with a new agent after it, which takes the focus.
+export function withFileSession(panes: WorktreePanes, session: string, file: FilePane, agent: string, direction: Direction): WorktreePanes {
+  const next = withNewSession(panes, session, agent);
+  return withLayout(next, session, withBeside(activeSession(next).layout, agent, file, direction, true));
 }

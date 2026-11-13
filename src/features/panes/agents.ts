@@ -1,8 +1,9 @@
 // Rules for which panes' agents start and stop: a pane that appears or goes, and the agents that come back at launch.
 import type { WorktreePanes } from "../../ipc/bindings";
-import { paneIds } from "./layout.ts";
+import { chatPaneIds } from "./layout.ts";
 
-export const allPaneIds = (saved: WorktreePanes | undefined): string[] => (saved?.sessions ?? []).flatMap((session) => paneIds(session.layout));
+// Only chat panes run an agent; a file pane has none.
+export const allPaneIds = (saved: WorktreePanes | undefined): string[] => (saved?.sessions ?? []).flatMap((session) => chatPaneIds(session.layout));
 
 export function paneChanges(before: WorktreePanes | undefined, after: WorktreePanes | undefined): { started: string[]; gone: string[] } {
   const was = allPaneIds(before);
