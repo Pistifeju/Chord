@@ -117,15 +117,19 @@ Edge cases:
 
 ## 6. Files and editor (core)
 
-- [ ] F1 Files view in the side panel (⌘⇧E), with its tab bar button: file tree from git's file list (tracked and untracked, minus ignored); search; Collapse All, Reload.
+- [ ] F1 Files view in the side panel (⌘⇧E), with its tab bar button: a tree of the worktree folder on disk, without `.git`; a folder reads its children when you open it; folders first, natural sort (`file2` before `file10`); a chain of single-child folders shows as one row (`src/app/views`). Header: filter field, Collapse All, Reload. The open file's row stays selected and scrolls into view.
 - [ ] F2 CodeMirror editor with syntax highlighting; a file opens in a file tab of the tab bar; saves 1 s after you stop typing and on file switch.
 - [ ] F3 Saving never overwrites an agent's change on disk; a conflict stops the save.
 - [ ] F4 Image view, reloads on change.
-- [ ] F5 Right click: reveal in Finder, move to Trash after asking.
+- [ ] F5 Right click: New File, New Folder, Rename (inline, the name without its extension selected), Copy Path, Copy Relative Path, Reveal in Finder, Move to Trash (⌘⌫) after asking.
 - [ ] F6 Needs C1: drag a file tab onto a pane edge to show the file beside a chat; ⌘D on a file tab puts an agent beside it.
 - [ ] F7 Open file by name (⌘⇧O).
+- [ ] F8 Keyboard in the tree: ↑ ↓ move, → opens a folder, ← closes it or jumps to the parent, Return opens the file.
+- [ ] F9 Drag a file from the tree into the composer to put its relative path in the draft.
 
 Edge cases:
+- The tree refreshes on window focus and on Reload; open folders and the selection survive a refresh.
+- A file an agent deletes leaves the tree and its tab closes; a tab with unsaved edits stays open, and saving it asks first.
 - CRLF files stay CRLF.
 - Switching files mid-autosave saves to the old file.
 - A draft reopens as a conflict when the disk changed; saving a deleted file asks first.
