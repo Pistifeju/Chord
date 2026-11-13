@@ -292,11 +292,12 @@ Popover and sheet shadows include a 1px ring: black at 8% in light, white at 10%
 - A sheet fades in and rises 8px from 98% scale over 200ms; its backdrop blur fades in with it. A sheet closes at once. The toast drops 8px into place over 200ms. Both use `--ease-out`.
 - The project chevron, a step group's chevron and a Files folder's chevron turn in 120ms.
 - In the chat, a message, a step row, the Working row, the find bar and the notice fade in and rise 4px over 200ms with `--ease-out` when they arrive. A chat that opens with history shows it still.
+- The slash menu and a composer picker menu fade in and rise 4px over 200ms with `--ease-out` when they open. An extension's dialog in place of the composer fades in over 120ms.
 - A message's copy button and time fade in, drop 3px and unblur from 2px over 200ms with `--ease-out` on hover. They leave the same way over 120ms after a 60ms delay.
 - A worktree card's status fades in and rises 4px over 200ms with `--ease-out` when it changes.
 - The send button changes color over 120ms and presses to 97% scale.
 - The lightbox and its scrim animate like a sheet.
-- Under Reduce Motion the sheet, its backdrop, the lightbox, the chat drop card, scrim, toast and chevrons skip their animation, chat items, the chat drop card's content, a message's copy button and time and a card's status only fade, the send button and the jump button do not move or scale, the jump scrolls instantly and spinners and the orbit run at a third of their speed.
+- Under Reduce Motion the sheet, its backdrop, the lightbox, the chat drop card, scrim, toast and chevrons skip their animation, chat items, the slash and picker menus, the chat drop card's content, a message's copy button and time and a card's status only fade, the send button and the jump button do not move or scale, the jump scrolls instantly and spinners and the orbit run at a third of their speed.
 
 ## Shapes
 
