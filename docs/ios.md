@@ -84,7 +84,7 @@ Chord finds the folder with the path hash, a pure function. Its test hardcodes t
 
 - The simulator lives in the default device set, so `xcodebuild`, Simulator and DeviceHub see it. Its name is `Chord <worktree folder> <6 letters of the path hash>`; Chord finds it by name, model and runtime.
 - Chord creates it on the first ⌘R with `simctl create` and boots it while the build runs. The first boot (27.5 s) hides inside a cold build (48.3 s).
-- A run destination is a model and iOS version that exist together among the user's simulators, so `create` cannot hit "Incompatible device". Chord's own simulators stay out of the picker.
+- A run destination is a model and iOS version that exist together among the user's simulators, so `create` cannot hit "Incompatible device". Chord's own simulators stay out of the run menu.
 - After `bootstatus` Chord checks that the device reports Booted; one that does not fails the run with that reason before the install (source 5).
 - An install or launch that fails with "SBMainWorkspace Busy" means a wedged simulator. The run fails and its message names the fix: erase the worktree's simulator. Chord erases nothing by itself, because the app's data goes with it.
 - Chord never starts or stops a simulator it did not create.
@@ -121,7 +121,9 @@ How the pi extension reaches Chord for a tool call is open: `ARCHITECTURE.md` se
 
 Install is the largest part of the warm loop. First thing to try once ⌘R works: skip the install when the build changed nothing in the `.app`.
 
-A failed build scrolls the log to its first error. An error line that names a file opens it at that line in the editor. The parser is the one the `build` tool uses.
+A failed build lists its errors above the log. An error that names a file opens it at that line in the editor. The parser is the one the `build` tool uses.
+
+Where each control sits and how it looks: `DESIGN.md`, Components › Build and Run. The run control and its menu sit in the window's top right corner, the run status and the booted simulators in the status bar, the build log and the console in the bottom panel as views beside the terminal, and a run marker on the worktree's card. The UI moves only for the person who asked: a failed build the user started opens the log, an agent's build opens nothing.
 
 ## 5. What grows with worktrees
 
@@ -147,14 +149,14 @@ crates/chord-ios/src/
   run.rs            install, launch, console                                                    step 2
   destinations.rs   run destinations from simctl and devicectl                                  step 3
 src-tauri/src/commands/build.rs, simulator.rs
-src/features/ios/build/         the run button, the build log, the run state rules
-src/features/ios/destination/   the picker
+src/features/ios/build/         the run control and its menu, the run status, the build log, the run state rules
 ```
 
 - `chord-ios` depends on `chord-core` and has no `tauri` dependency. `src-tauri` wires both: its delete command calls core, then the iOS cleanup.
 - Core gains one fact: `xcode: bool` on the worktree record (`ARCHITECTURE.md`, section 9).
 - The build log and the console each go over a Tauri `Channel` per worktree, like chat and the terminal.
 - The run destination, the scheme and the configuration are per-project fields of `State`.
+- The sidebar card, the status bar and the bottom panel's header take their iOS parts as slots from `App.tsx`, as the side panel takes its buttons. None of them imports `features/ios`.
 - A file appears with its step. Step numbers are section 7's.
 
 ## 7. Order
@@ -165,8 +167,8 @@ Every control shows only in a worktree with `xcode: true`.
 |------|------|-----------------------|--------|
 | 1 | H7, ⌘B and ⌘. of H1, the build log of H3 | ⌘B builds, the log streams, ⌘. stops | A build after an agent's `xcodebuild` in the same worktree compiles nothing. Two worktrees build at once. After ⌘. no process holds `build.db`. A machine without `xcodebuild` shows the install step |
 | 2 | H1, H3, H4 | ⌘R runs the app on the worktree's simulator, the console streams | Two worktrees run their apps at once on two simulators. A second ⌘R replaces the first. A failed launch fails the run |
-| 3 | H2 | Destination picker, devices above simulators | The pick survives a restart. A destination that is gone falls back and says so |
-| 4 | H5, H8 | Delete and prune clean up; the status bar shows cache size and running simulators; the cap holds | Deleting a worktree removes its folder and its simulator. Prune removes nothing that belongs to a live worktree |
+| 3 | H2 | Destinations in the run menu, devices above simulators | The pick survives a restart. A destination that is gone falls back and says so |
+| 4 | H5, H8 | Delete and prune clean up; the status bar shows the running simulators, Settings the size of the build data; the cap holds | Deleting a worktree removes its folder and its simulator. Prune removes nothing that belongs to a live worktree |
 | 5 | H9, H10 | The agent builds and runs through tools | Two agents in two worktrees run their apps at once. A build tool call returns error lines and no log. A cold build's call reports that it still runs |
 | 7 | I5 | The agent looks and taps | |
 | 8 | L1 to L5 | Simulator tools | |

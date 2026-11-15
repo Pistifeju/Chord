@@ -25,11 +25,11 @@ Containers. The first feature that puts something in one builds it:
 
 | Container | What it is | Features that fill it |
 |-----------|------------|-----------------------|
-| Tab bar | One strip over each tab group; the ones along the top are the window drag region; shows the project name or "Settings" as a title when it has no tabs | Tabs: C3, F2. Buttons: F1, H1, H2, I1, L4 |
+| Tab bar | One strip over each tab group; the ones along the top are the window drag region; shows the project name or "Settings" as a title when it has no tabs | Tabs: C3, F2. Buttons: F1, H1 (its menu holds H2 and L4), I1 |
 | Side panel | One panel right of the panes, one view at a time; resizable; width, open state and shown view remembered per worktree | F1 Files, I1 Simulator, J1 Preview |
-| Bottom panel | Resizable; open state remembered per worktree | G1 terminal, H3 build log and console |
-| Status bar | Strip at the bottom of the window | E11 usage, H3 build log toggle, H5 cache size and running simulators |
-| Settings panel (⌘,) | A panel over the blurred window: a section list (General, Appearance, Shortcuts) and grouped rows | A5, D5, G1, H2, K1, L4 |
+| Bottom panel | Resizable, one view at a time; open state and shown view remembered per worktree | G1 terminal, H3 build log and console |
+| Status bar | Strip at the bottom of the window | E11 usage, H3 run status, H5 running simulators |
+| Settings panel (⌘,) | A panel over the blurred window: a section list (General, Appearance, Shortcuts) and grouped rows | A5, D5, G1, H5, K1 |
 
 Edge cases:
 - The window opens centered on the screen under the cursor.
@@ -150,11 +150,11 @@ Edge cases:
 
 ## 8. Build and Run (iOS)
 
-- [ ] H1 **hard** ⌘R builds into the worktree's own DerivedData and runs on its own simulator; ⌘B builds only; ⌘. stops. Play / stop button in the tab bar.
-- [ ] H2 Run destination picker in the tab bar, per project: connected devices above simulators. Settings row: the project's run destination.
-- [ ] H3 Build log and app console (stdout, stderr, OSLog) in the bottom panel, 10,000 lines, ⌘F. Build log toggle in the status bar.
+- [ ] H1 **hard** ⌘R builds into the worktree's own DerivedData and runs on its own simulator; ⌘B builds only; ⌘. stops. Play / stop button in the tab bar. The worktree card shows Building, Running or Build failed.
+- [ ] H2 Run destination, per project, in the menu beside the play button: connected devices above simulators.
+- [ ] H3 Build log and app console (stdout, stderr, OSLog) as views of the bottom panel beside the terminal, 10,000 lines, ⌘F; ⌘⇧Y shows or hides them. The run's status in the status bar; a click shows or hides them too.
 - [ ] H4 **hard** One build per worktree: ⌘R and ⌘B take over the worktree's running build.
-- [ ] H5 Caches: DerivedData, hot reload folders and simulators per worktree; one forget, one prune; stop other worktrees' simulators. Cache size and running simulators in the status bar.
+- [ ] H5 Caches: DerivedData, hot reload folders and simulators per worktree; one forget, one prune; stop other worktrees' simulators. Running simulators in the status bar, with Shut Down Others. Settings row: the size of the build data.
 - [ ] H7 a missing `xcodebuild` or `xcrun` shows the install step.
 - [ ] H8 At most `max(1, RAM in GB / 6)` of Chord's run simulators stay booted; one more shuts down the one whose worktree was opened longest ago and has no run in progress.
 - [ ] H9 harness(tools): `build` builds the worktree like ⌘B and returns the error lines, 30 at most, and no log.
@@ -168,7 +168,9 @@ Edge cases:
 - Chord's build, an agent's `xcodebuild` and Xcode share one DerivedData folder per worktree: Chord passes no `-derivedDataPath` and no build setting.
 - A build waits while a build Chord did not start holds the worktree's build database, and says so in the log.
 - After a stop, a takeover or a quit, no process of the build holds the build database.
-- A failed build scrolls the log to its first error; an error line with a path opens the file at that line.
+- A failed build lists its errors above the log, 30 at most; an error with a path opens the file at that line.
+- A failed build the user started opens the build log; a build the agent started opens nothing.
+- The build log and the console never replace a terminal that shows.
 - A run destination is a model and iOS version that exist together among the user's simulators.
 - A simulator that does not report Booted after its boot fails the run with that reason.
 - Chord never stops or deletes a simulator or a DerivedData folder it does not own.
@@ -205,7 +207,7 @@ Edge cases:
 - [ ] L1 Appearance menu on the Simulator view: light / dark, Dynamic Type size, language and region of the worktree's simulator.
 - [ ] L2 Open URL: a field on the Simulator view sends a deep link or web URL to the worktree's simulator (`simctl openurl`); recent URLs per project.
 - [ ] L3 Push notification: drop a JSON payload on the Simulator view, or pick a recent one; `simctl push` sends it to the running app's bundle id.
-- [ ] L4 Scheme and build configuration picker (Debug / Release) in the tab bar, next to the run destination, per project; ⌘R and ⌘B use it. Settings row: the project's scheme and configuration.
+- [ ] L4 Scheme and build configuration (Debug / Release), per project, as submenus of the play button's menu under the destinations; ⌘R and ⌘B use them.
 - [ ] L5 Screen recording: record / stop button next to the I3 screenshot button (`simctl io recordVideo`); the video gets the I3 thumbnail and drag.
 
 Edge cases:
