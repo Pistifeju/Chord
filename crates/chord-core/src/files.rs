@@ -93,7 +93,7 @@ pub fn modified(root: &Path, file: &str) -> Result<String, Error> {
     Ok(format!("{nanos}-{}", metadata.len()))
 }
 
-/// Replaces the text of `file` (relative to `root`) when the disk still holds `expected`, the text the editor last read or wrote; an agent's change stops the save.
+/// Replaces the text of `file` (relative to `root`) when the disk still holds `expected`, the text the editor last read or wrote; an agent's change stops the save. The new text lands whole: an agent reading meanwhile sees the old text or the new, never half of it.
 pub fn write(root: &Path, file: &str, expected: &str, text: &str) -> Result<(), Error> {
     let path = inside(root, file)?;
     // shortcut: an agent write between this read and the write below is still overwritten; agents ignore advisory locks, so upgrade only if such a loss is reported.
@@ -102,7 +102,20 @@ pub fn write(root: &Path, file: &str, expected: &str, text: &str) -> Result<(), 
             "{file} changed on disk, so the save stopped. Reopen the file to see the change."
         )));
     }
-    Ok(fs::write(path, text)?)
+    // The real path, so a symlinked file stays a symlink.
+    let real = path.canonicalize()?;
+    let name = real
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let temp = real.with_file_name(format!(".{name}.chord-save"));
+    let saved = fs::write(&temp, text)
+        .and_then(|()| fs::set_permissions(&temp, fs::metadata(&real)?.permissions()))
+        .and_then(|()| fs::rename(&temp, &real));
+    if saved.is_err() {
+        let _ = fs::remove_file(&temp);
+    }
+    Ok(saved?)
 }
 
 /// Makes an empty file, or a folder, at `path` (relative to `root`); an existing entry is never replaced.
