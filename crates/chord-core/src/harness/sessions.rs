@@ -73,8 +73,12 @@ impl Sessions {
             &self.dir,
             move |event| {
                 let mut watch = watch.lock().unwrap_or_else(PoisonError::into_inner);
+                let dialog_was_open = watch.tracker.dialog_open();
                 let report = watch.observe(&event);
                 on_event(event);
+                if dialog_was_open && !watch.tracker.dialog_open() {
+                    on_event(HarnessEvent::DialogClosed);
+                }
                 if let Some(StatusReport { status, changed }) = report {
                     let last_message = watch.tracker.last_message();
                     if changed {
@@ -83,6 +87,7 @@ impl Sessions {
                     on_event(HarnessEvent::Status {
                         status,
                         last_message: last_message.to_string(),
+                        changed,
                     });
                 }
             },

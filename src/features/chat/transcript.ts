@@ -1,7 +1,7 @@
 // Rules for a chat's transcript: how each harness event changes the messages, the run flag, the notice and the status report.
 import { elapsedText } from "./elapsed.ts";
 import type { Capability, DialogAsk, HarnessEvent, Image, LineChanges, SlashCommand, SubagentNode } from "../../ipc/bindings";
-import { stampedReport, type StatusReport } from "../status/status.ts";
+import type { StatusReport } from "../status/status.ts";
 
 export type Message = { role: "user" | "assistant"; text: string; streaming: boolean; /** The images a user message carried. */ images?: Image[]; /** When it was sent or written, in ms since the epoch; none for a reply that never ended. */ at?: number };
 
@@ -136,24 +136,6 @@ export function stepsTime(steps: Step[]): string | null {
   return ms >= SLOW_MS ? seconds(ms) : null;
 }
 
-// Mirrors the events that clear a dialog in Rust's `status_for`; `exited` also clears it, as nobody is left to answer.
-const movesOn = (event: HarnessEvent): boolean =>
-  event.kind === "message_chunk" ||
-  event.kind === "thought_start" ||
-  event.kind === "thought_chunk" ||
-  event.kind === "tool_start" ||
-  event.kind === "tool_end" ||
-  event.kind === "exited" ||
-  (event.kind === "state" && event.running);
-
-/** `now` is the event's arrival time in ms since the epoch; it stamps when a run starts and when the status changes. */
-export function chatAfter(chat: Chat, event: HarnessEvent, now: number): Chat {
-  const next = applied(chat, event, now);
-  // A picker menu the user opened waits for the user, not for the run.
-  const keeps = next.dialog?.ask.kind === "menu" && event.kind !== "exited";
-  return next.dialog && !keeps && movesOn(event) ? { ...next, dialog: null } : next;
-}
-
 /** The history events held until the replay ends, or null while events apply one by one. */
 export type Replay = HarnessEvent[] | null;
 
@@ -166,7 +148,8 @@ export function chatFed(chat: Chat, replay: Replay, event: HarnessEvent, now: nu
   return { chat: held.reduce((next, replayed) => chatAfter(next, replayed, now), chat), replay: null };
 }
 
-function applied(chat: Chat, event: HarnessEvent, now: number): Chat {
+/** `now` is the event's arrival time in ms since the epoch; it stamps when a run starts and when the status changes. */
+export function chatAfter(chat: Chat, event: HarnessEvent, now: number): Chat {
   switch (event.kind) {
     case "user_message_chunk":
       return { ...chat, items: [...closed(chat.items), { role: "user", text: event.text, streaming: false, images: event.images, at: event.at ?? now }] };
@@ -201,6 +184,9 @@ function applied(chat: Chat, event: HarnessEvent, now: number): Chat {
     }
     case "dialog":
       return { ...chat, dialog: { id: event.id, title: event.title, ask: event.ask } };
+    // A picker menu the user opened waits for the user, not for the run.
+    case "dialog_closed":
+      return chat.dialog && chat.dialog.ask.kind !== "menu" ? { ...chat, dialog: null } : chat;
     case "model":
       return { ...chat, model: { name: event.name, thinking: event.thinking ?? null } };
     case "context":
@@ -228,7 +214,7 @@ function applied(chat: Chat, event: HarnessEvent, now: number): Chat {
     case "compaction":
       return { ...chat, items: [...closed(chat.items), { role: "compaction", summary: event.summary, tokensBefore: event.tokens_before ?? null }] };
     case "status":
-      return { ...chat, report: stampedReport(chat.report, { status: event.status, lastMessage: event.last_message, since: now }, now) };
+      return { ...chat, report: { status: event.status, lastMessage: event.last_message, since: event.changed ? now : (chat.report?.since ?? now) } };
     case "notice":
       return { ...chat, notice: event.text };
     // The lineage is not cleared here: the extension empties it itself on a new session, and a snapshot it restores arrives before this event. Rust's `status_for` starts the status over here.
@@ -236,13 +222,14 @@ function applied(chat: Chat, event: HarnessEvent, now: number): Chat {
       return { ...chat, items: [], queued: [], report: null, historyLength: 0 };
     case "history_end":
       return { ...chat, historyLength: chat.items.length };
-    // Rust saves the session; the store puts a draft in the composer and tells of an export; the transcript holds none of them.
+    // Rust saves the session; the intake hands the draft, the export and the usage to the store; the transcript holds none of them.
     case "session_info":
     case "draft":
     case "exported":
     case "usage":
       return chat;
     case "exited":
-      return { ...chat, agent: "idle", running: false, queued: [], context: null, subagents: [], items: closed(chat.items) };
+      // Nobody is left to answer a dialog, a picker menu included.
+      return { ...chat, agent: "idle", running: false, queued: [], context: null, subagents: [], dialog: null, items: closed(chat.items) };
   }
 }

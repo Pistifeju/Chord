@@ -262,8 +262,10 @@ export type HarnessEvent_Deserialize =
 { kind: "exported"; path: string } | 
 /**  The harness process ended; `code` is missing when a signal ended it. */
 { kind: "exited"; code?: number | null } | 
-/**  The pane's status changed or a reply ended; `last_message` is the text of the last reply. Core adds it, no adapter emits it. */
-{ kind: "status"; status: Status_Deserialize; last_message: string };
+/**  The pane's status changed or a reply ended; `last_message` is the text of the last reply; `changed` is false when a reply end repeats the status. Core adds it, no adapter emits it. */
+{ kind: "status"; status: Status_Deserialize; last_message: string; changed: boolean } | 
+/**  The agent went on past its open dialog. Core adds it, no adapter emits it. */
+{ kind: "dialog_closed" };
 
 export type HarnessEvent_Serialize = 
 /**  A user message the agent took in, whether it started the run or steered it; `at` is when it was sent, in epoch milliseconds, when the agent says. */
@@ -314,8 +316,10 @@ export type HarnessEvent_Serialize =
 { kind: "exported"; path: string } | 
 /**  The harness process ended; `code` is missing when a signal ended it. */
 { kind: "exited"; code: number | null } | 
-/**  The pane's status changed or a reply ended; `last_message` is the text of the last reply. Core adds it, no adapter emits it. */
-{ kind: "status"; status: Status_Serialize; last_message: string };
+/**  The pane's status changed or a reply ended; `last_message` is the text of the last reply; `changed` is false when a reply end repeats the status. Core adds it, no adapter emits it. */
+{ kind: "status"; status: Status_Serialize; last_message: string; changed: boolean } | 
+/**  The agent went on past its open dialog. Core adds it, no adapter emits it. */
+{ kind: "dialog_closed" };
 
 /**  An image in a message: base64 data and its MIME type. */
 export type Image = {

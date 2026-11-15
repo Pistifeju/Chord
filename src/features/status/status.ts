@@ -1,7 +1,7 @@
 // Rules for an agent's reported status: its words, which of several is most urgent, and how old it is.
 import type { Status } from "../../ipc/bindings";
 
-/** What Rust reported for a pane; the transcript rules stamp `since` when the status changes. */
+/** What Rust reported for a pane; the transcript rules stamp `since` when Rust says the status changed. */
 export type StatusReport = { status: Status; lastMessage: string; since: number };
 
 // Most urgent first: what needs the user before what runs or rests.
@@ -18,15 +18,6 @@ export function urgentReport(reports: (StatusReport | null | undefined)[]): Stat
 /** A set of panes' status is a done you already saw: done, and none of its panes carries the finished mark. */
 export const seenDone = (kind: Status["kind"] | undefined, panes: string[], finished: string[]): boolean =>
   kind === "done" && !panes.some((pane) => finished.includes(pane));
-
-function sameStatus(a: Status, b: Status): boolean {
-  return a.kind === b.kind && (a.kind !== "exited" || b.kind !== "exited" || (a.code ?? null) === (b.code ?? null));
-}
-
-/** The report to keep after a new one arrives: it keeps its start time while the status stays the same. */
-export function stampedReport(previous: StatusReport | null, next: StatusReport, now: number): StatusReport {
-  return { ...next, since: previous && sameStatus(previous.status, next.status) ? previous.since : now };
-}
 
 export function statusLabel(status: Status): string {
   switch (status.kind) {

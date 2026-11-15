@@ -81,11 +81,11 @@ test("two thinking blocks stay two thoughts and a stopped call stays stopped", (
 
 test("a run stamps its start, and the report keeps its time until the status changes", () => {
   let chat = chatAfter({ ...emptyChat, agent: "ready" }, { kind: "state", running: true }, 100);
-  chat = chatAfter(chat, { kind: "status", status: { kind: "running" }, last_message: "" }, 200);
-  chat = chatAfter(chat, { kind: "status", status: { kind: "running" }, last_message: "Hi" }, 300);
+  chat = chatAfter(chat, { kind: "status", status: { kind: "running" }, last_message: "", changed: true }, 200);
+  chat = chatAfter(chat, { kind: "status", status: { kind: "running" }, last_message: "Hi", changed: false }, 300);
   assert.equal(chat.since, 100);
   assert.equal(chat.report?.since, 200);
-  chat = chatAfter(chat, { kind: "status", status: { kind: "done" }, last_message: "Hi" }, 400);
+  chat = chatAfter(chat, { kind: "status", status: { kind: "done" }, last_message: "Hi", changed: true }, 400);
   assert.equal(chat.report?.since, 400);
 });
 
@@ -109,21 +109,20 @@ test("a group's images are its calls' images in call order", () => {
   assert.deepEqual(stepImages(steps), [a, b, c]);
 });
 
-test("a dialog stays open until the agent goes on", () => {
+test("a dialog stays open until Rust closes it", () => {
   const ask = { kind: "confirm", message: "Sure?" } as const;
   let chat = chatAfter(emptyChat, { kind: "dialog", id: "u1", title: "Clear", ask }, 0);
   assert.deepEqual(chat.dialog, { id: "u1", title: "Clear", ask });
   chat = chatAfter(chat, { kind: "queue", steering: [] }, 0);
   assert.equal(chat.dialog?.id, "u1");
-  chat = chatAfter(chat, { kind: "tool_start", id: "t", title: "Read", detail: "a" }, 0);
+  chat = chatAfter(chat, { kind: "dialog_closed" }, 0);
   assert.equal(chat.dialog, null);
 });
 
-test("a picker menu stays open while the agent works, until it exits", () => {
+test("a picker menu stays open past a dialog close, until the agent exits", () => {
   const ask = { kind: "menu", options: ["a", "b"], current: "a", filter: false } as const;
   let chat = chatAfter(emptyChat, { kind: "dialog", id: "m1", title: "Model", ask }, 0);
-  chat = chatAfter(chat, { kind: "message_chunk", text: "hi" }, 0);
-  chat = chatAfter(chat, { kind: "tool_start", id: "t", title: "Read", detail: "a" }, 0);
+  chat = chatAfter(chat, { kind: "dialog_closed" }, 0);
   assert.equal(chat.dialog?.id, "m1");
   chat = chatAfter(chat, { kind: "exited", code: 0 }, 0);
   assert.equal(chat.dialog, null);
@@ -131,7 +130,7 @@ test("a picker menu stays open while the agent works, until it exits", () => {
 
 test("a history start empties the transcript and the status, then the saved messages fill it", () => {
   let chat = chatAfter(emptyChat, { kind: "user_message_chunk", text: "Old", images: [] }, 0);
-  chat = chatAfter(chat, { kind: "status", status: { kind: "done" }, last_message: "Old reply" }, 5);
+  chat = chatAfter(chat, { kind: "status", status: { kind: "done" }, last_message: "Old reply", changed: true }, 5);
   chat = chatAfter(chat, { kind: "history_start" }, 9);
   assert.deepEqual([chat.items, chat.report], [[], null]);
   chat = chatAfter(chat, { kind: "user_message_chunk", text: "Saved", images: [], at: 7 }, 9);

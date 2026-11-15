@@ -1,7 +1,7 @@
 // Tests for the status rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { ageLabel, stampedReport, urgentReport, type StatusReport } from "./status.ts";
+import { ageLabel, urgentReport, type StatusReport } from "./status.ts";
 
 const report = (status: StatusReport["status"], since = 0): StatusReport => ({ status, lastMessage: "", since });
 
@@ -12,13 +12,6 @@ test("the most urgent report is the one that waits, then an error, an exit, a ru
   assert.equal(urgentReport(reports.slice(0, 4))?.status.kind, "error");
   assert.equal(urgentReport(reports.slice(0, 3))?.status.kind, "exited");
   assert.equal(urgentReport([null, undefined]), null);
-});
-
-test("a report keeps its start time while its status stays the same", () => {
-  const before = report({ kind: "done" }, 100);
-  assert.equal(stampedReport(before, report({ kind: "done" }), 500).since, 100);
-  assert.equal(stampedReport(before, report({ kind: "running" }), 500).since, 500);
-  assert.equal(stampedReport(report({ kind: "exited", code: 1 }, 100), report({ kind: "exited", code: 2 }), 500).since, 500);
 });
 
 test("an age reads in minutes, hours and days", () => {

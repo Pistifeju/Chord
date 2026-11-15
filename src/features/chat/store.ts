@@ -6,7 +6,8 @@ import { paneNames, type PaneNames } from "../panes/sessions";
 import { usage } from "../usage/store";
 import { notify } from "../worktrees/store";
 import { fileName, imageExtensions, imageMime, type Attachment } from "./attachments";
-import { chatFed, emptyChat, type Chat, type Replay } from "./transcript";
+import { intakes } from "./intake";
+import { emptyChat, type Chat } from "./transcript";
 
 export const chats = externalStore<Record<string, Chat>>({});
 
@@ -41,41 +42,34 @@ export const slashClosed = externalStore<Record<string, string>>({});
 
 export const closeSlash = (pane: string, draft: string) => slashClosed.set({ ...slashClosed.get(), [pane]: draft });
 
-// Each pane's latest agent start, the history it replays, and the call that ends its wait for that history; events of an older start are dropped.
-const intakes = new Map<string, { start: number; replay: Replay; loaded: () => void }>();
-let startCount = 0;
-
-const latest = (pane: string, start: number) => intakes.get(pane)?.start === start;
+const intake = intakes();
 
 function received(pane: string, start: number, event: HarnessEvent) {
-  const intake = intakes.get(pane);
-  if (intake?.start !== start) return;
-  if (event.kind === "draft") setDraft(pane, event.text);
-  if (event.kind === "usage") usage.set(event.windows);
-  if (event.kind === "exported") notify(`Exported to ${event.path}`);
-  if (event.kind === "history_end" || event.kind === "exited") intake.loaded();
-  const fed = chatFed(chatOf(chats.get(), pane), intake.replay, event, Date.now());
-  intake.replay = fed.replay;
+  const fed = intake.fed(pane, start, chatOf(chats.get(), pane), event, Date.now());
+  if (!fed) return;
+  const { effect } = fed;
+  if (effect?.kind === "draft") setDraft(pane, effect.text);
+  if (effect?.kind === "usage") usage.set(effect.windows);
+  if (effect?.kind === "notify") notify(effect.text);
   update(pane, () => fed.chat);
 }
 
 // Resolves once the agent's history has arrived, or the start failed.
 export async function startChat(worktree: string, pane: string) {
   if (chatOf(chats.get(), pane).agent !== "idle") return;
-  const start = ++startCount;
   let loaded = () => {};
   const history = new Promise<void>((resolve) => (loaded = resolve));
-  intakes.set(pane, { start, replay: null, loaded });
+  const start = intake.begin(pane, loaded);
   const channel = new Channel<HarnessEvent>();
   channel.onmessage = (event) => received(pane, start, event);
   update(pane, (chat) => ({ ...chat, agent: "starting", notice: null, report: null, commands: [] }));
   try {
     const capabilities = await commands.startChat(worktree, pane, channel);
     // The pane closed while its agent started, so the stop came first and missed it.
-    if (!intakes.has(pane)) commands.stopChat(pane).catch(console.error);
-    if (latest(pane, start)) update(pane, (chat) => (chat.agent === "starting" ? { ...chat, agent: "ready", capabilities } : chat));
+    if (!intake.has(pane)) commands.stopChat(pane).catch(console.error);
+    if (intake.latest(pane, start)) update(pane, (chat) => (chat.agent === "starting" ? { ...chat, agent: "ready", capabilities } : chat));
   } catch (error) {
-    if (latest(pane, start)) update(pane, (chat) => ({ ...chat, agent: "idle", notice: String(error) }));
+    if (intake.latest(pane, start)) update(pane, (chat) => ({ ...chat, agent: "idle", notice: String(error) }));
     loaded();
   }
   return history;
@@ -155,8 +149,7 @@ export function abortRun(pane: string) {
 
 // The pane is gone: its agent stops and its transcript and draft go.
 export function forgetChat(pane: string) {
-  intakes.get(pane)?.loaded();
-  intakes.delete(pane);
+  intake.end(pane);
   const { [pane]: gone, ...rest } = chats.get();
   chats.set(rest);
   const { [pane]: goneDraft, ...restDrafts } = drafts.get();

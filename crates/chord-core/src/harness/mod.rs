@@ -256,11 +256,14 @@ pub enum HarnessEvent {
     Exported { path: String },
     /// The harness process ended; `code` is missing when a signal ended it.
     Exited { code: Option<i32> },
-    /// The pane's status changed or a reply ended; `last_message` is the text of the last reply. Core adds it, no adapter emits it.
+    /// The pane's status changed or a reply ended; `last_message` is the text of the last reply; `changed` is false when a reply end repeats the status. Core adds it, no adapter emits it.
     Status {
         status: Status,
         last_message: String,
+        changed: bool,
     },
+    /// The agent went on past its open dialog. Core adds it, no adapter emits it.
+    DialogClosed,
 }
 
 #[derive(Serialize, Type, Debug, Clone, Copy, PartialEq)]
@@ -292,6 +295,10 @@ pub struct StatusTracker {
 impl StatusTracker {
     pub fn last_message(&self) -> &str {
         &self.last_message
+    }
+
+    pub fn dialog_open(&self) -> bool {
+        self.dialog
     }
 
     fn current(&self) -> Option<Status> {
@@ -357,7 +364,11 @@ pub fn status_for(tracker: &mut StatusTracker, event: &HarnessEvent) -> Option<S
         HarnessEvent::Exited { code } => tracker.exited = Some(*code),
         // Another session's runs are not this one's: the status starts over until it runs.
         HarnessEvent::HistoryStart => {
-            *tracker = StatusTracker::default();
+            // The view keeps a dialog open across a history, so the tracker keeps it too, to close it later.
+            *tracker = StatusTracker {
+                dialog: tracker.dialog,
+                ..StatusTracker::default()
+            };
             return None;
         }
         _ => return None,
@@ -435,6 +446,25 @@ mod tests {
             changes: None,
         });
         assert_eq!(last_status(&events), Some(Status::Running));
+    }
+
+    #[test]
+    fn a_dialog_stays_open_across_a_history_until_the_agent_goes_on() {
+        let mut tracker = StatusTracker::default();
+        for event in [
+            HarnessEvent::Dialog {
+                id: "u1".into(),
+                title: "Clear".into(),
+                ask: DialogAsk::Confirm { message: "".into() },
+            },
+            HarnessEvent::Queue { steering: vec![] },
+            HarnessEvent::HistoryStart,
+        ] {
+            status_for(&mut tracker, &event);
+        }
+        assert!(tracker.dialog_open());
+        status_for(&mut tracker, &HarnessEvent::ThoughtStart);
+        assert!(!tracker.dialog_open());
     }
 
     #[test]

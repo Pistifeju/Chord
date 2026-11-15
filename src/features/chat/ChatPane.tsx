@@ -179,7 +179,7 @@ const CompactionRow = memo(function CompactionRow({ mark, fresh }: { mark: Compa
 
 // A streaming reply renders nothing, so its chunks leave the rows as they are.
 type Rows = { items: Item[]; running: boolean; queued: string[]; subagents: SubagentNode[]; /** How many items are the session's history. */ historyLength: number };
-const sameItems = (a: Item[], b: Item[]) => a.length === b.length && a.every((item, i) => item === b[i] || (isStreaming(item) && isStreaming(b[i])));
+const sameItems = (a: Item[], b: Item[]) => a === b || (a.length === b.length && a.every((item, i) => item === b[i] || (isStreaming(item) && isStreaming(b[i]))));
 const sameRows = (a: Rows, b: Rows) => a.running === b.running && a.historyLength === b.historyLength && a.queued === b.queued && a.subagents === b.subagents && sameItems(a.items, b.items);
 
 const Messages = memo(function Messages({ pane, items, running, queued, subagents, historyLength }: { pane: string } & Rows) {
