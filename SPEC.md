@@ -29,7 +29,7 @@ Containers. The first feature that puts something in one builds it:
 | Side panel | One panel right of the panes, one view at a time; resizable; width, open state and shown view remembered per worktree | F1 Files, I1 Simulator, J1 Preview |
 | Bottom panel | Resizable, one view at a time; open state and shown view remembered per worktree | G1 terminal, H3 build log and console |
 | Status bar | Strip at the bottom of the window | E11 usage, H3 run status, H5 running simulators |
-| Settings panel (⌘,) | A panel over the blurred window: a section list (General, Appearance, Shortcuts) and grouped rows | A5, D5, G1, H5, K1 |
+| Settings panel (⌘,) | A panel over the blurred window: a section list (General, Appearance, Shortcuts) and grouped rows | A5, D5, G1, H5, H11, K1 |
 
 Edge cases:
 - The window opens centered on the screen under the cursor.
@@ -159,6 +159,7 @@ Edge cases:
 - [ ] H8 At most `max(1, RAM in GB / 6)` of Chord's run simulators stay booted; one more shuts down the one whose worktree was opened longest ago and has no run in progress.
 - [ ] H9 harness(tools): `build` builds the worktree like ⌘B and returns the error lines, 30 at most, and no log.
 - [ ] H10 harness(tools): `run` builds and runs like ⌘R on the worktree's simulator and returns "Launched" or the error lines.
+- [ ] H11 Slim simulators: before a boot, Chord writes launchd disable overrides into its own simulators, so the background services a run does not need (Siri, Spotlight, widgets, iCloud and more) never start. A Rust port of simslim's service list, with its MIT notice. Settings section Simulators: one row per service group with its name, what stops working and its memory, and a switch to keep it on.
 
 Edge cases:
 - ⌘R opens the selected Xcode's simulator app (DeviceHub from Xcode 27, Simulator.app before).
@@ -174,6 +175,10 @@ Edge cases:
 - A run destination is a model and iOS version that exist together among the user's simulators.
 - A simulator that does not report Booted after its boot fails the run with that reason.
 - Chord never stops or deletes a simulator or a DerivedData folder it does not own.
+- H11 slims only simulators Chord owns, on iOS 18.5 or newer; an older runtime boots stock.
+- H11: a switch change reaches each Chord simulator at its next boot.
+- H11 keeps App Store, Push & Media (L3) and Safari Sync & Web Services (L2 universal links) on by default, and never lists a service the simulator needs to boot.
+- H11: Chord reads the overrides back after the boot; a lost override leaves the simulator stock and the run goes on.
 - H9 and H10: each tool's description tells the agent to build and run through the tools and never to use `simctl … booted`; a call that runs long reports every 30 s that it still runs.
 
 ## 9. Simulator (iOS, private API)
