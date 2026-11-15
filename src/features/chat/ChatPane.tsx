@@ -66,7 +66,7 @@ function StartButton({ worktree, pane }: { worktree: string; pane: string }) {
   );
 }
 
-const VERBS = ["Cooking", "Locking in", "Hold my beer", "Going feral"];
+const VERBS = ["Cooking…", "Locking in…", "Hold my beer…", "Going feral…"];
 
 // The start time picks the verb, so a remount keeps it.
 function Working({ since }: { since: number }) {
