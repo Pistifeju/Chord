@@ -6,7 +6,7 @@ use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
-use chord_core::Error;
+use chord_core::{Error, Project, worktrees};
 use specta::Type;
 
 use crate::derived_data;
@@ -71,21 +71,39 @@ pub fn forget(worktree: &Path) {
     }
 }
 
-/// Removes the build data of worktrees that are gone; never a project outside `worktree_folders` or a simulator Chord did not create. Best effort.
-pub fn prune(worktree_folders: &[PathBuf], live: &[PathBuf]) {
-    let folders: Vec<PathBuf> = worktree_folders.iter().map(|path| resolved(path)).collect();
+/// Removes the build data of worktrees that are gone; never a project outside the worktrees folders or a simulator Chord did not create. It does nothing while any project's worktrees cannot be listed: a project that is not mounted must not look empty. Best effort past that check.
+pub fn prune(projects: &[Project]) -> Result<(), Error> {
+    let live = live_worktrees(projects, true)?;
+    let folders: Vec<PathBuf> = projects
+        .iter()
+        .map(|project| resolved(&worktrees::worktrees_folder(project)))
+        .collect();
     remove_derived_data(|project| {
         !project.exists() && {
             let project = resolved(project);
             folders.iter().any(|folder| project.starts_with(folder))
         }
     });
-    let live = simulator_names(live);
+    let live = simulator_names(&live);
     if let Ok(owned) = simulator::owned() {
         for device in owned.iter().filter(|device| !live.contains(&device.name)) {
             let _ = simulator::delete(&device.udid);
         }
     }
+    Ok(())
+}
+
+fn live_worktrees(projects: &[Project], with_main: bool) -> Result<Vec<PathBuf>, Error> {
+    let mut live = Vec::new();
+    for project in projects {
+        live.extend(
+            worktrees::list(&project.path)?
+                .into_iter()
+                .map(|worktree| worktree.path)
+                .filter(|path| with_main || *path != project.path),
+        );
+    }
+    Ok(live)
 }
 
 fn remove_derived_data(gone: impl Fn(&Path) -> bool) {
@@ -96,8 +114,9 @@ fn remove_derived_data(gone: impl Fn(&Path) -> bool) {
     }
 }
 
-/// The disk the DerivedData folders and simulators of the `live` worktrees take, in bytes.
-pub fn build_data_size(live: &[PathBuf]) -> u64 {
+/// The disk the DerivedData folders and simulators of the projects' created worktrees take, in bytes, without the main checkouts'.
+pub fn build_data_size(projects: &[Project]) -> Result<u64, Error> {
+    let live = live_worktrees(projects, false)?;
     let resolved_live: Vec<PathBuf> = live.iter().map(|path| resolved(path)).collect();
     let derived: u64 = derived_data::projects()
         .iter()
@@ -110,17 +129,17 @@ pub fn build_data_size(live: &[PathBuf]) -> u64 {
         .map(|(folder, _)| disk_size(folder))
         .sum();
     let Some(developer) = derived_data::developer_folder() else {
-        return derived;
+        return Ok(derived);
     };
     let devices = developer.join("CoreSimulator/Devices");
-    let names = simulator_names(live);
+    let names = simulator_names(&live);
     let simulators: u64 = simulator::owned()
         .unwrap_or_default()
         .iter()
         .filter(|device| names.contains(&device.name))
         .map(|device| disk_size(&devices.join(&device.udid)))
         .sum();
-    derived + simulators
+    Ok(derived + simulators)
 }
 
 fn simulator_names(worktrees: &[PathBuf]) -> HashSet<String> {
@@ -168,5 +187,14 @@ mod tests {
             model_name("com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro"),
             "iPhone 17 Pro"
         );
+    }
+
+    #[test]
+    fn prune_stops_when_a_project_cannot_be_listed() {
+        let unmounted = Project {
+            path: PathBuf::from("/Volumes/chord-not-mounted/app"),
+            name: "app".into(),
+        };
+        assert!(prune(&[unmounted]).is_err());
     }
 }

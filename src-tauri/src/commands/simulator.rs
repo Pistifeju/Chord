@@ -2,7 +2,6 @@
 
 use std::path::PathBuf;
 
-use chord_core::{Error, Store, worktrees};
 use chord_ios::RunningSimulator;
 use tauri::AppHandle;
 
@@ -33,7 +32,7 @@ pub async fn shut_down_other_simulators(app: AppHandle, keep: PathBuf) -> Result
 #[specta::specta]
 pub async fn build_data_size(app: AppHandle) -> Result<f64, String> {
     blocking(app, |_, store| {
-        Ok(chord_ios::build_data_size(&live_worktrees(store, false)?) as f64)
+        Ok(chord_ios::build_data_size(&store.get().projects)? as f64)
     })
     .await
 }
@@ -42,29 +41,5 @@ pub async fn build_data_size(app: AppHandle) -> Result<f64, String> {
 #[tauri::command]
 #[specta::specta]
 pub async fn prune_build_data(app: AppHandle) -> Result<(), String> {
-    blocking(app, |_, store| {
-        let live = live_worktrees(store, true)?;
-        let folders: Vec<PathBuf> = store
-            .get()
-            .projects
-            .iter()
-            .map(worktrees::worktrees_folder)
-            .collect();
-        chord_ios::prune(&folders, &live);
-        Ok(())
-    })
-    .await
-}
-
-fn live_worktrees(store: &Store, with_main: bool) -> Result<Vec<PathBuf>, Error> {
-    let mut live = Vec::new();
-    for project in store.get().projects {
-        live.extend(
-            worktrees::list(&project.path)?
-                .into_iter()
-                .map(|worktree| worktree.path)
-                .filter(|path| with_main || *path != project.path),
-        );
-    }
-    Ok(live)
+    blocking(app, |_, store| chord_ios::prune(&store.get().projects)).await
 }
