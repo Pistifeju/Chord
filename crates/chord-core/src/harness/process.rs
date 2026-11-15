@@ -6,7 +6,7 @@ use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde_json::Value;
 
@@ -98,11 +98,35 @@ impl Drop for Process {
         if !self.reports_end {
             self.stopped.store(true, Ordering::SeqCst);
         }
+        let pid = self
+            .child
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .id();
+        // SIGTERM lets pi end the commands it started in their own process groups; SIGKILL would leave them running.
+        if let Ok(pid) = i32::try_from(pid) {
+            unsafe { libc::kill(pid, libc::SIGTERM) };
+        }
+        let deadline = Instant::now() + TERM_GRACE;
+        while Instant::now() < deadline {
+            let waited = self
+                .child
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .try_wait();
+            if !matches!(waited, Ok(None)) {
+                return;
+            }
+            thread::sleep(Duration::from_millis(20));
+        }
         let mut child = self.child.lock().unwrap_or_else(PoisonError::into_inner);
         let _ = child.kill();
         let _ = child.wait();
     }
 }
+
+/// How long pi gets to end its commands after SIGTERM before it is killed.
+const TERM_GRACE: Duration = Duration::from_secs(2);
 
 // Stdout closed, so the process is ending; it gets a moment to report its code.
 fn exit_code(child: &Mutex<Child>) -> Option<i32> {
