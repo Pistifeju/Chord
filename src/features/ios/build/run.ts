@@ -13,6 +13,8 @@ export type Build = {
   more: number;
   /** The user saw the success or the stop, so its marker goes. */
   endSeen: boolean;
+  /** A ⌘B that came while the app ran: the app and its console go on, and this build shows beside them. */
+  side?: Build;
 };
 
 /** A worktree has no build until Rust reports its first phase. */
@@ -41,6 +43,25 @@ export function appliedEvent(state: BuildAndLog, event: BuildEvent_Deserialize, 
   }
 }
 
+// A build beside the running app: its phases and errors, while the app's phase stays.
+export function appliedSideEvent(state: BuildAndLog, event: BuildEvent_Deserialize, now: number): BuildAndLog {
+  if (!state.build) return state;
+  const side = state.build.side ?? { phase: "preparing", startedAt: now, issues: [], more: 0, endSeen: true };
+  switch (event.kind) {
+    case "phase":
+      return { ...state, build: { ...state.build, side: { ...side, phase: event.phase, startedAt: event.phase === "building" ? now : side.startedAt } } };
+    case "log":
+      return { ...state, log: appendToLog(state.log, event.text) };
+    case "succeeded":
+    case "stopped":
+      return { ...state, build: { ...state.build, side: { ...side, phase: event.kind } } };
+    case "failed":
+      return { ...state, build: { ...state.build, side: { ...side, phase: "failed", issues: event.issues, more: event.more } } };
+    default:
+      return state;
+  }
+}
+
 // From the start of a build until the app launches or the build ends: the run control shows stop.
 export const isStarting = (build: Build | undefined): boolean =>
   build?.phase === "preparing" || build?.phase === "waiting" || build?.phase === "building" || build?.phase === "installing" || build?.phase === "launching";
@@ -64,6 +85,8 @@ export const seenEnd = (build: Build): Build =>
 
 // The marker on the worktree's card: the last build's phase, until the next build starts; a seen success or stop shows none.
 export function markerText(build: Build): Marker | null {
+  if (build.side && isStarting(build.side)) return { text: "Building", tone: "busy" };
+  if (build.side?.phase === "failed") return { text: "Build failed", tone: "failed" };
   switch (build.phase) {
     case "preparing":
     case "waiting":

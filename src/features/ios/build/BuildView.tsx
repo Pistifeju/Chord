@@ -49,20 +49,21 @@ export function BuildView({ worktree }: { worktree: string }) {
   const lines = useMemo(() => (log ? logLines(log) : []), [log]);
   if (!build) return <div className="log-part log-empty">No build yet</div>;
   // A failed build shows its errors first.
-  const failed = build.phase === "failed";
+  const shown = build.side ?? build;
+  const failed = shown.phase === "failed";
   return (
     <LogView
       view="build"
       label="Build log"
       lines={lines}
-      restartKey={build.startedAt}
+      restartKey={shown.startedAt}
       head={
-        failed && build.issues.length > 0 ? (
+        failed && shown.issues.length > 0 ? (
           <ul className="build-issues">
-            {build.issues.map((issue, n) => (
+            {shown.issues.map((issue, n) => (
               <IssueRow key={n} worktree={worktree} issue={issue} />
             ))}
-            {build.more > 0 && <li className="build-more">and {build.more} more</li>}
+            {shown.more > 0 && <li className="build-more">and {shown.more} more</li>}
           </ul>
         ) : undefined
       }

@@ -153,7 +153,7 @@ Edge cases:
 - [x] H1 **hard** ⌘R builds into the worktree's own DerivedData and runs on its own simulator; ⌘B builds only; ⌘. stops. Play / stop button in the tab bar. The worktree card shows Building, Running, Build succeeded, Build stopped or Build failed.
 - [ ] H2 Run destination, per project, in the menu beside the play button: connected devices above simulators.
 - [x] H3 Build log and app console (stdout, stderr, OSLog) as views of the bottom panel beside the terminal, 10,000 lines, ⌘F; ⌘⇧Y shows or hides them. The status bar shows no run status.
-- [ ] H4 **hard** One build per worktree: ⌘R and ⌘B take over the worktree's running build.
+- [x] H4 **hard** One build per worktree: ⌘R and ⌘B take over the worktree's running build.
 - [ ] H5 Caches: DerivedData, hot reload folders and simulators per worktree; one forget, one prune; stop other worktrees' simulators. Running simulators in the status bar, with Shut Down Others. Settings row: the size of the build data.
 - [x] H7 a missing `xcodebuild` or `xcrun` shows the install step.
 - [ ] H8 At most `max(1, RAM in GB / 6)` of Chord's run simulators stay booted; one more shuts down the one whose worktree was opened longest ago and has no run in progress.
@@ -180,8 +180,8 @@ Edge cases:
 - H11 keeps App Store, Push & Media (L3) and Safari Sync & Web Services (L2 universal links) on by default, and never lists a service the simulator needs to boot.
 - H11: Chord reads the overrides back after the boot; a lost override leaves the simulator stock and the run goes on.
 - H9 and H10: each tool's description tells the agent to build and run through the tools and never to use `simctl … booted`; a call that runs long reports every 30 s that it still runs.
-- H4: ⌘B while the app runs: decide whether the build ends the running app. Xcode leaves it running; today the build takes the slot and terminates the app.
-- H4: tie a run's `simctl terminate` to the run that launched the app, so a stale run never ends an app a newer ⌘R launched.
+- H4: ⌘B while the app runs builds beside the run that holds the app, as Xcode does: the app, its console and the Running marker stay (the marker says Building while it builds), ⌘. stops the app and the build, and a ⌘R takeover ends both and launches with `--terminate-running-process`.
+- H4: only a stop (⌘. or quit) ends the app, through the run that launched it; a takeover never runs `simctl terminate`, so a stale run never ends an app a newer ⌘R launched.
 
 ## 9. Simulator (iOS, private API)
 

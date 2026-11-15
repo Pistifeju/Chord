@@ -1,7 +1,7 @@
 // Tests for the build state rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { appliedEvent, errorCount, markerText, noBuild, pathInWorktree, seenEnd } from "./run.ts";
+import { appliedEvent, appliedSideEvent, errorCount, markerText, noBuild, pathInWorktree, seenEnd } from "./run.ts";
 
 test("a failed build keeps its errors and the count of the ones it did not list", () => {
   let state = appliedEvent(noBuild, { kind: "phase", phase: "preparing" }, 1000);
@@ -41,6 +41,15 @@ test("the card says Building until the app launches, then Running, and nothing o
   assert.deepEqual(markerText(state.build!), { text: "Running", tone: "busy" });
   state = appliedEvent(state, { kind: "exited" }, 3000);
   assert.equal(markerText(state.build!), null);
+});
+
+test("a build beside the running app shows Building, then Running again, and keeps the app's phase", () => {
+  let state = appliedEvent(noBuild, { kind: "phase", phase: "running" }, 1000);
+  state = appliedSideEvent(state, { kind: "phase", phase: "building" }, 2000);
+  assert.equal(state.build?.phase, "running");
+  assert.deepEqual(markerText(state.build!), { text: "Building", tone: "busy" });
+  state = appliedSideEvent(state, { kind: "succeeded" }, 3000);
+  assert.deepEqual(markerText(state.build!), { text: "Running", tone: "busy" });
 });
 
 test("an error's file is a worktree path only inside the worktree", () => {

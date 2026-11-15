@@ -65,11 +65,14 @@ pub enum BuildEvent {
 #[derive(Clone, Default)]
 pub struct Builds(Arc<Inner>);
 
+/// A worktree and whether the build runs beside the app run.
+type TurnKey = (PathBuf, bool);
+
 #[derive(Default)]
 struct Inner {
     slots: Mutex<Slots>,
-    /// Held by a worktree's build thread from its start to its end, so a newer build starts after the old one ended.
-    turns: Mutex<HashMap<PathBuf, Arc<Mutex<()>>>>,
+    /// Held by a worktree's build thread from its start to its end (a build beside the app run has its own turn), so a newer build starts after the old one ended.
+    turns: Mutex<HashMap<TurnKey, Arc<Mutex<()>>>>,
     /// The scheme of each project from its last build, so the next one skips `xcodebuild -list`.
     schemes: Mutex<HashMap<PathBuf, String>>,
     /// Held while a worktree's simulator is looked up and created, so two builds never create it twice.
@@ -101,11 +104,15 @@ impl Builds {
                 return;
             }
         };
-        let start = lock(&self.0.slots).ask(&worktree);
-        if let Some(pid) = start.kill {
+        let start = lock(&self.0.slots).ask(&worktree, run);
+        for pid in start.kill {
             thread::spawn(move || end_group(pid));
         }
-        let turn = Arc::clone(lock(&self.0.turns).entry(worktree.clone()).or_default());
+        let turn = Arc::clone(
+            lock(&self.0.turns)
+                .entry((worktree.clone(), start.beside_app))
+                .or_default(),
+        );
         let build = Build {
             builds: self.clone(),
             worktree,
@@ -130,7 +137,7 @@ impl Builds {
 
     /// Stops the worktree's build without waiting for it.
     pub fn stop(&self, worktree: &Path) {
-        if let Some(pid) = lock(&self.0.slots).stop(worktree) {
+        for pid in lock(&self.0.slots).stop(worktree) {
             thread::spawn(move || end_group(pid));
         }
     }
@@ -153,12 +160,18 @@ impl Builds {
 
     /// For a worktree that was deleted: stops its build, returns once the build ended, build database released, and forgets its schemes.
     pub fn forget(&self, worktree: &Path) {
-        let pid = lock(&self.0.slots).stop(worktree);
-        if let Some(pid) = pid {
-            end_group(pid);
+        let pids = lock(&self.0.slots).stop(worktree);
+        let ending: Vec<_> = pids
+            .into_iter()
+            .map(|pid| thread::spawn(move || end_group(pid)))
+            .collect();
+        for handle in ending {
+            let _ = handle.join();
         }
-        let turn = lock(&self.0.turns).remove(worktree);
-        if let Some(turn) = turn {
+        let mut turns = lock(&self.0.turns);
+        let forgotten: Vec<_> = turns.extract_if(|(path, _), _| path == worktree).collect();
+        drop(turns);
+        for (_, turn) in forgotten {
             drop(lock(&turn));
         }
         lock(&self.0.schemes).retain(|project, _| !project.starts_with(worktree));
@@ -301,6 +314,7 @@ impl Build {
                     &executable,
                     register,
                     &|| {
+                        lock(&self.builds.0.slots).app_launched(&self.worktree, self.id);
                         self.say(BuildEvent::Phase {
                             phase: BuildPhase::Running,
                         })
@@ -310,7 +324,8 @@ impl Build {
             })
         });
         if self.stopped() {
-            if let Some(bundle) = &bundle {
+            let stop_requested = lock(&self.builds.0.slots).take_stop_request(self.id);
+            if stop_requested && let Some(bundle) = &bundle {
                 simulator::terminate(udid, bundle);
             }
             return BuildEvent::Stopped;

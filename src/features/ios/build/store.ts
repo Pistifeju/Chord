@@ -6,7 +6,7 @@ import { bottomPanelOf, bottomPanels, changeBottomPanel } from "../../bottompane
 import { fail, projects } from "../../worktrees/store";
 import { emptyConsole, type ConsoleLine } from "./consoleLog";
 import { emptyLog, type Log } from "./log";
-import { appliedEvent, noBuild, seenEnd, viewAfterEvent, viewToShow, type Build, type BuildAndLog } from "./run";
+import { appliedEvent, appliedSideEvent, isRunning, noBuild, seenEnd, viewAfterEvent, viewToShow, type Build, type BuildAndLog } from "./run";
 
 /** How long a success or a stop shows on the worktree's card. */
 const END_MARKER_MS = 5000;
@@ -41,7 +41,25 @@ projects.subscribe(() => {
   if (selected) seeEnd(selected);
 });
 
+/** The newest build's number beside the running app: a ⌘B that leaves the app. */
+const latestSide = new Map<string, number>();
+
+function startBuildBesideApp(worktree: string) {
+  const number = (latestSide.get(worktree) ?? 0) + 1;
+  latestSide.set(worktree, number);
+  const channel = new Channel<BuildEvent_Deserialize>();
+  channel.onmessage = (event) => {
+    if (latestSide.get(worktree) !== number) return;
+    apply(worktree, (state) => appliedSideEvent(state, event, Date.now()));
+  };
+  apply(worktree, (state) => appliedSideEvent({ ...state, log: emptyLog, build: state.build && { ...state.build, side: undefined } }, { kind: "phase", phase: "preparing" }, Date.now()));
+  changeBottomPanel(worktree, { view: "build" });
+  commands.startBuild(worktree, false, channel).catch(fail);
+}
+
 export function startBuild(worktree: string, run: boolean) {
+  if (!run && isRunning(builds.get()[worktree])) return startBuildBesideApp(worktree);
+  latestSide.delete(worktree);
   const number = (latest.get(worktree) ?? 0) + 1;
   latest.set(worktree, number);
   const current = () => latest.get(worktree) === number;
