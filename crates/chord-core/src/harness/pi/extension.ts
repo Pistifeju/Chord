@@ -25,13 +25,15 @@ const unitMs: Record<string, number> = { d: 86400000, h: 3600000, m: 60000 };
 
 type UsageWindow = { label: string; resetsAt: number | null };
 
-// A reset left as a point in time stays right between updates; a window already reset is stale and left out.
-function usageWindow(update: { text?: string; suffix?: string }): UsageWindow | undefined {
+// A reset left as a point in time stays right between updates. The time left follows the window's name, so a bare "5h" is the name of a window that has not started.
+function usageWindow(update: { text?: string; suffix?: string }): UsageWindow {
   const text = String(update.text ?? "");
-  const left = text.match(/(?:^|\s)(now|\d+[dhm](?:\d+[hm])*)$/);
-  const label = `${(left ? text.slice(0, left.index) : text).trim()} ${update.suffix ?? ""}`.trim();
-  if (!left) return { label, resetsAt: null };
-  if (left[1] === "now") return undefined;
+  const left = text.match(/\s(now|\d+[dhm](?:\d+[hm])*)$/);
+  const name = (left ? text.slice(0, left.index) : text).trim();
+  if (!left) return { label: `${name} ${update.suffix ?? ""}`.trim(), resetsAt: null };
+  // A window whose reset has passed is empty until the next request starts a new one.
+  if (left[1] === "now") return { label: `${name} 0%`, resetsAt: null };
+  const label = `${name} ${update.suffix ?? ""}`.trim();
   const ms = [...left[1].matchAll(/(\d+)([dhm])/g)].reduce((total, [, n, unit]) => total + Number(n) * unitMs[unit], 0);
   return { label, resetsAt: Date.now() + ms };
 }
