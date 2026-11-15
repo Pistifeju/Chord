@@ -38,8 +38,12 @@ export function defaultProject(projects: Projects): string | null {
 export const ownerOf = (projects: Projects, worktree: string): string | undefined =>
   projects.list.find((p) => projects.worktrees[p.path]?.some((w) => w.path === worktree))?.path;
 
+const allWorktrees = (projects: Projects): Worktree[] => Object.values(projects.worktrees).flat();
+
 export const worktreeAt = (projects: Projects, path: string | null): Worktree | undefined =>
-  Object.values(projects.worktrees).flat().find((worktree) => worktree.path === path);
+  allWorktrees(projects).find((worktree) => worktree.path === path);
+
+export const hasXcodeProject = (projects: Projects): boolean => allWorktrees(projects).some((worktree) => worktree.xcode);
 
 export const worktreeName = (worktree: Worktree): string => worktree.branch ?? worktree.path.split("/").pop() ?? worktree.path;
 

@@ -303,11 +303,15 @@ fn force_helps(refusal: &str) -> bool {
     refusal.contains("modified or untracked files") || refusal.contains("locked")
 }
 
-fn folder(project: &Project, branch: &str) -> PathBuf {
+/// The folder beside the project that holds its created worktrees.
+pub fn worktrees_folder(project: &Project) -> PathBuf {
     project
         .path
         .with_file_name(format!("{}-worktrees", project.name))
-        .join(branch.replace('/', "-"))
+}
+
+fn folder(project: &Project, branch: &str) -> PathBuf {
+    worktrees_folder(project).join(branch.replace('/', "-"))
 }
 
 pub(crate) fn entries(dir: &Path) -> Result<Vec<Entry>, Error> {

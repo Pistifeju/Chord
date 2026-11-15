@@ -181,7 +181,7 @@ impl Builds {
         }
     }
 
-    /// For a worktree that was deleted: stops its build, returns once the build ended, build database released, and forgets its schemes.
+    /// For a worktree that was deleted: stops its build, waits for the build database to be released, forgets its schemes.
     pub fn forget(&self, worktree: &Path) {
         let pids = lock(&self.0.slots).stop(worktree);
         let ending: Vec<_> = pids

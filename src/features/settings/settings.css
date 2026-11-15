@@ -215,6 +215,12 @@
   font-variant-numeric: tabular-nums;
 }
 
+.settings-size {
+  flex: none;
+  color: var(--ink-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
 .settings-key {
   min-width: 10ch;
   font-variant-numeric: tabular-nums;

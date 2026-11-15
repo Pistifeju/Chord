@@ -1,0 +1,26 @@
+/* The simulators button in the status bar. Rules: DESIGN.md, Build and Run. */
+.statusbar-simulators {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  margin-left: auto;
+  padding: 0 8px;
+  border: none;
+  border-radius: var(--radius-inset);
+  background: transparent;
+  font-variant-numeric: tabular-nums;
+  transition: background-color var(--t-fast) var(--ease-out);
+}
+
+.statusbar-simulators:hover {
+  background: var(--raised);
+}
+
+.statusbar-simulators:active {
+  background: var(--selected);
+}
+
+.statusbar-simulators + .statusbar-usage {
+  margin-left: 16px;
+}

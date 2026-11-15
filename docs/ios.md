@@ -140,19 +140,20 @@ Where each control sits and how it looks: `DESIGN.md`, Components › Build and 
 | Memory | 2.2 GB per booted simulator | The cap of section 3.4; the status bar lists the running ones (H5) |
 | CPU | one build takes every core | One build per worktree; see section 3.3 for the queue |
 
-Deleting a worktree through Chord hashes its project path and removes that DerivedData folder, after the folder's `info.plist` confirms the `WorkspacePath`. Prune covers worktrees deleted elsewhere: it removes each folder whose `WorkspacePath` lies in a known project's worktrees folder and is gone from disk, and each Chord simulator whose hash matches no worktree. It never touches the main checkout's folder or a simulator Chord did not create.
+Deleting a worktree through Chord removes each DerivedData folder whose `info.plist` records a `WorkspacePath` inside it; the worktree is already gone, so its project's name is unknown and the folder cannot be hashed. Prune covers worktrees deleted elsewhere: it removes each folder whose `WorkspacePath` lies in a known project's worktrees folder and is gone from disk, and each Chord simulator whose hash matches no worktree. It never touches the main checkout's folder or a simulator Chord did not create.
 
 ## 6. Code
 
 ```
 crates/chord-ios/src/
   xcode.rs          the worktree's project or workspace, its schemes, the missing-tool check    step 1
-  derived_data.rs   the folder Xcode gives a project path, its app, its size, its removal       step 1
+  derived_data.rs   the folder Xcode gives a project path, its app, its app                      step 1
   slot.rs           which build holds a worktree's slot (pure)                                  step 1
   build.rs          one xcodebuild: arguments, process group, log batches, the lock wait        step 1
   issues.rs         the error lines of a build log (pure)                                       step 1
   simulator.rs      the worktree's simulator: find, create, boot, shut down, delete, the cap    step 2
   run.rs            install, launch, console                                                    step 2
+  caches.rs         the running simulators, forget, prune, the size of the build data           step 4
   destinations.rs   run destinations from simctl and devicectl                                  step 3
 src-tauri/src/commands/build.rs, simulator.rs
 src/features/ios/build/         the run control and its menu, the run status, the build log, the run state rules

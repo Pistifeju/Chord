@@ -42,6 +42,14 @@ export const commands = {
 	stopBuild: (worktree: string) => __TAURI_INVOKE<null>("stop_build", { worktree }),
 	/**  The connected devices and the simulator models to run on. */
 	listDestinations: () => __TAURI_INVOKE<Destinations>("list_destinations"),
+	/**  The booted simulators Chord created; `open` marks the open worktree's. */
+	runningSimulators: (open: string | null) => __TAURI_INVOKE<RunningSimulator[]>("running_simulators", { open }),
+	/**  Shuts down every booted simulator Chord created except the worktree's own. */
+	shutDownOtherSimulators: (keep: string) => __TAURI_INVOKE<null>("shut_down_other_simulators", { keep }),
+	/**  The disk the DerivedData folders and simulators of the created worktrees take, in bytes, without the main checkouts'; a number the bindings can carry exactly up to 8 PB. */
+	buildDataSize: () => __TAURI_INVOKE<number | null>("build_data_size"),
+	/**  Removes the build data of worktrees that are gone. It does nothing while any project's worktrees cannot be listed: a project that is not mounted must not look empty. */
+	pruneBuildData: () => __TAURI_INVOKE<null>("prune_build_data"),
 	/**  Stops every agent, shell and build and ends the app once the user confirmed the quit. Panes stay saved as running, so they start again on launch. */
 	quitApp: () => __TAURI_INVOKE<null>("quit_app"),
 	/**  Saves the setting and applies it; a missing `caffeinate` fails before anything is saved, even with no agent working. */
@@ -403,6 +411,15 @@ model: string;
 runtime: string; name: string; 
 /**  "iOS 27.0". */
 os: string };
+
+export type RunningSimulator = {
+	/**  The worktree's folder name. */
+	worktree: string,
+	/**  "iPhone 17 Pro". */
+	model: string,
+	/**  It is the open worktree's. */
+	open: boolean,
+};
 
 export type Shortcut = Shortcut_Serialize | Shortcut_Deserialize;
 

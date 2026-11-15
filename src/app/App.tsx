@@ -3,6 +3,8 @@ import { useEffect, useMemo } from "react";
 import { BuildView } from "../features/ios/build/BuildView";
 import { ConsoleView } from "../features/ios/build/ConsoleView";
 import { RunControl } from "../features/ios/build/RunControl";
+import { BuildDataSize } from "../features/ios/simulators/BuildDataSize";
+import { SimulatorsButton } from "../features/ios/simulators/SimulatorsButton";
 import { markerText } from "../features/ios/build/run";
 import { builds } from "../features/ios/build/store";
 import { OpenFileByNamePopup } from "../features/files/OpenFileByNamePopup";
@@ -22,7 +24,7 @@ import { ForceRemovalPopup } from "../features/worktrees/ForceRemovalPopup";
 import { NewWorktreePopup } from "../features/worktrees/NewWorktreePopup";
 import { ProjectDrop } from "../features/worktrees/ProjectDrop";
 import { watchGitCounts } from "../features/worktrees/gitCountsRefresh";
-import { worktreeAt } from "../features/worktrees/projects";
+import { hasXcodeProject, worktreeAt } from "../features/worktrees/projects";
 import { dismissError, projects } from "../features/worktrees/store";
 import { WarningToast } from "../ui/Toast";
 import { StatusBar } from "./StatusBar";
@@ -104,11 +106,11 @@ export default function App() {
                 )
               )}
             </main>
-            <StatusBar />
+            <StatusBar simulators={xcode && selected ? <SimulatorsButton worktree={selected} /> : null} />
           </div>
         </div>
       </div>
-      {settings && <SettingsPage />}
+      {settings && <SettingsPage buildDataSize={hasXcodeProject(state) ? <BuildDataSize /> : null} />}
       <ProjectDrop />
       <NewWorktreePopup />
       <DeleteWorktreePopup />

@@ -5,17 +5,42 @@ use std::process::{Command, Stdio};
 
 use md5::{Digest, Md5};
 
+use crate::simulator;
+
 /// `lsof` ships with macOS at this path.
 pub(crate) const LSOF: &str = "/usr/sbin/lsof";
 
+/// `~/Library/Developer`, where Xcode and CoreSimulator keep their data. `None` without a home folder.
+pub(crate) fn developer_folder() -> Option<PathBuf> {
+    let home = std::env::var_os("HOME")?;
+    Some(Path::new(&home).join("Library/Developer"))
+}
+
+fn root() -> Option<PathBuf> {
+    Some(developer_folder()?.join("Xcode/DerivedData"))
+}
+
 /// Xcode's folder for the project at `project`: its name, a dash and a hash of its path. `None` without a home folder.
 pub(crate) fn folder_of(project: &Path) -> Option<PathBuf> {
-    let home = std::env::var_os("HOME")?;
-    Some(
-        Path::new(&home)
-            .join("Library/Developer/Xcode/DerivedData")
-            .join(folder_name(project)?),
-    )
+    Some(root()?.join(folder_name(project)?))
+}
+
+/// Each project folder in DerivedData with the project path Xcode recorded in its `info.plist`; a folder without one, such as the module cache, is no project's.
+pub(crate) fn projects() -> Vec<(PathBuf, PathBuf)> {
+    let Some(root) = root() else {
+        return Vec::new();
+    };
+    std::fs::read_dir(root)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|entry| {
+            let folder = entry.path();
+            let recorded =
+                simulator::plist_value(&folder.join("info.plist"), "WorkspacePath", &|_| {});
+            Some((folder, PathBuf::from(recorded.ok()?)))
+        })
+        .collect()
 }
 
 /// Xcode writes a space in the project's name as an underscore.

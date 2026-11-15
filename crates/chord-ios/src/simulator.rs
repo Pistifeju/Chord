@@ -21,6 +21,7 @@ const STREAM_START: Duration = Duration::from_secs(3);
 #[derive(Debug, PartialEq)]
 pub(crate) struct Simulator {
     pub udid: String,
+    pub name: String,
     pub booted: bool,
     /// The device type identifier.
     pub model: String,
@@ -38,11 +39,15 @@ pub(crate) fn name_of(worktree: &Path) -> String {
     format!("Chord {folder} {}", &hash[..6])
 }
 
-/// The first available device of the list that `matches`.
-fn device_where(listed: &Value, matches: impl Fn(&Value) -> bool) -> Option<Simulator> {
+/// The available devices of the list that `matches`.
+fn devices_where<'a>(
+    listed: &'a Value,
+    matches: impl Fn(&Value) -> bool + 'a,
+) -> impl Iterator<Item = Simulator> + 'a {
     listed["devices"]
-        .as_object()?
-        .iter()
+        .as_object()
+        .into_iter()
+        .flatten()
         .flat_map(|(runtime, devices)| {
             devices
                 .as_array()
@@ -50,9 +55,10 @@ fn device_where(listed: &Value, matches: impl Fn(&Value) -> bool) -> Option<Simu
                 .flatten()
                 .map(move |device| (runtime, device))
         })
-        .find(|(_, device)| device["isAvailable"] == true && matches(device))
+        .filter(move |(_, device)| device["isAvailable"] == true && matches(device))
         .map(|(runtime, device)| Simulator {
             udid: device["udid"].as_str().unwrap_or_default().into(),
+            name: device["name"].as_str().unwrap_or_default().into(),
             booted: device["state"] == "Booted",
             model: device["deviceTypeIdentifier"]
                 .as_str()
@@ -60,6 +66,36 @@ fn device_where(listed: &Value, matches: impl Fn(&Value) -> bool) -> Option<Simu
                 .into(),
             runtime: runtime.clone(),
         })
+}
+
+fn device_where(listed: &Value, matches: impl Fn(&Value) -> bool) -> Option<Simulator> {
+    devices_where(listed, matches).next()
+}
+
+/// The simulators Chord created, by their name's shape: `Chord <folder> <6 letters>`.
+pub(crate) fn owned() -> Result<Vec<Simulator>, Error> {
+    Ok(devices_where(&list_devices()?, |device| {
+        device["name"].as_str().and_then(worktree_folder).is_some()
+    })
+    .collect())
+}
+
+/// The worktree folder a Chord simulator's name holds; None for any other name.
+pub(crate) fn worktree_folder(name: &str) -> Option<&str> {
+    let (folder, hash) = name.strip_prefix("Chord ")?.rsplit_once(' ')?;
+    let is_hash = hash.len() == 6 && hash.bytes().all(|byte| byte.is_ascii_lowercase());
+    (is_hash && !folder.is_empty()).then_some(folder)
+}
+
+/// Shuts the simulator down and waits for it. No error when it is not booted.
+pub(crate) fn shut_down(udid: &str) {
+    let _ = xcrun(&["simctl", "shutdown", udid], &|_| {});
+}
+
+/// Shuts the simulator down and deletes it with its data.
+pub(crate) fn delete(udid: &str) -> Result<(), Error> {
+    shut_down(udid);
+    xcrun(&["simctl", "delete", udid], &|_| {}).map(drop)
 }
 
 fn device_named(listed: &Value, name: &str) -> Option<Simulator> {
@@ -114,6 +150,7 @@ pub(crate) fn find_or_create(
     )?;
     Ok(Simulator {
         udid: udid.trim().into(),
+        name: name_of(worktree),
         booted: false,
         model: device_type,
         runtime,
@@ -187,18 +224,19 @@ pub(crate) fn open_app() {
 
 /// A text value of the app's Info.plist, such as `CFBundleIdentifier`.
 pub(crate) fn plist_text(app: &Path, key: &str, register: &dyn Fn(u32)) -> Result<String, Error> {
-    let plist = app.join("Info.plist").to_string_lossy().into_owned();
+    plist_value(&app.join("Info.plist"), key, register)
+}
+
+/// A text value of a plist file.
+pub(crate) fn plist_value(file: &Path, key: &str, register: &dyn Fn(u32)) -> Result<String, Error> {
     let mut command = Command::new(PLUTIL);
-    command.args(["-extract", key, "raw", "-o", "-", &plist]);
+    command.args(["-extract", key, "raw", "-o", "-"]).arg(file);
     let output = process::captured(command, register)?;
     let value = String::from_utf8_lossy(&output.stdout).trim().to_string();
     if output.status.success() && !value.is_empty() {
         Ok(value)
     } else {
-        Err(Error::Message(format!(
-            "The app has no {key}: {}",
-            app.display()
-        )))
+        Err(Error::Message(format!("No {key} in {}", file.display())))
     }
 }
 
@@ -357,12 +395,25 @@ mod tests {
             device_named(&listed, "Chord w abcdef"),
             Some(Simulator {
                 udid: "U3".into(),
+                name: "Chord w abcdef".into(),
                 booted: true,
                 model: "type-b".into(),
                 runtime: "rt-b".into()
             })
         );
         assert_eq!(device_named(&listed, "Missing"), None);
+    }
+
+    #[test]
+    fn reads_the_worktree_folder_of_a_chord_simulator_name_only() {
+        assert_eq!(
+            worktree_folder("Chord feature-login euhuvy"),
+            Some("feature-login")
+        );
+        assert_eq!(worktree_folder("Chord my app euhuvy"), Some("my app"));
+        assert_eq!(worktree_folder("iPhone 17 Pro"), None);
+        assert_eq!(worktree_folder("Chord feature-login Euhuvy"), None);
+        assert_eq!(worktree_folder("Chord euhuvy"), None);
     }
 
     #[test]

@@ -154,7 +154,7 @@ Edge cases:
 - [x] H2 Run destination, per project, in the menu beside the play button: connected devices above simulators.
 - [x] H3 Build log and app console (stdout, stderr, OSLog) as views of the bottom panel beside the terminal, 10,000 lines, ⌘F; ⌘⇧Y shows or hides them. The status bar shows no run status.
 - [x] H4 **hard** One build per worktree: ⌘R and ⌘B take over the worktree's running build.
-- [ ] H5 Caches: DerivedData, hot reload folders and simulators per worktree; one forget, one prune; stop other worktrees' simulators. Running simulators in the status bar, with Shut Down Others. Settings row: the size of the build data.
+- [x] H5 Caches: DerivedData and simulators per worktree; one forget, one prune; stop other worktrees' simulators. Running simulators in the status bar, with Shut Down Others. Settings row: the size of the build data.
 - [x] H7 a missing `xcodebuild` or `xcrun` shows the install step.
 - [ ] H8 At most `max(1, RAM in GB / 6)` of Chord's run simulators stay booted; one more shuts down the one whose worktree was opened longest ago and has no run in progress.
 - [ ] H9 harness(tools): `build` builds the worktree like ⌘B and returns the error lines, 30 at most, and no log.
@@ -194,7 +194,7 @@ Edge cases:
 ## 10. SwiftUI previews (iOS, private API)
 
 - [ ] J1 **hard** Preview view in the side panel (⌘⇧P), on a second simulator in Chord's own device set; model picker per project; at most two preview simulators; a preview build waits for the worktree's ⌘R build, then follows.
-- [ ] J2 **hard** Hot reload of the shown preview's file and the view files between it and the saved file; any other change rebuilds.
+- [ ] J2 **hard** Hot reload of the shown preview's file and the view files between it and the saved file; any other change rebuilds. Its hot reload folders go with the worktree: one forget, one prune, counted in the build data size.
 - [ ] J3 Previews tab in the sidebar: every `#Preview` by file, search, ↑↓, search text and scroll kept per worktree.
 - [ ] J4 Compile error keeps the last frame under a red bar that opens the build log.
 

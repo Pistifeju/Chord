@@ -104,6 +104,7 @@ pub async fn remove_worktree(
         )?;
         if matches!(removal, Removal::Removed { .. }) {
             app.state::<Builds>().forget(&worktree);
+            chord_ios::forget(&worktree);
         }
         Ok(removal)
     })

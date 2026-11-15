@@ -5,6 +5,7 @@ pub mod build;
 pub mod chat;
 pub mod files;
 pub mod projects;
+pub mod simulator;
 pub mod state;
 pub mod terminal;
 

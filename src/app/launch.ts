@@ -10,7 +10,7 @@ import { loadSidePanels } from "../features/sidepanel/store";
 import { loadRunDestinations, refreshDestinations } from "../features/ios/build/destinationStore";
 import { loadBottomPanels } from "../features/bottompanel/store";
 import { loadGitCounts } from "../features/worktrees/gitCountsRefresh";
-import { worktreeAt } from "../features/worktrees/projects";
+import { hasXcodeProject, worktreeAt } from "../features/worktrees/projects";
 import { loadProjects, projects } from "../features/worktrees/store";
 import { externalStore } from "../ui/externalStore";
 
@@ -35,6 +35,8 @@ export async function launch() {
     // A pi that never sends its history must not keep the window hidden; its chat fills in once it does.
     const resumed = Promise.race([resumeAgents(state.runningPanes), historyWait()]);
     await loadProjects(state.projects, state.selected);
+    // Build data of worktrees deleted elsewhere goes in the background.
+    if (hasXcodeProject(projects.get())) commands.pruneBuildData().catch(console.error);
     // Listing takes a second or two and only checks the saved pick: the window does not wait for it.
     if (state.selected && worktreeAt(projects.get(), state.selected)?.xcode) refreshDestinations(state.selected).catch(console.error);
     await Promise.all([loadGitCounts(), resumed, views]);

@@ -46,37 +46,46 @@ function Group({ heading, notice, children }: { heading: string; notice?: ReactN
   );
 }
 
-function General() {
+function General({ buildDataSize }: { buildDataSize: ReactNode }) {
   const enabled = keepAwake.use();
   const [error, setError] = useState("");
   return (
-    <Group heading="Agents">
-      <Row
-        title="Keep the Mac awake"
-        description={
-          <>
-            <p className="settings-description">The Mac does not sleep while an agent runs.</p>
-            <p className="settings-description" data-error role="status">
-              {error}
-            </p>
-          </>
-        }
-      >
-        <div className="segmented" role="radiogroup" aria-label="Keep the Mac awake while an agent runs">
-          {[true, false].map((value) => (
-            <button
-              key={String(value)}
-              type="button"
-              role="radio"
-              aria-checked={enabled === value}
-              onClick={() => setKeepAwake(value).then((failure) => setError(failure ?? ""))}
-            >
-              {value ? "On" : "Off"}
-            </button>
-          ))}
-        </div>
-      </Row>
-    </Group>
+    <>
+      <Group heading="Agents">
+        <Row
+          title="Keep the Mac awake"
+          description={
+            <>
+              <p className="settings-description">The Mac does not sleep while an agent runs.</p>
+              <p className="settings-description" data-error role="status">
+                {error}
+              </p>
+            </>
+          }
+        >
+          <div className="segmented" role="radiogroup" aria-label="Keep the Mac awake while an agent runs">
+            {[true, false].map((value) => (
+              <button
+                key={String(value)}
+                type="button"
+                role="radio"
+                aria-checked={enabled === value}
+                onClick={() => setKeepAwake(value).then((failure) => setError(failure ?? ""))}
+              >
+                {value ? "On" : "Off"}
+              </button>
+            ))}
+          </div>
+        </Row>
+      </Group>
+      {buildDataSize && (
+        <Group heading="Storage">
+          <Row title="Build Data" description={<p className="settings-description">DerivedData folders and simulators of your worktrees. Deleting a worktree deletes its share.</p>}>
+            {buildDataSize}
+          </Row>
+        </Group>
+      )}
+    </>
   );
 }
 
@@ -185,7 +194,8 @@ function Shortcuts() {
   );
 }
 
-export function SettingsPage() {
+// `buildDataSize` is the Build Data row's value, passed in by a window that has an Xcode project, so settings imports nothing from features/ios.
+export function SettingsPage({ buildDataSize }: { buildDataSize: ReactNode }) {
   const [shown, setShown] = useState<SectionId>("general");
   const sheetOpen = sheet.use() !== null;
   const current = sections.find((s) => s.id === shown)!;
@@ -214,7 +224,7 @@ export function SettingsPage() {
             </button>
           </header>
           <div className="settings-content">
-            {shown === "general" && <General />}
+            {shown === "general" && <General buildDataSize={buildDataSize} />}
             {shown === "appearance" && <Appearance />}
             {shown === "shortcuts" && <Shortcuts />}
           </div>
