@@ -6,7 +6,7 @@ import { RunControl } from "../features/ios/build/RunControl";
 import { BuildDataSize } from "../features/ios/simulators/BuildDataSize";
 import { SimulatorsButton } from "../features/ios/simulators/SimulatorsButton";
 import { markerText } from "../features/ios/build/run";
-import { builds } from "../features/ios/build/store";
+import { builds, watchAgentBuilds } from "../features/ios/build/store";
 import { OpenFileByNamePopup } from "../features/files/OpenFileByNamePopup";
 import { TrashFilePopup } from "../features/files/TrashFilePopup";
 import { CloseAgentsPopup } from "../features/panes/CloseAgentsPopup";
@@ -59,6 +59,7 @@ export default function App() {
     const unwatchFinished = watchFinished();
     const unwatchClicks = watchNotificationClicks();
     const unwatchShown = watchShownPanes();
+    const unwatchAgentBuilds = watchAgentBuilds();
     return () => {
       window.removeEventListener("keydown", shortcutWhenLaunched);
       unwatch();
@@ -66,6 +67,7 @@ export default function App() {
       unwatchFinished();
       unwatchClicks();
       unwatchShown();
+      unwatchAgentBuilds();
     };
   }, []);
   if (!ready) {

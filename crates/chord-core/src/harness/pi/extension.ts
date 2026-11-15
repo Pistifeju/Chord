@@ -1,5 +1,7 @@
-// The extension Chord loads into pi: the session commands RPC lacks, a pick of a session to resume and of a point in the session tree, and the subscription usage windows.
+// The extension Chord loads into pi: the session commands RPC lacks, a pick of a session to resume and of a point in the session tree, the subscription usage windows, and the build and run tools of a worktree with an Xcode project.
+import { connect } from "node:net";
 import { SessionManager, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { Type } from "typebox";
 
 type Content = string | { type: string; text?: string }[];
 
@@ -38,7 +40,69 @@ function usageWindow(update: { text?: string; suffix?: string }): UsageWindow {
   return { label, resetsAt: Date.now() + ms };
 }
 
+type Reply = { text: string; failed: boolean };
+
+// One call per connection: Chord answers with one JSON line when the build ends, or when the app launches.
+function callChord(socket: string, tool: string, worktree: string, signal: AbortSignal | undefined): Promise<Reply> {
+  return new Promise((resolve, reject) => {
+    const connection = connect(socket, () => connection.write(`${JSON.stringify({ tool, worktree })}\n`));
+    let answer = "";
+    connection.setEncoding("utf8");
+    connection.on("data", (chunk: string) => (answer += chunk));
+    connection.on("end", () => {
+      try {
+        resolve(JSON.parse(answer) as Reply);
+      } catch {
+        reject(new Error("Chord closed the call without an answer"));
+      }
+    });
+    connection.on("error", (error) => reject(new Error(`Chord cannot take the call: ${error.message}`)));
+    signal?.addEventListener("abort", () => {
+      connection.destroy();
+      reject(new Error("Aborted. The build goes on in Chord"));
+    });
+  });
+}
+
+function registerBuildTools(pi: ExtensionAPI, socket: string, worktree: string) {
+  const tools = [
+    {
+      name: "build",
+      label: "Build",
+      description:
+        "Builds this worktree's Xcode project like Chord's Cmd-B, in the worktree's own DerivedData; the user sees the log in Chord. Answers 'Build succeeded', 'Stopped' when the user started another build, or 'Build failed' with the error lines.",
+      promptSnippet: "Build this worktree's Xcode project and get its errors",
+      promptGuidelines: [
+        "Use build and run for this worktree's Xcode project instead of calling xcodebuild or xcrun simctl yourself; `simctl ... booted` can reach another worktree's simulator.",
+      ],
+    },
+    {
+      name: "run",
+      label: "Run",
+      description:
+        "Builds the app and runs it on this worktree's own simulator like Chord's Cmd-R; the user sees the log and the app in Chord. Answers 'Launched', 'Stopped' when the user started another build, or 'Build failed' with the error lines.",
+      promptSnippet: "Build the app and launch it on this worktree's simulator",
+      promptGuidelines: [],
+    },
+  ];
+  for (const tool of tools) {
+    pi.registerTool({
+      ...tool,
+      parameters: Type.Object({}),
+      async execute(_id, _params, signal) {
+        const reply = await callChord(socket, tool.name, worktree, signal);
+        return { content: [{ type: "text", text: reply.text }], details: undefined, isError: reply.failed };
+      },
+    });
+  }
+}
+
 export default function (pi: ExtensionAPI) {
+  // Chord sets both only for a worktree with an Xcode project.
+  const socket = process.env.CHORD_TOOLS;
+  const worktree = process.env.CHORD_WORKTREE;
+  if (socket && worktree) registerBuildTools(pi, socket, worktree);
+
   // RPC drops the usage bar's TUI component, so the windows travel as a status text the adapter reads.
   const usage: Record<string, UsageWindow> = {};
   let ui: { setStatus(key: string, text: string | undefined): void } | undefined;

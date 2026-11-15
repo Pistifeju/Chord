@@ -3270,6 +3270,7 @@ dependencies = [
 name = "chord"
 version = "0.1.0"
 dependencies = [
+ "serde",
  "chord-core",
  "chord-ios",
  "specta",

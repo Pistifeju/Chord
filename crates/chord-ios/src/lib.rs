@@ -1,5 +1,7 @@
 //! Chord's iOS support: building a worktree's Xcode project and running it on the worktree's simulator or a connected device. Depends on `chord-core`, never on Tauri.
 
+mod agent_reply;
+mod agent_tools;
 pub mod build;
 mod caches;
 mod capacity;
@@ -13,6 +15,7 @@ mod simulator;
 mod slot;
 mod xcode;
 
+pub use agent_tools::{AgentBuild, AgentTools};
 pub use build::{BuildEvent, BuildPhase, Builds};
 pub use caches::{
     RunningSimulator, build_data_size, forget, prune, running_simulators, shut_down_others,

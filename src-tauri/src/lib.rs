@@ -4,58 +4,66 @@ mod commands;
 mod notifications;
 mod running;
 
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use chord_core::harness::sessions::Sessions;
 use chord_core::{Store, Terminals};
-use chord_ios::Builds;
+use chord_ios::{AgentTools, Builds};
 use tauri::{Emitter, Manager};
-use tauri_specta::collect_commands;
+use tauri_specta::{Event, collect_commands, collect_events};
 
 pub fn ipc() -> tauri_specta::Builder<tauri::Wry> {
-    tauri_specta::Builder::new().commands(collect_commands![
-        commands::state::load_state,
-        commands::state::change_state,
-        commands::projects::pick_project,
-        commands::projects::add_project,
-        commands::projects::remove_project,
-        commands::projects::list_worktrees,
-        commands::projects::check_branch_name,
-        commands::projects::create_worktree,
-        commands::projects::remove_worktree,
-        commands::projects::read_git_counts,
-        commands::chat::start_chat,
-        commands::chat::send_message,
-        commands::chat::answer_dialog,
-        commands::chat::pick_images,
-        commands::chat::read_image_file,
-        commands::chat::abort_run,
-        commands::chat::stop_chat,
-        commands::chat::show_panes,
-        commands::files::list_folder,
-        commands::files::list_files,
-        commands::files::read_file,
-        commands::files::write_file,
-        commands::files::file_modified,
-        commands::files::create_file,
-        commands::files::rename_file,
-        commands::files::trash_file,
-        commands::files::reveal_file,
-        commands::terminal::start_terminal,
-        commands::terminal::write_terminal,
-        commands::terminal::resize_terminal,
-        commands::build::start_build,
-        commands::build::stop_build,
-        commands::build::worktree_opened,
-        commands::build::list_destinations,
-        commands::simulator::running_simulators,
-        commands::simulator::shut_down_other_simulators,
-        commands::simulator::build_data_size,
-        commands::simulator::prune_build_data,
-        commands::app::quit_app,
-        commands::app::set_keep_awake,
-        commands::app::open_link,
-    ])
+    tauri_specta::Builder::new()
+        .events(collect_events![commands::build::AgentBuildRequested])
+        .commands(collect_commands![
+            commands::state::load_state,
+            commands::state::change_state,
+            commands::projects::pick_project,
+            commands::projects::add_project,
+            commands::projects::remove_project,
+            commands::projects::list_worktrees,
+            commands::projects::check_branch_name,
+            commands::projects::create_worktree,
+            commands::projects::remove_worktree,
+            commands::projects::read_git_counts,
+            commands::chat::start_chat,
+            commands::chat::send_message,
+            commands::chat::answer_dialog,
+            commands::chat::pick_images,
+            commands::chat::read_image_file,
+            commands::chat::abort_run,
+            commands::chat::stop_chat,
+            commands::chat::show_panes,
+            commands::files::list_folder,
+            commands::files::list_files,
+            commands::files::read_file,
+            commands::files::write_file,
+            commands::files::file_modified,
+            commands::files::create_file,
+            commands::files::rename_file,
+            commands::files::trash_file,
+            commands::files::reveal_file,
+            commands::terminal::start_terminal,
+            commands::terminal::write_terminal,
+            commands::terminal::resize_terminal,
+            commands::build::start_build,
+            commands::build::stop_build,
+            commands::build::worktree_opened,
+            commands::build::list_destinations,
+            commands::simulator::running_simulators,
+            commands::simulator::shut_down_other_simulators,
+            commands::simulator::build_data_size,
+            commands::simulator::prune_build_data,
+            commands::app::quit_app,
+            commands::app::set_keep_awake,
+            commands::app::open_link,
+        ])
+}
+
+/// The socket the agents' build and run tools call. The temp folder keeps the path under the 104 bytes a socket path may hold.
+fn tools_socket() -> PathBuf {
+    std::env::temp_dir().join(format!("chord-{}.sock", std::process::id()))
 }
 
 pub fn run() {
@@ -64,11 +72,24 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .invoke_handler(ipc.invoke_handler())
-        .setup(|app| {
+        .setup(move |app| {
+            ipc.mount_events(app);
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;
             let store = Arc::new(Store::open(dir.join("state.json"))?);
-            app.manage(Sessions::new(Arc::clone(&store), dir.join("sessions")));
+            let sessions = Sessions::new(Arc::clone(&store), dir.join("sessions"));
+            let socket = tools_socket();
+            let tools = AgentTools::default();
+            let handle = app.handle().clone();
+            // Without the socket the agents work on without the tools.
+            let sessions = match tools.listen(&socket, move |call| {
+                let _ = commands::build::AgentBuildRequested(call).emit(&handle);
+            }) {
+                Ok(()) => sessions.with_tools(socket),
+                Err(_) => sessions,
+            };
+            app.manage(sessions);
+            app.manage(tools);
             app.manage(store);
             app.manage(Terminals::default());
             app.manage(Builds::default());
@@ -79,6 +100,9 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {
+            if let tauri::RunEvent::Exit = event {
+                let _ = std::fs::remove_file(tools_socket());
+            }
             // Closing the window asks like Quit does: the window quits at once or shows its sheet.
             if let tauri::RunEvent::WindowEvent {
                 event: tauri::WindowEvent::CloseRequested { api, .. },

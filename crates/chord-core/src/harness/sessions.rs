@@ -9,7 +9,7 @@ use super::{
     status_for,
 };
 use crate::awake::Awake;
-use crate::{Error, State, Store, WorktreePanes};
+use crate::{Error, State, Store, WorktreePanes, xcode_bundles};
 
 /// Each pane's agent and the worktree it runs in.
 type Running = HashMap<String, (PathBuf, Box<dyn Agent>)>;
@@ -19,6 +19,7 @@ pub struct Sessions {
     store: Arc<Store>,
     awake: Arc<Awake>,
     dir: PathBuf,
+    tools: Option<PathBuf>,
 }
 
 impl Sessions {
@@ -30,6 +31,15 @@ impl Sessions {
             store,
             awake,
             dir,
+            tools: None,
+        }
+    }
+
+    /// Agents in a worktree with an Xcode project get the build and run tools, whose calls go to `socket`.
+    pub fn with_tools(self, socket: PathBuf) -> Sessions {
+        Sessions {
+            tools: Some(socket),
+            ..self
         }
     }
 
@@ -66,11 +76,16 @@ impl Sessions {
         let agent = self
             .store
             .update(|state| state.agents.entry(pane.clone()).or_default().clone())?;
+        let tools = self
+            .tools
+            .as_deref()
+            .filter(|_| !xcode_bundles(&worktree).is_empty());
         let session = super::start(
             &agent.harness,
             &worktree,
             agent.session.as_deref(),
             &self.dir,
+            tools,
             move |event| {
                 let mut watch = watch.lock().unwrap_or_else(PoisonError::into_inner);
                 let dialog_was_open = watch.tracker.dialog_open();

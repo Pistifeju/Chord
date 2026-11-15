@@ -1,7 +1,6 @@
 //! A harness's process: started through the user's login shell on pipes, its stdout read line by line on a thread of its own, JSON lines written to its stdin, killed when dropped.
 
 use std::io::{BufRead, BufReader, Write};
-use std::path::Path;
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
@@ -42,15 +41,12 @@ pub struct Process {
 }
 
 impl Process {
-    /// Starts `binary` with `args` in `dir`. `on_output` runs on the reader thread for each stdout line, then once with `Closed`.
+    /// Starts `command`, from `login_shell`. `on_output` runs on the reader thread for each stdout line, then once with `Closed`.
     pub fn start(
-        binary: &str,
-        args: &[&str],
-        dir: &Path,
+        mut command: Command,
         mut on_output: impl FnMut(Output<'_>, &Stdin) + Send + 'static,
     ) -> std::io::Result<Process> {
-        let mut child = login_shell(binary, args)
-            .current_dir(dir)
+        let mut child = command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())

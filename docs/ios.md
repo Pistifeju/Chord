@@ -101,16 +101,16 @@ A new worktree pays one cold build. Cloning another worktree's DerivedData is no
 
 The harness adapter gives the agent tools that go through ⌘R's code: the same slot, the same DerivedData, the worktree's simulator.
 
-- `build` (H9): returns the error lines as `file:line: message`, 30 at most, and no log. A cold build prints 13,599 lines.
+- `build` (H9): returns the error lines as `file:line: message`, 30 at most, and no log; the Build view shows the log. A cold build prints 13,599 lines. A signing, scheme or package failure prints no `file:line` line, so a failed build without one returns the log's last 20 lines. A build that ⌘R or ⌘B takes over returns "Stopped".
+- Both tools exist only in a worktree with an `.xcodeproj` or `.xcworkspace`; in another project they would only lead the agent to wrong calls.
 - `run` (H10): build, install, launch on the worktree's simulator; the UI shows the log and the phase like a ⌘R.
 - A call that runs long tells the agent it still runs and when the build last printed, every 30 s, so the agent does not stop a healthy cold build (source 5).
 
 
-Chord runs one MCP server that holds `build` and `run`, and every harness reaches the tools through it:
+Chord takes the tool calls on one unix socket in the temp folder, readable by the user alone. A call is one JSON line, `{"tool": "build", "worktree": "/path"}`; the answer is one JSON line, `{"text": "...", "failed": false}`, sent when the build ends or the app launches. The socket hands the call to the window, which starts the build like ⌘B or ⌘R, so the run destination, the Build view and the card follow the same code.
 
-- An ACP agent gets the server in the `mcpServers` list of `session/new`. Claude Code's adapter takes stdio, HTTP and SSE servers (`src/mcp-servers.ts`); Codex's takes stdio and HTTP, no SSE (`toCodexMcpServerConfig`, sources 6 and 7). So the server speaks stdio or HTTP.
-- Codex's adapter skips a requested server whose name the user's Codex config already holds. Chord names its server `chord`.
-- pi gets the tools from the extension Chord ships, which forwards each call to the same server. Chord does not rely on an MCP extension the user may lack.
+- pi gets the tools from the extension Chord ships. Chord sets `CHORD_TOOLS` (the socket) and `CHORD_WORKTREE` only for a worktree with an Xcode project, and the extension registers the tools only when both are set.
+- An ACP agent needs an MCP server in the `mcpServers` list of `session/new`, a thin one that sends each call to the same socket. Claude Code's adapter takes stdio, HTTP and SSE servers (`src/mcp-servers.ts`); Codex's takes stdio and HTTP, no SSE (`toCodexMcpServerConfig`, sources 6 and 7). So the server speaks stdio. Codex's adapter skips a requested server whose name the user's Codex config already holds, so Chord names it `chord`. It comes with the first ACP adapter.
 - An agent the user starts outside Chord's chat, in the terminal panel or in their own terminal, gets no session from Chord and so no tools.
 
 ## 4. How ⌘R runs
@@ -197,7 +197,7 @@ This plan added H8, H9 and H10 to `SPEC.md`, the `tools` capability to its secti
 - The wait on a locked database: the error text is Xcode 27.1's. `lsof -t build.db` may name the holder before a build starts; nobody ran it.
 - Shared module caches under parallel builds: one run passed. Whether `xcodebuild` honours `CLANG_MODULE_CACHE_PATH` from the environment comes from source 1, not from a run here.
 - Every time in section 2 is one run of one project on one machine. Simulator times come from a separate device set and iOS 27.0.
-- Section 3.6's MCP server: both adapters pass `mcpServers` on in their code, read on 2026-11-15; nobody ran a session with it. Stdio or HTTP is open; H9 decides it.
+- Section 3.6's MCP server for ACP agents: both adapters pass `mcpServers` on in their code, read on 2026-11-15; nobody ran a session with it.
 
 ## Sources
 

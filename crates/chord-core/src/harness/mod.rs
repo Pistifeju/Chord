@@ -28,12 +28,13 @@ pub trait Agent: Send {
     fn end_reported(self: Box<Self>);
 }
 
-/// Starts the agent of the harness named `harness` in `dir`. `session` is what the harness reported in `SessionInfo`, to open it again; `data_dir` is a folder the adapter may write its own files to. `on_event` hears every event, from the adapter's own thread.
+/// Starts the agent of the harness named `harness` in `dir`. `session` is what the harness reported in `SessionInfo`, to open it again; `data_dir` is a folder the adapter may write its own files to. `tools` is the socket of the build and run tools, for an agent that gets them. `on_event` hears every event, from the adapter's own thread.
 pub fn start(
     harness: &str,
     dir: &Path,
     session: Option<&str>,
     data_dir: &Path,
+    tools: Option<&Path>,
     on_event: impl Fn(HarnessEvent) + Send + 'static,
 ) -> Result<Box<dyn Agent>, Error> {
     match harness {
@@ -42,6 +43,7 @@ pub fn start(
             dir,
             session,
             data_dir,
+            tools,
             on_event,
         )?)),
         other => Err(Error::Message(format!(

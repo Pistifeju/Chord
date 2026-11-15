@@ -30,13 +30,16 @@ pub const DEFAULT_BINARY: &str = "pi";
 const INSTALL: &str = "npm install -g @earendil-works/pi-coding-agent";
 const OLDEST_TESTED: (u32, u32, u32) = (1, 5, 0);
 
-/// The extension Chord ships: the session commands RPC lacks, and the subscription usage windows.
+/// The extension Chord ships: the session commands RPC lacks, the subscription usage windows, and the build and run tools.
 const EXTENSION: &str = include_str!("extension.ts");
 const EXTENSION_FILE: &str = "chord-extension.ts";
 /// The commands the extension adds start with this; the slash menu lists Chord's own names for them.
 const EXTENSION_PREFIX: &str = "chord-";
 /// The status key the extension reports the usage windows under.
 const USAGE_STATUS: &str = "chord-usage";
+/// The extension registers the build and run tools when pi starts with these: the socket Chord takes the calls on, and the worktree they build.
+const TOOLS_SOCKET_ENV: &str = "CHORD_TOOLS";
+const WORKTREE_ENV: &str = "CHORD_WORKTREE";
 /// A subagent extension's widget carries its background runs as one line with this prefix, then a JSON snapshot.
 const SUBAGENTS_PREFIX: &str = "PI_SUBAGENT_ASYNC_JSON:";
 /// The request id of a prompt that runs one of the extension's commands; its response means the session may have changed.
@@ -124,12 +127,13 @@ fn installed_extension(dir: &Path) -> Result<PathBuf, Error> {
 }
 
 impl Session {
-    /// `extension_dir` is where the extension Chord ships is written for pi to load. `session` is a pi session file; without an existing one pi starts a new session in its own session folder.
+    /// `extension_dir` is where the extension Chord ships is written for pi to load. `session` is a pi session file; without an existing one pi starts a new session in its own session folder. With `tools`, the socket Chord's tools listen on, the agent gets the build and run tools.
     pub fn start(
         binary: &str,
         dir: &Path,
         session: Option<&str>,
         extension_dir: &Path,
+        tools: Option<&Path>,
         on_event: impl Fn(HarnessEvent) + Send + 'static,
     ) -> Result<Session, Error> {
         check_version(binary)?;
@@ -143,7 +147,12 @@ impl Session {
         let running = Arc::new(AtomicBool::new(false));
         let reader_running = Arc::clone(&running);
         let mut records = Reader::default();
-        let process = Process::start(binary, &args, dir, move |output, stdin| match output {
+        let mut command = login_shell(binary, &args);
+        command.current_dir(dir);
+        if let Some(socket) = tools {
+            command.env(TOOLS_SOCKET_ENV, socket).env(WORKTREE_ENV, dir);
+        }
+        let process = Process::start(command, move |output, stdin| match output {
             Output::Line(line) => {
                 let Read { events, requests } = records.feed(line);
                 for event in events {

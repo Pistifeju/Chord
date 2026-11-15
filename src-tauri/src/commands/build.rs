@@ -2,14 +2,19 @@
 
 use std::path::PathBuf;
 
+use serde::Serialize;
 use chord_core::RunDestination;
-use chord_ios::{BuildEvent, Builds, Destinations};
+use chord_ios::{AgentBuild, AgentTools, BuildEvent, Builds, Destinations};
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager};
 
 use super::blocking;
 
-/// Builds the worktree's Xcode project, and with `run` runs the app on the destination. The channel carries the build's phases, log and end.
+/// The window starts an agent's build or run on this event, like ⌘B or ⌘R.
+#[derive(Serialize, specta::Type, tauri_specta::Event, Clone)]
+pub struct AgentBuildRequested(pub AgentBuild);
+
+/// Builds the worktree's Xcode project, and with `run` runs the app on the destination. The channel carries the build's phases, log and end. `agent_request` is the agent's tool call the build answers.
 #[tauri::command]
 #[specta::specta]
 pub async fn start_build(
@@ -17,11 +22,16 @@ pub async fn start_build(
     worktree: PathBuf,
     run: bool,
     destination: Option<RunDestination>,
+    agent_request: Option<u32>,
     on_event: Channel<BuildEvent>,
 ) -> Result<(), String> {
     blocking(app, move |app, _| {
+        let agent = agent_request.and_then(|request| app.state::<AgentTools>().take(request));
         app.state::<Builds>()
             .start(worktree, run, destination, move |event| {
+                if let Some(agent) = &agent {
+                    let _ = agent.send(event.clone());
+                }
                 let _ = on_event.send(event);
             });
         Ok(())

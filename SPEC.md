@@ -157,8 +157,8 @@ Edge cases:
 - [x] H5 Caches: DerivedData and simulators per worktree; one forget, one prune; stop other worktrees' simulators. Running simulators in the status bar, with Shut Down Others. Settings row: the size of the build data.
 - [x] H7 a missing `xcodebuild` or `xcrun` shows the install step.
 - [x] H8 At most `max(1, RAM in GB / 6)` of Chord's run simulators stay booted; one more shuts down the one whose worktree was opened longest ago and has no run in progress.
-- [ ] H9 harness(tools): `build` builds the worktree like ⌘B and returns the error lines, 30 at most, and no log.
-- [ ] H10 harness(tools): `run` builds and runs like ⌘R on the worktree's simulator and returns "Launched" or the error lines.
+- [x] H9 harness(tools): `build` builds the worktree like ⌘B, in the same slot. The agent gets no log; the Build view shows it. The tool returns the error lines as `file:line: message`, 30 at most; a failed build with no such line returns the log's last 20 lines. A build that ⌘R or ⌘B takes over returns "Stopped".
+- [x] H10 harness(tools): `run` builds and runs like ⌘R on the worktree's simulator and returns "Launched", "Stopped" or what `build` returns. Both tools exist only in a worktree with an `.xcodeproj` or `.xcworkspace`.
 - [ ] H11 Slim simulators: before a boot, Chord writes launchd disable overrides into its own simulators, so the background services a run does not need (Siri, Spotlight, widgets, iCloud and more) never start. A Rust port of simslim's service list, with its MIT notice. Settings section Simulators: one row per service group with its name, what stops working and its memory, and a switch to keep it on.
 
 Edge cases:
@@ -238,7 +238,7 @@ A tag with a capability is a `Capability` variant: the UI hides the feature when
 | context | E10 | capability `context` | RPC |
 | usage | E11 | event: `usage` | a pi extension that reports it |
 | subagents | E13 | capability `subagents` | a pi subagent extension |
-| tools | H9, H10 | capability `tools` | Chord's own MCP server; the extension Chord ships forwards pi's calls to it, ACP agents get it in `session/new` (`docs/ios.md`, 3.6) |
+| tools | H9, H10 | the adapter starts the agent with the tools in a worktree with an Xcode project | the extension Chord ships registers them and sends each call to Chord's socket; ACP agents will get an MCP server in `session/new` that does the same (`docs/ios.md`, 3.6) |
 
 Steering while a run goes (E1) waits for capability `steer`.
 
