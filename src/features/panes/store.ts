@@ -3,7 +3,7 @@ import { commands, type Direction, type WorktreePanes } from "../../ipc/bindings
 import { externalStore } from "../../ui/externalStore";
 import { closeSheet, openSheet, type Sheet } from "../../app/sheet";
 import { chats, forgetChat, startChat } from "../chat/store";
-import { paneChanges, resumedPanes, vanishedWorktrees } from "./agents";
+import { paneChanges, resumedPanes } from "./agents";
 import { isAtOrInside } from "../files/paths";
 import { filePanes, groupOf, withEvenSizes, withFilePanesMoved, withSizes, type FilePane } from "./layout";
 import { firstPanes, paneCount, withFileOpened, withFocus, withNewSession, withSplitFocused, withTabClosed, withTabMoved, type TabDrop } from "./sessions";
@@ -124,9 +124,4 @@ export const evenOutSplit = (worktree: string, path: number[]) => change(worktre
 // The worktree is gone: its agents stop and its layouts go.
 export function forgetPanes(worktree: string) {
   if (panes.get()[worktree]) commit(worktree, undefined, true);
-}
-
-// Layouts of worktrees that are not in the known paths go, as when one was removed while the app was closed.
-export function forgetPanesExcept(known: string[]) {
-  for (const worktree of vanishedWorktrees(panes.get(), known)) forgetPanes(worktree);
 }

@@ -79,6 +79,11 @@ export function withSavedSelection(projects: Projects, saved: string | null): Pr
   return worktreeOrder(projects).includes(saved) ? { ...projects, selected: saved } : projects;
 }
 
+// The project's known worktrees that are missing from its new list.
+export function goneWorktrees(projects: Projects, project: string, list: Worktree[]): string[] {
+  return (projects.worktrees[project] ?? []).filter((w) => !list.some((now) => now.path === w.path)).map((w) => w.path);
+}
+
 // Worktree paths in sidebar order; the first ones take the select shortcuts.
 export function worktreeOrder(projects: Projects): string[] {
   return projects.list.flatMap((p) => (projects.worktrees[p.path] ?? []).map((w) => w.path));

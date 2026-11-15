@@ -1,20 +1,17 @@
 //! Commands for the app itself: quit it with its agents and shells, keep the Mac awake, open a chat link.
 
-use chord_core::Terminals;
 use chord_core::harness::sessions::Sessions;
-use chord_ios::Builds;
 use tauri::{AppHandle, Manager};
 
 use super::blocking;
+use crate::running::Running;
 
 /// Stops every agent, shell and build and ends the app once the user confirmed the quit. Panes stay saved as running, so they start again on launch.
 #[tauri::command]
 #[specta::specta]
 pub async fn quit_app(app: AppHandle) -> Result<(), String> {
     blocking(app, |app, _| {
-        app.state::<Sessions>().stop_all();
-        app.state::<Terminals>().stop_all();
-        app.state::<Builds>().stop_all();
+        Running::of(app).stop_all();
         app.exit(0);
         Ok(())
     })

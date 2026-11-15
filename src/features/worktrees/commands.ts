@@ -3,7 +3,7 @@ import type { AppCommand } from "../../app/commands";
 import { closeSheet, sheet } from "../../app/sheet";
 import { openNewWorktree } from "./newWorktree";
 import { ownerOf, worktreeOrder } from "./projects";
-import { pickProject, projects, removeProject, requestDelete, selectWorktree } from "./store";
+import { pickProject, projects, requestDelete, requestRemoveProject, selectWorktree } from "./store";
 
 function deleteWorktreeAt(path?: string) {
   const owner = path ? ownerOf(projects.get(), path) : undefined;
@@ -27,7 +27,7 @@ const selectCommands: AppCommand[] = Array.from({ length: 9 }, (_, i) => ({
 export const worktreeCommands: AppCommand[] = [
   { id: "project.add", title: "Add Project", shortcut: { key: "o", cmd: true }, when: noSheet, run: pickProject },
   { id: "worktree.new", title: "New Worktree", shortcut: { key: "n", cmd: true }, when: noSheet, run: openNewWorktree },
-  { id: "project.remove", title: "Remove Project", run: (path) => path && void removeProject(path) },
+  { id: "project.remove", title: "Remove Project", run: (path) => path && requestRemoveProject(path) },
   { id: "worktree.delete", title: "Delete Worktree", run: deleteWorktreeAt },
   { id: "sheet.close", title: "Close", shortcut: { key: "escape" }, when: () => sheet.get() !== null, run: () => closeSheet() },
   ...selectCommands,

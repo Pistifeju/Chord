@@ -20,6 +20,7 @@ import { sidebar } from "../features/sidebar/store";
 import { watchFinished, watchNotificationClicks, watchShownPanes } from "../features/status/store";
 import { NoProjects } from "../features/worktrees/NoProjects";
 import { DeleteWorktreePopup } from "../features/worktrees/DeleteWorktreePopup";
+import { RemoveProjectPopup } from "../features/worktrees/RemoveProjectPopup";
 import { ForceRemovalPopup } from "../features/worktrees/ForceRemovalPopup";
 import { NewWorktreePopup } from "../features/worktrees/NewWorktreePopup";
 import { ProjectDrop } from "../features/worktrees/ProjectDrop";
@@ -119,6 +120,7 @@ export default function App() {
       <OpenFileByNamePopup />
       <QuitPopup />
       <CloseAgentsPopup />
+      <RemoveProjectPopup />
       {error && <WarningToast text={error} notice={errorIsNotice} onDismiss={dismissError} />}
     </div>
   );

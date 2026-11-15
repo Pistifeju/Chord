@@ -3,9 +3,11 @@ import { commands, type Project } from "../../ipc/bindings";
 import { closeSheet, openSheet, sheet, sheetOf } from "../../app/sheet";
 import { externalStore } from "../../ui/externalStore";
 import { shownSession } from "../panes/sessions";
-import { forgetPanes, forgetPanesExcept, panes } from "../panes/store";
+import { allPaneIds, vanishedWorktrees } from "../panes/agents";
+import { chats } from "../chat/store";
+import { forgetPanes, panes } from "../panes/store";
 import { settingsOpen } from "../settings/store";
-import { noProjects, withProject, withoutProject, withoutWorktree, withSavedSelection, withSelectionRestored, withWorktrees, worktreeOrder, type Projects } from "./projects";
+import { goneWorktrees, noProjects, withProject, withoutProject, withoutWorktree, withSavedSelection, withSelectionRestored, withWorktrees, worktreeOrder, type Projects } from "./projects";
 
 export const projects = externalStore(noProjects);
 
@@ -29,10 +31,12 @@ const update = (change: (p: Projects) => Projects) => {
 export const fail = (error: unknown) => update((p) => ({ ...p, error: String(error), errorIsNotice: false }));
 export const notify = (text: string) => update((p) => ({ ...p, error: text, errorIsNotice: true }));
 
+// Every worktree that goes, by a delete, a removed project or outside Chord, goes through here.
+const worktreesGone = (paths: string[]) => paths.forEach(forgetPanes);
+
 export async function refreshWorktrees(project: string) {
   const list = await commands.listWorktrees(project);
-  // A worktree that vanished outside Chord takes its agent with it.
-  for (const gone of projects.get().worktrees[project] ?? []) if (!list.some((w) => w.path === gone.path)) forgetPanes(gone.path);
+  worktreesGone(goneWorktrees(projects.get(), project, list));
   update((p) => withWorktrees(p, project, list));
 }
 
@@ -51,7 +55,7 @@ export function loadProjects(list: Project[], saved: string | null) {
 function pruneVanishedPanes() {
   const { list, worktrees } = projects.get();
   if (list.some((p) => !worktrees[p.path]?.length)) return;
-  forgetPanesExcept(worktreeOrder(projects.get()));
+  worktreesGone(vanishedWorktrees(panes.get(), worktreeOrder(projects.get())));
 }
 
 export async function pickProject() {
@@ -73,10 +77,24 @@ export async function addFolders(folders: string[]) {
   }
 }
 
-export async function removeProject(path: string) {
+// A remove that would stop a working agent asks first.
+export function requestRemoveProject(path: string) {
+  const { worktrees, list } = projects.get();
+  const working = (worktrees[path] ?? []).some((w) => allPaneIds(panes.get()[w.path]).some((pane) => chats.get()[pane]?.running));
+  if (!working) return void removeProject(path);
+  openSheet({ kind: "removeProject", path, name: list.find((p) => p.path === path)?.name ?? path });
+}
+
+export function confirmRemoveProject() {
+  const pending = sheetOf(sheet.get(), "removeProject");
+  closeSheet("removeProject");
+  if (pending) void removeProject(pending.path);
+}
+
+async function removeProject(path: string) {
   try {
     await commands.removeProject(path);
-    for (const gone of projects.get().worktrees[path] ?? []) forgetPanes(gone.path);
+    worktreesGone(goneWorktrees(projects.get(), path, []));
     update((p) => withoutProject(p, path));
   } catch (error) {
     fail(error);
@@ -114,7 +132,7 @@ async function deleteWorktree(project: string, path: string, force = false) {
       await refreshWorktrees(project);
       restore();
     } else {
-      forgetPanes(path);
+      worktreesGone([path]);
       if (removal.Removed?.kept_branch) {
         const { name, reason } = removal.Removed.kept_branch;
         notify(`Kept branch ${name}: ${reason}`);

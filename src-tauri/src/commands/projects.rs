@@ -2,15 +2,14 @@
 
 use std::path::PathBuf;
 
-use chord_core::harness::sessions::Sessions;
 use chord_core::{
-    Error, GitCounts, Project, Removal, Terminals, Worktree, git_counts, projects, worktrees,
+    Error, GitCounts, Project, Removal, Worktree, git_counts, projects, worktrees,
 };
-use chord_ios::Builds;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 use tauri_plugin_dialog::DialogExt;
 
 use super::blocking;
+use crate::running::Running;
 
 #[tauri::command]
 #[specta::specta]
@@ -42,10 +41,7 @@ pub async fn add_project(app: AppHandle, folder: PathBuf) -> Result<Project, Str
 #[specta::specta]
 pub async fn remove_project(app: AppHandle, project: PathBuf) -> Result<(), String> {
     blocking(app, move |app, store| {
-        // The frontend stops the agents; the shells are Rust's to end.
-        for worktree in worktrees::list(&project).unwrap_or_default() {
-            app.state::<Terminals>().stop(&worktree.path);
-        }
+        Running::of(app).stop_project(&project);
         projects::remove(store, &project)
     })
     .await
@@ -95,18 +91,7 @@ pub async fn remove_worktree(
     force: bool,
 ) -> Result<Removal, String> {
     blocking(app, move |app, store| {
-        let removal = worktrees::remove(
-            &app.state::<Sessions>(),
-            &app.state::<Terminals>(),
-            &projects::find(store, &project)?,
-            &worktree,
-            force,
-        )?;
-        if matches!(removal, Removal::Removed { .. }) {
-            app.state::<Builds>().forget(&worktree);
-            chord_ios::forget(&worktree);
-        }
-        Ok(removal)
+        Running::of(app).remove_worktree(&projects::find(store, &project)?, &worktree, force)
     })
     .await
 }

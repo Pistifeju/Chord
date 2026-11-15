@@ -2,6 +2,7 @@
 
 mod commands;
 mod notifications;
+mod running;
 
 use std::sync::Arc;
 
