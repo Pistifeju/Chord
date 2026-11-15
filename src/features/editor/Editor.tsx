@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { commands } from "../../ipc/bindings";
 import { fail } from "../worktrees/store";
 import { requestedLine, lineRequests, takeLine } from "./reveal";
-import { changedOnDisk, flushSave, readFile, scheduleSave } from "./store";
+import { changedOnDisk, closeFile, readFile, scheduleSave } from "./store";
 import { editorTheme } from "./theme";
 
 /** Milliseconds between two looks at the file's change time. */
@@ -94,7 +94,7 @@ export function Editor({ worktree, path, autoFocus, onGone }: { worktree: string
       window.clearInterval(timer);
       view?.destroy();
       viewRef.current = undefined;
-      flushSave(worktree, path);
+      closeFile(worktree, path);
     };
   }, [worktree, path]);
   useEffect(() => {

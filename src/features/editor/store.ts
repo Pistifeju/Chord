@@ -1,4 +1,4 @@
-// Connects the editor to IPC: a file read when its tab shows and again when it changes on disk, saved 1 s after the last edit and when the tab goes, unless the file changed on disk.
+// Connects the editor to IPC: a file read when its tab shows and again when it changes on disk, saved 1 s after the last edit and when the tab goes, unless the file changed on disk; its text let go once its editor closed.
 import type { Text } from "@codemirror/state";
 import { commands } from "../../ipc/bindings";
 import { fail } from "../worktrees/store";
@@ -34,6 +34,19 @@ export function flushSave(worktree: string, path: string) {
     .then(() => onDisk.set(key, text))
     .catch(fail);
   writes.set(key, write);
+}
+
+/** The editor of the file went: its pending edit saves, then the store lets go of the file's text unless a newer write started. */
+export function closeFile(worktree: string, path: string) {
+  flushSave(worktree, path);
+  const key = keyOf(worktree, path);
+  const last = writes.get(key);
+  if (!last) return void onDisk.delete(key);
+  void last.then(() => {
+    if (writes.get(key) !== last) return;
+    writes.delete(key);
+    onDisk.delete(key);
+  });
 }
 
 /** Saves every pending edit and resolves once all writes landed, for the quit. */
