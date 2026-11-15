@@ -36,7 +36,11 @@ export function SidebarToggle() {
   );
 }
 
-export function Sidebar() {
+/** A short mark on a worktree's meta line; its tone picks the color. */
+export type CardMarker = { text: string; tone: "busy" | "done" | "stopped" | "failed" };
+
+// `markers` are the iOS part of the cards, passed in by App by worktree path.
+export function Sidebar({ markers }: { markers: Record<string, CardMarker> }) {
   const { hidden } = sidebar.use();
   shortcutChanges.use();
   const state = projects.use();
@@ -73,6 +77,7 @@ export function Sidebar() {
                   shown={worktree.path === state.selected && !settings}
                   hint={shortcutLabel(`worktree.select.${order.indexOf(worktree.path) + 1}`)}
                   counts={counts[worktree.path]}
+                  marker={markers[worktree.path]}
                   finishedPanes={finishedPanes}
                 />
               ))}
@@ -129,6 +134,7 @@ function WorktreeCard({
   shown,
   hint,
   counts,
+  marker,
   finishedPanes,
 }: {
   project: Project;
@@ -138,6 +144,7 @@ function WorktreeCard({
   shown: boolean;
   hint: string | undefined;
   counts: GitCounts | undefined;
+  marker: CardMarker | undefined;
   finishedPanes: string[];
 }) {
   const saved = panes.usePart((all) => all[worktree.path]);
@@ -160,12 +167,17 @@ function WorktreeCard({
           <span className="worktree-title">{branch}</span>
           {hint && <span className="worktree-hint">{hint}</span>}
         </span>
-        {(countsText.sides || countsText.changed) && (
+        {(countsText.sides || countsText.changed || marker) && (
           <span className="worktree-line worktree-meta">
             <span className="worktree-counts" title={countsTitle(counts)}>
               {countsText.sides && <span>{countsText.sides}</span>}
               {countsText.changed && <span className="worktree-changed">{countsText.changed}</span>}
             </span>
+            {marker && (
+              <span className="worktree-marker" data-tone={marker.tone}>
+                {marker.text}
+              </span>
+            )}
           </span>
         )}
       </button>

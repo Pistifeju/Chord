@@ -1,6 +1,7 @@
 //! Tauri commands, one file per feature area, and the thread they run core calls on.
 
 pub mod app;
+pub mod build;
 pub mod chat;
 pub mod files;
 pub mod projects;

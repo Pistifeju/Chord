@@ -8,37 +8,6 @@
   min-height: 0;
 }
 
-.terminal-header {
-  display: flex;
-  align-items: center;
-  flex: none;
-  height: 28px;
-  padding: 0 4px 0 8px;
-  border-bottom: 1px solid var(--line);
-  font-size: calc(12px * var(--text-scale));
-}
-
-.terminal-title {
-  font-weight: 500;
-  color: var(--ink-secondary);
-  transition: color var(--t-fast) var(--ease-out);
-}
-
-.terminal-part:focus-within .terminal-title {
-  color: var(--ink);
-}
-
-/* The find bar sits under the header, over the terminal's top right. */
-.terminal-part .find-bar {
-  top: 36px;
-}
-
-.terminal-hide {
-  width: 24px;
-  height: 24px;
-  margin-left: auto;
-}
-
 .terminal-body {
   display: flex;
   flex: 1;

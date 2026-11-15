@@ -1,5 +1,5 @@
 // The panes of one worktree: the split layout of its tab groups, each group's tab bar over the tab it shows, and a tab's drag between them.
-import { Fragment, useEffect, useRef, useState, type PointerEvent, type RefObject } from "react";
+import { Fragment, useEffect, useRef, useState, type PointerEvent, type ReactNode, type RefObject } from "react";
 import type { Direction, Layout, Status, Tab } from "../../ipc/bindings";
 import { tooltip } from "../../app/commands";
 import { imageMime } from "../chat/attachments";
@@ -9,7 +9,7 @@ import { shortcutChanges } from "../settings/store";
 import { seenDone, statusLabel } from "../status/status";
 import { StatusMark } from "../status/StatusMark";
 import { finished } from "../status/store";
-import { BottomPanel } from "../bottompanel/BottomPanel";
+import { BottomPanel, type BottomViewSlot } from "../bottompanel/BottomPanel";
 import { SidePanel } from "../sidepanel/SidePanel";
 import { sidePanelOf, sidePanels, toggleSidePanel } from "../sidepanel/store";
 import { sidebar } from "../sidebar/store";
@@ -32,7 +32,7 @@ type TabDrag = { handlers: (tab: string) => object; clicked: () => boolean; drag
 type Edges = { top: boolean; left: boolean; right: boolean };
 
 // seen: the tabs already shown, so a tab that remounts after a split or a move does not animate in again.
-type Place = { worktree: string; focused: string; split: boolean; names: PaneNames; drag: TabDrag; seen: Set<string> };
+type Place = { worktree: string; focused: string; split: boolean; names: PaneNames; drag: TabDrag; seen: Set<string>; runControl: ReactNode };
 
 const rectOf = (element: Element): Box => {
   const { left, top, width, height } = element.getBoundingClientRect();
@@ -153,7 +153,12 @@ function GroupTabs({ group, place, edges }: { group: Group; place: Place; edges:
       <button type="button" className="icon-button" title={tooltip("session.new")} aria-label="New Session" onClick={() => newSession(worktree, group.id)}>
         <PlusIcon />
       </button>
-      {edges.top && edges.right && !sidePanelOpen && <FilesToggle worktree={worktree} />}
+      {edges.top && edges.right && !sidePanelOpen && (
+        <>
+          {place.runControl}
+          <FilesToggle worktree={worktree} />
+        </>
+      )}
     </div>
   );
 }
@@ -276,7 +281,8 @@ function TabGhost({ tab, pointer, names }: { tab: Tab; pointer: { left: number; 
   );
 }
 
-export function PaneArea({ worktree }: { worktree: string }) {
+// `runControl` and `bottomViews` are the iOS parts of the window, passed in by App.
+export function PaneArea({ worktree, runControl, bottomViews }: { worktree: string; runControl: ReactNode; bottomViews: BottomViewSlot[] }) {
   const current = panes.use()[worktree];
   useEffect(() => ensurePanes(worktree), [worktree]);
   const names = usePaneNames(current ? chatPaneIds(current.layout) : []);
@@ -285,7 +291,7 @@ export function PaneArea({ worktree }: { worktree: string }) {
   if (!current) return null;
   // The tabs a worktree opens with show still.
   seen.current ??= new Set(paneIds(current.layout));
-  const place: Place = { worktree, focused: current.focused, split: current.layout.kind === "split", names, drag: tabDrag, seen: seen.current };
+  const place: Place = { worktree, focused: current.focused, split: current.layout.kind === "split", names, drag: tabDrag, seen: seen.current, runControl };
   const dragged = tabDrag.dragging ? groupOf(current.layout, tabDrag.dragging)?.tabs.find((t) => t.id === tabDrag.dragging) : undefined;
   return (
     <div className="panes">
@@ -293,9 +299,15 @@ export function PaneArea({ worktree }: { worktree: string }) {
         <div className="pane-layout">
           <LayoutView layout={current.layout} path={[]} place={place} edges={{ top: true, left: true, right: true }} />
         </div>
-        <BottomPanel worktree={worktree} />
+        <BottomPanel worktree={worktree} views={bottomViews} />
       </div>
-      <SidePanel worktree={worktree} bar={<FilesToggle worktree={worktree} />} />
+      <SidePanel worktree={worktree} bar={
+          <>
+            {runControl}
+            <FilesToggle worktree={worktree} />
+          </>
+        }
+      />
       {drop && <div className="drop-edge" style={drop.box} />}
       {dragged && pointer && <TabGhost tab={dragged} pointer={pointer} names={names} />}
     </div>

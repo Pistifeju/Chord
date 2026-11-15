@@ -1,5 +1,9 @@
 // The window's layout. Each feature adds its own region.
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
+import { BuildView } from "../features/ios/build/BuildView";
+import { RunControl } from "../features/ios/build/RunControl";
+import { markerText } from "../features/ios/build/run";
+import { builds } from "../features/ios/build/store";
 import { OpenFileByNamePopup } from "../features/files/OpenFileByNamePopup";
 import { TrashFilePopup } from "../features/files/TrashFilePopup";
 import { CloseAgentsPopup } from "../features/panes/CloseAgentsPopup";
@@ -17,6 +21,7 @@ import { ForceRemovalPopup } from "../features/worktrees/ForceRemovalPopup";
 import { NewWorktreePopup } from "../features/worktrees/NewWorktreePopup";
 import { ProjectDrop } from "../features/worktrees/ProjectDrop";
 import { watchGitCounts } from "../features/worktrees/gitCountsRefresh";
+import { worktreeAt } from "../features/worktrees/projects";
 import { dismissError, projects } from "../features/worktrees/store";
 import { WarningToast } from "../ui/Toast";
 import { StatusBar } from "./StatusBar";
@@ -35,6 +40,13 @@ export default function App() {
   const settings = settingsOpen.use();
   const sheetOpen = sheet.use() !== null;
   const ready = launched.use();
+  const buildStates = builds.use();
+  const xcode = worktreeAt(state, selected)?.xcode === true;
+  // The iOS parts of the sidebar, the tab bar, and the bottom panel are slots, so no core feature imports features/ios.
+  const markers = useMemo(
+    () => Object.fromEntries(Object.entries(buildStates).flatMap(([path, build]) => { const marker = markerText(build); return marker ? [[path, marker]] : []; })),
+    [buildStates],
+  );
   useEffect(() => {
     launch().catch(console.error);
     window.addEventListener("keydown", shortcutWhenLaunched);
@@ -69,9 +81,21 @@ export default function App() {
           </span>
         </div>
         <div className="app-body">
-          <Sidebar />
+          <Sidebar markers={markers} />
           <div className="app-column">
-            <main className="main">{list.length === 0 ? <NoProjects /> : selected && <PaneArea key={selected} worktree={selected} />}</main>
+            <main className="main">{list.length === 0 ? (
+                <NoProjects />
+              ) : (
+                selected && (
+                  <PaneArea
+                    key={selected}
+                    worktree={selected}
+                    runControl={xcode ? <RunControl worktree={selected} /> : null}
+                    bottomViews={xcode ? [{ id: "build", title: "Build", toggleCommand: "build.toggleLog", body: <BuildView worktree={selected} /> }] : []}
+                  />
+                )
+              )}
+            </main>
             <StatusBar />
           </div>
         </div>

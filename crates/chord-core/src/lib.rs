@@ -16,12 +16,14 @@ pub mod worktrees;
 pub use error::Error;
 pub use files::FileEntry;
 pub use git_counts::GitCounts;
-pub use harness::{Capability, DialogAnswer, DialogAsk, HarnessEvent, Image, SlashCommand, Status};
+pub use harness::{
+    Capability, DialogAnswer, DialogAsk, HarnessEvent, Image, SlashCommand, Status, login_shell,
+};
 pub use panes::{Direction, Layout, Tab, WorktreePanes};
 pub use projects::Project;
 pub use state::{
-    Appearance, BottomPanel, PaneAgent, Shortcut, SidePanel, Sidebar, State, StateChange, Store,
-    Theme,
+    Appearance, BottomPanel, BottomView, PaneAgent, Shortcut, SidePanel, Sidebar, State,
+    StateChange, Store, Theme,
 };
 pub use terminal::{TerminalEvent, Terminals};
-pub use worktrees::{KeptBranch, Removal, Worktree};
+pub use worktrees::{KeptBranch, Removal, Worktree, xcode_bundles};

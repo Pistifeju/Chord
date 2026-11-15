@@ -9,3 +9,44 @@
   border-top: 1px solid var(--line);
   background: var(--canvas);
 }
+
+.bottom-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* The view beside the terminal: its own column behind a 1px rule. */
+.bottom-main + .bottom-side {
+  border-left: 1px solid var(--line);
+}
+
+.bottom-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: none;
+  height: 28px;
+  padding: 0 4px 0 8px;
+  border-bottom: 1px solid var(--line);
+  font-size: calc(12px * var(--text-scale));
+  font-weight: 500;
+}
+
+.bottom-title {
+  color: var(--ink-secondary);
+  transition: color var(--t-fast) var(--ease-out);
+}
+
+/* A column has the focus: its title steps up. */
+.bottom-main:focus-within .bottom-title {
+  color: var(--ink);
+}
+
+.bottom-hide {
+  width: 24px;
+  height: 24px;
+  margin-left: auto;
+}

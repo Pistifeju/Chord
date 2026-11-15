@@ -198,3 +198,15 @@ export const FilterIcon = () => (
     <path d="M2.5 4.5h11M4.5 8h7M6.5 11.5h3" />
   </Icon>
 );
+
+export const PlayIcon = () => (
+  <Icon>
+    <path d="M5 3.25l7 4.75-7 4.75z" fill="currentColor" />
+  </Icon>
+);
+
+export const StopIcon = () => (
+  <Icon>
+    <rect x="4" y="4" width="8" height="8" rx="1.5" fill="currentColor" />
+  </Icon>
+);

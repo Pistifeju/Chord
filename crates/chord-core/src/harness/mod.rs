@@ -5,6 +5,8 @@ mod process;
 pub mod sessions;
 mod shell;
 
+pub use process::login_shell;
+
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};

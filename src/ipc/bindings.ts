@@ -37,7 +37,10 @@ export const commands = {
 	startTerminal: (worktree: string, cols: number, rows: number, onEvent: Channel<TerminalEvent>) => __TAURI_INVOKE<null>("start_terminal", { worktree, cols, rows, onEvent }),
 	writeTerminal: (worktree: string, text: string) => __TAURI_INVOKE<null>("write_terminal", { worktree, text }),
 	resizeTerminal: (worktree: string, cols: number, rows: number) => __TAURI_INVOKE<null>("resize_terminal", { worktree, cols, rows }),
-	/**  Stops every agent and ends the app once the user confirmed the quit. Panes stay saved as running, so they start again on launch. */
+	/**  Builds the worktree's Xcode project. The channel carries the build's phases, log and end. */
+	startBuild: (worktree: string, onEvent: Channel<BuildEvent_Deserialize>) => __TAURI_INVOKE<null>("start_build", { worktree, onEvent }),
+	stopBuild: (worktree: string) => __TAURI_INVOKE<null>("stop_build", { worktree }),
+	/**  Stops every agent, shell and build and ends the app once the user confirmed the quit. Panes stay saved as running, so they start again on launch. */
 	quitApp: () => __TAURI_INVOKE<null>("quit_app"),
 	/**  Saves the setting and applies it; a missing `caffeinate` fails before anything is saved, even with no agent working. */
 	setKeepAwake: (enabled: boolean) => __TAURI_INVOKE<null>("set_keep_awake", { enabled }),
@@ -67,16 +70,59 @@ export type Appearance_Serialize = {
 export type BottomPanel = BottomPanel_Serialize | BottomPanel_Deserialize;
 
 export type BottomPanel_Deserialize = {
+	/**  The terminal shows. */
 	open?: boolean,
 	/**  In pixels. */
 	height?: number,
+	view?: BottomView,
 };
 
 export type BottomPanel_Serialize = {
+	/**  The terminal shows. */
 	open: boolean,
 	/**  In pixels. */
 	height: number,
+	view: BottomView,
 };
+
+/**  The view beside the terminal; `Terminal` means none. */
+export type BottomView = "terminal" | "build";
+
+export type BuildEvent = BuildEvent_Serialize | BuildEvent_Deserialize;
+
+export type BuildEvent_Deserialize = { kind: "phase"; phase: BuildPhase } | { kind: "log"; text: string } | { kind: "succeeded" } | 
+/**  Stopped by the user; a build a newer one replaced sends nothing. */
+{ kind: "stopped" } | 
+/**  The first errors of the build, and how many more it printed. */
+{ kind: "failed"; issues: BuildIssue_Deserialize[]; more: number };
+
+export type BuildEvent_Serialize = { kind: "phase"; phase: BuildPhase } | { kind: "log"; text: string } | { kind: "succeeded" } | 
+/**  Stopped by the user; a build a newer one replaced sends nothing. */
+{ kind: "stopped" } | 
+/**  The first errors of the build, and how many more it printed. */
+{ kind: "failed"; issues: BuildIssue_Serialize[]; more: number };
+
+export type BuildIssue = BuildIssue_Serialize | BuildIssue_Deserialize;
+
+export type BuildIssue_Deserialize = {
+	/**  The path as the compiler printed it. */
+	file?: string | null,
+	line?: number | null,
+	message: string,
+};
+
+export type BuildIssue_Serialize = {
+	/**  The path as the compiler printed it. */
+	file: string | null,
+	line: number | null,
+	message: string,
+};
+
+export type BuildPhase = 
+/**  Before xcodebuild: the project's scheme is looked up. */
+"preparing" | 
+/**  A build Chord did not start holds the build database. */
+"waiting" | "building";
 
 /**  What a harness can do; the adapter returns its list when a session starts, and the UI hides a control whose capability is missing. */
 export type Capability = 
@@ -545,9 +591,13 @@ export type WorktreePanes = {
 export type Worktree_Deserialize = {
 	path: string,
 	branch?: string | null,
+	/**  The folder holds an Xcode project or workspace. */
+	xcode: boolean,
 };
 
 export type Worktree_Serialize = {
 	path: string,
 	branch: string | null,
+	/**  The folder holds an Xcode project or workspace. */
+	xcode: boolean,
 };

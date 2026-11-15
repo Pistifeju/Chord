@@ -7,6 +7,7 @@ import { drawSelection, EditorView, keymap, lineNumbers } from "@codemirror/view
 import { useEffect, useRef, useState } from "react";
 import { commands } from "../../ipc/bindings";
 import { fail } from "../worktrees/store";
+import { requestedLine, lineRequests, takeLine } from "./reveal";
 import { changedOnDisk, flushSave, readFile, scheduleSave } from "./store";
 import { editorTheme } from "./theme";
 
@@ -99,6 +100,15 @@ export function Editor({ worktree, path, autoFocus, onGone }: { worktree: string
   useEffect(() => {
     if (autoFocus) viewRef.current?.focus();
   }, [autoFocus]);
+  // A click on a build error asks for a line; it waits here until the file is read.
+  const line = lineRequests.usePart((all) => requestedLine(all, worktree, path));
+  useEffect(() => {
+    const view = viewRef.current;
+    if (line === undefined || !view) return;
+    const from = view.state.doc.line(Math.min(Math.max(line, 1), view.state.doc.lines)).from;
+    view.dispatch({ selection: { anchor: from }, effects: EditorView.scrollIntoView(from, { y: "center" }) });
+    takeLine(worktree, path);
+  }, [line, loading, worktree, path]);
   return (
     <div className="editor" data-selectable>
       <div ref={host} className="editor-host" />

@@ -34,6 +34,9 @@ export function defaultProject(projects: Projects): string | null {
   return (owner ?? projects.list[0])?.path ?? null;
 }
 
+export const worktreeAt = (projects: Projects, path: string | null): Worktree | undefined =>
+  Object.values(projects.worktrees).flat().find((worktree) => worktree.path === path);
+
 export const worktreeName = (worktree: Worktree): string => worktree.branch ?? worktree.path.split("/").pop() ?? worktree.path;
 
 // Whitespace in a typed branch name becomes a dash; this is the name git sees.

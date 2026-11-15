@@ -6,6 +6,7 @@ use chord_core::harness::sessions::Sessions;
 use chord_core::{
     Error, GitCounts, Project, Removal, Terminals, Worktree, git_counts, projects, worktrees,
 };
+use chord_ios::Builds;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_dialog::DialogExt;
 
@@ -94,13 +95,17 @@ pub async fn remove_worktree(
     force: bool,
 ) -> Result<Removal, String> {
     blocking(app, move |app, store| {
-        worktrees::remove(
+        let removal = worktrees::remove(
             &app.state::<Sessions>(),
             &app.state::<Terminals>(),
             &projects::find(store, &project)?,
             &worktree,
             force,
-        )
+        )?;
+        if matches!(removal, Removal::Removed { .. }) {
+            app.state::<Builds>().forget(&worktree);
+        }
+        Ok(removal)
     })
     .await
 }

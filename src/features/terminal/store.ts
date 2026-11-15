@@ -75,8 +75,6 @@ function fitNow({ term, fit }: Shell) {
   paintNow(term);
 }
 
-export const hideTerminal = (worktree: string) => showBottomPanel(worktree, false);
-
 // The shell is gone: its terminal goes, and the panel closes.
 function forget(worktree: string) {
   closeTerminalFind(worktree);

@@ -1,12 +1,12 @@
 // The worktree whose terminal takes the focus once it shows, and ⌘T that sets it, apart from the xterm store so the commands skip loading xterm.
-import { bottomPanelOf, bottomPanels, showBottomPanel } from "../bottompanel/store";
+import { bottomPanelOf, bottomPanels, changeBottomPanel } from "../bottompanel/store";
 
 let focusOnShow: string | null = null;
 
 export function toggleTerminal(worktree: string) {
-  const open = !bottomPanelOf(bottomPanels.get(), worktree).open;
-  focusOnShow = open ? worktree : null;
-  showBottomPanel(worktree, open);
+  const panel = bottomPanelOf(bottomPanels.get(), worktree);
+  focusOnShow = panel.open ? null : worktree;
+  changeBottomPanel(worktree, { open: !panel.open });
 }
 
 export function takesFocusOnShow(worktree: string): boolean {

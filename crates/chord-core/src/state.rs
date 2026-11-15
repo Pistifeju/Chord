@@ -126,9 +126,11 @@ impl Default for SidePanel {
 #[derive(Serialize, Deserialize, Type, Clone, Debug, PartialEq)]
 #[serde(default, rename_all = "camelCase")]
 pub struct BottomPanel {
+    /// The terminal shows.
     pub open: bool,
     /// In pixels.
     pub height: u16,
+    pub view: BottomView,
 }
 
 impl Default for BottomPanel {
@@ -136,8 +138,18 @@ impl Default for BottomPanel {
         BottomPanel {
             open: false,
             height: 240,
+            view: BottomView::Terminal,
         }
     }
+}
+
+/// The view beside the terminal; `Terminal` means none.
+#[derive(Serialize, Deserialize, Type, Clone, Copy, Debug, Default, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum BottomView {
+    #[default]
+    Terminal,
+    Build,
 }
 
 #[derive(Serialize, Deserialize, Type, Clone, Debug, Default, PartialEq)]

@@ -11,6 +11,8 @@ use crate::{Error, Terminals, git, harness::sessions::Sessions, projects::Projec
 pub struct Worktree {
     pub path: PathBuf,
     pub branch: Option<String>,
+    /// The folder holds an Xcode project or workspace.
+    pub xcode: bool,
 }
 
 #[derive(Debug, PartialEq)]
@@ -24,8 +26,29 @@ pub fn list(project: &Path) -> Result<Vec<Worktree>, Error> {
     Ok(entries(project)?
         .into_iter()
         .filter(|entry| !entry.bare && !entry.prunable)
-        .map(|entry| entry.worktree)
+        .map(|mut entry| {
+            entry.worktree.xcode = !xcode_bundles(&entry.worktree.path).is_empty();
+            entry.worktree
+        })
         .collect())
+}
+
+/// The Xcode projects and workspaces directly in the folder, sorted by path.
+pub fn xcode_bundles(folder: &Path) -> Vec<PathBuf> {
+    let mut found: Vec<PathBuf> = std::fs::read_dir(folder)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| {
+            matches!(
+                path.extension().and_then(|e| e.to_str()),
+                Some("xcodeproj" | "xcworkspace")
+            )
+        })
+        .collect();
+    found.sort();
+    found
 }
 
 /// None when `name` can become a new branch with a free worktree folder, else the reason it cannot.
@@ -73,6 +96,7 @@ pub fn create(project: &Project, branch: &str) -> Result<Worktree, Error> {
     git::run(&project.path, &["worktree", "add", "-b", branch, &path_arg])?;
     copy_ignored_files(&project.path, &path);
     Ok(Worktree {
+        xcode: !xcode_bundles(&path).is_empty(),
         path,
         branch: Some(branch.to_string()),
     })
@@ -309,6 +333,7 @@ fn parse(porcelain: &str) -> Vec<Entry> {
                     worktree: Worktree {
                         path: PathBuf::from(value),
                         branch: None,
+                        xcode: false,
                     },
                     bare: false,
                     prunable: false,
@@ -449,6 +474,7 @@ mod tests {
             worktree: Worktree {
                 path: PathBuf::from(path),
                 branch: branch.map(String::from),
+                xcode: false,
             },
             bare: false,
             prunable,

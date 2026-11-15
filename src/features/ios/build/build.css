@@ -1,0 +1,135 @@
+/* The Build view and the run status. Rules: DESIGN.md, Build and Run. */
+.build-part {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.build-empty {
+  padding: 8px;
+  font-size: calc(12px * var(--text-scale));
+  color: var(--ink-muted);
+}
+
+.build-scroll {
+  flex: 1;
+  min-height: 0;
+  padding: 8px;
+  overflow: auto;
+  font-family: var(--font-code);
+  font-size: calc(12px * var(--text-scale));
+  color: var(--ink-secondary);
+}
+
+.build-scroll:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.build-lines {
+  box-sizing: border-box;
+  min-width: max-content;
+}
+
+.build-line {
+  height: calc(18px * var(--text-scale));
+  line-height: calc(18px * var(--text-scale));
+  white-space: pre;
+}
+
+.build-match {
+  background: var(--editor-match);
+  color: inherit;
+}
+
+.build-match[data-current] {
+  outline: 1px solid var(--accent-ink);
+}
+
+.build-issues {
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font-ui);
+  font-size: calc(13px * var(--text-scale));
+}
+
+.build-issue {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: calc(26px * var(--text-scale));
+  padding: 0 8px;
+  border: none;
+  border-radius: var(--radius-control);
+  background: none;
+  text-align: left;
+  transition: background-color var(--t-fast) var(--ease-out);
+}
+
+button.build-issue:hover {
+  background: var(--raised);
+}
+
+button.build-issue:active {
+  background: var(--selected);
+}
+
+button.build-issue:focus-visible {
+  outline-offset: -2px;
+}
+
+.build-issue-icon {
+  display: grid;
+  flex: none;
+  color: var(--danger);
+}
+
+.build-issue-place {
+  flex: none;
+  color: var(--ink-secondary);
+}
+
+.build-issue-message {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+}
+
+.build-more {
+  padding: 4px 8px 0;
+  font-size: calc(12px * var(--text-scale));
+  color: var(--ink-muted);
+}
+
+/* The run control sits at the tab bar's right end, 12px before the Files button, and in the side panel's title bar row in the same place. */
+/* The tab bar's 2px gap counts toward the 12px. */
+.tabbar .icon-button.run-control {
+  margin: 0 10px 0 auto;
+}
+
+.tabbar .run-control ~ .files-toggle {
+  margin-left: 0;
+}
+
+/* Play reads green and stop red. */
+.icon-button.run-control,
+.icon-button.run-control:hover {
+  color: var(--success);
+}
+
+.icon-button.run-control[aria-label="Stop"],
+.icon-button.run-control[aria-label="Stop"]:hover {
+  color: var(--danger);
+}
+
+.side-panel-bar .run-control {
+  flex: none;
+  margin-right: 12px;
+}
