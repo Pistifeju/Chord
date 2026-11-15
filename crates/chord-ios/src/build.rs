@@ -1,6 +1,6 @@
 //! One build per worktree: its xcodebuild with its arguments, its own process group and its log in batches, the wait while a build Chord did not start holds the build database, the run of the app on the run destination after it with its console, and the stop that signals the whole group.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::RecvTimeoutError;
@@ -12,6 +12,7 @@ use serde::Serialize;
 use chord_core::{Error, RunDestination, login_shell};
 use specta::Type;
 
+use crate::capacity::{self, Booted};
 use crate::console::ConsoleTone;
 use crate::derived_data;
 use crate::device;
@@ -98,6 +99,8 @@ struct Inner {
     schemes: Mutex<HashMap<PathBuf, String>>,
     /// Held while a worktree's simulator is looked up and created, so two builds never create it twice.
     simulators: Mutex<()>,
+    /// When each worktree's simulator (by name) was last opened in the app.
+    opened: Mutex<HashMap<String, Instant>>,
     /// The tools were found once; later builds skip the login shells that check them.
     tools_found: AtomicBool,
 }
@@ -181,6 +184,21 @@ impl Builds {
         }
     }
 
+    /// Records that the user opened the worktree in the app.
+    pub fn opened(&self, worktree: &Path) {
+        lock(&self.0.opened).insert(simulator::name_of(worktree), Instant::now());
+    }
+
+    /// When each worktree's simulator (by name) was last opened, and the names of those whose app runs.
+    fn opened_and_running(&self) -> (HashMap<String, Instant>, HashSet<String>) {
+        let busy = lock(&self.0.slots)
+            .running_worktrees()
+            .iter()
+            .map(|worktree| simulator::name_of(worktree))
+            .collect();
+        (lock(&self.0.opened).clone(), busy)
+    }
+
     /// For a worktree that was deleted: stops its build, waits for the build database to be released, forgets its schemes.
     pub fn forget(&self, worktree: &Path) {
         let pids = lock(&self.0.slots).stop(worktree);
@@ -198,7 +216,31 @@ impl Builds {
             drop(lock(&turn));
         }
         lock(&self.0.schemes).retain(|project, _| !project.starts_with(worktree));
+        lock(&self.0.opened).remove(&simulator::name_of(worktree));
     }
+}
+
+/// Shuts down the simulators beyond what the RAM allows before `udid` boots. Best effort: a list that fails leaves them booted.
+fn make_room(udid: &str, opened: &HashMap<String, Instant>, busy: &HashSet<String>) {
+    let Ok(owned) = simulator::owned() else {
+        return;
+    };
+    // The target takes a place only when it is one of Chord's own.
+    let keep = if owned.iter().any(|device| device.udid == udid) {
+        capacity::limit(capacity::installed_ram()).saturating_sub(1)
+    } else {
+        capacity::limit(capacity::installed_ram())
+    };
+    let booted = owned
+        .into_iter()
+        .filter(|device| device.booted && device.udid != udid)
+        .map(|device| Booted {
+            opened: opened.get(&device.name).copied(),
+            busy: busy.contains(&device.name),
+            udid: device.udid,
+        })
+        .collect();
+    simulator::shut_down_all(capacity::to_shut_down(booted, keep));
 }
 
 struct Build {
@@ -259,7 +301,11 @@ impl Build {
         let boot = match &target {
             Target::Simulator(device) if self.run => {
                 let udid = device.udid.clone();
-                Some(thread::spawn(move || simulator::boot(&udid)))
+                let (opened, busy) = self.builds.opened_and_running();
+                Some(thread::spawn(move || {
+                    make_room(&udid, &opened, &busy);
+                    simulator::boot(&udid)
+                }))
             }
             _ => None,
         };

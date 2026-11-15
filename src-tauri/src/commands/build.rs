@@ -1,4 +1,4 @@
-//! Commands for a worktree's build: start it with its event channel, stop it, and list the run destinations.
+//! Commands for a worktree's build: start it with its event channel, stop it, note it opened, and list the run destinations.
 
 use std::path::PathBuf;
 
@@ -24,6 +24,17 @@ pub async fn start_build(
             .start(worktree, run, destination, move |event| {
                 let _ = on_event.send(event);
             });
+        Ok(())
+    })
+    .await
+}
+
+/// The user opened the worktree in the window; the oldest opened worktree's simulator is the first one shut down for room.
+#[tauri::command]
+#[specta::specta]
+pub async fn worktree_opened(app: AppHandle, worktree: PathBuf) -> Result<(), String> {
+    blocking(app, move |app, _| {
+        app.state::<Builds>().opened(&worktree);
         Ok(())
     })
     .await

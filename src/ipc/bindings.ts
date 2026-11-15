@@ -40,6 +40,8 @@ export const commands = {
 	/**  Builds the worktree's Xcode project, and with `run` runs the app on the destination. The channel carries the build's phases, log and end. */
 	startBuild: (worktree: string, run: boolean, destination: RunDestination | null, onEvent: Channel<BuildEvent_Deserialize>) => __TAURI_INVOKE<null>("start_build", { worktree, run, destination, onEvent }),
 	stopBuild: (worktree: string) => __TAURI_INVOKE<null>("stop_build", { worktree }),
+	/**  The user opened the worktree in the window; the oldest opened worktree's simulator is the first one shut down for room. */
+	worktreeOpened: (worktree: string) => __TAURI_INVOKE<null>("worktree_opened", { worktree }),
 	/**  The connected devices and the simulator models to run on. */
 	listDestinations: () => __TAURI_INVOKE<Destinations>("list_destinations"),
 	/**  The booted simulators Chord created; `open` marks the open worktree's. */

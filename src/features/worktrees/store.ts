@@ -21,7 +21,10 @@ const update = (change: (p: Projects) => Projects) => {
   const before = projects.get().selected;
   projects.set(change(projects.get()));
   const { selected } = projects.get();
-  if (selected !== before) commands.changeState({ selectedWorktree: selected }).catch(console.error);
+  if (selected !== before) {
+    commands.changeState({ selectedWorktree: selected }).catch(console.error);
+    if (selected) commands.worktreeOpened(selected).catch(console.error);
+  }
 };
 export const fail = (error: unknown) => update((p) => ({ ...p, error: String(error), errorIsNotice: false }));
 export const notify = (text: string) => update((p) => ({ ...p, error: text, errorIsNotice: true }));

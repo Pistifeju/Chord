@@ -92,6 +92,17 @@ pub(crate) fn shut_down(udid: &str) {
     let _ = xcrun(&["simctl", "shutdown", udid], &|_| {});
 }
 
+/// Shuts the simulators down, all at once, and waits for every one.
+pub(crate) fn shut_down_all(udids: Vec<String>) {
+    let ending: Vec<_> = udids
+        .into_iter()
+        .map(|udid| thread::spawn(move || shut_down(&udid)))
+        .collect();
+    for handle in ending {
+        let _ = handle.join();
+    }
+}
+
 /// Shuts the simulator down and deletes it with its data.
 pub(crate) fn delete(udid: &str) -> Result<(), Error> {
     shut_down(udid);

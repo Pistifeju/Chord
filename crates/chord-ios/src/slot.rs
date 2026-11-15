@@ -99,6 +99,15 @@ impl Slots {
         }
     }
 
+    /// The worktrees whose run holds a running app; a build beside it does not count.
+    pub fn running_worktrees(&self) -> Vec<PathBuf> {
+        self.runs
+            .iter()
+            .filter(|(_, run)| run.app)
+            .map(|(worktree, _)| worktree.clone())
+            .collect()
+    }
+
     pub fn is_current(&mut self, worktree: &Path, id: u64) -> bool {
         self.run_mut(worktree, id).is_some()
     }

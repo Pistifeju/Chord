@@ -4,7 +4,6 @@ use std::collections::HashSet;
 use std::fs;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
-use std::thread;
 
 use serde::Serialize;
 use chord_core::Error;
@@ -51,14 +50,12 @@ fn model_name(identifier: &str) -> String {
 /// Shuts down every booted simulator Chord created except the worktree's own, all at once.
 pub fn shut_down_others(keep: &Path) -> Result<(), Error> {
     let keep = simulator::name_of(keep);
-    let ending: Vec<_> = simulator::owned()?
+    let others = simulator::owned()?
         .into_iter()
         .filter(|device| device.booted && device.name != keep)
-        .map(|device| thread::spawn(move || simulator::shut_down(&device.udid)))
+        .map(|device| device.udid)
         .collect();
-    for handle in ending {
-        let _ = handle.join();
-    }
+    simulator::shut_down_all(others);
     Ok(())
 }
 

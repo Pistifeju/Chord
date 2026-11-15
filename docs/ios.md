@@ -106,7 +106,12 @@ The harness adapter gives the agent tools that go through ⌘R's code: the same 
 - A call that runs long tells the agent it still runs and when the build last printed, every 30 s, so the agent does not stop a healthy cold build (source 5).
 
 
-How the pi extension reaches Chord for a tool call is open: `ARCHITECTURE.md` section 4 has no channel from the extension back to the app. The first tool ticket decides it.
+Chord runs one MCP server that holds `build` and `run`, and every harness reaches the tools through it:
+
+- An ACP agent gets the server in the `mcpServers` list of `session/new`. Claude Code's adapter takes stdio, HTTP and SSE servers (`src/mcp-servers.ts`); Codex's takes stdio and HTTP, no SSE (`toCodexMcpServerConfig`, sources 6 and 7). So the server speaks stdio or HTTP.
+- Codex's adapter skips a requested server whose name the user's Codex config already holds. Chord names its server `chord`.
+- pi gets the tools from the extension Chord ships, which forwards each call to the same server. Chord does not rely on an MCP extension the user may lack.
+- An agent the user starts outside Chord's chat, in the terminal panel or in their own terminal, gets no session from Chord and so no tools.
 
 ## 4. How ⌘R runs
 
@@ -193,9 +198,11 @@ This plan added H8, H9, H10 and I5 to `SPEC.md`, the `tools` capability to its s
 - The wait on a locked database: the error text is Xcode 27.1's. `lsof -t build.db` may name the holder before a build starts; nobody ran it.
 - Shared module caches under parallel builds: one run passed. Whether `xcodebuild` honours `CLANG_MODULE_CACHE_PATH` from the environment comes from source 1, not from a run here.
 - Every time in section 2 is one run of one project on one machine. Simulator times come from a separate device set and iOS 27.0.
-- The channel from the pi extension back to Chord for a tool call (section 3.6).
+- Section 3.6's MCP server: both adapters pass `mcpServers` on in their code, read on 2026-11-15; nobody ran a session with it. Stdio or HTTP is open; H9 decides it.
 
 ## Sources
 
 2. https://zenn.dev/sryu/articles/worktree-compilation-cache: prefix mapping, and macros that block cache hits (swift-build PR 1836).
 4. https://sergdort.github.io/xcode-agent-incremental-builds/: one DerivedData for Xcode and an agent, and the relink a different `PATH` causes.
+6. https://github.com/agentclientprotocol/claude-agent-acp: `src/mcp-servers.ts` and `src/v1/acp-agent.ts` hand the `session/new` MCP servers to the Claude Agent SDK.
+7. https://github.com/agentclientprotocol/codex-acp: `src/McpServerConfig.ts` and `src/CodexAcpClient.ts` write the `session/new` MCP servers into Codex's `mcp_servers` config.

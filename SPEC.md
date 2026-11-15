@@ -156,7 +156,7 @@ Edge cases:
 - [x] H4 **hard** One build per worktree: ⌘R and ⌘B take over the worktree's running build.
 - [x] H5 Caches: DerivedData and simulators per worktree; one forget, one prune; stop other worktrees' simulators. Running simulators in the status bar, with Shut Down Others. Settings row: the size of the build data.
 - [x] H7 a missing `xcodebuild` or `xcrun` shows the install step.
-- [ ] H8 At most `max(1, RAM in GB / 6)` of Chord's run simulators stay booted; one more shuts down the one whose worktree was opened longest ago and has no run in progress.
+- [x] H8 At most `max(1, RAM in GB / 6)` of Chord's run simulators stay booted; one more shuts down the one whose worktree was opened longest ago and has no run in progress.
 - [ ] H9 harness(tools): `build` builds the worktree like ⌘B and returns the error lines, 30 at most, and no log.
 - [ ] H10 harness(tools): `run` builds and runs like ⌘R on the worktree's simulator and returns "Launched" or the error lines.
 - [ ] H11 Slim simulators: before a boot, Chord writes launchd disable overrides into its own simulators, so the background services a run does not need (Siri, Spotlight, widgets, iCloud and more) never start. A Rust port of simslim's service list, with its MIT notice. Settings section Simulators: one row per service group with its name, what stops working and its memory, and a switch to keep it on.
@@ -239,7 +239,7 @@ A tag with a capability is a `Capability` variant: the UI hides the feature when
 | context | E10 | capability `context` | RPC |
 | usage | E11 | event: `usage` | a pi extension that reports it |
 | subagents | E13 | capability `subagents` | a pi subagent extension |
-| tools | H9, H10, I5 | capability `tools` | tools the extension Chord ships registers; its channel back to Chord is open (`docs/ios.md`, 3.6) |
+| tools | H9, H10, I5 | capability `tools` | Chord's own MCP server; the extension Chord ships forwards pi's calls to it, ACP agents get it in `session/new` (`docs/ios.md`, 3.6) |
 
 Steering while a run goes (E1) waits for capability `steer`.
 
