@@ -132,7 +132,7 @@ impl Sessions {
     /// Returns once every agent has ended, so none outlives the app. The panes stay saved as running.
     pub fn stop_all(&self) {
         let stopped = std::mem::take(&mut *self.sessions());
-        drop(stopped);
+        end_at_once(stopped.into_values().map(|(_, agent)| agent), drop);
         self.awake.clear();
     }
 
@@ -156,9 +156,9 @@ impl Sessions {
                 self.awake.set_working(pane, false);
             }
         }
-        stopped
-            .into_iter()
-            .for_each(|(_, session)| session.end_reported());
+        end_at_once(stopped.into_iter().map(|(_, agent)| agent), |agent| {
+            agent.end_reported()
+        });
     }
 
     /// The worktree is gone: its layouts, panels and running flags go with it. Its sessions stay for `/resume`.
@@ -177,6 +177,15 @@ impl Sessions {
             state.bottom_panels.remove(worktree);
         })
     }
+}
+
+// Each agent waits out its exit on a thread of its own, so ending ten takes as long as ending the slowest.
+fn end_at_once(agents: impl Iterator<Item = Box<dyn Agent>>, end: fn(Box<dyn Agent>)) {
+    std::thread::scope(|scope| {
+        for agent in agents {
+            scope.spawn(move || end(agent));
+        }
+    });
 }
 
 // A pane that is gone no longer starts on launch, and its next start opens a new session.
