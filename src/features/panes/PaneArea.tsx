@@ -80,7 +80,7 @@ function useTabDrag(worktree: string) {
 
 function FilesToggle({ worktree }: { worktree: string }) {
   shortcutChanges.use();
-  const shown = sidePanelOf(sidePanels.use(), worktree).open;
+  const shown = sidePanels.usePart((all) => sidePanelOf(all, worktree).open);
   return (
     <button
       type="button"
@@ -134,7 +134,7 @@ function GroupTabs({ group, place, edges }: { group: Group; place: Place; edges:
   shortcutChanges.use();
   const { hidden } = sidebar.use();
   const { worktree } = place;
-  const sidePanelOpen = sidePanelOf(sidePanels.use(), worktree).open;
+  const sidePanelOpen = sidePanels.usePart((all) => sidePanelOf(all, worktree).open);
   const closable = canClosePane(panes.use()[worktree]);
   const chatIds = chatPaneIds(group);
   const statusesJson = chats.usePart((all) => JSON.stringify(chatIds.map((tab) => all[tab]?.report?.status ?? null)));

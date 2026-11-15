@@ -59,7 +59,7 @@ export function LogView({ view, label, lines, toneAt, restartKey, head, atStart,
     const observer = new ResizeObserver(sync);
     observer.observe(el);
     return () => observer.disconnect();
-  });
+  }, [rowHeight]);
 
   useLayoutEffect(() => {
     following.current = true;

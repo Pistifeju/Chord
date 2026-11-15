@@ -1,5 +1,5 @@
 // The Files view: the worktree folder's name with Collapse All and Reload, its filter field and its tree with its right-click menu and name fields.
-import { Fragment, useEffect, useRef, useState, type CSSProperties } from "react";
+import { Fragment, memo, useEffect, useRef, useState, type CSSProperties } from "react";
 import { addPathToDraft, pathDropPane } from "../chat/store";
 import { showMenu } from "../../app/commands";
 import { usePointerDrag } from "../../ui/pointerDrag";
@@ -12,7 +12,8 @@ import { emptyTree, stemLength, treeKeyAction, visibleRows, type Row } from "./t
 import type { FileEntry } from "../../ipc/bindings";
 import "./files.css";
 
-export function FilesView({ worktree }: { worktree: string }) {
+// A side panel drag re-renders the panel each frame; the tree reads its own stores.
+export const FilesView = memo(function FilesView({ worktree }: { worktree: string }) {
   const tree = trees.use()[worktree] ?? emptyTree;
   const rows = visibleRows(tree);
   const edit = nameEdit.use();
@@ -79,7 +80,7 @@ export function FilesView({ worktree }: { worktree: string }) {
       </div>
     </div>
   );
-}
+});
 
 // The pane of the enabled composer under the pointer.
 function composerPaneAt(x: number, y: number): string | null {
