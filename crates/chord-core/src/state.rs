@@ -2,7 +2,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
-use std::io::ErrorKind;
+use std::io::{ErrorKind, Write};
 use std::path::PathBuf;
 use std::sync::{Mutex, PoisonError};
 
@@ -284,7 +284,10 @@ impl Store {
         }
         // shortcut: writes on every change, debounce once a feature saves while you type or drag.
         let temp = self.file.with_extension("json.tmp");
-        fs::write(&temp, serde_json::to_vec_pretty(&next)?)?;
+        let mut written = fs::File::create(&temp)?;
+        written.write_all(&serde_json::to_vec_pretty(&next)?)?;
+        // On disk before the rename, so a power loss never leaves an empty state file.
+        written.sync_all()?;
         fs::rename(&temp, &self.file)?;
         *state = next;
         Ok(result)
