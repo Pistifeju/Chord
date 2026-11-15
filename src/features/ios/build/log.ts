@@ -10,11 +10,12 @@ export type Log = { lines: string[]; partial: string };
 
 export const emptyLog: Log = { lines: [], partial: "" };
 
+export const cappedLines = <T>(lines: T[]): T[] => (lines.length > LOG_LINES + TRIM_EVERY_LINES ? lines.slice(lines.length - LOG_LINES) : lines);
+
 export function appendToLog(log: Log, text: string): Log {
   const parts = (log.partial + text).split("\n");
   const partial = parts.pop() ?? "";
-  const lines = log.lines.concat(parts);
-  return { lines: lines.length > LOG_LINES + TRIM_EVERY_LINES ? lines.slice(lines.length - LOG_LINES) : lines, partial };
+  return { lines: cappedLines(log.lines.concat(parts)), partial };
 }
 
 export const logLines = (log: Log): string[] => (log.partial ? [...log.lines, log.partial] : log.lines);

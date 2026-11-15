@@ -150,6 +150,7 @@ pub enum BottomView {
     #[default]
     Terminal,
     Build,
+    Console,
 }
 
 #[derive(Serialize, Deserialize, Type, Clone, Debug, Default, PartialEq)]

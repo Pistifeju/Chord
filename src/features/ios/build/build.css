@@ -1,5 +1,5 @@
-/* The Build view and the run status. Rules: DESIGN.md, Build and Run. */
-.build-part {
+/* The Build and Console views and the run status. Rules: DESIGN.md, Build and Run. */
+.log-part {
   position: relative;
   display: flex;
   flex-direction: column;
@@ -8,13 +8,13 @@
   min-height: 0;
 }
 
-.build-empty {
+.log-empty {
   padding: 8px;
   font-size: calc(12px * var(--text-scale));
   color: var(--ink-muted);
 }
 
-.build-scroll {
+.log-scroll {
   flex: 1;
   min-height: 0;
   padding: 8px;
@@ -24,28 +24,36 @@
   color: var(--ink-secondary);
 }
 
-.build-scroll:focus-visible {
+.log-scroll:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
 }
 
-.build-lines {
+.log-lines {
   box-sizing: border-box;
   min-width: max-content;
 }
 
-.build-line {
+.log-line {
   height: calc(18px * var(--text-scale));
   line-height: calc(18px * var(--text-scale));
   white-space: pre;
 }
 
-.build-match {
+.log-line[data-tone="error"] {
+  color: var(--danger);
+}
+
+.log-line[data-tone="own"] {
+  color: var(--ink-muted);
+}
+
+.log-match {
   background: var(--editor-match);
   color: inherit;
 }
 
-.build-match[data-current] {
+.log-match[data-current] {
   outline: 1px solid var(--accent-ink);
 }
 

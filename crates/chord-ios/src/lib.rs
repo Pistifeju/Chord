@@ -10,3 +10,4 @@ mod xcode;
 
 pub use build::{BuildEvent, BuildPhase, Builds};
 pub use issues::BuildIssue;
+pub use simulator::ConsoleTone;

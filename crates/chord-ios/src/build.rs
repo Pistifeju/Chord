@@ -1,10 +1,9 @@
-//! One build per worktree: its xcodebuild with its arguments, its own process group and its log in batches, the wait while a build Chord did not start holds the build database, the run of the app on the worktree's simulator after it, and the stop that signals the whole group.
+//! One build per worktree: its xcodebuild with its arguments, its own process group and its log in batches, the wait while a build Chord did not start holds the build database, the run of the app on the worktree's simulator after it with its console, and the stop that signals the whole group.
 
 use std::collections::HashMap;
-use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{self, RecvTimeoutError};
+use std::sync::mpsc::RecvTimeoutError;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -15,16 +14,11 @@ use specta::Type;
 
 use crate::derived_data;
 use crate::issues::{BuildIssue, Issues};
-use crate::process;
-use crate::simulator::{self, Device};
+use crate::process::{self, BATCH_BYTES, BATCH_INTERVAL, GROUP_GRACE, end_group};
+use crate::simulator::{self, ConsoleTone, Device};
 use crate::slot::Slots;
 use crate::xcode::{self, Project};
 
-/// The log reaches the UI every 100 ms or 64 KB, whichever comes first: a cold build prints thousands of lines.
-const BATCH_INTERVAL: Duration = Duration::from_millis(100);
-const BATCH_BYTES: usize = 64 * 1024;
-/// How long a signalled group may take to end before it is killed, and how long the build database may stay held after it.
-const GROUP_GRACE: Duration = Duration::from_secs(5);
 const POLL: Duration = Duration::from_millis(100);
 
 #[derive(Serialize, Type, Clone, Copy, Debug, PartialEq)]
@@ -49,6 +43,11 @@ pub enum BuildEvent {
     },
     Log {
         text: String,
+    },
+    /// Whole lines of the running app's output.
+    Console {
+        text: String,
+        tone: ConsoleTone,
     },
     Succeeded,
     /// The app that ran ended on its own.
@@ -274,7 +273,7 @@ impl Build {
         let mut bundle = None;
         let ended = booted.and_then(|()| {
             if self.stopped() {
-                return Ok(());
+                return Ok(None);
             }
             simulator::open_app();
             self.say(BuildEvent::Phase {
@@ -283,21 +282,31 @@ impl Build {
             let app = self.step(|register| {
                 xcode::built_app(&self.project, scheme, Some(udid), &self.worktree, register)
             })?;
-            let id = self.step(|register| simulator::bundle_id(&app, register))?;
+            let id =
+                self.step(|register| simulator::plist_text(&app, "CFBundleIdentifier", register))?;
+            let executable =
+                self.step(|register| simulator::plist_text(&app, "CFBundleExecutable", register))?;
             self.step(|register| simulator::install(udid, &app, register))?;
             if self.stopped() {
-                return Ok(());
+                return Ok(None);
             }
             self.say(BuildEvent::Phase {
                 phase: BuildPhase::Launching,
             });
             let id = bundle.insert(id);
             self.step(|register| {
-                simulator::launch(udid, id, register, &|| {
-                    self.say(BuildEvent::Phase {
-                        phase: BuildPhase::Running,
-                    })
-                })
+                simulator::launch(
+                    udid,
+                    id,
+                    &executable,
+                    register,
+                    &|| {
+                        self.say(BuildEvent::Phase {
+                            phase: BuildPhase::Running,
+                        })
+                    },
+                    &|text, tone| self.say(BuildEvent::Console { text, tone }),
+                )
             })
         });
         if self.stopped() {
@@ -307,7 +316,14 @@ impl Build {
             return BuildEvent::Stopped;
         }
         match ended {
-            Ok(()) => BuildEvent::Exited,
+            Ok(code) => {
+                let how = code.map_or("a signal".into(), |code| format!("code {code}"));
+                self.say(BuildEvent::Console {
+                    text: format!("Process exited with {how}\n"),
+                    tone: ConsoleTone::Own,
+                });
+                BuildEvent::Exited
+            }
             Err(error) => self.failed(error.to_string()),
         }
     }
@@ -375,24 +391,13 @@ impl Build {
         let mut command = login_shell("xcodebuild", &arg_refs);
         command.current_dir(&self.worktree);
         self.log(format!("$ xcodebuild {}\n", args.join(" ")));
-        let (mut child, reader) = match process::merged(command) {
+        let (mut child, reader) = match process::merged(command, None) {
             Ok(started) => started,
             Err(error) => return self.failed(format!("xcodebuild did not start: {error}")),
         };
         self.register(child.id());
 
-        let (lines, received) = mpsc::channel::<Vec<u8>>();
-        thread::spawn(move || {
-            let mut reader = BufReader::new(reader);
-            loop {
-                let mut line = Vec::new();
-                if !matches!(reader.read_until(b'\n', &mut line), Ok(read) if read > 0)
-                    || lines.send(line).is_err()
-                {
-                    return;
-                }
-            }
-        });
+        let received = process::read_lines(reader);
         let mut issues = Issues::default();
         let mut batch = String::new();
         let mut flushed = Instant::now();
@@ -472,25 +477,4 @@ fn build_args(project: &Project, scheme: &str, simulator: Option<&str>) -> Vec<S
     ]
     .map(String::from)
     .into()
-}
-
-fn signal_group(pid: u32, signal: i32) -> bool {
-    let Ok(pid) = i32::try_from(pid) else {
-        return false;
-    };
-    // SAFETY: `kill` takes plain integers and has no memory effects.
-    unsafe { libc::kill(-pid, signal) == 0 }
-}
-
-/// Asks the group to end, waits, then kills what is left, so no compiler keeps the build database locked.
-fn end_group(pid: u32) {
-    signal_group(pid, libc::SIGTERM);
-    let until = Instant::now() + GROUP_GRACE;
-    while signal_group(pid, 0) {
-        if Instant::now() > until {
-            signal_group(pid, libc::SIGKILL);
-            return;
-        }
-        thread::sleep(Duration::from_millis(50));
-    }
 }

@@ -1,4 +1,4 @@
-// The bottom panel under the panes: the worktree's terminal and, right of it, the view the window passes in, each in its own column with a header and Hide button, each shown on its own.
+// The bottom panel under the panes: the worktree's terminal and, right of it, the views the window passes in, one at a time in a column of its own with a header, tabs when there are several, and a Hide button; each column shows on its own.
 import type { ReactNode } from "react";
 import { tooltip } from "../../app/commands";
 import type { BottomView } from "../../ipc/bindings";
@@ -36,7 +36,17 @@ export function BottomPanel({ worktree, views }: { worktree: string; views: Bott
       {shown && (
         <div className="bottom-main bottom-side" aria-label={shown.title}>
           <div className="bottom-header">
-            <span className="bottom-title">{shown.title}</span>
+            {views.length > 1 ? (
+              <div className="bottom-tabs" role="tablist">
+                {views.map((slot) => (
+                  <button key={slot.id} type="button" role="tab" className="bottom-tab" aria-selected={slot.id === shown.id} onClick={() => changeBottomPanel(worktree, { view: slot.id })}>
+                    {slot.title}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <span className="bottom-title">{shown.title}</span>
+            )}
             <button type="button" className="icon-button bottom-hide" title={tooltip(shown.toggleCommand)} aria-label={`Hide ${shown.title}`} onClick={() => changeBottomPanel(worktree, { view: "terminal" })}>
               <CloseIcon />
             </button>

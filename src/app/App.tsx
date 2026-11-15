@@ -1,6 +1,7 @@
 // The window's layout. Each feature adds its own region.
 import { useEffect, useMemo } from "react";
 import { BuildView } from "../features/ios/build/BuildView";
+import { ConsoleView } from "../features/ios/build/ConsoleView";
 import { RunControl } from "../features/ios/build/RunControl";
 import { markerText } from "../features/ios/build/run";
 import { builds } from "../features/ios/build/store";
@@ -91,7 +92,14 @@ export default function App() {
                     key={selected}
                     worktree={selected}
                     runControl={xcode ? <RunControl worktree={selected} /> : null}
-                    bottomViews={xcode ? [{ id: "build", title: "Build", toggleCommand: "build.toggleLog", body: <BuildView worktree={selected} /> }] : []}
+                    bottomViews={
+                      xcode
+                        ? [
+                            { id: "build", title: "Build", toggleCommand: "build.toggleLogView", body: <BuildView worktree={selected} /> },
+                            { id: "console", title: "Console", toggleCommand: "build.toggleLogView", body: <ConsoleView worktree={selected} /> },
+                          ]
+                        : []
+                    }
                   />
                 )
               )}

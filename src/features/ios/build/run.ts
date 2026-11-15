@@ -1,5 +1,8 @@
 // Rules for a worktree's build: how Rust's events change it, how the card's marker reads it, and where an error's file lies.
 import type { BuildEvent_Deserialize, BuildIssue_Deserialize } from "../../../ipc/bindings";
+import type { BottomViewSlot } from "../../bottompanel/BottomPanel";
+import type { BottomView } from "../../../ipc/bindings";
+import { appendToConsole, emptyConsole, type ConsoleLine } from "./consoleLog.ts";
 import { appendToLog, emptyLog, type Log } from "./log.ts";
 
 export type Build = {
@@ -13,9 +16,9 @@ export type Build = {
 };
 
 /** A worktree has no build until Rust reports its first phase. */
-export type BuildAndLog = { build: Build | undefined; log: Log };
+export type BuildAndLog = { build: Build | undefined; log: Log; console: ConsoleLine[] };
 
-export const noBuild: BuildAndLog = { build: undefined, log: emptyLog };
+export const noBuild: BuildAndLog = { build: undefined, log: emptyLog, console: emptyConsole };
 
 // `startedAt` is when the build began compiling: the time Preparing and Waiting took does not count.
 export function appliedEvent(state: BuildAndLog, event: BuildEvent_Deserialize, now: number): BuildAndLog {
@@ -25,6 +28,8 @@ export function appliedEvent(state: BuildAndLog, event: BuildEvent_Deserialize, 
       return { ...state, build: { ...build, phase: event.phase, startedAt: event.phase === "building" ? now : build.startedAt } };
     case "log":
       return { ...state, log: appendToLog(state.log, event.text) };
+    case "console":
+      return { ...state, console: appendToConsole(state.console, event.text, event.tone) };
     case "succeeded":
       return { ...state, build: { ...build, phase: "succeeded" } };
     case "exited":
@@ -41,6 +46,13 @@ export const isStarting = (build: Build | undefined): boolean =>
   build?.phase === "preparing" || build?.phase === "waiting" || build?.phase === "building" || build?.phase === "installing" || build?.phase === "launching";
 
 export const isRunning = (build: Build | undefined): boolean => build?.phase === "running";
+
+// Console has output only once the app has run; before that Build is the view with something to show.
+export const viewToShow = (build: Build | undefined): BottomViewSlot["id"] => (build?.phase === "running" || build?.phase === "exited" ? "console" : "build");
+
+// A launching app takes the Build column over; any other event leaves the view as it is.
+export const viewAfterEvent = (view: BottomView, event: BuildEvent_Deserialize): BottomView =>
+  view === "build" && event.kind === "phase" && event.phase === "running" ? "console" : view;
 
 export const errorCount = (build: Build): number => build.issues.length + build.more;
 

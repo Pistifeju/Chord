@@ -86,11 +86,13 @@ export type BottomPanel_Serialize = {
 };
 
 /**  The view beside the terminal; `Terminal` means none. */
-export type BottomView = "terminal" | "build";
+export type BottomView = "terminal" | "build" | "console";
 
 export type BuildEvent = BuildEvent_Serialize | BuildEvent_Deserialize;
 
-export type BuildEvent_Deserialize = { kind: "phase"; phase: BuildPhase } | { kind: "log"; text: string } | { kind: "succeeded" } | 
+export type BuildEvent_Deserialize = { kind: "phase"; phase: BuildPhase } | { kind: "log"; text: string } | 
+/**  Whole lines of the running app's output. */
+{ kind: "console"; text: string; tone: ConsoleTone } | { kind: "succeeded" } | 
 /**  The app that ran ended on its own. */
 { kind: "exited" } | 
 /**  Stopped by the user; a build a newer one replaced sends nothing. */
@@ -98,7 +100,9 @@ export type BuildEvent_Deserialize = { kind: "phase"; phase: BuildPhase } | { ki
 /**  The first errors of the build, and how many more it printed. */
 { kind: "failed"; issues: BuildIssue_Deserialize[]; more: number };
 
-export type BuildEvent_Serialize = { kind: "phase"; phase: BuildPhase } | { kind: "log"; text: string } | { kind: "succeeded" } | 
+export type BuildEvent_Serialize = { kind: "phase"; phase: BuildPhase } | { kind: "log"; text: string } | 
+/**  Whole lines of the running app's output. */
+{ kind: "console"; text: string; tone: ConsoleTone } | { kind: "succeeded" } | 
 /**  The app that ran ended on its own. */
 { kind: "exited" } | 
 /**  Stopped by the user; a build a newer one replaced sends nothing. */
@@ -144,6 +148,14 @@ export type Capability =
 "context" | 
 /**  Background subagent runs, reported as a lineage. */
 "subagents";
+
+export type ConsoleTone = 
+/**  The app's stdout and stderr, and OSLog messages below error. */
+"output" | 
+/**  An OSLog error or fault. */
+"error" | 
+/**  A line Chord writes, not the app. */
+"own";
 
 /**  The user's answer to a dialog. */
 export type DialogAnswer = 

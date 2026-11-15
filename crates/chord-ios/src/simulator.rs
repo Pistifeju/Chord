@@ -1,17 +1,34 @@
-//! The worktree's simulator: found or created by name, booted, the app installed and launched on it, and the Simulator app opened.
+//! The worktree's simulator: found or created by name, booted, the app installed and launched on it with its output and OSLog read, and the Simulator app opened.
 
-use std::io::{BufRead, BufReader};
 use std::path::Path;
-use std::process::Command;
+use std::process::{Child, Command};
+use std::sync::mpsc;
+use std::thread;
+use std::time::{Duration, Instant};
 
+use serde::Serialize;
 use serde_json::Value;
 use chord_core::{Error, login_shell};
+use specta::Type;
 
 use crate::derived_data;
-use crate::process;
+use crate::process::{self, BATCH_BYTES, BATCH_INTERVAL, end_group};
 
 pub(crate) const PLUTIL: &str = "/usr/bin/plutil";
 pub(crate) const OPEN: &str = "/usr/bin/open";
+/// How long the launch waits for the log stream to start; it takes about a second.
+const STREAM_START: Duration = Duration::from_secs(3);
+
+#[derive(Serialize, Type, Clone, Copy, Debug, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum ConsoleTone {
+    /// The app's stdout and stderr, and OSLog messages below error.
+    Output,
+    /// An OSLog error or fault.
+    Error,
+    /// A line Chord writes, not the app.
+    Own,
+}
 
 #[derive(Debug, PartialEq)]
 pub(crate) struct Device {
@@ -159,17 +176,18 @@ pub(crate) fn open_app() {
     }
 }
 
-pub(crate) fn bundle_id(app: &Path, register: &dyn Fn(u32)) -> Result<String, Error> {
+/// A text value of the app's Info.plist, such as `CFBundleIdentifier`.
+pub(crate) fn plist_text(app: &Path, key: &str, register: &dyn Fn(u32)) -> Result<String, Error> {
     let plist = app.join("Info.plist").to_string_lossy().into_owned();
     let mut command = Command::new(PLUTIL);
-    command.args(["-extract", "CFBundleIdentifier", "raw", "-o", "-", &plist]);
+    command.args(["-extract", key, "raw", "-o", "-", &plist]);
     let output = process::captured(command, register)?;
-    let id = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    if output.status.success() && !id.is_empty() {
-        Ok(id)
+    let value = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if output.status.success() && !value.is_empty() {
+        Ok(value)
     } else {
         Err(Error::Message(format!(
-            "The app has no bundle identifier: {}",
+            "The app has no {key}: {}",
             app.display()
         )))
     }
@@ -188,45 +206,163 @@ pub(crate) fn terminate(udid: &str, bundle_id: &str) {
     let _ = xcrun(&["simctl", "terminate", udid, bundle_id], &|_| {});
 }
 
-/// Launches the app, replacing a running copy, and returns when it ends. `launched` is called once simctl reports the app's process; its output after that is dropped. An app that never launches fails with simctl's message.
+/// One record of `log stream --style ndjson` as a console line and its tone; None for a line that is no record, such as the stream's own notices. A multi-line message stays one record.
+fn oslog_line(json: &str) -> Option<(String, ConsoleTone)> {
+    let record: Value = serde_json::from_str(json).ok()?;
+    let message = record["eventMessage"].as_str()?;
+    let subsystem = record["subsystem"].as_str().unwrap_or_default();
+    let tone = match record["messageType"].as_str() {
+        Some("Error" | "Fault") => ConsoleTone::Error,
+        _ => ConsoleTone::Output,
+    };
+    let text = if subsystem.is_empty() {
+        format!("{message}\n")
+    } else {
+        format!("{subsystem}: {message}\n")
+    };
+    Some((text, tone))
+}
+
+/// Console text waiting for its batch, in arrival order, neighbours of one tone joined.
+#[derive(Default)]
+struct Console {
+    parts: Vec<(String, ConsoleTone)>,
+    size: usize,
+}
+
+impl Console {
+    fn push(&mut self, text: &str, tone: ConsoleTone) {
+        self.size += text.len();
+        match self.parts.last_mut() {
+            Some((last, last_tone)) if *last_tone == tone => last.push_str(text),
+            _ => self.parts.push((text.into(), tone)),
+        }
+    }
+
+    fn flush(&mut self, console: &dyn Fn(String, ConsoleTone)) {
+        self.size = 0;
+        for (text, tone) in self.parts.drain(..) {
+            console(text, tone);
+        }
+    }
+}
+
+/// Ends the log stream with its group, or its process inside the simulator outlives the run, and reaps it.
+fn end_stream(stream: &mut Child) {
+    let id = stream.id();
+    thread::spawn(move || end_group(id));
+    let _ = stream.wait();
+}
+
+/// Launches the app, replacing a running copy, and returns its exit code (None when a signal ended it) when it ends. Its stdout and stderr, and the OSLog messages of its process `executable`, go to `console` as they come. `launched` is called once simctl reports the app's process. An app that never launches fails with simctl's message.
 pub(crate) fn launch(
     udid: &str,
     bundle_id: &str,
+    executable: &str,
     register: &dyn Fn(u32),
     launched: &dyn Fn(),
-) -> Result<(), Error> {
+    console: &dyn Fn(String, ConsoleTone),
+) -> Result<Option<i32>, Error> {
+    // The log stream starts first and the launch joins its process group, so one stop ends both.
+    // NSLog writes to stderr and to OSLog (sender Foundation): the predicate keeps it to one copy.
+    let predicate = format!(
+        "process == \"{}\" AND sender != \"Foundation\"",
+        executable.replace('"', "\\\"")
+    );
+    let stream = login_shell(
+        "xcrun",
+        &[
+            "simctl",
+            "spawn",
+            udid,
+            "log",
+            "stream",
+            "--style",
+            "ndjson",
+            "--predicate",
+            &predicate,
+        ],
+    );
+    let (mut stream, stream_output) = process::merged(stream, None)?;
+    register(stream.id());
+    // Read on a thread that may outlive the launch: the stream's process in the simulator can hold the pipe open after a kill.
+    let (records, received_records) = mpsc::channel();
+    let (first_line, stream_started) = mpsc::channel();
+    let stream_lines = process::read_lines(stream_output);
+    thread::spawn(move || {
+        for line in stream_lines {
+            let _ = first_line.send(());
+            let record = oslog_line(&String::from_utf8_lossy(&line));
+            if record.is_some_and(|record| records.send(record).is_err()) {
+                return;
+            }
+        }
+    });
+    // The stream prints its filter notice once it runs; the launch waits for it so the app's first lines are caught.
+    let _ = stream_started.recv_timeout(STREAM_START);
+    // --console-pty gives the app a terminal, so its print output is line-buffered, and simctl exits with the app's exit code.
     let command = login_shell(
         "xcrun",
         &[
             "simctl",
             "launch",
-            "--console",
+            "--console-pty",
             "--terminate-running-process",
             udid,
             bundle_id,
         ],
     );
-    let (mut child, reader) = process::merged(command)?;
-    register(child.id());
+    let (mut child, reader) = match process::merged(command, Some(stream.id())) {
+        Ok(started) => started,
+        Err(error) => {
+            let ended = stream.try_wait();
+            end_stream(&mut stream);
+            return Err(match ended {
+                Ok(Some(status)) => Error::Message(format!(
+                    "The OSLog stream ended before the app launched: {status}"
+                )),
+                _ => error.into(),
+            });
+        }
+    };
+    let lines = process::read_lines(reader);
     let mut output = String::new();
     let mut up = false;
-    let mut reader = BufReader::new(reader);
-    let mut line = Vec::new();
-    while matches!(reader.read_until(b'\n', &mut line), Ok(read) if read > 0) {
-        if !up {
-            let text = String::from_utf8_lossy(&line);
-            if text.starts_with(&format!("{bundle_id}: ")) {
-                up = true;
-                launched();
-            } else {
-                output.push_str(&text);
-            }
+    let mut pending = Console::default();
+    let mut flushed = Instant::now();
+    loop {
+        while let Ok((text, tone)) = received_records.try_recv() {
+            pending.push(&text, tone);
         }
-        line.clear();
+        match lines.recv_timeout(BATCH_INTERVAL) {
+            Ok(bytes) => {
+                // The pty ends lines with \r\n.
+                let text = String::from_utf8_lossy(&bytes).replace("\r\n", "\n");
+                if up {
+                    pending.push(&text, ConsoleTone::Output);
+                } else if text.starts_with(&format!("{bundle_id}: ")) {
+                    up = true;
+                    launched();
+                } else {
+                    output.push_str(&text);
+                }
+            }
+            Err(mpsc::RecvTimeoutError::Timeout) => {}
+            Err(mpsc::RecvTimeoutError::Disconnected) => break,
+        }
+        if pending.size >= BATCH_BYTES || flushed.elapsed() >= BATCH_INTERVAL {
+            pending.flush(console);
+            flushed = Instant::now();
+        }
     }
+    end_stream(&mut stream);
+    while let Ok((text, tone)) = received_records.try_recv() {
+        pending.push(&text, tone);
+    }
+    pending.flush(console);
     let status = child.wait()?;
     if up {
-        return Ok(());
+        return Ok(status.code());
     }
     let output = output.trim();
     Err(Error::Message(if output.is_empty() {
@@ -284,5 +420,23 @@ mod tests {
             newest_ios_model(&listed),
             Some(("p18pro".into(), "ios-27-1".into()))
         );
+    }
+
+    #[test]
+    fn reads_an_oslog_record_whole_and_tones_errors() {
+        assert_eq!(
+            oslog_line(
+                r#"{"eventMessage":"line one\nline two","messageType":"Default","subsystem":"com.example.app"}"#
+            ),
+            Some((
+                "com.example.app: line one\nline two\n".into(),
+                ConsoleTone::Output
+            ))
+        );
+        assert_eq!(
+            oslog_line(r#"{"eventMessage":"boom","messageType":"Fault","subsystem":""}"#),
+            Some(("boom\n".into(), ConsoleTone::Error))
+        );
+        assert_eq!(oslog_line("Filtering the log data using"), None);
     }
 }
