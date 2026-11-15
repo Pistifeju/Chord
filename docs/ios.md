@@ -71,7 +71,7 @@ Chord runs `xcodebuild -project|-workspace … -scheme … -destination id=… b
 - One rule keeps this true: every build in a worktree uses the same build settings. A changed setting cost 41.1 s. A feature that needs a setting (J2 needs each file's compile command) must make it reach every `xcodebuild` in the worktree, for example through `XCODE_XCCONFIG_FILE` in the agent's and the terminal's environment, or do without it.
 - Chord starts `xcodebuild` through the user's login shell, as it starts the agent and the terminal (`login_shell` in `harness/process.rs`). Swift Build puts a task's environment into its signature, so a different `PATH` links again (source 4).
 
-Chord finds the folder with the path hash, a pure function. Its test hardcodes the folder name Xcode gave a project at a neutral path. The built `.app` is the newest one under `Build/Products/*-iphonesimulator`; when none is there, one `-showBuildSettings -json` call names it.
+Chord finds the folder with the path hash, a pure function. Its test hardcodes the folder name Xcode gave a project at a neutral path. The built `.app` comes from one `xcodebuild -showBuildSettings -json` call after the build, with the build's project, scheme and destination: the first target of the scheme with product type `application`, at `TARGET_BUILD_DIR/FULL_PRODUCT_NAME`. A custom DerivedData location needs no special case.
 
 
 ### 3.3 One build per worktree
@@ -120,6 +120,12 @@ How the pi extension reaches Chord for a tool call is open: `ARCHITECTURE.md` se
 
 
 Install is the largest part of the warm loop. First thing to try once ⌘R works: skip the install when the build changed nothing in the `.app`.
+
+Known gaps in step 2, each owned by a row:
+
+- H4: ⌘B while the app runs takes the slot and ends the app; Xcode leaves it running.
+- H4: a stale run's `simctl terminate` can end an app a newer ⌘R launched.
+- H3: `launch` in `simulator.rs` drops the app's console output after the app starts.
 
 A failed build lists its errors above the log. An error that names a file opens it at that line in the editor. The parser is the one the `build` tool uses.
 
@@ -181,7 +187,7 @@ This plan added H8, H9, H10 and I5 to `SPEC.md`, the `tools` capability to its s
 
 - Section 3.2 with a different `-destination` per tool: an agent that builds for a named simulator and a ⌘R for the worktree's may rerun some tasks.
 - Section 3.2 with Xcode open on the worktree, and the relink a different `PATH` costs. Both come from source 4, not from a run here.
-- A custom DerivedData or build location in Xcode's settings (`IDECustomDerivedDataLocation`). The `-showBuildSettings` fallback covers the app's path; the cleanup needs the same care.
+- A custom DerivedData or build location in Xcode's settings (`IDECustomDerivedDataLocation`). `-showBuildSettings` gives the app's path; the cleanup needs the same care.
 - The path hash on an Xcode other than 27.1, and on a path with a symlink: `/tmp/…` hashed as typed, not as `/private/tmp/…`.
 - The wait on a locked database: the error text is Xcode 27.1's. `lsof -t build.db` may name the holder before a build starts; nobody ran it.
 - Shared module caches under parallel builds: one run passed. Whether `xcodebuild` honours `CLANG_MODULE_CACHE_PATH` from the environment comes from source 1, not from a run here.

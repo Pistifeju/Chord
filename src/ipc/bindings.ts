@@ -37,8 +37,8 @@ export const commands = {
 	startTerminal: (worktree: string, cols: number, rows: number, onEvent: Channel<TerminalEvent>) => __TAURI_INVOKE<null>("start_terminal", { worktree, cols, rows, onEvent }),
 	writeTerminal: (worktree: string, text: string) => __TAURI_INVOKE<null>("write_terminal", { worktree, text }),
 	resizeTerminal: (worktree: string, cols: number, rows: number) => __TAURI_INVOKE<null>("resize_terminal", { worktree, cols, rows }),
-	/**  Builds the worktree's Xcode project. The channel carries the build's phases, log and end. */
-	startBuild: (worktree: string, onEvent: Channel<BuildEvent_Deserialize>) => __TAURI_INVOKE<null>("start_build", { worktree, onEvent }),
+	/**  Builds the worktree's Xcode project, and with `run` runs the app on its simulator. The channel carries the build's phases, log and end. */
+	startBuild: (worktree: string, run: boolean, onEvent: Channel<BuildEvent_Deserialize>) => __TAURI_INVOKE<null>("start_build", { worktree, run, onEvent }),
 	stopBuild: (worktree: string) => __TAURI_INVOKE<null>("stop_build", { worktree }),
 	/**  Stops every agent, shell and build and ends the app once the user confirmed the quit. Panes stay saved as running, so they start again on launch. */
 	quitApp: () => __TAURI_INVOKE<null>("quit_app"),
@@ -91,12 +91,16 @@ export type BottomView = "terminal" | "build";
 export type BuildEvent = BuildEvent_Serialize | BuildEvent_Deserialize;
 
 export type BuildEvent_Deserialize = { kind: "phase"; phase: BuildPhase } | { kind: "log"; text: string } | { kind: "succeeded" } | 
+/**  The app that ran ended on its own. */
+{ kind: "exited" } | 
 /**  Stopped by the user; a build a newer one replaced sends nothing. */
 { kind: "stopped" } | 
 /**  The first errors of the build, and how many more it printed. */
 { kind: "failed"; issues: BuildIssue_Deserialize[]; more: number };
 
 export type BuildEvent_Serialize = { kind: "phase"; phase: BuildPhase } | { kind: "log"; text: string } | { kind: "succeeded" } | 
+/**  The app that ran ended on its own. */
+{ kind: "exited" } | 
 /**  Stopped by the user; a build a newer one replaced sends nothing. */
 { kind: "stopped" } | 
 /**  The first errors of the build, and how many more it printed. */
@@ -122,7 +126,9 @@ export type BuildPhase =
 /**  Before xcodebuild: the project's scheme is looked up. */
 "preparing" | 
 /**  A build Chord did not start holds the build database. */
-"waiting" | "building";
+"waiting" | "building" | "installing" | "launching" | 
+/**  The app runs on the worktree's simulator. */
+"running";
 
 /**  What a harness can do; the adapter returns its list when a session starts, and the UI hides a control whose capability is missing. */
 export type Capability = 

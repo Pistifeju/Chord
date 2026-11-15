@@ -29,7 +29,7 @@ pub(crate) fn build_db(folder: &Path) -> PathBuf {
 }
 
 /// MD5 of the path; each half is a big-endian 64-bit number written as 14 letters in base 26.
-fn path_hash(path: &str) -> String {
+pub(crate) fn path_hash(path: &str) -> String {
     let digest = Md5::digest(path.as_bytes());
     digest
         .chunks(8)

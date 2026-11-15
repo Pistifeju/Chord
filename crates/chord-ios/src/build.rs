@@ -1,10 +1,8 @@
-//! One xcodebuild per worktree: its arguments, its own process group, its log in batches, the wait while a build Chord did not start holds the build database, and the stop that signals the whole group.
+//! One build per worktree: its xcodebuild with its arguments, its own process group and its log in batches, the wait while a build Chord did not start holds the build database, the run of the app on the worktree's simulator after it, and the stop that signals the whole group.
 
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
-use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
-use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
@@ -17,6 +15,8 @@ use specta::Type;
 
 use crate::derived_data;
 use crate::issues::{BuildIssue, Issues};
+use crate::process;
+use crate::simulator::{self, Device};
 use crate::slot::Slots;
 use crate::xcode::{self, Project};
 
@@ -35,6 +35,10 @@ pub enum BuildPhase {
     /// A build Chord did not start holds the build database.
     Waiting,
     Building,
+    Installing,
+    Launching,
+    /// The app runs on the worktree's simulator.
+    Running,
 }
 
 #[derive(Serialize, Type, Clone, Debug, PartialEq)]
@@ -47,6 +51,8 @@ pub enum BuildEvent {
         text: String,
     },
     Succeeded,
+    /// The app that ran ended on its own.
+    Exited,
     /// Stopped by the user; a build a newer one replaced sends nothing.
     Stopped,
     /// The first errors of the build, and how many more it printed.
@@ -67,6 +73,8 @@ struct Inner {
     turns: Mutex<HashMap<PathBuf, Arc<Mutex<()>>>>,
     /// The scheme of each project from its last build, so the next one skips `xcodebuild -list`.
     schemes: Mutex<HashMap<PathBuf, String>>,
+    /// Held while a worktree's simulator is looked up and created, so two builds never create it twice.
+    simulators: Mutex<()>,
     /// The tools were found once; later builds skip the login shells that check them.
     tools_found: AtomicBool,
 }
@@ -76,8 +84,13 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 }
 
 impl Builds {
-    /// Starts a build of the worktree's project and returns; `on_event` hears its phases, log and end from a thread of its own. A build already running there stops first. A build that cannot start, such as a missing `xcodebuild` with its install step, ends as a failed one.
-    pub fn start(&self, worktree: PathBuf, on_event: impl Fn(BuildEvent) + Send + Sync + 'static) {
+    /// Starts a build of the worktree's project, and with `run` the app's install and launch on the worktree's simulator, and returns; `on_event` hears its phases, log and end from a thread of its own. A build already running there stops first. A build that cannot start, such as a missing `xcodebuild` with its install step, ends as a failed one.
+    pub fn start(
+        &self,
+        worktree: PathBuf,
+        run: bool,
+        on_event: impl Fn(BuildEvent) + Send + Sync + 'static,
+    ) {
         let project = match self.project_of(&worktree) {
             Ok(project) => project,
             Err(error) => {
@@ -98,6 +111,7 @@ impl Builds {
             builds: self.clone(),
             worktree,
             id: start.id,
+            run,
             project,
             sink: Box::new(on_event),
         };
@@ -156,6 +170,8 @@ struct Build {
     builds: Builds,
     worktree: PathBuf,
     id: u64,
+    /// Install and launch the app after the build.
+    run: bool,
     project: Project,
     sink: Box<dyn Fn(BuildEvent) + Send + Sync>,
 }
@@ -198,10 +214,102 @@ impl Build {
         if !self.wait_for_database() {
             return BuildEvent::Stopped;
         }
+        let device = match self.device() {
+            Ok(device) => device,
+            Err(_) if self.stopped() => return BuildEvent::Stopped,
+            Err(error) => return self.failed(error.to_string()),
+        };
+        // The first boot hides inside the build.
+        let boot = device.as_ref().filter(|_| self.run).map(|device| {
+            let (worktree, udid) = (self.worktree.clone(), device.udid.clone());
+            thread::spawn(move || simulator::boot(&worktree, &udid))
+        });
         self.say(BuildEvent::Phase {
             phase: BuildPhase::Building,
         });
-        self.xcodebuild(&scheme)
+        let end = self.xcodebuild(&scheme, device.as_ref().map(|device| device.udid.as_str()));
+        match (end, device, boot) {
+            (BuildEvent::Succeeded, Some(device), Some(boot)) => {
+                self.run_app(&scheme, &device, boot)
+            }
+            (end, _, _) => end,
+        }
+    }
+
+    /// The simulator the build targets: the worktree's own, created by a run; a build that finds none builds for any simulator.
+    fn device(&self) -> Result<Option<Device>, Error> {
+        let _lookup = lock(&self.builds.0.simulators);
+        if self.run {
+            self.step(|register| simulator::find_or_create(&self.worktree, register))
+                .map(Some)
+        } else {
+            simulator::find(&self.worktree).or(Ok(None))
+        }
+    }
+
+    /// Runs `step` with the way to register its process group in the slot, so a stop ends it.
+    fn step<T>(&self, step: impl FnOnce(&dyn Fn(u32)) -> Result<T, Error>) -> Result<T, Error> {
+        let result = step(&|pid| self.register(pid));
+        lock(&self.builds.0.slots).clear_pid(&self.worktree, self.id);
+        result
+    }
+
+    /// After a successful build: waits for the boot, installs the app and launches it, and returns when the app ends.
+    fn run_app(
+        &self,
+        scheme: &str,
+        device: &Device,
+        boot: thread::JoinHandle<Result<(), Error>>,
+    ) -> BuildEvent {
+        while !boot.is_finished() {
+            if self.stopped() {
+                return BuildEvent::Stopped;
+            }
+            thread::sleep(POLL);
+        }
+        let booted = boot
+            .join()
+            .unwrap_or_else(|_| Err(Error::Message("The simulator's boot crashed.".into())));
+        let udid = device.udid.as_str();
+        let mut bundle = None;
+        let ended = booted.and_then(|()| {
+            if self.stopped() {
+                return Ok(());
+            }
+            simulator::open_app();
+            self.say(BuildEvent::Phase {
+                phase: BuildPhase::Installing,
+            });
+            let app = self.step(|register| {
+                xcode::built_app(&self.project, scheme, Some(udid), &self.worktree, register)
+            })?;
+            let id = self.step(|register| simulator::bundle_id(&app, register))?;
+            self.step(|register| simulator::install(udid, &app, register))?;
+            if self.stopped() {
+                return Ok(());
+            }
+            self.say(BuildEvent::Phase {
+                phase: BuildPhase::Launching,
+            });
+            let id = bundle.insert(id);
+            self.step(|register| {
+                simulator::launch(udid, id, register, &|| {
+                    self.say(BuildEvent::Phase {
+                        phase: BuildPhase::Running,
+                    })
+                })
+            })
+        });
+        if self.stopped() {
+            if let Some(bundle) = &bundle {
+                simulator::terminate(udid, bundle);
+            }
+            return BuildEvent::Stopped;
+        }
+        match ended {
+            Ok(()) => BuildEvent::Exited,
+            Err(error) => self.failed(error.to_string()),
+        }
     }
 
     fn failed(&self, message: String) -> BuildEvent {
@@ -213,9 +321,8 @@ impl Build {
         if let Some(scheme) = lock(&self.builds.0.schemes).get(&self.project.path) {
             return Ok(scheme.clone());
         }
-        let scheme = xcode::scheme_of(&self.project, &self.worktree, &|pid| self.register(pid));
-        lock(&self.builds.0.slots).clear_pid(&self.worktree, self.id);
-        let scheme = scheme?;
+        let scheme =
+            self.step(|register| xcode::scheme_of(&self.project, &self.worktree, register))?;
         lock(&self.builds.0.schemes).insert(self.project.path.clone(), scheme.clone());
         Ok(scheme)
     }
@@ -262,29 +369,16 @@ impl Build {
         }
     }
 
-    fn xcodebuild(&self, scheme: &str) -> BuildEvent {
-        let args = build_args(&self.project, scheme);
+    fn xcodebuild(&self, scheme: &str, simulator: Option<&str>) -> BuildEvent {
+        let args = build_args(&self.project, scheme, simulator);
         let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
-        let Ok((reader, writer)) = std::io::pipe() else {
-            return self.failed("Could not open a pipe for xcodebuild".into());
-        };
-        let Ok(writer_for_errors) = writer.try_clone() else {
-            return self.failed("Could not open a pipe for xcodebuild".into());
-        };
         let mut command = login_shell("xcodebuild", &arg_refs);
-        command
-            .current_dir(&self.worktree)
-            .stdin(Stdio::null())
-            .stdout(writer)
-            .stderr(writer_for_errors)
-            .process_group(0);
+        command.current_dir(&self.worktree);
         self.log(format!("$ xcodebuild {}\n", args.join(" ")));
-        let mut child = match command.spawn() {
-            Ok(child) => child,
+        let (mut child, reader) = match process::merged(command) {
+            Ok(started) => started,
             Err(error) => return self.failed(format!("xcodebuild did not start: {error}")),
         };
-        // The command's copies of the pipe's write end must close, or the reader never sees the end.
-        drop(command);
         self.register(child.id());
 
         let (lines, received) = mpsc::channel::<Vec<u8>>();
@@ -364,15 +458,16 @@ fn failure(message: String) -> BuildEvent {
     }
 }
 
-/// `xcodebuild` and nothing else: no `-derivedDataPath` and no build setting, so Xcode's own folder for the project is used. The destination is generic: no simulator exists before ⌘R.
-fn build_args(project: &Project, scheme: &str) -> Vec<String> {
+/// `xcodebuild` and nothing else: no `-derivedDataPath` and no build setting, so Xcode's own folder for the project is used. The destination is the worktree's simulator; any simulator while it has none.
+fn build_args(project: &Project, scheme: &str, simulator: Option<&str>) -> Vec<String> {
+    let destination = xcode::destination(simulator);
     [
         project.flag,
         &project.path.to_string_lossy(),
         "-scheme",
         scheme,
         "-destination",
-        "generic/platform=iOS Simulator",
+        &destination,
         "build",
     ]
     .map(String::from)

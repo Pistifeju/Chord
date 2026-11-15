@@ -3,7 +3,7 @@ import type { BuildEvent_Deserialize, BuildIssue_Deserialize } from "../../../ip
 import { appendToLog, emptyLog, type Log } from "./log.ts";
 
 export type Build = {
-  phase: "preparing" | "waiting" | "building" | "succeeded" | "failed" | "stopped";
+  phase: "preparing" | "waiting" | "building" | "installing" | "launching" | "running" | "exited" | "succeeded" | "failed" | "stopped";
   startedAt: number;
   /** The first errors, and how many more the build printed. */
   issues: BuildIssue_Deserialize[];
@@ -27,6 +27,8 @@ export function appliedEvent(state: BuildAndLog, event: BuildEvent_Deserialize, 
       return { ...state, log: appendToLog(state.log, event.text) };
     case "succeeded":
       return { ...state, build: { ...build, phase: "succeeded" } };
+    case "exited":
+      return { ...state, build: { ...build, phase: "exited" } };
     case "stopped":
       return { ...state, build: { ...build, phase: "stopped" } };
     case "failed":
@@ -34,7 +36,11 @@ export function appliedEvent(state: BuildAndLog, event: BuildEvent_Deserialize, 
   }
 }
 
-export const isBuilding = (build: Build | undefined): boolean => build?.phase === "preparing" || build?.phase === "waiting" || build?.phase === "building";
+// From the start of a build until the app launches or the build ends: the run control shows stop.
+export const isStarting = (build: Build | undefined): boolean =>
+  build?.phase === "preparing" || build?.phase === "waiting" || build?.phase === "building" || build?.phase === "installing" || build?.phase === "launching";
+
+export const isRunning = (build: Build | undefined): boolean => build?.phase === "running";
 
 export const errorCount = (build: Build): number => build.issues.length + build.more;
 
@@ -50,7 +56,13 @@ export function markerText(build: Build): Marker | null {
     case "preparing":
     case "waiting":
     case "building":
+    case "installing":
+    case "launching":
       return { text: "Building", tone: "busy" };
+    case "running":
+      return { text: "Running", tone: "busy" };
+    case "exited":
+      return null;
     case "succeeded":
       return build.endSeen ? null : { text: "Build succeeded", tone: "done" };
     case "stopped":

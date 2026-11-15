@@ -150,7 +150,7 @@ Edge cases:
 
 ## 8. Build and Run (iOS)
 
-- [ ] H1 **hard** ⌘R builds into the worktree's own DerivedData and runs on its own simulator; ⌘B builds only; ⌘. stops. Play / stop button in the tab bar. The worktree card shows Building, Running, Build succeeded, Build stopped or Build failed.
+- [x] H1 **hard** ⌘R builds into the worktree's own DerivedData and runs on its own simulator; ⌘B builds only; ⌘. stops. Play / stop button in the tab bar. The worktree card shows Building, Running, Build succeeded, Build stopped or Build failed.
 - [ ] H2 Run destination, per project, in the menu beside the play button: connected devices above simulators.
 - [ ] H3 Build log and app console (stdout, stderr, OSLog) as views of the bottom panel beside the terminal, 10,000 lines, ⌘F; ⌘⇧Y shows or hides them. The status bar shows no run status.
 - [ ] H4 **hard** One build per worktree: ⌘R and ⌘B take over the worktree's running build.
@@ -180,6 +180,9 @@ Edge cases:
 - H11 keeps App Store, Push & Media (L3) and Safari Sync & Web Services (L2 universal links) on by default, and never lists a service the simulator needs to boot.
 - H11: Chord reads the overrides back after the boot; a lost override leaves the simulator stock and the run goes on.
 - H9 and H10: each tool's description tells the agent to build and run through the tools and never to use `simctl … booted`; a call that runs long reports every 30 s that it still runs.
+- H4: ⌘B while the app runs: decide whether the build ends the running app. Xcode leaves it running; today the build takes the slot and terminates the app.
+- H4: tie a run's `simctl terminate` to the run that launched the app, so a stale run never ends an app a newer ⌘R launched.
+- H3: `launch` in `simulator.rs` drops the app's console output (stdout, stderr); the console view shows it.
 
 ## 9. Simulator (iOS, private API)
 

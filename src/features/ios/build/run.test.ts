@@ -34,6 +34,15 @@ test("the card's marker follows the build from building to its end", () => {
   assert.equal(markerText(seenEnd(state.build!)), null);
 });
 
+test("the card says Building until the app launches, then Running, and nothing once the app exits", () => {
+  let state = appliedEvent(noBuild, { kind: "phase", phase: "launching" }, 1000);
+  assert.deepEqual(markerText(state.build!), { text: "Building", tone: "busy" });
+  state = appliedEvent(state, { kind: "phase", phase: "running" }, 2000);
+  assert.deepEqual(markerText(state.build!), { text: "Running", tone: "busy" });
+  state = appliedEvent(state, { kind: "exited" }, 3000);
+  assert.equal(markerText(state.build!), null);
+});
+
 test("an error's file is a worktree path only inside the worktree", () => {
   assert.equal(pathInWorktree("/w", "/w/App/A.swift"), "App/A.swift");
   assert.equal(pathInWorktree("/w", "/other/A.swift"), null);

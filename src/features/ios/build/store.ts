@@ -1,4 +1,4 @@
-// Connects the build rules to IPC: each worktree's build and log, started and stopped, and the bottom panel's Build view.
+// Connects the build rules to IPC: each worktree's build, run and log, started and stopped, and the bottom panel's Build view.
 import { Channel } from "@tauri-apps/api/core";
 import { commands, type BuildEvent_Deserialize } from "../../../ipc/bindings";
 import { externalStore } from "../../../ui/externalStore";
@@ -37,7 +37,7 @@ projects.subscribe(() => {
   if (selected) seeEnd(selected);
 });
 
-export function startBuild(worktree: string) {
+export function startBuild(worktree: string, run: boolean) {
   const number = (latest.get(worktree) ?? 0) + 1;
   latest.set(worktree, number);
   const current = () => latest.get(worktree) === number;
@@ -50,7 +50,7 @@ export function startBuild(worktree: string) {
   };
   // The log shows beside the terminal, and alone while the terminal is hidden.
   changeBottomPanel(worktree, { view: "build" });
-  commands.startBuild(worktree, channel).catch(fail);
+  commands.startBuild(worktree, run, channel).catch(fail);
 }
 
 export const stopBuild = (worktree: string) => commands.stopBuild(worktree).catch(fail);
