@@ -11,8 +11,10 @@
   background: var(--canvas);
 }
 
-/* The title bar row over the panel, so the view starts where the tab bars end. */
+/* The title bar row over the panel, so the view starts where the tab bars end. It sits above the fixed title bar, as the tab bar does, so its toggle takes clicks. */
 .side-panel-bar {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: flex-end;
