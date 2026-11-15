@@ -251,14 +251,18 @@ fn open_pty(cols: u16, rows: u16) -> Result<(File, OwnedFd), Error> {
 
 /// The text the bytes hold; a character split across two reads waits in `pending` for its rest.
 fn take_text(pending: &mut Vec<u8>) -> String {
-    let incomplete = match std::str::from_utf8(pending) {
-        Err(error) if error.error_len().is_none() => pending.len() - error.valid_up_to(),
-        _ => 0,
+    // Valid text, the usual read, moves into the string without a second check or a copy.
+    let error = match String::from_utf8(std::mem::take(pending)) {
+        Ok(text) => return text,
+        Err(error) => error,
     };
-    let rest = pending.split_off(pending.len() - incomplete);
-    let text = String::from_utf8_lossy(pending).into_owned();
-    *pending = rest;
-    text
+    let incomplete = match error.utf8_error().error_len() {
+        None => error.as_bytes().len() - error.utf8_error().valid_up_to(),
+        Some(_) => 0,
+    };
+    let mut bytes = error.into_bytes();
+    *pending = bytes.split_off(bytes.len() - incomplete);
+    String::from_utf8_lossy(&bytes).into_owned()
 }
 
 #[cfg(test)]
