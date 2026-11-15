@@ -182,12 +182,11 @@ Every control shows only in a worktree with `xcode: true`.
 | 3 | H2 | Destinations in the run menu, devices above simulators | The pick survives a restart. A destination that is gone falls back and says so |
 | 4 | H5, H8 | Delete and prune clean up; the status bar shows the running simulators, Settings the size of the build data; the cap holds | Deleting a worktree removes its folder and its simulator. Prune removes nothing that belongs to a live worktree |
 | 5 | H9, H10 | The agent builds and runs through tools | Two agents in two worktrees run their apps at once. A build tool call returns error lines and no log. A cold build's call reports that it still runs |
-| 7 | I5 | The agent looks and taps | |
-| 8 | L1 to L5 | Simulator tools | |
-| 9 | J1, J3, J2, J4 | Previews with hot reload | Section 3.2's settings rule holds |
+| 7 | L1 to L5 | Simulator tools | |
+| 8 | J1, J3, J2, J4 | Previews with hot reload | Section 3.2's settings rule holds |
 
 
-This plan added H8, H9, H10 and I5 to `SPEC.md`, the `tools` capability to its section 13 and Tests to its section 14, and moved the preview half of H4 to J1.
+This plan added H8, H9 and H10 to `SPEC.md`, the `tools` capability to its section 13 and Tests to its section 14, and moved the preview half of H4 to J1.
 
 ## 8. Not verified
 

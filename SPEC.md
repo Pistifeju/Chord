@@ -189,7 +189,6 @@ Edge cases:
 - [ ] I2 Fallback message and "Open in Simulator / DeviceHub" when the private API fails to load.
 - [ ] I3 Screenshot: thumbnail at the bottom right; drag it into Finder or any app. With harness(attachments): drag it into a pane, or click to paste it into the focused agent. Settings row, off by default: a folder to save screenshots in.
 - [ ] I4 No frame callbacks while the window is hidden.
-- [ ] I5 **hard** harness(tools): screenshot, tap, swipe and type on the worktree's simulator; an action returns the settled screen.
 
 ## 10. SwiftUI previews (iOS, private API)
 
@@ -239,7 +238,7 @@ A tag with a capability is a `Capability` variant: the UI hides the feature when
 | context | E10 | capability `context` | RPC |
 | usage | E11 | event: `usage` | a pi extension that reports it |
 | subagents | E13 | capability `subagents` | a pi subagent extension |
-| tools | H9, H10, I5 | capability `tools` | Chord's own MCP server; the extension Chord ships forwards pi's calls to it, ACP agents get it in `session/new` (`docs/ios.md`, 3.6) |
+| tools | H9, H10 | capability `tools` | Chord's own MCP server; the extension Chord ships forwards pi's calls to it, ACP agents get it in `session/new` (`docs/ios.md`, 3.6) |
 
 Steering while a run goes (E1) waits for capability `steer`.
 
