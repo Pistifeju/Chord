@@ -2,13 +2,12 @@
 import type { AppCommand } from "../../app/commands";
 import { closeSheet, sheet } from "../../app/sheet";
 import { openNewWorktree } from "./newWorktree";
-import { worktreeOrder } from "./projects";
+import { ownerOf, worktreeOrder } from "./projects";
 import { pickProject, projects, removeProject, requestDelete, selectWorktree } from "./store";
 
 function deleteWorktreeAt(path?: string) {
-  const { list, worktrees } = projects.get();
-  const owner = list.find((p) => worktrees[p.path]?.some((w) => w.path === path));
-  if (owner && path) requestDelete(owner.path, path);
+  const owner = path ? ownerOf(projects.get(), path) : undefined;
+  if (owner && path) requestDelete(owner, path);
 }
 
 // A shortcut that opens a sheet or a dialog, or changes what an open sheet sits on, waits until the sheet closes.

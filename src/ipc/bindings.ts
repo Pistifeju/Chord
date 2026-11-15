@@ -37,9 +37,11 @@ export const commands = {
 	startTerminal: (worktree: string, cols: number, rows: number, onEvent: Channel<TerminalEvent>) => __TAURI_INVOKE<null>("start_terminal", { worktree, cols, rows, onEvent }),
 	writeTerminal: (worktree: string, text: string) => __TAURI_INVOKE<null>("write_terminal", { worktree, text }),
 	resizeTerminal: (worktree: string, cols: number, rows: number) => __TAURI_INVOKE<null>("resize_terminal", { worktree, cols, rows }),
-	/**  Builds the worktree's Xcode project, and with `run` runs the app on its simulator. The channel carries the build's phases, log and end. */
-	startBuild: (worktree: string, run: boolean, onEvent: Channel<BuildEvent_Deserialize>) => __TAURI_INVOKE<null>("start_build", { worktree, run, onEvent }),
+	/**  Builds the worktree's Xcode project, and with `run` runs the app on the destination. The channel carries the build's phases, log and end. */
+	startBuild: (worktree: string, run: boolean, destination: RunDestination | null, onEvent: Channel<BuildEvent_Deserialize>) => __TAURI_INVOKE<null>("start_build", { worktree, run, destination, onEvent }),
 	stopBuild: (worktree: string) => __TAURI_INVOKE<null>("stop_build", { worktree }),
+	/**  The connected devices and the simulator models to run on. */
+	listDestinations: () => __TAURI_INVOKE<Destinations>("list_destinations"),
 	/**  Stops every agent, shell and build and ends the app once the user confirmed the quit. Panes stay saved as running, so they start again on launch. */
 	quitApp: () => __TAURI_INVOKE<null>("quit_app"),
 	/**  Saves the setting and applies it; a missing `caffeinate` fails before anything is saved, even with no agent working. */
@@ -131,7 +133,7 @@ export type BuildPhase =
 "preparing" | 
 /**  A build Chord did not start holds the build database. */
 "waiting" | "building" | "installing" | "launching" | 
-/**  The app runs on the worktree's simulator. */
+/**  The app runs on the destination. */
 "running";
 
 /**  What a harness can do; the adapter returns its list when a session starts, and the UI hides a control whose capability is missing. */
@@ -156,6 +158,12 @@ export type ConsoleTone =
 "error" | 
 /**  A line Chord writes, not the app. */
 "own";
+
+export type Destinations = {
+	devices: RunDestination[],
+	/**  Newest iOS version first. */
+	simulators: SimulatorModels[],
+};
 
 /**  The user's answer to a dialog. */
 export type DialogAnswer = 
@@ -385,6 +393,17 @@ export type Removal_Serialize =
 	reason: string,
 } }) & { Removed?: never };
 
+/**  Where ⌘R runs the app: a connected device, or a simulator model and iOS version that exist among the user's simulators. */
+export type RunDestination = { kind: "device"; 
+/**  The device's hardware UDID. */
+id: string; name: string } | { kind: "simulator"; 
+/**  The device type identifier. */
+model: string; 
+/**  The runtime identifier. */
+runtime: string; name: string; 
+/**  "iOS 27.0". */
+os: string };
+
 export type Shortcut = Shortcut_Serialize | Shortcut_Deserialize;
 
 export type Shortcut_Deserialize = {
@@ -429,6 +448,13 @@ export type Sidebar_Serialize = {
 	hidden: boolean,
 };
 
+export type SimulatorModels = {
+	/**  "iOS 27.0". */
+	os: string,
+	/**  iPhones before the rest, each by name. */
+	models: RunDestination[],
+};
+
 /**  A command the user can type after a slash; `name` has no slash. `origin` names the package it comes from; it is empty for a local file. */
 export type SlashCommand = SlashCommand_Serialize | SlashCommand_Deserialize;
 
@@ -459,32 +485,42 @@ export type State = State_Serialize | State_Deserialize;
 export type StateChange = StateChange_Serialize | StateChange_Deserialize;
 
 /**  One change the frontend saves. */
-export type StateChange_Deserialize = ({ selectedWorktree?: string | null }) & { bottomPanel?: never; panes?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ sidebarHidden: boolean }) & { bottomPanel?: never; panes?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ theme: Theme }) & { bottomPanel?: never; panes?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never } | ({ textPercent: number }) & { bottomPanel?: never; panes?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; theme?: never } | ({ terminalFontSize: number }) & { bottomPanel?: never; panes?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ shortcuts: { [key in string]: Shortcut_Deserialize | null } }) & { bottomPanel?: never; panes?: never; selectedWorktree?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
+export type StateChange_Deserialize = ({ selectedWorktree?: string | null }) & { bottomPanel?: never; panes?: never; runDestination?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ sidebarHidden: boolean }) & { bottomPanel?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ theme: Theme }) & { bottomPanel?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never } | ({ textPercent: number }) & { bottomPanel?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; theme?: never } | ({ terminalFontSize: number }) & { bottomPanel?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ shortcuts: { [key in string]: Shortcut_Deserialize | null } }) & { bottomPanel?: never; panes?: never; runDestination?: never; selectedWorktree?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
 /**  `None` forgets the worktree's layouts. */
 ({ panes: {
 	worktree: string,
 	panes?: WorktreePanes | null,
-} }) & { bottomPanel?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ sidePanel: {
+} }) & { bottomPanel?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ sidePanel: {
 	worktree: string,
 	panel: SidePanel_Deserialize,
-} }) & { bottomPanel?: never; panes?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ bottomPanel: {
+} }) & { bottomPanel?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ bottomPanel: {
 	worktree: string,
 	panel: BottomPanel_Deserialize,
-} }) & { panes?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never };
+} }) & { panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
+/**  `None` returns the project to the default. */
+({ runDestination: {
+	project: string,
+	destination?: RunDestination | null,
+} }) & { bottomPanel?: never; panes?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never };
 
 /**  One change the frontend saves. */
-export type StateChange_Serialize = ({ selectedWorktree: string | null }) & { bottomPanel?: never; panes?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ sidebarHidden: boolean }) & { bottomPanel?: never; panes?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ theme: Theme }) & { bottomPanel?: never; panes?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never } | ({ textPercent: number }) & { bottomPanel?: never; panes?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; theme?: never } | ({ terminalFontSize: number }) & { bottomPanel?: never; panes?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ shortcuts: { [key in string]: Shortcut_Serialize | null } }) & { bottomPanel?: never; panes?: never; selectedWorktree?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
+export type StateChange_Serialize = ({ selectedWorktree: string | null }) & { bottomPanel?: never; panes?: never; runDestination?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ sidebarHidden: boolean }) & { bottomPanel?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ theme: Theme }) & { bottomPanel?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never } | ({ textPercent: number }) & { bottomPanel?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; theme?: never } | ({ terminalFontSize: number }) & { bottomPanel?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ shortcuts: { [key in string]: Shortcut_Serialize | null } }) & { bottomPanel?: never; panes?: never; runDestination?: never; selectedWorktree?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
 /**  `None` forgets the worktree's layouts. */
 ({ panes: {
 	worktree: string,
 	panes: WorktreePanes | null,
-} }) & { bottomPanel?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ sidePanel: {
+} }) & { bottomPanel?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ sidePanel: {
 	worktree: string,
 	panel: SidePanel_Serialize,
-} }) & { bottomPanel?: never; panes?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ bottomPanel: {
+} }) & { bottomPanel?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ bottomPanel: {
 	worktree: string,
 	panel: BottomPanel_Serialize,
-} }) & { panes?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never };
+} }) & { panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
+/**  `None` returns the project to the default. */
+({ runDestination: {
+	project: string,
+	destination: RunDestination | null,
+} }) & { bottomPanel?: never; panes?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never };
 
 export type State_Deserialize = {
 	projects?: Project[],
@@ -506,6 +542,8 @@ export type State_Deserialize = {
 	runningPanes?: string[],
 	/**  What each pane's agent runs: its harness and the session it last held. */
 	agents?: { [key in string]: PaneAgent_Deserialize },
+	/**  Each project's run destination; a project without one runs on the newest iPhone simulator. */
+	runDestinations?: { [key in string]: RunDestination },
 };
 
 export type State_Serialize = {
@@ -528,6 +566,8 @@ export type State_Serialize = {
 	runningPanes: string[],
 	/**  What each pane's agent runs: its harness and the session it last held. */
 	agents: { [key in string]: PaneAgent_Serialize },
+	/**  Each project's run destination; a project without one runs on the newest iPhone simulator. */
+	runDestinations: { [key in string]: RunDestination },
 };
 
 export type Status = Status_Serialize | Status_Deserialize;

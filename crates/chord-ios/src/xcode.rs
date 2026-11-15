@@ -86,9 +86,9 @@ pub(crate) fn scheme_of(
     pick_scheme(&listed, || targets(project, &listed, worktree, register))
 }
 
-/// The simulator destination of a build: the worktree's simulator by id; any simulator while it has none.
-pub(crate) fn destination(simulator: Option<&str>) -> String {
-    match simulator {
+/// The destination of a build: the simulator or device by id; any simulator while it has none.
+pub(crate) fn destination(target: Option<&str>) -> String {
+    match target {
         Some(udid) => format!("id={udid}"),
         None => "generic/platform=iOS Simulator".into(),
     }
@@ -98,7 +98,7 @@ pub(crate) fn destination(simulator: Option<&str>) -> String {
 pub(crate) fn built_app(
     project: &Project,
     scheme: &str,
-    simulator: Option<&str>,
+    target: Option<&str>,
     worktree: &Path,
     register: &dyn Fn(u32),
 ) -> Result<PathBuf, Error> {
@@ -111,7 +111,7 @@ pub(crate) fn built_app(
             "-scheme",
             scheme,
             "-destination",
-            &destination(simulator),
+            &destination(target),
             "-showBuildSettings",
             "-json",
         ],
@@ -149,7 +149,7 @@ fn app_in_settings(text: &str) -> Result<PathBuf, Error> {
             let name = settings["FULL_PRODUCT_NAME"].as_str()?;
             Some(Path::new(dir).join(name))
         })
-        .ok_or_else(|| Error::Message("The scheme builds no app for the simulator.".into()))
+        .ok_or_else(|| Error::Message("The scheme builds no app for the destination.".into()))
 }
 
 fn list(flag: &str, path: &Path, dir: &Path, register: &dyn Fn(u32)) -> Result<Value, Error> {

@@ -4,6 +4,7 @@ import { commands, type BuildEvent_Deserialize } from "../../../ipc/bindings";
 import { externalStore } from "../../../ui/externalStore";
 import { bottomPanelOf, bottomPanels, changeBottomPanel } from "../../bottompanel/store";
 import { fail, projects } from "../../worktrees/store";
+import { runDestinationOf } from "./destinationStore";
 import { emptyConsole, type ConsoleLine } from "./consoleLog";
 import { emptyLog, type Log } from "./log";
 import { appliedEvent, appliedSideEvent, isRunning, noBuild, seenEnd, viewAfterEvent, viewToShow, type Build, type BuildAndLog } from "./run";
@@ -54,7 +55,7 @@ function startBuildBesideApp(worktree: string) {
   };
   apply(worktree, (state) => appliedSideEvent({ ...state, log: emptyLog, build: state.build && { ...state.build, side: undefined } }, { kind: "phase", phase: "preparing" }, Date.now()));
   changeBottomPanel(worktree, { view: "build" });
-  commands.startBuild(worktree, false, channel).catch(fail);
+  commands.startBuild(worktree, false, runDestinationOf(worktree), channel).catch(fail);
 }
 
 export function startBuild(worktree: string, run: boolean) {
@@ -75,7 +76,7 @@ export function startBuild(worktree: string, run: boolean) {
   };
   // The log shows beside the terminal, and alone while the terminal is hidden.
   changeBottomPanel(worktree, { view: "build" });
-  commands.startBuild(worktree, run, channel).catch(fail);
+  commands.startBuild(worktree, run, runDestinationOf(worktree), channel).catch(fail);
 }
 
 export const stopBuild = (worktree: string) => commands.stopBuild(worktree).catch(fail);

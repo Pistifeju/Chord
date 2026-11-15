@@ -7,6 +7,8 @@ use std::sync::mpsc::{self, Receiver};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use chord_core::{Error, login_shell};
+
 /// Output reaches the UI every 100 ms or 64 KB, whichever comes first: a cold build prints thousands of lines.
 pub(crate) const BATCH_INTERVAL: Duration = Duration::from_millis(100);
 pub(crate) const BATCH_BYTES: usize = 64 * 1024;
@@ -24,6 +26,20 @@ pub(crate) fn captured(mut command: Command, register: &dyn Fn(u32)) -> io::Resu
         .spawn()?;
     register(child.id());
     child.wait_with_output()
+}
+
+/// Runs `xcrun` with `args` in a process group of its own, whose id goes to `register` so a stop can end it; its output when it succeeds, else its error text.
+pub(crate) fn xcrun(args: &[&str], register: &dyn Fn(u32)) -> Result<String, Error> {
+    let output = captured(login_shell("xcrun", args), register)?;
+    if output.status.success() {
+        return Ok(String::from_utf8_lossy(&output.stdout).into_owned());
+    }
+    let error = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    Err(Error::Message(if error.is_empty() {
+        format!("xcrun {} failed", args.join(" "))
+    } else {
+        error
+    }))
 }
 
 /// Starts `command` with its output and errors on one pipe, in the process group `group`, else a new one; the caller reads the pipe to its end, then waits for the child and registers its group.

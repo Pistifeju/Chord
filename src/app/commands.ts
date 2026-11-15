@@ -73,8 +73,8 @@ export function tooltip(id: string): string {
 
 const accelerator = (s: Shortcut) => keyParts(s, 2).join("+");
 
-// A context-menu item that runs a command on the item it was opened for.
-function menuItem(id: string, target: string) {
+// A native menu item that runs a command on the item it was opened for.
+export function menuItem(id: string, target: string) {
   const command = table.find((c) => c.id === id);
   const shortcut = shortcutOf(id);
   return {

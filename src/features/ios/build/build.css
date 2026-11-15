@@ -116,19 +116,78 @@ button.build-issue:focus-visible {
   color: var(--ink-muted);
 }
 
-/* The run control sits at the tab bar's right end, 12px before the Files button, and in the side panel's title bar row in the same place. */
+/* The run control sits at the tab bar's right end, 12px before the Files button, and in the side panel's title bar row in the same place. One hairline capsule, the destination then play, a hairline between them. */
+.run-controls {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  min-width: 0;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+}
+
 /* The tab bar's 2px gap counts toward the 12px. */
-.tabbar .icon-button.run-control {
+.tabbar .run-controls {
   margin: 0 10px 0 auto;
 }
 
-.tabbar .run-control ~ .files-toggle {
+.tabbar .run-controls ~ .files-toggle {
   margin-left: 0;
+}
+
+.run-destination {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 280px;
+  height: 26px;
+  padding: 0 6px 0 8px;
+  border: none;
+  border-radius: 7px 0 0 7px;
+  background: transparent;
+  color: var(--ink);
+  font-size: calc(12px * var(--text-scale));
+  transition: background-color var(--t-fast) var(--ease-out);
+}
+
+.run-destination:hover {
+  background: var(--raised);
+}
+
+.run-destination:active {
+  background: var(--selected);
+}
+
+.run-destination:focus-visible {
+  outline-offset: -2px;
+}
+
+.run-destination svg {
+  flex: none;
+  color: var(--ink-muted);
+}
+
+.run-destination-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.run-destination-os {
+  flex: none;
+  color: var(--ink-muted);
 }
 
 /* Play reads green and stop red. */
 .icon-button.run-control,
 .icon-button.run-control:hover {
+  flex: none;
+  width: 30px;
+  height: 26px;
+  border-radius: 0 7px 7px 0;
+  box-shadow: inset 1px 0 var(--line);
   color: var(--success);
 }
 
@@ -137,7 +196,6 @@ button.build-issue:focus-visible {
   color: var(--danger);
 }
 
-.side-panel-bar .run-control {
-  flex: none;
+.side-panel-bar .run-controls {
   margin-right: 12px;
 }

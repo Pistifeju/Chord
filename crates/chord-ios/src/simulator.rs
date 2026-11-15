@@ -4,36 +4,28 @@ use std::path::Path;
 use std::process::{Child, Command};
 use std::sync::mpsc;
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
-use serde::Serialize;
 use serde_json::Value;
 use chord_core::{Error, login_shell};
-use specta::Type;
 
+use crate::console::{self, ConsoleTone};
 use crate::derived_data;
-use crate::process::{self, BATCH_BYTES, BATCH_INTERVAL, end_group};
+use crate::process::{self, end_group, xcrun};
 
 pub(crate) const PLUTIL: &str = "/usr/bin/plutil";
 pub(crate) const OPEN: &str = "/usr/bin/open";
 /// How long the launch waits for the log stream to start; it takes about a second.
 const STREAM_START: Duration = Duration::from_secs(3);
 
-#[derive(Serialize, Type, Clone, Copy, Debug, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub enum ConsoleTone {
-    /// The app's stdout and stderr, and OSLog messages below error.
-    Output,
-    /// An OSLog error or fault.
-    Error,
-    /// A line Chord writes, not the app.
-    Own,
-}
-
 #[derive(Debug, PartialEq)]
-pub(crate) struct Device {
+pub(crate) struct Simulator {
     pub udid: String,
     pub booted: bool,
+    /// The device type identifier.
+    pub model: String,
+    /// The runtime identifier.
+    pub runtime: String,
 }
 
 /// `Chord <worktree folder> <6 letters of the path hash>`: the name is the only link between a worktree and its simulator.
@@ -46,55 +38,70 @@ pub(crate) fn name_of(worktree: &Path) -> String {
     format!("Chord {folder} {}", &hash[..6])
 }
 
-/// Runs `xcrun` with `args` in a process group of its own, whose id goes to `register` so a stop can end it; its output when it succeeds, else its error text.
-fn xcrun(args: &[&str], register: &dyn Fn(u32)) -> Result<String, Error> {
-    let output = process::captured(login_shell("xcrun", args), register)?;
-    if output.status.success() {
-        return Ok(String::from_utf8_lossy(&output.stdout).into_owned());
-    }
-    let error = String::from_utf8_lossy(&output.stderr).trim().to_string();
-    Err(Error::Message(if error.is_empty() {
-        format!("xcrun {} failed", args.join(" "))
-    } else {
-        error
-    }))
-}
-
-fn device_named(listed: &Value, name: &str) -> Option<Device> {
+/// The first available device of the list that `matches`.
+fn device_where(listed: &Value, matches: impl Fn(&Value) -> bool) -> Option<Simulator> {
     listed["devices"]
         .as_object()?
-        .values()
-        .filter_map(Value::as_array)
-        .flatten()
-        .find(|device| device["name"] == name && device["isAvailable"] == true)
-        .map(|device| Device {
+        .iter()
+        .flat_map(|(runtime, devices)| {
+            devices
+                .as_array()
+                .into_iter()
+                .flatten()
+                .map(move |device| (runtime, device))
+        })
+        .find(|(_, device)| device["isAvailable"] == true && matches(device))
+        .map(|(runtime, device)| Simulator {
             udid: device["udid"].as_str().unwrap_or_default().into(),
             booted: device["state"] == "Booted",
+            model: device["deviceTypeIdentifier"]
+                .as_str()
+                .unwrap_or_default()
+                .into(),
+            runtime: runtime.clone(),
         })
 }
 
-/// The worktree's simulator, if it exists.
-pub(crate) fn find(worktree: &Path) -> Result<Option<Device>, Error> {
-    let listed = xcrun(&["simctl", "list", "devices", "--json"], &|_| {})?;
-    Ok(device_named(
-        &serde_json::from_str(&listed)?,
-        &name_of(worktree),
-    ))
+fn device_named(listed: &Value, name: &str) -> Option<Simulator> {
+    device_where(listed, |device| device["name"] == name)
 }
 
-/// The worktree's simulator, created on the first run: the newest iOS runtime and the model it lists that reads best.
-pub(crate) fn find_or_create(worktree: &Path, register: &dyn Fn(u32)) -> Result<Device, Error> {
+fn list_devices() -> Result<Value, Error> {
+    let listed = xcrun(&["simctl", "list", "devices", "--json"], &|_| {})?;
+    Ok(serde_json::from_str(&listed)?)
+}
+
+/// The worktree's simulator, if it exists.
+pub(crate) fn find(worktree: &Path) -> Result<Option<Simulator>, Error> {
+    Ok(device_named(&list_devices()?, &name_of(worktree)))
+}
+
+/// The worktree's simulator, created on the first run: `wanted` (model and runtime identifiers), else the newest iOS runtime and the model it lists that reads best. A simulator of another model or runtime is deleted and created again; it is Chord's own.
+pub(crate) fn find_or_create(
+    worktree: &Path,
+    wanted: Option<(&str, &str)>,
+    register: &dyn Fn(u32),
+) -> Result<Simulator, Error> {
     if let Some(device) = find(worktree)? {
-        return Ok(device);
+        if wanted.is_none_or(|(model, runtime)| device.model == model && device.runtime == runtime)
+        {
+            return Ok(device);
+        }
+        let _ = xcrun(&["simctl", "shutdown", &device.udid], register);
+        xcrun(&["simctl", "delete", &device.udid], register)?;
     }
-    let runtimes = xcrun(&["simctl", "list", "runtimes", "--json"], register)?;
-    let (device_type, runtime) =
-        newest_ios_model(&serde_json::from_str(&runtimes)?).ok_or_else(|| {
-            Error::Message(
-                "No iOS simulator runtime is installed. Add one in Xcode > Settings > Components."
-                    .into(),
-            )
-        })?;
+    let (device_type, runtime) = match wanted {
+        Some((model, runtime)) => (model.to_string(), runtime.to_string()),
+        None => {
+            let runtimes = xcrun(&["simctl", "list", "runtimes", "--json"], register)?;
+            newest_ios_model(&serde_json::from_str(&runtimes)?).ok_or_else(|| {
+                Error::Message(
+                    "No iOS simulator runtime is installed. Add one in Xcode > Settings > Components."
+                        .into(),
+                )
+            })?
+        }
+    };
     let udid = xcrun(
         &[
             "simctl",
@@ -105,9 +112,11 @@ pub(crate) fn find_or_create(worktree: &Path, register: &dyn Fn(u32)) -> Result<
         ],
         register,
     )?;
-    Ok(Device {
+    Ok(Simulator {
         udid: udid.trim().into(),
         booted: false,
+        model: device_type,
+        runtime,
     })
 }
 
@@ -148,9 +157,9 @@ fn newest_ios_model(listed: &Value) -> Option<(String, String)> {
 }
 
 /// Boots the simulator and waits until it reports Booted. A device that does not fails with its state.
-pub(crate) fn boot(worktree: &Path, udid: &str) -> Result<(), Error> {
+pub(crate) fn boot(udid: &str) -> Result<(), Error> {
     xcrun(&["simctl", "bootstatus", udid, "-b"], &|_| {})?;
-    match find(worktree)? {
+    match device_where(&list_devices()?, |device| device["udid"] == udid) {
         Some(device) if device.booted => Ok(()),
         _ => Err(Error::Message(
             "The simulator does not report Booted after its boot.".into(),
@@ -221,30 +230,6 @@ fn oslog_line(json: &str) -> Option<(String, ConsoleTone)> {
         format!("{subsystem}: {message}\n")
     };
     Some((text, tone))
-}
-
-/// Console text waiting for its batch, in arrival order, neighbours of one tone joined.
-#[derive(Default)]
-struct Console {
-    parts: Vec<(String, ConsoleTone)>,
-    size: usize,
-}
-
-impl Console {
-    fn push(&mut self, text: &str, tone: ConsoleTone) {
-        self.size += text.len();
-        match self.parts.last_mut() {
-            Some((last, last_tone)) if *last_tone == tone => last.push_str(text),
-            _ => self.parts.push((text.into(), tone)),
-        }
-    }
-
-    fn flush(&mut self, console: &dyn Fn(String, ConsoleTone)) {
-        self.size = 0;
-        for (text, tone) in self.parts.drain(..) {
-            console(text, tone);
-        }
-    }
 }
 
 /// Ends the log stream with its group, or its process inside the simulator outlives the run, and reaps it.
@@ -326,40 +311,16 @@ pub(crate) fn launch(
         }
     };
     let lines = process::read_lines(reader);
-    let mut output = String::new();
-    let mut up = false;
-    let mut pending = Console::default();
-    let mut flushed = Instant::now();
-    loop {
-        while let Ok((text, tone)) = received_records.try_recv() {
-            pending.push(&text, tone);
-        }
-        match lines.recv_timeout(BATCH_INTERVAL) {
-            Ok(bytes) => {
-                // The pty ends lines with \r\n.
-                let text = String::from_utf8_lossy(&bytes).replace("\r\n", "\n");
-                if up {
-                    pending.push(&text, ConsoleTone::Output);
-                } else if text.starts_with(&format!("{bundle_id}: ")) {
-                    up = true;
-                    launched();
-                } else {
-                    output.push_str(&text);
-                }
-            }
-            Err(mpsc::RecvTimeoutError::Timeout) => {}
-            Err(mpsc::RecvTimeoutError::Disconnected) => break,
-        }
-        if pending.size >= BATCH_BYTES || flushed.elapsed() >= BATCH_INTERVAL {
-            pending.flush(console);
-            flushed = Instant::now();
-        }
-    }
-    end_stream(&mut stream);
-    while let Ok((text, tone)) = received_records.try_recv() {
-        pending.push(&text, tone);
-    }
-    pending.flush(console);
+    // The pty ends lines with \r\n.
+    let pumped = console::pump(
+        &lines,
+        Some(&received_records),
+        |text| text.starts_with(&format!("{bundle_id}: ")),
+        launched,
+        console,
+        || end_stream(&mut stream),
+    );
+    let (up, output) = (pumped.up, pumped.output);
     let status = child.wait()?;
     if up {
         return Ok(status.code());
@@ -389,14 +350,16 @@ mod tests {
         let listed: Value = serde_json::from_str(
             r#"{"devices":{"rt-a":[{"name":"Chord w abcdef","udid":"U1","isAvailable":false,"state":"Shutdown"}],
                 "rt-b":[{"name":"Other","udid":"U2","isAvailable":true,"state":"Booted"},
-                        {"name":"Chord w abcdef","udid":"U3","isAvailable":true,"state":"Booted"}]}}"#,
+                        {"name":"Chord w abcdef","udid":"U3","isAvailable":true,"state":"Booted","deviceTypeIdentifier":"type-b"}]}}"#,
         )
         .unwrap();
         assert_eq!(
             device_named(&listed, "Chord w abcdef"),
-            Some(Device {
+            Some(Simulator {
                 udid: "U3".into(),
-                booted: true
+                booted: true,
+                model: "type-b".into(),
+                runtime: "rt-b".into()
             })
         );
         assert_eq!(device_named(&listed, "Missing"), None);

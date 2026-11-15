@@ -45,6 +45,7 @@ pub fn ipc() -> tauri_specta::Builder<tauri::Wry> {
         commands::terminal::resize_terminal,
         commands::build::start_build,
         commands::build::stop_build,
+        commands::build::list_destinations,
         commands::app::quit_app,
         commands::app::set_keep_awake,
         commands::app::open_link,

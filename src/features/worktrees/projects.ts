@@ -30,9 +30,13 @@ export function withWorktrees(projects: Projects, path: string, list: Worktree[]
 
 // The project that owns the selected worktree, else the first one.
 export function defaultProject(projects: Projects): string | null {
-  const owner = projects.list.find((p) => projects.worktrees[p.path]?.some((w) => w.path === projects.selected));
-  return (owner ?? projects.list[0])?.path ?? null;
+  const owner = projects.selected === null ? undefined : ownerOf(projects, projects.selected);
+  return owner ?? projects.list[0]?.path ?? null;
 }
+
+// The project that owns the worktree.
+export const ownerOf = (projects: Projects, worktree: string): string | undefined =>
+  projects.list.find((p) => projects.worktrees[p.path]?.some((w) => w.path === worktree))?.path;
 
 export const worktreeAt = (projects: Projects, path: string | null): Worktree | undefined =>
   Object.values(projects.worktrees).flat().find((worktree) => worktree.path === path);

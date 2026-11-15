@@ -22,6 +22,12 @@ export const ChevronIcon = () => (
   </Icon>
 );
 
+export const ChevronDownIcon = () => (
+  <Icon size={12}>
+    <path d="M4 6l4 4 4-4" />
+  </Icon>
+);
+
 export const SidePanelIcon = () => (
   <Icon>
     <rect x="1.75" y="2.75" width="12.5" height="10.5" rx="2.25" />
@@ -202,6 +208,13 @@ export const FilterIcon = () => (
 export const PlayIcon = () => (
   <Icon>
     <path d="M5 3.25l7 4.75-7 4.75z" fill="currentColor" />
+  </Icon>
+);
+
+export const PhoneIcon = () => (
+  <Icon>
+    <rect x="4.5" y="1.75" width="7" height="12.5" rx="1.75" />
+    <path d="M7 12h2" />
   </Icon>
 );
 

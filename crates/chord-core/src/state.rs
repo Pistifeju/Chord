@@ -35,6 +35,36 @@ pub struct State {
     pub running_panes: BTreeSet<String>,
     /// What each pane's agent runs: its harness and the session it last held.
     pub agents: BTreeMap<String, PaneAgent>,
+    /// Each project's run destination; a project without one runs on the newest iPhone simulator.
+    pub run_destinations: BTreeMap<PathBuf, RunDestination>,
+}
+
+/// Where ⌘R runs the app: a connected device, or a simulator model and iOS version that exist among the user's simulators.
+#[derive(Serialize, Deserialize, Type, Clone, Debug, PartialEq)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum RunDestination {
+    Device {
+        /// The device's hardware UDID.
+        id: String,
+        name: String,
+    },
+    Simulator {
+        /// The device type identifier.
+        model: String,
+        /// The runtime identifier.
+        runtime: String,
+        name: String,
+        /// "iOS 27.0".
+        os: String,
+    },
+}
+
+impl RunDestination {
+    pub fn name(&self) -> &str {
+        match self {
+            RunDestination::Device { name, .. } | RunDestination::Simulator { name, .. } => name,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Type, Clone, Debug, PartialEq)]
@@ -77,6 +107,11 @@ pub enum StateChange {
         worktree: PathBuf,
         panel: BottomPanel,
     },
+    /// `None` returns the project to the default.
+    RunDestination {
+        project: PathBuf,
+        destination: Option<RunDestination>,
+    },
 }
 
 impl State {
@@ -94,6 +129,17 @@ impl State {
             StateChange::BottomPanel { worktree, panel } => {
                 self.bottom_panels.insert(worktree, panel);
             }
+            StateChange::RunDestination {
+                project,
+                destination,
+            } => match destination {
+                Some(destination) => {
+                    self.run_destinations.insert(project, destination);
+                }
+                None => {
+                    self.run_destinations.remove(&project);
+                }
+            },
             StateChange::Panes { worktree, panes } => match panes {
                 Some(panes) => {
                     self.panes.insert(worktree, panes);

@@ -151,7 +151,7 @@ Edge cases:
 ## 8. Build and Run (iOS)
 
 - [x] H1 **hard** ⌘R builds into the worktree's own DerivedData and runs on its own simulator; ⌘B builds only; ⌘. stops. Play / stop button in the tab bar. The worktree card shows Building, Running, Build succeeded, Build stopped or Build failed.
-- [ ] H2 Run destination, per project, in the menu beside the play button: connected devices above simulators.
+- [x] H2 Run destination, per project, in the menu beside the play button: connected devices above simulators.
 - [x] H3 Build log and app console (stdout, stderr, OSLog) as views of the bottom panel beside the terminal, 10,000 lines, ⌘F; ⌘⇧Y shows or hides them. The status bar shows no run status.
 - [x] H4 **hard** One build per worktree: ⌘R and ⌘B take over the worktree's running build.
 - [ ] H5 Caches: DerivedData, hot reload folders and simulators per worktree; one forget, one prune; stop other worktrees' simulators. Running simulators in the status bar, with Shut Down Others. Settings row: the size of the build data.
