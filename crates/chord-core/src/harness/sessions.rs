@@ -161,7 +161,7 @@ impl Sessions {
             .for_each(|(_, session)| session.end_reported());
     }
 
-    /// The worktree is gone: its layouts and running flags go with it. Its sessions stay for `/resume`.
+    /// The worktree is gone: its layouts, panels and running flags go with it. Its sessions stay for `/resume`.
     pub fn forget(&self, worktree: &Path) -> Result<(), Error> {
         self.stop(worktree);
         self.store.update(|state| {
@@ -173,6 +173,8 @@ impl Sessions {
             for pane in &panes {
                 drop_pane(state, pane);
             }
+            state.side_panels.remove(worktree);
+            state.bottom_panels.remove(worktree);
         })
     }
 }
@@ -227,7 +229,8 @@ mod tests {
     }
 
     #[test]
-    fn forgetting_a_worktree_drops_its_layout_running_flags_and_agents() -> Result<(), Error> {
+    fn forgetting_a_worktree_drops_its_layout_panels_running_flags_and_agents() -> Result<(), Error>
+    {
         let root = std::env::temp_dir().join(format!("chord-forget-{}", std::process::id()));
         std::fs::create_dir_all(&root)?;
         let store = Arc::new(Store::open(root.join("state.json"))?);
@@ -256,6 +259,12 @@ mod tests {
                 .extend(["a".to_string(), "other".to_string()]);
             state.agents.insert("b".into(), held("resumed.jsonl"));
             state.agents.insert("other".into(), held("other.jsonl"));
+            state
+                .side_panels
+                .insert(PathBuf::from("/w"), crate::SidePanel::default());
+            state
+                .bottom_panels
+                .insert(PathBuf::from("/w"), crate::BottomPanel::default());
         })?;
 
         Sessions::new(Arc::clone(&store), root.clone()).forget(Path::new("/w"))?;
@@ -263,6 +272,7 @@ mod tests {
         let state = store.get();
         let _ = std::fs::remove_dir_all(&root);
         assert!(state.panes.is_empty());
+        assert!(state.side_panels.is_empty() && state.bottom_panels.is_empty());
         assert_eq!(
             state.running_panes.into_iter().collect::<Vec<_>>(),
             ["other"]
