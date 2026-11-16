@@ -202,10 +202,9 @@
   background: var(--selected);
 }
 
+/* WebKit's -webkit-line-clamp lays the box out anew on idle repaints and nudged the transcript's scroll by a pixel. */
 .chat-step-thought {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  max-height: 3lh;
   margin: 0;
   padding-left: 18px;
   overflow: hidden;
@@ -621,6 +620,9 @@
   justify-content: space-between;
 }
 
+.chat-composer-bar > .icon-button {
+  flex: none;
+}
 
 .chat-pickers {
   display: flex;
