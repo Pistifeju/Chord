@@ -2,6 +2,7 @@
 import { LogicalPosition } from "@tauri-apps/api/dpi";
 import { Menu, MenuItem, PredefinedMenuItem } from "@tauri-apps/api/menu";
 import { useEffect, type MouseEvent } from "react";
+import { openContextMenu } from "../../../app/contextMenu";
 import { fail } from "../../worktrees/store";
 import { PhoneIcon } from "../../../ui/icons";
 import { hasOtherSimulators, simulatorLine, simulatorsTitle } from "./simulators";
@@ -20,9 +21,9 @@ async function simulatorsMenu(worktree: string) {
   });
 }
 
-async function openMenu(worktree: string, button: HTMLElement) {
+function openMenu(worktree: string, button: HTMLElement) {
   const box = button.getBoundingClientRect();
-  await (await simulatorsMenu(worktree)).popup(new LogicalPosition(box.left, box.top));
+  return openContextMenu(async () => (await simulatorsMenu(worktree)).popup(new LogicalPosition(box.left, box.top)));
 }
 
 export function SimulatorsButton({ worktree }: { worktree: string }) {

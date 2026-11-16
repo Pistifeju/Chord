@@ -4,6 +4,7 @@ import { LogicalPosition } from "@tauri-apps/api/dpi";
 import type { MouseEvent } from "react";
 import type { RunDestination } from "../../../ipc/bindings";
 import { menuItem, tooltip } from "../../../app/commands";
+import { openContextMenu } from "../../../app/contextMenu";
 import { shortcutChanges } from "../../settings/store";
 import { fail } from "../../worktrees/store";
 import { ChevronDownIcon, PhoneIcon, PlayIcon, StopIcon } from "../../../ui/icons";
@@ -46,12 +47,14 @@ async function runMenu(worktree: string) {
 }
 
 /** Opens `menu` under `button` once a destination listing is known. */
-export async function popUpUnder(worktree: string, button: HTMLElement, menu: () => Promise<Menu>) {
-  // The listing is the last one while the new one loads: the menu opens at once and a later open shows the new one.
-  const refreshing = refreshDestinations(worktree).catch(fail);
-  if (!destinations.get()) await refreshing;
-  const box = button.getBoundingClientRect();
-  await (await menu()).popup(new LogicalPosition(box.left, box.bottom));
+export function popUpUnder(worktree: string, button: HTMLElement, menu: () => Promise<Menu>) {
+  return openContextMenu(async () => {
+    // The listing is the last one while the new one loads: the menu opens at once and a later open shows the new one.
+    const refreshing = refreshDestinations(worktree).catch(fail);
+    if (!destinations.get()) await refreshing;
+    const box = button.getBoundingClientRect();
+    await (await menu()).popup(new LogicalPosition(box.left, box.bottom));
+  });
 }
 
 export function RunControl({ worktree }: { worktree: string }) {

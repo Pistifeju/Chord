@@ -2,6 +2,7 @@
 import { Menu } from "@tauri-apps/api/menu";
 import type { MouseEvent } from "react";
 import { commands } from "../ipc/bindings";
+import { openContextMenu } from "./contextMenu";
 import { chatCommands } from "../features/chat/commands";
 import { buildCommands } from "../features/ios/build/commands";
 import { filesCommands } from "../features/files/commands";
@@ -91,6 +92,5 @@ export function menuItem(id: string, target: string) {
 export async function showMenu(event: MouseEvent, items: [commandId: string, target: string][]) {
   event.preventDefault();
   event.stopPropagation();
-  const menu = await Menu.new({ items: items.map(([id, target]) => menuItem(id, target)) });
-  await menu.popup();
+  await openContextMenu(async () => (await Menu.new({ items: items.map(([id, target]) => menuItem(id, target)) })).popup());
 }
