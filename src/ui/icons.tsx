@@ -59,6 +59,13 @@ export const ChatIcon = () => (
   </Icon>
 );
 
+// Pi's logo: its 4 × 4 pixel grid, filled in the text color.
+export const PiIcon = () => (
+  <svg width={16} height={16} viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+    <path d="M2 2h9v3H2zM2 5h3v9H2zM8 5h3v3H8zM5 8h3v3H5zM11 8h3v6h-3z" />
+  </svg>
+);
+
 export const CloseIcon = ({ size }: { size?: number }) => (
   <Icon size={size}>
     <path d="M4 4l8 8M12 4l-8 8" />

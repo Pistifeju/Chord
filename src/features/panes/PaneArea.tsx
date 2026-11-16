@@ -16,7 +16,7 @@ import { sidePanelOf, sidePanels, showsSideView, toggleSideView } from "../sidep
 import { sidebar } from "../sidebar/store";
 import { ImageView } from "../editor/ImageView";
 import { selectFile } from "../files/store";
-import { ChatIcon, CloseIcon, FileIcon, PlusIcon, SidePanelIcon } from "../../ui/icons";
+import { CloseIcon, FileIcon, PiIcon, PlusIcon, SidePanelIcon } from "../../ui/icons";
 import { usePointerDrag } from "../../ui/pointerDrag";
 import { chatPaneIds, dropEdge, dropPreview, edgeDirection, fitsSplit, groupOf, minExtent, paneIds, resizedSizes, type Box, type Group } from "./layout";
 import { canClosePane, movesTab, tabName, type PaneNames, type TabDrop } from "./sessions";
@@ -112,7 +112,7 @@ function TabView({ tab, group, place, status, closable }: { tab: Tab; group: Gro
     <div className="tab" data-selected={open} data-dragging={tab.id === drag.dragging} data-fresh={fresh || undefined}>
       <button type="button" role="tab" className="tab-name" aria-selected={open} title={file ? tab.path : undefined} {...drag.handlers(tab.id)} onClick={show}>
         <span className="tab-status" data-status={status?.kind} title={status ? statusLabel(status) : undefined}>
-          {status ? <StatusMark kind={status.kind} /> : file ? <FileIcon /> : <ChatIcon />}
+          {status ? <StatusMark kind={status.kind} /> : file ? <FileIcon /> : <PiIcon />}
         </span>
         <span className="tab-label">{tabName(tab, place.names)}</span>
       </button>
@@ -277,7 +277,7 @@ function LayoutView({ layout, path, place, edges }: { layout: Layout; path: numb
 function TabGhost({ tab, pointer, names }: { tab: Tab; pointer: { left: number; top: number }; names: PaneNames }) {
   return (
     <div className="tab-ghost" style={pointer}>
-      <span className="tab-status">{tab.kind === "file" ? <FileIcon /> : <ChatIcon />}</span>
+      <span className="tab-status">{tab.kind === "file" ? <FileIcon /> : <PiIcon />}</span>
       <span className="tab-label">{tabName(tab, names)}</span>
     </div>
   );
