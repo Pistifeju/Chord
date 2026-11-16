@@ -62,9 +62,10 @@ export const shot = externalStore<Shot | null>(null);
 /** The folder Settings saves screenshots in; null keeps them in a temporary one. */
 export const screenshotFolder = externalStore<string | null>(null);
 
-export async function takeScreenshot(worktree: string) {
+/** `preview`: the worktree's preview simulator. */
+export async function takeScreenshot(worktree: string, preview = false) {
   try {
-    const screenshot = await commands.takeSimulatorScreenshot(worktree);
+    const screenshot = await commands.takeSimulatorScreenshot(worktree, preview);
     shot.set({ worktree, screenshot, preview: `data:image/png;base64,${await commands.readImageFile(screenshot.preview)}` });
   } catch (error) {
     fail(error);

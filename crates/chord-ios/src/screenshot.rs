@@ -9,7 +9,6 @@ use serde::Serialize;
 use chord_core::Error;
 use specta::Type;
 
-use crate::process::xcrun;
 use crate::simulator::{self, DeviceSet};
 use crate::xcode;
 
@@ -55,10 +54,19 @@ fn free_file(folder: &Path) -> PathBuf {
     file
 }
 
-/// Takes the screenshot of the worktree's booted simulator into `folder`, else the temporary folder.
-pub fn take_screenshot(worktree: &Path, folder: Option<&Path>) -> Result<Screenshot, Error> {
+/// Takes the screenshot of the worktree's booted simulator, or with `preview` its preview simulator, into `folder`, else the temporary folder.
+pub fn take_screenshot(
+    worktree: &Path,
+    preview: bool,
+    folder: Option<&Path>,
+) -> Result<Screenshot, Error> {
     xcode::require_tools()?;
-    let device = simulator::find(DeviceSet::Run, worktree)?
+    let set = if preview {
+        DeviceSet::Preview
+    } else {
+        DeviceSet::Run
+    };
+    let device = simulator::find(set, worktree)?
         .filter(|device| device.booted)
         .ok_or_else(|| Error::Message("The simulator is off. Run boots it.".into()))?;
     let temporary = std::env::temp_dir().join("chord-screenshots");
@@ -74,9 +82,9 @@ pub fn take_screenshot(worktree: &Path, folder: Option<&Path>) -> Result<Screens
     };
     std::fs::create_dir_all(&temporary)?;
     let file = free_file(folder);
-    xcrun(
+    simulator::simctl(
+        set,
         &[
-            "simctl",
             "io",
             &device.udid,
             "screenshot",

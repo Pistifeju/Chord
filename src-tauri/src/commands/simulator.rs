@@ -216,16 +216,17 @@ pub async fn open_simulator_app(app: AppHandle) -> Result<(), String> {
     blocking(app, |_, _| chord_ios::open_app(true)).await
 }
 
-/// Takes a screenshot of the worktree's simulator into the screenshot folder of Settings, else a temporary one.
+/// Takes a screenshot of the worktree's simulator, or with `preview` its preview simulator, into the screenshot folder of Settings, else a temporary one.
 #[tauri::command]
 #[specta::specta]
 pub async fn take_simulator_screenshot(
     app: AppHandle,
     worktree: PathBuf,
+    preview: bool,
 ) -> Result<Screenshot, String> {
     blocking(app, move |_, store| {
         let folder = store.get().screenshot_folder;
-        chord_ios::take_screenshot(&worktree, folder.as_deref())
+        chord_ios::take_screenshot(&worktree, preview, folder.as_deref())
     })
     .await
 }

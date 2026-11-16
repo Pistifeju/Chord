@@ -1,4 +1,4 @@
-// The Preview view in the side panel: its header with the preview picker's button, the preview model's menu and the line while a rebuild runs, over the worktree's preview simulator screen and the compile error's bar, with the Simulator view's screen, bezel and input and without its buttons, or the line that stands in for it. Also its tab bar button.
+// The Preview view in the side panel: its header with the preview picker's button, the preview model's menu and the line while a rebuild runs, over the worktree's preview simulator screen and the compile error's bar, with the Simulator view's screen, bezel, input and Screenshot button, or the line that stands in for it. Also its tab bar button.
 import { Menu } from "@tauri-apps/api/menu";
 import { useEffect, type MouseEvent } from "react";
 import { tooltip } from "../../../app/commands";
