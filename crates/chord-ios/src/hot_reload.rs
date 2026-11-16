@@ -10,6 +10,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::compile_commands::{self, Job, value_of};
 use crate::derived_data::path_hash;
+use crate::issues::{BuildIssue, parse_line};
 use crate::preview;
 use crate::view_graph::{Graph, find, past_literal};
 
@@ -50,11 +51,11 @@ pub(crate) fn launched(worktree: &Path) {
     }
 }
 
-/// Hot reloads the shown preview with every `.swift` file saved since its app launched that it uses. Ok: reloaded, nothing it uses changed, or a file does not compile and the last frame stays. Err: why it cannot reload, and the caller rebuilds.
-pub(crate) fn reload(worktree: &Path) -> Result<(), String> {
+/// Hot reloads the shown preview with every `.swift` file saved since its app launched that it uses. Ok(None): reloaded, or nothing it uses changed. Ok(Some): a file does not compile, its first error, and the last frame stays. Err: why it cannot reload, and the caller rebuilds.
+pub(crate) fn reload(worktree: &Path) -> Result<Option<BuildIssue>, String> {
     let saved = saved_files().get(worktree).cloned().unwrap_or_default();
     if saved.is_empty() {
-        return Ok(());
+        return Ok(None);
     }
     let file_id = preview::shown_file(worktree)?;
     let (module, name) = file_id.split_once('/').ok_or("the preview has no file")?;
@@ -71,13 +72,14 @@ pub(crate) fn reload(worktree: &Path) -> Result<(), String> {
     let jobs = compile_commands::jobs(worktree, driver)?;
     let folder = reload_folder(worktree).ok_or("Chord has no cache folder")?;
     match compile(&jobs, &files, &folder, worktree, &shown, &saved)? {
-        Built::Unused | Built::Errors => Ok(()),
+        Built::Unused => Ok(None),
+        Built::Errors(issue) => Ok(Some(issue)),
         Built::Dylib { dylib, objects } => {
             preview::load(worktree, &dylib)?;
             for (object, last) in objects {
                 let _ = fs::rename(object, last);
             }
-            Ok(())
+            Ok(None)
         }
     }
 }
@@ -88,8 +90,8 @@ enum Built {
         dylib: PathBuf,
         objects: Vec<(PathBuf, PathBuf)>,
     },
-    /// A recompiled file has errors of its own.
-    Errors,
+    /// A recompiled file has errors of its own; the first one, in file order.
+    Errors(BuildIssue),
     /// The shown preview uses none of the saved files.
     Unused,
 }
@@ -216,12 +218,14 @@ fn compile(
         return Err("a recompile crashed".into());
     }
     results.sort_by_key(|result| result.0);
-    let mut compiled = true;
+    let mut first = None;
     for (_, result) in results {
-        compiled &= result?;
+        if let Some(issue) = result? {
+            first.get_or_insert(issue);
+        }
     }
-    if !compiled {
-        return Ok(Built::Errors);
+    if let Some(issue) = first {
+        return Ok(Built::Errors(issue));
     }
     for ((file, ..), old) in changed.iter().zip(old_layouts?) {
         let k = list
@@ -274,7 +278,7 @@ fn compile(
     Ok(Built::Dylib { dylib, objects })
 }
 
-/// `path` recompiled into `out`, without its previews unless `keep_previews`. Ok(false): errors in the file, the user's to fix. Err: the recompile itself failed.
+/// `path` recompiled into `out`, without its previews unless `keep_previews`. Ok(Some): the file's first error, the user's to fix. Err: the recompile itself failed.
 fn compile_file(
     jobs: &HashMap<String, Job>,
     folder: &Path,
@@ -282,7 +286,7 @@ fn compile_file(
     path: &str,
     keep_previews: bool,
     out: &Path,
-) -> Result<bool, String> {
+) -> Result<Option<BuildIssue>, String> {
     let name = file_name(path);
     if !Path::new(path).exists() {
         return Err(format!("{name} was deleted"));
@@ -318,10 +322,10 @@ fn compile_file(
             .map_err(|error| format!("swift-frontend: {error}"))?;
         let errors = String::from_utf8_lossy(&output.stderr);
         // An error in this file is the user's to fix, even when an edit elsewhere caused it; any other failure is the reload's.
-        let yours = errors.lines().any(|line| {
-            (line.starts_with(path) || line.starts_with(primary.as_str()))
-                && line.contains(" error: ")
-        });
+        let yours = errors
+            .lines()
+            .filter(|line| line.starts_with(path) || line.starts_with(primary.as_str()))
+            .find_map(parse_line);
         Ok::<_, String>((
             output.status.success(),
             yours,
@@ -330,13 +334,13 @@ fn compile_file(
     };
     let mut result = recompile(true)?;
     // A copy the preview scan misread fails in that copy: the originals compile slower but right.
-    if !result.0 && (!result.1 || primary != path) {
+    if !result.0 && (result.1.is_none() || primary != path) {
         result = recompile(false)?;
     }
     match result {
-        (true, ..) => Ok(true),
-        (false, true, _) => Ok(false),
-        (false, false, first) => Err(format!("recompiling {name} failed: {first}")),
+        (true, ..) => Ok(None),
+        (false, Some(issue), _) => Ok(Some(issue)),
+        (false, None, first) => Err(format!("recompiling {name} failed: {first}")),
     }
 }
 

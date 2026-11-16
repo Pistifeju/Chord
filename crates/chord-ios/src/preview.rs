@@ -15,6 +15,7 @@ use specta::Type;
 
 use crate::derived_data::path_hash;
 use crate::hot_reload;
+use crate::issues::BuildIssue;
 use crate::process;
 use crate::simulator::{self, DeviceSet};
 
@@ -62,6 +63,10 @@ pub enum PreviewState {
     },
     /// No pick, or the picked `#Preview` is gone.
     Unpicked,
+    /// The first compile error of a preview build or hot reload; the last frame stays.
+    Error {
+        issue: BuildIssue,
+    },
     Failed {
         message: String,
     },

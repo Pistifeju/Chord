@@ -1,4 +1,4 @@
-/* The Preview view: its header with the picker and model buttons over the Simulator view's screen. Rules: DESIGN.md, Preview view. */
+/* The Preview view: its header with the picker and model buttons over the Simulator view's screen and the compile error's bar. Rules: DESIGN.md, Preview view. */
 .preview {
   display: flex;
   flex-direction: column;
@@ -76,4 +76,41 @@
   height: 12px;
   border-color: var(--ink-muted);
   border-right-color: transparent;
+}
+
+.preview-error {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-top: 1px solid var(--line);
+  background: var(--raised);
+  font-size: calc(12px * var(--text-scale));
+  text-align: left;
+  white-space: nowrap;
+}
+
+button.preview-error:focus-visible {
+  outline-offset: -2px;
+}
+
+.preview-error-icon {
+  display: grid;
+  flex: none;
+  color: var(--danger);
+}
+
+.preview-error-place {
+  flex: none;
+  color: var(--danger);
+}
+
+.preview-error-message {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--ink);
 }

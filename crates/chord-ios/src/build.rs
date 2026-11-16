@@ -12,7 +12,6 @@ use serde::Serialize;
 use chord_core::{Error, PreviewPick, RunDestination, login_shell};
 use specta::Type;
 
-use crate::agent_reply::issue_line;
 use crate::capacity::{self, Booted};
 use crate::compile_commands::DriverLines;
 use crate::console::ConsoleTone;
@@ -309,16 +308,15 @@ impl Builds {
                 return slots.follow_with_preview(worktree);
             }
         }
-        let shown = launched
-            && pick.is_some_and(|pick| {
-                preview::show(worktree, &pick)
-                    .and_then(|()| hot_reload::reload(worktree))
-                    .is_ok()
-            });
-        if shown {
-            self.tell_preview(worktree, PreviewState::Live);
-        } else {
-            self.start_preview(worktree);
+        let shown = pick.filter(|_| launched).and_then(|pick| {
+            preview::show(worktree, &pick)
+                .and_then(|()| hot_reload::reload(worktree))
+                .ok()
+        });
+        match shown {
+            Some(None) => self.tell_preview(worktree, PreviewState::Live),
+            Some(Some(issue)) => self.tell_preview(worktree, PreviewState::Error { issue }),
+            None => self.start_preview(worktree),
         }
     }
 
@@ -354,8 +352,13 @@ impl Builds {
             preview => preview.is_some_and(|preview| preview.launched),
         };
         let busy = lock(&self.0.slots).holds_preview(worktree);
-        if saves.other || !launched || busy || hot_reload::reload(worktree).is_err() {
-            self.start_preview(worktree);
+        if saves.other || !launched || busy {
+            return self.start_preview(worktree);
+        }
+        match hot_reload::reload(worktree) {
+            Ok(None) => self.tell_preview(worktree, PreviewState::Live),
+            Ok(Some(issue)) => self.tell_preview(worktree, PreviewState::Error { issue }),
+            Err(_) => self.start_preview(worktree),
         }
     }
 
@@ -404,8 +407,11 @@ impl Builds {
             BuildEvent::Phase {
                 phase: BuildPhase::Running,
             } => on_state(PreviewState::Live),
-            BuildEvent::Failed { issues, .. } => on_state(PreviewState::Failed {
-                message: issues.first().map(issue_line).unwrap_or_default(),
+            BuildEvent::Failed { issues, .. } => on_state(match issues.into_iter().next() {
+                Some(issue) => PreviewState::Error { issue },
+                None => PreviewState::Failed {
+                    message: String::new(),
+                },
             }),
             _ => {}
         };

@@ -1,4 +1,4 @@
-// Rules for a worktree's build: how Rust's events change it, how the card's marker reads it, and where an error's file lies.
+// Rules for a worktree's build: how Rust's events change it, how the card's marker reads it, and where an error's file lies and how its place reads.
 import type { BuildEvent_Deserialize, BuildIssue_Deserialize } from "../../../ipc/bindings";
 import type { BottomViewSlot } from "../../bottompanel/BottomPanel";
 import type { BottomView } from "../../../ipc/bindings";
@@ -105,6 +105,13 @@ export function markerText(build: Build): Marker | null {
     case "failed":
       return { text: "Build failed", tone: "failed" };
   }
+}
+
+/** "LoginView.swift:42", or the file's name alone without a line; null without a file. */
+export function issuePlace(issue: BuildIssue_Deserialize): string | null {
+  const name = issue.file?.split("/").pop();
+  if (!name) return null;
+  return issue.line ? `${name}:${issue.line}` : name;
 }
 
 // An error's file as a path inside the worktree, or null for a file outside it.

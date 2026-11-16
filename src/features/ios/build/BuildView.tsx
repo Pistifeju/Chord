@@ -2,17 +2,15 @@
 import { useMemo } from "react";
 import type { BuildIssue_Deserialize } from "../../../ipc/bindings";
 import { WarningIcon } from "../../../ui/icons";
-import { requestLine } from "../../editor/reveal";
-import { showFile } from "../../editor/showing";
+import { showFileAt } from "../../editor/showing";
 import { buildFinds, closeBuildFind, setBuildFindQuery } from "./find";
 import { LogView } from "./LogView";
 import { logLines } from "./log";
-import { pathInWorktree } from "./run";
+import { issuePlace, pathInWorktree } from "./run";
 import { buildLogs, builds } from "./store";
 
 function IssueRow({ worktree, issue }: { worktree: string; issue: BuildIssue_Deserialize }) {
-  const name = issue.file?.split("/").pop();
-  const place = name && (issue.line ? `${name}:${issue.line}` : name);
+  const place = issuePlace(issue);
   const path = issue.file ? pathInWorktree(worktree, issue.file) : null;
   const content = (
     <>
@@ -31,10 +29,7 @@ function IssueRow({ worktree, issue }: { worktree: string; issue: BuildIssue_Des
       <button
         type="button"
         className="build-issue"
-        onClick={() => {
-          if (issue.line) requestLine(worktree, path, issue.line);
-          showFile(worktree, path);
-        }}
+        onClick={() => showFileAt(worktree, path, issue.line)}
       >
         {content}
       </button>

@@ -46,7 +46,7 @@ export const commands = {
 	/**  The connected devices and the simulator models to run on. */
 	listDestinations: () => __TAURI_INVOKE<Destinations>("list_destinations"),
 	/**  Boots the worktree's preview simulator of the destination's model and shows the picked preview there, building it unless it runs already. The channel carries the preview's states until the view opens again. */
-	openPreview: (worktree: string, destination: RunDestination | null, pick: PreviewPick_Deserialize | null, onState: Channel<PreviewState>) => __TAURI_INVOKE<null>("open_preview", { worktree, destination, pick, onState }),
+	openPreview: (worktree: string, destination: RunDestination | null, pick: PreviewPick_Deserialize | null, onState: Channel<PreviewState_Deserialize>) => __TAURI_INVOKE<null>("open_preview", { worktree, destination, pick, onState }),
 	/**  The view closed: saves stop rebuilding its preview, and its next open catches up. */
 	closePreview: (worktree: string) => __TAURI_INVOKE<void>("close_preview", { worktree }),
 	/**  Every `#Preview` in the worktree's Swift files, by file. */
@@ -510,7 +510,9 @@ export type PreviewPick_Serialize = {
 	name: string | null,
 };
 
-export type PreviewState = 
+export type PreviewState = PreviewState_Serialize | PreviewState_Deserialize;
+
+export type PreviewState_Deserialize = 
 /**  The preview simulator boots. */
 { state: "starting" } | 
 /**  A ⌘R or ⌘B build of the worktree holds its build; the preview build follows it. */
@@ -520,7 +522,23 @@ export type PreviewState =
 /**  Two other worktrees' preview simulators run; their folder names. */
 { state: "full"; worktrees: string[] } | 
 /**  No pick, or the picked `#Preview` is gone. */
-{ state: "unpicked" } | { state: "failed"; message: string };
+{ state: "unpicked" } | 
+/**  The first compile error of a preview build or hot reload; the last frame stays. */
+{ state: "error"; issue: BuildIssue_Deserialize } | { state: "failed"; message: string };
+
+export type PreviewState_Serialize = 
+/**  The preview simulator boots. */
+{ state: "starting" } | 
+/**  A ⌘R or ⌘B build of the worktree holds its build; the preview build follows it. */
+{ state: "waiting" } | { state: "building" } | 
+/**  The preview app runs on the preview simulator. */
+{ state: "live" } | 
+/**  Two other worktrees' preview simulators run; their folder names. */
+{ state: "full"; worktrees: string[] } | 
+/**  No pick, or the picked `#Preview` is gone. */
+{ state: "unpicked" } | 
+/**  The first compile error of a preview build or hot reload; the last frame stays. */
+{ state: "error"; issue: BuildIssue_Serialize } | { state: "failed"; message: string };
 
 export type Project = {
 	path: string,
