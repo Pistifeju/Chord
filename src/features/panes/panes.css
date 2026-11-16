@@ -166,7 +166,8 @@
   background: var(--selected);
 }
 
-.tabbar .icon-button {
+/* Only the bar's own buttons: the run control's play button sits inside its capsule. */
+.tabbar > .icon-button {
   flex: none;
   align-self: center;
   margin: 0 8px 0 2px;
