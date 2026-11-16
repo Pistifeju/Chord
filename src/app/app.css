@@ -65,11 +65,11 @@
   display: flex;
   align-items: center;
   flex: none;
-  height: 32px;
+  height: 26px;
   padding: 0 12px;
   border-top: 1px solid var(--line);
   background: var(--canvas);
-  font-size: calc(12px * var(--text-scale));
+  font-size: calc(11px * var(--text-scale));
   color: var(--ink-muted);
 }
 

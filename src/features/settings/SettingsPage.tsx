@@ -8,7 +8,7 @@ import { recordedShortcut } from "../../app/shortcuts";
 import { Row } from "../../ui/Row";
 import { onOff, Segmented } from "../../ui/Segmented";
 import { AppearanceIcon, CloseIcon, KeyboardIcon, MinusIcon, PhoneIcon, PlusIcon, SlidersIcon } from "../../ui/icons";
-import { appearance, changeTerminalFontSize, changeTextSize, closeSettings, keepAwake, setKeepAwake, setTheme, shortcutChanges } from "./store";
+import { appearance, changeTerminalFontSize, changeTextSize, closeSettings, keepAwake, setKeepAwake, setTheme, settingsSection, shortcutChanges, type SettingsSection } from "./store";
 import "./settings.css";
 
 // A press on the blurred window closes Settings on release; moving first drags the window instead.
@@ -38,14 +38,12 @@ const themes: { value: Theme; label: string }[] = [
   { value: "dark", label: "Dark" },
 ];
 
-const sections = [
+const sections: { id: SettingsSection; title: string; icon: ReactNode }[] = [
   { id: "general", title: "General", icon: <SlidersIcon /> },
   { id: "appearance", title: "Appearance", icon: <AppearanceIcon /> },
   { id: "shortcuts", title: "Shortcuts", icon: <KeyboardIcon /> },
   { id: "simulators", title: "Simulators", icon: <PhoneIcon /> },
-] as const;
-
-type SectionId = (typeof sections)[number]["id"];
+];
 
 function Group({ heading, notice, children }: { heading: string; notice?: ReactNode; children: ReactNode }) {
   return (
@@ -202,7 +200,7 @@ function Simulators({ screenshots, services }: { screenshots: ReactNode; service
 
 // `buildDataSize` is the Build Data row's value, `simulatorScreenshots` and `simulatorServices` the Simulators section's rows, passed in by a window that has an Xcode project, so settings imports nothing from features/ios.
 export function SettingsPage({ buildDataSize, simulatorScreenshots, simulatorServices }: { buildDataSize: ReactNode; simulatorScreenshots: ReactNode; simulatorServices: ReactNode }) {
-  const [shown, setShown] = useState<SectionId>("general");
+  const [shown, setShown] = useState(settingsSection.get);
   const sheetOpen = sheet.use() !== null;
   const shownSections = sections.filter((s) => s.id !== "simulators" || simulatorServices);
   const current = shownSections.find((s) => s.id === shown) ?? shownSections[0];

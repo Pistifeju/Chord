@@ -1,4 +1,4 @@
-// The theme, the text size, the terminal font size, keep-awake, the changed shortcuts and whether the Settings page is open. The first four are saved through Rust; the theme and text size are applied to the document.
+// The theme, the text size, the terminal font size, keep-awake, the changed shortcuts, whether the Settings page is open and the section it opens on. The first four are saved through Rust; the theme and text size are applied to the document.
 import { commands, type Appearance_Serialize as Appearance, type Theme } from "../../ipc/bindings";
 import type { ShortcutChanges } from "../../app/shortcuts";
 import { externalStore } from "../../ui/externalStore";
@@ -8,6 +8,9 @@ export const appearance = externalStore<Appearance>({ theme: "system", textPerce
 export const keepAwake = externalStore(false);
 export const shortcutChanges = externalStore<ShortcutChanges>({});
 export const settingsOpen = externalStore(false);
+export type SettingsSection = "general" | "appearance" | "shortcuts" | "simulators";
+// The section Settings opens on.
+export const settingsSection = externalStore<SettingsSection>("general");
 
 const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
 
@@ -54,6 +57,12 @@ export async function setKeepAwake(enabled: boolean): Promise<string | null> {
 }
 
 export function openSettings() {
+  settingsSection.set("general");
+  settingsOpen.set(true);
+}
+
+export function openShortcuts() {
+  settingsSection.set("shortcuts");
   settingsOpen.set(true);
 }
 

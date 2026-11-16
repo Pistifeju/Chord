@@ -1,7 +1,8 @@
-// The sidebar: each project's worktrees as cards under its name, in project order, each with a row per chat session and its status; its show/hide button and the Settings button at its foot.
+// The sidebar: each project's worktrees as cards under its name, in project order, each with a row per chat session and its status; its show/hide button and the Settings and Help buttons at its foot.
 import { useEffect, useState } from "react";
 import type { GitCounts_Serialize as GitCounts, Project, Worktree_Serialize as Worktree } from "../../ipc/bindings";
 import { shortcutLabel, showMenu, tooltip } from "../../app/commands";
+import { openSheet } from "../../app/sheet";
 import { chats, usePaneNames } from "../chat/store";
 import { chatTabs } from "../panes/layout";
 import { tabName } from "../panes/sessions";
@@ -10,7 +11,7 @@ import { openSettings, settingsOpen, shortcutChanges } from "../settings/store";
 import { finished } from "../status/store";
 import { ageLabel, seenDone, statusLabel, urgentReport } from "../status/status";
 import { StatusMark } from "../status/StatusMark";
-import { GearIcon, PlusIcon, SidebarIcon } from "../../ui/icons";
+import { GearIcon, PlusIcon, QuestionIcon, SidebarIcon } from "../../ui/icons";
 import { countsLabel, countsTitle } from "../worktrees/gitCounts";
 import { gitCounts } from "../worktrees/gitCountsRefresh";
 import { worktreeName, worktreeOrder } from "../worktrees/projects";
@@ -87,6 +88,9 @@ export function Sidebar({ markers }: { markers: Record<string, CardMarker> }) {
       </div>
       <div className="sidebar-footer">
         <SettingsButton />
+        <button type="button" className="icon-button sidebar-help" title="Help" aria-label="Help" onClick={() => openSheet({ kind: "help" })}>
+          <QuestionIcon />
+        </button>
       </div>
     </nav>
   );

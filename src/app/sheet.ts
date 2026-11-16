@@ -9,6 +9,7 @@ export type Sheet =
   | { kind: "openFileByName"; worktree: string }
   | { kind: "previewPicker"; worktree: string }
   | { kind: "quit" }
+  | { kind: "help" }
   | { kind: "closeAgents"; worktree: string; id: string }
   | { kind: "removeProject"; path: string; name: string };
 

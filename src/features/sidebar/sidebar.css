@@ -38,6 +38,10 @@
   border-top: 1px solid var(--line);
 }
 
+.sidebar-help {
+  margin-left: auto;
+}
+
 /* A hairline between projects, so each project's cards read as one group. */
 .project-group + .project-group {
   margin-top: 12px;

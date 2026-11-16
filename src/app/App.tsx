@@ -18,6 +18,7 @@ import { CloseAgentsPopup } from "../features/panes/CloseAgentsPopup";
 import { PaneArea } from "../features/panes/PaneArea";
 import { QuitPopup } from "../features/quit/QuitPopup";
 import { watchQuit } from "../features/quit/store";
+import { HelpSheet } from "../features/help/HelpSheet";
 import { SettingsPage } from "../features/settings/SettingsPage";
 import { settingsOpen } from "../features/settings/store";
 import { Sidebar, SidebarToggle } from "../features/sidebar/Sidebar";
@@ -162,6 +163,7 @@ export default function App() {
       <OpenFileByNamePopup />
       <PreviewPickerPopup />
       <QuitPopup />
+      <HelpSheet />
       <CloseAgentsPopup />
       <RemoveProjectPopup />
       {error && <WarningToast text={error} notice={errorIsNotice} onDismiss={dismissError} />}

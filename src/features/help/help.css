@@ -1,0 +1,56 @@
+/* The Help sheet: basics, statuses and shortcuts as short labeled lists. Rules: DESIGN.md, Sheets. */
+.help {
+  width: min(440px, calc(100vw - 40px));
+  gap: 20px;
+}
+
+.help-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.help-section h3 {
+  margin: 0;
+}
+
+.help-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+}
+
+.help-list dt,
+.help-list dd {
+  margin: 0;
+}
+
+.help-term dt {
+  font-weight: 500;
+}
+
+.help-term dd {
+  color: var(--ink-secondary);
+}
+
+.help-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.help-status .status-dot {
+  margin: 0 1px;
+}
+
+.help-shortcut {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.help-shortcut dd {
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}

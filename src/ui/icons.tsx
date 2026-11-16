@@ -113,6 +113,13 @@ export const KeyboardIcon = () => (
   </Icon>
 );
 
+export const QuestionIcon = () => (
+  <Icon>
+    <circle cx="8" cy="8" r="6.25" />
+    <path d="M6.25 6.25a1.75 1.75 0 1 1 2.6 1.53c-.5.28-.85.72-.85 1.22v.25M8 11.25h.01" />
+  </Icon>
+);
+
 export const FolderIcon = ({ size = 24 }: { size?: number }) => (
   <Icon size={size}>
     <path d="M1.75 4.25c0-.83.67-1.5 1.5-1.5h3l1.5 1.75h5c.83 0 1.5.67 1.5 1.5v6.25c0 .83-.67 1.5-1.5 1.5h-9.5c-.83 0-1.5-.67-1.5-1.5z" />
