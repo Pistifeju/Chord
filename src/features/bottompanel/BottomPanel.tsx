@@ -7,7 +7,7 @@ import { CloseIcon } from "../../ui/icons";
 import { terminalView } from "../../app/deferredViews";
 import "@xterm/xterm/css/xterm.css";
 import "../terminal/terminal.css";
-import { bottomPanelOf, bottomPanels, changeBottomPanel, endBottomPanelResize, resizeBottomPanel, showBottomPanel } from "./store";
+import { bottomPanelOf, bottomPanels, changeBottomPanel, dragBottomPanel, endBottomPanelResize, showBottomPanel } from "./store";
 import "./bottompanel.css";
 
 /** A view beside the terminal, with the command that shows or hides it. */
@@ -21,7 +21,7 @@ export function BottomPanel({ worktree, views }: { worktree: string; views: Bott
   if (!open && !shown) return null;
   return (
     <section className="bottom-panel" style={{ flexBasis: height }} aria-label={open ? "Terminal" : shown?.title}>
-      <PanelEdge side="top" onResize={(size) => resizeBottomPanel(worktree, size)} onEnd={() => endBottomPanelResize(worktree)} />
+      <PanelEdge side="top" onResize={(size) => dragBottomPanel(worktree, size)} onEnd={() => endBottomPanelResize(worktree)} />
       {open && (
       <div className="bottom-main">
         <div className="bottom-header">

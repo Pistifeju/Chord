@@ -17,3 +17,7 @@ export const {
   max: 800,
   save: (worktree, panel) => commands.changeState({ bottomPanel: { worktree, panel } }),
 });
+
+/** A drag of the top edge: below 60px it hides the panel with every view in it, else it sets the height. */
+export const dragBottomPanel = (worktree: string, size: number) =>
+  size < 60 ? changeBottomPanel(worktree, { open: false, view: "terminal" }) : resizeBottomPanel(worktree, size);
