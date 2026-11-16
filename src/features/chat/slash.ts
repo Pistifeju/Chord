@@ -15,10 +15,16 @@ function matchingCommands(commands: SlashCommand[], query: string): SlashCommand
     .map(({ command }) => command);
 }
 
+/** The commands without an extension command named like a skill, which shares the skill's title and runs the same skill. */
+function withoutSkillAliases(commands: SlashCommand[]): SlashCommand[] {
+  const skills = new Set(commands.filter((command) => command.kind === "skill").map((command) => command.name));
+  return commands.filter((command) => command.kind !== "extension" || !skills.has(`skill:${command.name}`));
+}
+
 /** The menu's rows for a draft; empty while the menu is closed. */
 export function slashMenu(commands: SlashCommand[], draft: string, closedOn: string | undefined): SlashCommand[] {
   const query = slashQuery(draft);
-  return query === null || closedOn === draft ? [] : matchingCommands(commands, query);
+  return query === null || closedOn === draft ? [] : matchingCommands(withoutSkillAliases(commands), query);
 }
 
 /** A command's display title: the name without a `skill:` prefix, split on `-`, `_` and `:`, each word capitalized. */

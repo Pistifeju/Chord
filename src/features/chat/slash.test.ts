@@ -35,6 +35,13 @@ test("the menu stays shut for text that is not a bare command name or was closed
   assert.equal(slashMenu(commands, "/dep", "/de").length, 3);
 });
 
+test("an extension command named like a skill gives its row to the skill", () => {
+  assert.deepEqual(
+    slashMenu([{ name: "review", description: "", kind: "extension" as const, origin: "pkg" }, { name: "skill:review", description: "", kind: "skill" as const, origin: "pkg" }, { name: "review-loop", description: "", kind: "extension" as const, origin: "pkg" }], "/review", undefined).map((command) => command.name),
+    ["review-loop", "skill:review"],
+  );
+});
+
 test("a command name becomes a title", () => {
   assert.equal(commandTitle("skill:improve-codebase-architecture"), "Improve Codebase Architecture");
   assert.equal(commandTitle("fix_tests"), "Fix Tests");
