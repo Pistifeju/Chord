@@ -1,6 +1,6 @@
-// Top-center toast in the title bar row; closes on click or after 4 seconds.
+// Top-center toast in the title bar row: a notice closes after 4 seconds, a failure stays until its close button.
 import { useEffect } from "react";
-import { WarningIcon } from "./icons";
+import { CloseIcon, WarningIcon } from "./icons";
 
 export function WarningToast({
   text,
@@ -12,17 +12,23 @@ export function WarningToast({
   onDismiss: () => void;
 }) {
   useEffect(() => {
+    if (!notice) return;
     const timer = setTimeout(onDismiss, 4000);
     return () => clearTimeout(timer);
-  }, [text, onDismiss]);
+  }, [text, notice, onDismiss]);
   return (
-    <button type="button" className="toast" role="alert" onClick={onDismiss}>
+    <div className="toast" role={notice ? "status" : "alert"}>
       {!notice && (
         <span className="toast-warning">
           <WarningIcon />
         </span>
       )}
-      {text}
-    </button>
+      <span className="toast-text" data-selectable>
+        {text}
+      </span>
+      <button type="button" className="icon-button toast-close" title="Dismiss" aria-label="Dismiss" onClick={onDismiss}>
+        <CloseIcon />
+      </button>
+    </div>
   );
 }

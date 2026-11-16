@@ -28,11 +28,11 @@
   --success: #009966;
   --notification-dot: #1b4ed8;
 
-  --status-running: #2b7fff;
-  --status-waiting: #e17100;
-  --status-done: #009966;
+  --status-running: #155dfc;
+  --status-waiting: #bb4d00;
+  --status-done: #007a55;
   --status-error: #e7000b;
-  --git-changed: #e17100;
+  --git-changed: #bb4d00;
   --editor-selection: rgba(27, 78, 216, 0.14);
   --editor-match: rgba(254, 154, 0, 0.3);
 

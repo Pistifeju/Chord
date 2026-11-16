@@ -1,5 +1,5 @@
 // The window's layout. Each feature adds its own region.
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { BuildView } from "../features/ios/build/BuildView";
 import { ConsoleView } from "../features/ios/build/ConsoleView";
 import { RunControl } from "../features/ios/build/RunControl";
@@ -45,6 +45,21 @@ export default function App() {
   const settings = settingsOpen.use();
   const sheetOpen = sheet.use() !== null;
   const ready = launched.use();
+  const overlay = sheetOpen || settings;
+  const lastFocus = useRef<HTMLElement | null>(null);
+  // inert drops the focus when a sheet or Settings opens; it goes back once they close, unless their action placed it.
+  useEffect(() => {
+    const remember = (e: FocusEvent) => {
+      if (e.target instanceof HTMLElement && e.target.closest(".app-content")) lastFocus.current = e.target;
+    };
+    document.addEventListener("focusin", remember);
+    return () => document.removeEventListener("focusin", remember);
+  }, []);
+  useEffect(() => {
+    const target = lastFocus.current;
+    if (overlay || !target?.isConnected) return;
+    if (document.activeElement === null || document.activeElement === document.body) target.focus();
+  }, [overlay]);
   const buildStates = builds.use();
   const projectHasXcode = hasXcodeProject(state);
   const xcode = worktreeAt(state, selected)?.xcode === true;
@@ -82,7 +97,7 @@ export default function App() {
   return (
     <div className="app">
       {/* An open sheet or Settings keeps keyboard focus and clicks inside itself. */}
-      <div className="app-content" inert={sheetOpen || settings}>
+      <div className="app-content" inert={overlay}>
         <div className="titlebar" data-tauri-drag-region>
           <span className="titlebar-sidebar" data-hidden={hidden}>
             <SidebarToggle />

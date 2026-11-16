@@ -248,7 +248,7 @@
   flex: none;
   margin-left: auto;
   font-size: calc(11px * var(--text-scale));
-  color: var(--ink-disabled);
+  color: var(--ink-muted);
   font-variant-numeric: tabular-nums;
 }
 

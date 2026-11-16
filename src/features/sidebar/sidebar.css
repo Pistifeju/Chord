@@ -202,13 +202,13 @@
   margin-left: auto;
   font-size: calc(11px * var(--text-scale));
   font-variant-numeric: tabular-nums;
-  color: var(--ink-disabled);
+  color: var(--ink-muted);
   transition: color var(--t-fast) var(--ease-out);
 }
 
 .worktree-head:hover .worktree-hint,
 .worktree-card[aria-current="true"] .worktree-hint {
-  color: var(--ink-muted);
+  color: var(--ink-secondary);
 }
 
 .worktree-card[aria-current="true"] .worktree-head {

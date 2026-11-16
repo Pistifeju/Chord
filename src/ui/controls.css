@@ -258,13 +258,22 @@ button:focus-visible {
   gap: 8px;
   max-width: min(560px, calc(100vw - 40px));
   min-height: 32px;
-  padding: 6px 12px;
-  border: none;
+  padding: 4px 4px 4px 12px;
   border-radius: var(--radius-control);
   background: var(--sheet);
   box-shadow: var(--shadow-popover);
-  text-align: left;
   animation: toast-in var(--t-med) var(--ease-out);
+}
+
+.toast-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.toast-close {
+  flex: none;
+  width: 24px;
+  height: 24px;
 }
 
 .toast-warning {
