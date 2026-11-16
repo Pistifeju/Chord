@@ -78,7 +78,19 @@ export const anyRunning = (chats: Record<string, Chat>, panes: string[]) => pane
 
 export const isStreaming = (item: Item) => "streaming" in item && item.streaming;
 
-const closed = (items: Item[]): Item[] => items.map((item) => ("streaming" in item && item.streaming ? { ...item, streaming: false } : item));
+// Every item but a reply or a stop mark arrives after a close, so a streaming reply sits only in the run of those at the end.
+function closed(items: Item[]): Item[] {
+  let from = items.length;
+  while (from > 0 && (isStreaming(items[from - 1]) || items[from - 1].role === "stopped")) from--;
+  let next = items;
+  for (let i = from; i < items.length; i++) {
+    const item = items[i];
+    if (!("streaming" in item && item.streaming)) continue;
+    if (next === items) next = items.slice();
+    next[i] = { ...item, streaming: false };
+  }
+  return next;
+}
 
 // One copy of the list instead of the two a spread of a slice makes; it runs on every chunk.
 const withLast = <T,>(list: T[], last: T): T[] => {
@@ -195,7 +207,9 @@ export function chatAfter(chat: Chat, event: HarnessEvent, now: number): Chat {
       for (let i = chat.items.length - 1; i >= 0; i--) {
         const item = chat.items[i];
         if (item.role === "steps" && item.steps.some((step) => step.kind === "call" && step.id === event.id)) {
-          return { ...chat, items: chat.items.map((other, j) => (j === i ? { ...item, steps: item.steps.map(ended) } : other)) };
+          const items = chat.items.slice();
+          items[i] = { ...item, steps: item.steps.map(ended) };
+          return { ...chat, items };
         }
       }
       return chat;

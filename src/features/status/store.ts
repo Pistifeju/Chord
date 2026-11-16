@@ -26,7 +26,16 @@ export function watchFinished(): () => void {
     before = now;
     if (marks.join() !== finished.get().join()) finished.set(marks);
   };
-  const unsubscribe = [chats, ...shownPanesStores()].map((store) => store.subscribe(sync));
+  // A reply's chunks leave every report as it was, so they skip the check.
+  let seen = chats.get();
+  const syncReports = () => {
+    const all = chats.get();
+    const panes = Object.keys(all);
+    const same = panes.length === Object.keys(seen).length && panes.every((pane) => all[pane].report === seen[pane]?.report);
+    seen = all;
+    if (!same) sync();
+  };
+  const unsubscribe = [chats.subscribe(syncReports), ...shownPanesStores().map((store) => store.subscribe(sync))];
   return () => unsubscribe.forEach((off) => off());
 }
 

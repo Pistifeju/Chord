@@ -19,7 +19,7 @@ import { CopyButton, Markdown } from "./MarkdownView";
 import { messageTime } from "./messageTime";
 import { Lightbox } from "./Lightbox";
 import { SlashMenu } from "./SlashMenu";
-import { steppedIndex } from "./dialog";
+import { composerKey, composerState, sendable } from "./composer";
 import { isTicking, subagentLine, subagentSummary } from "./subagents";
 import { completion, slashMenu, slashQuery } from "./slash";
 import { closeLightbox, lightboxes, openLightbox, stepLightbox } from "./viewing";
@@ -242,19 +242,16 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
   const pinned = useRef(true);
   const [away, setAway] = useState(false);
   const [slashActive, setSlashActive] = useState(0);
-  const ready = chat.agent === "ready";
+  const { ready, steers, canSend, menu, shown: composerShown } = composerState(chat);
   const hasChat = chat.capabilities === null || chat.capabilities.includes("chat");
   const canAttach = takesAttachments(chat);
-  const steers = chat.running && chat.capabilities?.includes("steer") === true;
   const slashRows = slashMenu(chat.commands, draft, closedOn);
   const slashAt = Math.min(slashActive, slashRows.length - 1);
   const labels = modelLabels(chat);
   const context = contextMeter(chat);
-  const canSend = ready && (!chat.running || steers);
+  const canSubmit = sendable(canSend, draft, waiting.length);
   const textPercent = appearance.usePart((a) => a.textPercent);
   const dialogOpen = chat.dialog !== null;
-  const menu = chat.dialog?.ask.kind === "menu" ? { dialog: chat.dialog, ask: chat.dialog.ask } : null;
-  const composerShown = chat.agent !== "idle" && (!chat.dialog || menu !== null);
 
   // The pane under the pointer takes the dropped images.
   useEffect(() => {
@@ -309,7 +306,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
     if (chat.items[0] !== firstItem.current) pinned.current = true;
     firstItem.current = chat.items[0];
     if (el && pinned.current) el.scrollTop = el.scrollHeight;
-  }, [chat.items, chat.running, chat.queued, chat.steerImages, subagentRows]);
+  }, [shownItems.current, chat.running, chat.queued, chat.steerImages, subagentRows]);
 
   const jumpToEnd = () => {
     const el = transcript.current;
@@ -320,10 +317,9 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
   };
 
   const send = () => {
-    const text = draft.trim();
-    if (!canSend || (!text && waiting.length === 0)) return;
+    if (!canSubmit) return;
     setDraft(pane, "");
-    sendMessage(pane, text);
+    sendMessage(pane, draft.trim());
     composer.current?.focus();
   };
 
@@ -333,22 +329,12 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
   };
 
   const onComposerKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (slashRows.length > 0 && !e.nativeEvent.isComposing) {
-      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-        e.preventDefault();
-        return setSlashActive(steppedIndex(slashAt, e.key === "ArrowDown" ? 1 : -1, slashRows.length));
-      }
-      // Return sends a command typed in full; Tab always completes.
-      const picked = slashRows[slashAt];
-      if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey && draft !== `/${picked.name}`)) {
-        e.preventDefault();
-        return pickSlash(picked);
-      }
-    }
-    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-      e.preventDefault();
-      send();
-    }
+    const action = composerKey({ key: e.key, shift: e.shiftKey, composing: e.nativeEvent.isComposing }, draft, slashRows, slashAt);
+    if (!action) return;
+    e.preventDefault();
+    if (action.kind === "step") setSlashActive(action.to);
+    else if (action.kind === "complete") pickSlash(action.command);
+    else send();
   };
 
   const onComposerPaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
@@ -482,7 +468,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
                 className="button-primary chat-send"
                 title={steers ? "Steer" : "Send"}
                 aria-label={steers ? "Steer" : "Send"}
-                disabled={!canSend || (!draft.trim() && waiting.length === 0)}
+                disabled={!canSubmit}
                 onClick={send}
               >
                 <ArrowUpIcon />
