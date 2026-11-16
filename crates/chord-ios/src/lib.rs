@@ -2,6 +2,7 @@
 
 mod agent_reply;
 mod agent_tools;
+mod appearance;
 pub mod build;
 mod caches;
 mod capacity;
@@ -29,6 +30,9 @@ mod worktree_saves;
 mod xcode;
 
 pub use agent_tools::{AgentBuild, AgentTools};
+pub use appearance::{
+    SimulatorAppearance, SimulatorAppearanceChange, read as read_appearance, set as set_appearance,
+};
 pub use build::{BuildEvent, BuildPhase, Builds};
 pub use caches::{
     RunningSimulator, build_data_size, forget, prune, running_simulators, shut_down_others,

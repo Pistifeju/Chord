@@ -7,6 +7,13 @@
   min-height: 0;
 }
 
+/* The Appearance button at the right. */
+.simulator-header {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px 6px 0;
+}
+
 .simulator-area {
   position: relative;
   container: simulator / inline-size;

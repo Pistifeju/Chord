@@ -79,6 +79,10 @@ export const commands = {
 	openSimulatorApp: () => __TAURI_INVOKE<null>("open_simulator_app"),
 	/**  Takes a screenshot of the worktree's simulator, or with `preview` its preview simulator, into the screenshot folder of Settings, else a temporary one. */
 	takeSimulatorScreenshot: (worktree: string, preview: boolean) => __TAURI_INVOKE<Screenshot>("take_simulator_screenshot", { worktree, preview }),
+	/**  The worktree's booted simulator's appearance settings and the choices the Mac offers. */
+	simulatorAppearance: (worktree: string) => __TAURI_INVOKE<SimulatorAppearance_Serialize>("simulator_appearance", { worktree }),
+	/**  Changes one appearance setting of the worktree's booted simulator. */
+	setSimulatorAppearance: (worktree: string, change: SimulatorAppearanceChange) => __TAURI_INVOKE<null>("set_simulator_appearance", { worktree, change }),
 	/**  Asks for the screenshot folder and saves the pick; no pick keeps the setting and returns `None`. */
 	pickScreenshotFolder: () => __TAURI_INVOKE<string | null>("pick_screenshot_folder"),
 	/**  Starts a native drag of a file, shown as `preview`, out of the window: Finder and other apps take it, and so does a chat pane. */
@@ -253,6 +257,9 @@ export type ConsoleTone =
 "error" | 
 /**  A line Chord writes, not the app. */
 "own";
+
+/**  `simctl ui content_size`'s categories. */
+export type ContentSize = "extra-small" | "small" | "medium" | "large" | "extra-large" | "extra-extra-large" | "extra-extra-extra-large" | "accessibility-medium" | "accessibility-large" | "accessibility-extra-large" | "accessibility-extra-extra-large" | "accessibility-extra-extra-extra-large";
 
 export type Destinations = {
 	devices: RunDestination[],
@@ -448,6 +455,8 @@ export type Input_Serialize =
 { kind: "touch"; seq: number; phase: TouchPhase; first: Point; second: Point | null; fromBottom: boolean } | 
 /**  A USB HID keyboard usage (page 7). */
 { kind: "key"; usage: number; down: boolean } | { kind: "button"; button: Button };
+
+export type InterfaceStyle = "light" | "dark";
 
 export type KeptBranch = {
 	name: string,
@@ -714,6 +723,37 @@ export type Sidebar_Deserialize = {
 
 export type Sidebar_Serialize = {
 	hidden: boolean,
+};
+
+/**  What the Appearance menu shows: the simulator's current settings, and what it can be set to. */
+export type SimulatorAppearance = SimulatorAppearance_Serialize | SimulatorAppearance_Deserialize;
+
+export type SimulatorAppearanceChange = { kind: "style"; style: InterfaceStyle } | { kind: "content_size"; size: ContentSize } | { kind: "language"; language: string } | { kind: "region"; region: string };
+
+/**  What the Appearance menu shows: the simulator's current settings, and what it can be set to. */
+export type SimulatorAppearance_Deserialize = {
+	style?: InterfaceStyle | null,
+	contentSize?: ContentSize | null,
+	/**  A language code like "de" or "zh-Hans". */
+	language?: string | null,
+	/**  A region code like "AT". */
+	region?: string | null,
+	contentSizes: ContentSize[],
+	languages: string[],
+	regions: string[],
+};
+
+/**  What the Appearance menu shows: the simulator's current settings, and what it can be set to. */
+export type SimulatorAppearance_Serialize = {
+	style: InterfaceStyle | null,
+	contentSize: ContentSize | null,
+	/**  A language code like "de" or "zh-Hans". */
+	language: string | null,
+	/**  A region code like "AT". */
+	region: string | null,
+	contentSizes: ContentSize[],
+	languages: string[],
+	regions: string[],
 };
 
 export type SimulatorModels = {

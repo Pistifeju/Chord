@@ -1,4 +1,4 @@
-// The Simulator view in the side panel: Home, Lock, Shake and Screenshot under the worktree's simulator screen, which the native view draws through the see-through hole; the screen takes clicks, drags, trackpad pinches and typing. The Preview view shows its preview simulator here with only Screenshot. Also its tab bar button.
+// The Simulator view in the side panel: a header with the Appearance menu, Home, Lock, Shake and Screenshot under the worktree's simulator screen, which the native view draws through the see-through hole; the screen takes clicks, drags, trackpad pinches and typing. The Preview view shows its preview simulator here with only Screenshot. Also its tab bar button.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { shortcutLabel, tooltip } from "../../../app/commands";
 import type { Bezel, Button, ButtonFace, FaceIcon, ScreenButtons } from "../../../ipc/bindings";
@@ -9,6 +9,7 @@ import { showsSideView, sidePanels, toggleSideView } from "../../sidepanel/store
 import { hidUsage } from "./keys";
 import { clampToScreen, cornerRadius, fingersFor, fit, fromBottom, gestureFingers, secondFinger, toScreen, type Fingers, type Point, type Rect } from "./screen";
 import { hideScreen, moveScreen, openSimulatorApp, pressButton, screen, sendKey, sendTouch, setButtons, showScreen, takeScreenshot } from "./store";
+import { AppearanceButton } from "./AppearanceButton";
 import { ScreenshotThumbnail } from "./Screenshot";
 import "./simulator.css";
 
@@ -313,6 +314,11 @@ export function SimulatorView({ worktree, preview }: { worktree: string; preview
 
   return (
     <div className="simulator">
+      {!previewing && (
+        <div className="simulator-header">
+          <AppearanceButton worktree={worktree} enabled={live !== null} />
+        </div>
+      )}
       <div className="simulator-area" ref={area}>
         {live && rect && rect.width > 0 && (
           <div ref={row} className="simulator-buttons" role="group" aria-label="Simulator Buttons" style={{ left: rect.x + rect.width / 2, top: rect.y + rect.height + BELOW_SCREEN - 28 }}>

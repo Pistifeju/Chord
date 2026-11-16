@@ -8,7 +8,7 @@ use serde::Serialize;
 use chord_core::{Error, StateChange};
 use chord_ios::{
     Bezel, Button, Input, RunningSimulator, ScreenButtons, ScreenRect, ScreenState, Screenshot,
-    ServiceRow,
+    ServiceRow, SimulatorAppearance, SimulatorAppearanceChange,
 };
 use tauri::ipc::Channel;
 use tauri::{AppHandle, WebviewWindow};
@@ -227,6 +227,30 @@ pub async fn take_simulator_screenshot(
     blocking(app, move |_, store| {
         let folder = store.get().screenshot_folder;
         chord_ios::take_screenshot(&worktree, preview, folder.as_deref())
+    })
+    .await
+}
+
+/// The worktree's booted simulator's appearance settings and the choices the Mac offers.
+#[tauri::command]
+#[specta::specta]
+pub async fn simulator_appearance(
+    app: AppHandle,
+    worktree: PathBuf,
+) -> Result<SimulatorAppearance, String> {
+    blocking(app, move |_, _| chord_ios::read_appearance(&worktree)).await
+}
+
+/// Changes one appearance setting of the worktree's booted simulator.
+#[tauri::command]
+#[specta::specta]
+pub async fn set_simulator_appearance(
+    app: AppHandle,
+    worktree: PathBuf,
+    change: SimulatorAppearanceChange,
+) -> Result<(), String> {
+    blocking(app, move |_, _| {
+        chord_ios::set_appearance(&worktree, &change)
     })
     .await
 }

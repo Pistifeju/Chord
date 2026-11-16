@@ -222,12 +222,12 @@ Edge cases:
 
 ## 12. Simulator tools (iOS)
 
-- [ ] L1 Appearance menu on the Simulator view: light / dark, Dynamic Type size, language and region of the worktree's simulator.
+- [x] L1 Appearance menu on the Simulator view: light / dark, Dynamic Type size, language and region of the worktree's simulator.
 - [ ] L4 Scheme and build configuration (Debug / Release), per project, as submenus of the play button's menu under the destinations; ⌘R and ⌘B use them.
 - [ ] L5 Screen recording: record / stop button next to the I3 screenshot button (`simctl io recordVideo`); the video gets the I3 thumbnail and drag.
 
 Edge cases:
-- L1 acts on the worktree's own simulator and is disabled while it is not booted.
+- L1 acts on the worktree's own simulator and is disabled while it is not booted. Light / dark and the text size apply at once; a language or region is written to the simulator's preferences and reaches an app the next time it launches (⌘R). The languages and regions are the ones the Mac's locales list.
 - A window close or stop of the simulator ends a recording and keeps the file.
 
 ## 13. Harness capabilities these features need
