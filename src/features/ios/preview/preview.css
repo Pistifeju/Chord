@@ -1,0 +1,30 @@
+/* The Preview view: its header over the Simulator view's screen. Rules: DESIGN.md, Preview view. */
+.preview {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.preview-header {
+  display: flex;
+  align-items: center;
+  height: 24px;
+  padding: 4px 6px 0 18px;
+  box-sizing: content-box;
+}
+
+.preview-rebuilding {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: calc(12px * var(--text-scale));
+  color: var(--ink-muted);
+}
+
+.preview-rebuilding .spinner {
+  position: static;
+  width: 12px;
+  height: 12px;
+  border-color: var(--ink-muted);
+  border-right-color: transparent;
+}

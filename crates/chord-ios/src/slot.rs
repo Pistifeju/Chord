@@ -103,6 +103,11 @@ impl Slots {
             || self.beside_app.contains_key(worktree)
     }
 
+    /// A preview build runs or waits, or a ⌘R or ⌘B build before its app runs: the preview app is about to change.
+    pub fn holds_preview(&self, worktree: &Path) -> bool {
+        self.building(worktree) || self.preview_runs(worktree) || self.preview_waits(worktree)
+    }
+
     pub fn preview_runs(&self, worktree: &Path) -> bool {
         self.previews.contains_key(worktree)
     }

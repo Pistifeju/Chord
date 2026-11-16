@@ -11,7 +11,8 @@ export const previews = externalStore<Record<string, Preview>>({});
 /** The newest open per worktree: an older channel's late states are ignored. */
 const latest = new Map<string, number>();
 
-export function openPreview(worktree: string) {
+/** Returns the open's number, which `closePreview` takes. */
+export function openPreview(worktree: string): number {
   const number = (latest.get(worktree) ?? 0) + 1;
   latest.set(worktree, number);
   const channel = new Channel<PreviewState>();
@@ -24,4 +25,10 @@ export function openPreview(worktree: string) {
     if (state.state === "failed" && after.shown) fail(state.message);
   };
   commands.openPreview(worktree, runDestinationOf(worktree), channel).catch(fail);
+  return number;
+}
+
+/** The view closed: saves stop rebuilding its preview, unless a newer view of the worktree opened since. */
+export function closePreview(worktree: string, number: number) {
+  if (latest.get(worktree) === number) commands.closePreview(worktree).catch(fail);
 }

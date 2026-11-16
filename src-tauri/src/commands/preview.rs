@@ -1,11 +1,11 @@
-//! Commands for a worktree's Preview view: open it on the worktree's preview simulator with its state channel.
+//! Commands for a worktree's Preview view: open it on the worktree's preview simulator with its state channel, and close it.
 
 use std::path::PathBuf;
 
 use chord_core::RunDestination;
 use chord_ios::{Builds, PreviewState};
 use tauri::ipc::Channel;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, State};
 
 use super::blocking;
 
@@ -26,4 +26,11 @@ pub async fn open_preview(
         Ok(())
     })
     .await
+}
+
+/// The view closed: saves stop rebuilding its preview, and its next open catches up.
+#[tauri::command]
+#[specta::specta]
+pub fn close_preview(builds: State<Builds>, worktree: PathBuf) {
+    builds.close_preview(&worktree);
 }

@@ -1,14 +1,20 @@
-//! The worktree's preview simulator in Chord's own device set, at most two booted at once, and the app launched on it with the preview helper (ChordPreview.swift), which shows the app's first `#Preview` full screen.
+//! The worktree's preview simulator in Chord's own device set, at most two booted at once, and the app launched on it with the preview helper (ChordPreview.swift), which shows the app's first `#Preview` full screen and answers on a socket for the hot reload.
 
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+use std::io::{BufRead, BufReader, Write};
+use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock, PoisonError};
+use std::time::{Duration, Instant};
 
 use serde::Serialize;
+use serde_json::{Value, json};
 use chord_core::{Error, login_shell};
 use specta::Type;
 
+use crate::derived_data::path_hash;
+use crate::hot_reload;
 use crate::process;
 use crate::simulator::{self, DeviceSet};
 
@@ -28,6 +34,16 @@ pub(crate) fn devices_folder() -> Option<PathBuf> {
     CACHE_FOLDER
         .get()
         .map(|folder| folder.join("PreviewDevices"))
+}
+
+/// The folder of the hot reload folders, one per worktree.
+pub(crate) fn hot_reload_folders() -> Option<PathBuf> {
+    CACHE_FOLDER.get().map(|folder| folder.join("HotReload"))
+}
+
+/// The worktree's compile commands and reload files, named like its simulators.
+pub(crate) fn hot_reload_folder(worktree: &Path) -> Option<PathBuf> {
+    hot_reload_folders().map(|folder| folder.join(simulator::name_of(worktree)))
 }
 
 #[derive(Serialize, Type, Clone, Debug, PartialEq)]
@@ -93,8 +109,13 @@ pub(crate) fn boot(
     })
 }
 
-/// Installs the app on the preview simulator and launches it with the helper in place of its entry point.
-pub(crate) fn launch(udid: &str, app: &Path, register: &dyn Fn(u32)) -> Result<(), Error> {
+/// Installs the app on the worktree's preview simulator and launches it with the helper in place of its entry point.
+pub(crate) fn launch(
+    worktree: &Path,
+    udid: &str,
+    app: &Path,
+    register: &dyn Fn(u32),
+) -> Result<(), Error> {
     let executable = simulator::plist_text(app, "CFBundleExecutable", register)?;
     if !app.join(format!("{executable}.debug.dylib")).exists() {
         return Err(Error::Message(
@@ -119,7 +140,12 @@ pub(crate) fn launch(udid: &str, app: &Path, register: &dyn Fn(u32)) -> Result<(
             &bundle,
         ],
     );
-    command.env("SIMCTL_CHILD_DYLD_INSERT_LIBRARIES", &helper);
+    let socket = socket(worktree);
+    let _ = std::fs::remove_file(&socket);
+    hot_reload::launched(worktree);
+    command
+        .env("SIMCTL_CHILD_DYLD_INSERT_LIBRARIES", &helper)
+        .env("SIMCTL_CHILD_CHORD_PREVIEW_SOCKET", &socket);
     let output = process::captured(command, register)?;
     if output.status.success() {
         Ok(())
@@ -129,6 +155,54 @@ pub(crate) fn launch(udid: &str, app: &Path, register: &dyn Fn(u32)) -> Result<(
             String::from_utf8_lossy(&output.stderr).trim()
         )))
     }
+}
+
+/// In the temp folder: a socket path holds 104 bytes at most.
+fn socket(worktree: &Path) -> PathBuf {
+    let hash = path_hash(&worktree.to_string_lossy());
+    std::env::temp_dir().join(format!("chord-preview-{}.sock", &hash[..12]))
+}
+
+/// One request to the helper in the worktree's preview app, which may still be starting.
+fn request(worktree: &Path, request: &Value) -> Result<Value, String> {
+    let path = socket(worktree);
+    let start = Instant::now();
+    let mut stream = loop {
+        match UnixStream::connect(&path) {
+            Ok(stream) => break stream,
+            Err(_) if start.elapsed() < Duration::from_secs(2) => {
+                std::thread::sleep(Duration::from_millis(100));
+            }
+            Err(error) => return Err(format!("the preview app did not answer: {error}")),
+        }
+    };
+    stream
+        .set_read_timeout(Some(Duration::from_secs(10)))
+        .map_err(|error| error.to_string())?;
+    writeln!(stream, "{request}").map_err(|error| error.to_string())?;
+    let mut line = String::new();
+    BufReader::new(stream)
+        .read_line(&mut line)
+        .map_err(|error| format!("the preview app did not answer: {error}"))?;
+    let reply: Value = serde_json::from_str(&line).map_err(|error| error.to_string())?;
+    match reply["error"].as_str() {
+        Some(error) => Err(error.into()),
+        None => Ok(reply),
+    }
+}
+
+/// The `fileID` (`Module/File.swift`) of the preview the app shows.
+pub(crate) fn shown_file(worktree: &Path) -> Result<String, String> {
+    let reply = request(worktree, &json!({ "op": "shown" }))?;
+    reply["fileID"]
+        .as_str()
+        .map(String::from)
+        .ok_or_else(|| "the preview app named no file".into())
+}
+
+/// Has the preview app load a hot reload's dylib and show the preview from it.
+pub(crate) fn load(worktree: &Path, dylib: &Path) -> Result<(), String> {
+    request(worktree, &json!({ "op": "load", "path": dylib })).map(drop)
 }
 
 /// The helper dylib, built on first use for each Xcode build and helper source.

@@ -1,4 +1,4 @@
-//! The caches a worktree leaves outside its folder: its DerivedData folder, its run simulator and its preview simulator.
+//! The caches a worktree leaves outside its folder: its DerivedData folder, its run simulator, its preview simulator and its hot reload folder.
 
 use std::collections::HashSet;
 use std::fs;
@@ -105,6 +105,9 @@ pub fn forget(worktree: &Path) {
             let _ = simulator::delete(set, &device.udid);
         }
     }
+    if let Some(folder) = preview::hot_reload_folder(worktree) {
+        let _ = fs::remove_dir_all(folder);
+    }
 }
 
 /// Removes the build data of worktrees that are gone; never a project outside the worktrees folders or a simulator Chord did not create. It does nothing while any project's worktrees cannot be listed: a project that is not mounted must not look empty. Best effort past that check.
@@ -129,7 +132,30 @@ pub fn prune(projects: &[Project]) -> Result<(), Error> {
             let _ = simulator::delete(set, &device.udid);
         }
     }
+    for (name, folder) in hot_reload_folders() {
+        if !live.contains(&name) {
+            let _ = fs::remove_dir_all(folder);
+        }
+    }
     Ok(())
+}
+
+/// Each worktree's hot reload folder, by its simulators' name.
+fn hot_reload_folders() -> Vec<(String, PathBuf)> {
+    let Some(folders) = preview::hot_reload_folders() else {
+        return Vec::new();
+    };
+    fs::read_dir(folders)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|entry| {
+            (
+                entry.file_name().to_string_lossy().into_owned(),
+                entry.path(),
+            )
+        })
+        .collect()
 }
 
 fn live_worktrees(projects: &[Project], with_main: bool) -> Result<Vec<PathBuf>, Error> {
@@ -153,7 +179,7 @@ fn remove_derived_data(gone: impl Fn(&Path) -> bool) {
     }
 }
 
-/// The disk the DerivedData folders and simulators of the projects' created worktrees take, in bytes, without the main checkouts'.
+/// The disk the DerivedData folders, simulators and hot reload folders of the projects' created worktrees take, in bytes, without the main checkouts'.
 pub fn build_data_size(projects: &[Project]) -> Result<u64, Error> {
     let live = live_worktrees(projects, false)?;
     let resolved_live: Vec<PathBuf> = live.iter().map(|path| resolved(path)).collect();
@@ -186,7 +212,12 @@ pub fn build_data_size(projects: &[Project]) -> Result<u64, Error> {
                 .map(move |device| disk_size(&folder.join(&device.udid)))
         })
         .sum();
-    Ok(derived + simulators)
+    let hot_reload: u64 = hot_reload_folders()
+        .iter()
+        .filter(|(name, _)| names.contains(name))
+        .map(|(_, folder)| disk_size(folder))
+        .sum();
+    Ok(derived + simulators + hot_reload)
 }
 
 fn simulator_names(worktrees: &[PathBuf]) -> HashSet<String> {

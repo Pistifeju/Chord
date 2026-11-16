@@ -1,4 +1,4 @@
-//! One build per worktree: its xcodebuild with its arguments, its own process group and its log in batches, the wait while a build Chord did not start holds the build database, the run of the app on the run destination after it with its console, the preview build that follows it onto the preview simulator, and the stop that signals the whole group.
+//! One build per worktree: its xcodebuild with its arguments, its own process group and its log in batches, the wait while a build Chord did not start holds the build database, the run of the app on the run destination after it with its console, the preview build that follows it onto the preview simulator, the hot reload or preview build a save starts, and the stop that signals the whole group.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -14,15 +14,18 @@ use specta::Type;
 
 use crate::agent_reply::issue_line;
 use crate::capacity::{self, Booted};
+use crate::compile_commands::DriverLines;
 use crate::console::ConsoleTone;
 use crate::derived_data;
 use crate::device;
+use crate::hot_reload;
 use crate::issues::{BuildIssue, Issues};
 use crate::preview::{self, PreviewState};
 use crate::process::{self, BATCH_BYTES, BATCH_INTERVAL, GROUP_GRACE, end_group};
 use crate::simulator::{self, DeviceSet, Simulator};
 use crate::simulator_kit;
 use crate::slot::{Slots, Start};
+use crate::worktree_saves::{self, Saves};
 use crate::xcode::{self, Project};
 
 const POLL: Duration = Duration::from_millis(100);
@@ -105,6 +108,10 @@ struct Preview {
     udid: String,
     /// The preview app launched on the simulator since its boot.
     launched: bool,
+    /// The view shows: saves reload or rebuild the preview.
+    open: bool,
+    /// A save landed while the view was closed: the app runs old code.
+    missed: bool,
     on_state: Arc<dyn Fn(PreviewState) + Send + Sync>,
 }
 
@@ -114,6 +121,8 @@ struct Inner {
     /// Held by a worktree's build thread from its start to its end (a build beside the app run and a preview build have their own turns), so a newer build starts after the old one ended.
     turns: Mutex<HashMap<TurnKey, Arc<Mutex<()>>>>,
     previews: Mutex<HashMap<PathBuf, Preview>>,
+    /// The saves of each worktree whose Preview view opened.
+    watchers: Mutex<HashMap<PathBuf, notify::RecommendedWatcher>>,
     /// The scheme of each project from its last build, so the next one skips `xcodebuild -list`.
     schemes: Mutex<HashMap<PathBuf, String>>,
     /// Held while a worktree's simulator is looked up and created, so two builds never create it twice.
@@ -231,19 +240,22 @@ impl Builds {
         let launched = {
             let mut previews = lock(&self.0.previews);
             let launched = !fresh
-                && previews
-                    .get(&worktree)
-                    .is_some_and(|preview| preview.udid == udid && preview.launched);
+                && previews.get(&worktree).is_some_and(|preview| {
+                    preview.udid == udid && preview.launched && !preview.missed
+                });
             previews.insert(
                 worktree.clone(),
                 Preview {
                     udid,
                     launched,
+                    open: true,
+                    missed: false,
                     on_state: Arc::clone(&on_state),
                 },
             );
             launched
         };
+        self.watch(&worktree);
         let (runs, waits) = {
             let slots = lock(&self.0.slots);
             (
@@ -259,6 +271,43 @@ impl Builds {
             on_state(PreviewState::Building);
         } else {
             self.start_preview(&worktree);
+        }
+    }
+
+    fn watch(&self, worktree: &Path) {
+        let mut watchers = lock(&self.0.watchers);
+        if watchers.contains_key(worktree) {
+            return;
+        }
+        let (builds, path) = (self.clone(), worktree.to_path_buf());
+        // Without a watcher the preview still works; it catches up on the next build.
+        if let Ok(watcher) =
+            worktree_saves::watch(worktree, move |saves| builds.saved(&path, saves))
+        {
+            watchers.insert(worktree.to_path_buf(), watcher);
+        }
+    }
+
+    /// The Preview view closed: saves no longer reload or rebuild its preview until it opens again.
+    pub fn close_preview(&self, worktree: &Path) {
+        if let Some(preview) = lock(&self.0.previews).get_mut(worktree) {
+            preview.open = false;
+        }
+    }
+
+    /// A hot reload when only `.swift` files changed and the preview app runs with no build on, else a preview build. A closed view's next open rebuilds instead.
+    fn saved(&self, worktree: &Path, saves: Saves) {
+        hot_reload::saved(worktree, saves.swift);
+        let launched = match lock(&self.0.previews).get_mut(worktree) {
+            Some(preview) if !preview.open => {
+                preview.missed = true;
+                return;
+            }
+            preview => preview.is_some_and(|preview| preview.launched),
+        };
+        let busy = lock(&self.0.slots).holds_preview(worktree);
+        if saves.other || !launched || busy || hot_reload::reload(worktree).is_err() {
+            self.start_preview(worktree);
         }
     }
 
@@ -400,6 +449,8 @@ impl Builds {
         lock(&self.0.schemes).retain(|project, _| !project.starts_with(worktree));
         lock(&self.0.opened).remove(&simulator::name_of(worktree));
         lock(&self.0.previews).remove(worktree);
+        lock(&self.0.watchers).remove(worktree);
+        hot_reload::forget(worktree);
     }
 }
 
@@ -572,7 +623,9 @@ impl Build {
                     register,
                 )
             })
-            .and_then(|app| self.step(|register| preview::launch(&udid, &app, register)));
+            .and_then(|app| {
+                self.step(|register| preview::launch(&self.worktree, &udid, &app, register))
+            });
         if self.stopped() {
             return BuildEvent::Stopped;
         }
@@ -818,6 +871,7 @@ impl Build {
 
         let received = process::read_lines(reader);
         let mut issues = Issues::default();
+        let mut drivers = DriverLines::default();
         let mut batch = String::new();
         let mut flushed = Instant::now();
         loop {
@@ -825,6 +879,7 @@ impl Build {
                 Ok(bytes) => {
                     let text = String::from_utf8_lossy(&bytes);
                     issues.push_line(&text);
+                    drivers.push(&text);
                     batch.push_str(&text);
                 }
                 Err(RecvTimeoutError::Timeout) => {}
@@ -840,6 +895,7 @@ impl Build {
         if !batch.is_empty() {
             self.log(batch);
         }
+        drivers.record(&self.worktree);
         let status = child.wait();
         lock(&self.builds.0.slots).clear_pid(&self.worktree, self.id);
         if self.stopped() {

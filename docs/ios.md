@@ -68,7 +68,8 @@ Chord runs `xcodebuild -project|-workspace … -scheme … -destination id=… b
 
 - Xcode already gives each project path its own folder (section 2), so two worktrees never share one.
 - Chord's ⌘R, an agent's `xcodebuild` and Xcode in one worktree land in the same folder with the same settings. A build after an agent's build takes 5 to 7 s where a second folder would cost a cold 48 s and 690 MB more.
-- One rule keeps this true: every build in a worktree uses the same build settings. A changed setting cost 41.1 s. A feature that needs a setting (J2 needs each file's compile command) must make it reach every `xcodebuild` in the worktree, for example through `XCODE_XCCONFIG_FILE` in the agent's and the terminal's environment, or do without it.
+- One rule keeps this true: every build in a worktree uses the same build settings. A changed setting cost 41.1 s. A feature that needs a setting must make it reach every `xcodebuild` in the worktree, for example through `XCODE_XCCONFIG_FILE` in the agent's and the terminal's environment, or do without it.
+- J2 does without one. It needs each file's compile command, which `EMIT_FRONTEND_COMMAND_LINES` would print. Instead Chord keeps the `builtin-SwiftDriver` line every Chord build prints for each module it compiles for an arm64 simulator, and asks that driver for its commands with `-###`, `-disable-batch-mode` and no `-incremental`: one `swift-frontend` command per file, 0.3 s on a three-file package. The driver's temporary files, the explicit module map among them, go to the worktree's hot reload folder. A module only an agent's or Xcode's build compiled has no driver line yet: the first save in it rebuilds, and that build records the line.
 - Chord starts `xcodebuild` through the user's login shell, as it starts the agent and the terminal (`login_shell` in `harness/process.rs`). Swift Build puts a task's environment into its signature, so a different `PATH` links again (source 4).
 
 Chord finds the folder with the path hash, a pure function. Its test hardcodes the folder name Xcode gave a project at a neutral path. The built `.app` comes from one `xcodebuild -showBuildSettings -json` call after the build, with the build's project, scheme and destination: the first target of the scheme with product type `application`, at `TARGET_BUILD_DIR/FULL_PRODUCT_NAME`. A custom DerivedData location needs no special case.
@@ -142,6 +143,7 @@ Where each control sits and how it looks: `DESIGN.md`, Components › Build and 
 |----------|-------------------|----------------|
 | Disk, build | about 690 MB after a cold build | Nothing exists before the first build. Deleting a worktree deletes its folder. Prune deletes the folders of worktrees that are gone |
 | Disk, simulator | 1.1 GB after the first boot | Created on the first ⌘R. Deleted with the worktree |
+| Disk, hot reload | the driver lines, each previewed module's commands and module map, the reload objects since the preview's launch | Deleted with the worktree; prune deletes the folders whose name matches no worktree; counted in the build data size |
 | Memory | 2.2 GB per booted simulator | The cap of section 3.4; the status bar lists the running ones (H5) |
 | CPU | one build takes every core | One build per worktree; see section 3.3 for the queue |
 
@@ -159,6 +161,10 @@ crates/chord-ios/src/
   simulator.rs      the worktree's simulator: find, create, boot, shut down, delete, the cap    step 2
   preview.rs        the preview simulator in Chord's own device set, the two-booted limit,
                     the app launched with the preview helper (ChordPreview.swift)          step 8
+  worktree_saves.rs the saves in a worktree whose Preview view opened, through FSEvents          step 8
+  compile_commands.rs each module's driver line from the build output, its per-file commands     step 8
+  hot_reload.rs     recompile, layout check and link of the saved view files, loaded by the helper step 8
+  view_graph.rs     the view files between the shown preview and a saved file (pure)            step 8
   run.rs            install, launch, console                                                    step 2
   caches.rs         the running simulators, forget, prune, the size of the build data           step 4
   destinations.rs   run destinations from simctl and devicectl                                  step 3

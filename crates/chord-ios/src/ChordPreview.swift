@@ -1,4 +1,4 @@
-// The preview helper: a dylib preview.rs builds with swiftc and inserts into the app on a preview simulator. It takes over the app's entry point, finds the app's `#Preview` registry types and shows the first one full screen.
+// The preview helper: a dylib preview.rs builds with swiftc and inserts into the app on a preview simulator. It takes over the app's entry point, finds the app's `#Preview` registry types and shows the first one full screen. It answers Chord on a Unix socket, one JSON object per line: which file the shown preview is in, and a hot reload's dylib (hot_reload.rs) to load and show the preview from.
 // Private behavior it relies on, checked on Xcode 27.1:
 // - Xcode's debug-dylib stub executable calls `__previews_injection_jit_link_entrypoint(argc, argv, …)` first when any image exports it.
 // - `Preview` hides its content, so the dylib interposes the public `Preview.init(_:traits:body:)` of SwiftUI and UIKit and keeps the arguments.
@@ -197,16 +197,94 @@ final class Pinned: UIViewController {
     }
 }
 
+/// Images dyld adds while the hook collects: the ones a hot reload's `dlopen` brings in.
+nonisolated(unsafe) var added: [UnsafePointer<mach_header>] = []
+nonisolated(unsafe) var collecting = false
+let addImageHook: Void = _dyld_register_func_for_add_image { header, _ in
+    if collecting, let header { added.append(header) }
+}
+
 @MainActor enum Screen {
     static var window: UIWindow?
+    static var shown: Entry?
+    /// The shown preview's place among its file's previews, which keeps it across a reload that moves its line.
+    static var position = 0
 
     static func attach(_ scene: UIScene) {
         guard window == nil, let scene = scene as? UIWindowScene else { return }
         let w = UIWindow(windowScene: scene)
         w.backgroundColor = .systemBackground
-        w.rootViewController = previews().lazy.compactMap { capture($0.type) }.first.map(controller(for:)) ?? UIViewController()
+        let all = previews()
+        let first = all.lazy.compactMap { entry in capture(entry.type).map { (entry, $0) } }.first
+        shown = first?.0
+        position = first.map { shown in all.filter { $0.fileID == shown.0.fileID }.firstIndex { $0.line == shown.0.line } ?? 0 } ?? 0
+        w.rootViewController = first.map { controller(for: $0.1) } ?? UIViewController()
         w.makeKeyAndVisible()
         window = w
+        Server.start()
+    }
+
+    /// Loads a hot reload's dylib and shows the shown preview from its image.
+    static func load(_ path: String) -> [String: Any] {
+        guard let old = shown else { return ["error": "No preview shows"] }
+        _ = addImageHook
+        added.removeAll()
+        collecting = true
+        let handle = dlopen(path, RTLD_NOW)
+        collecting = false
+        guard handle != nil else { return ["error": "dlopen: " + (dlerror().map { String(cString: $0) } ?? "failed")] }
+        let fresh = added.flatMap(scan).filter { $0.fileID == old.fileID }.sorted { $0.line < $1.line }
+        guard !fresh.isEmpty else { return ["error": "The reload holds no preview of \(old.fileID)"] }
+        position = min(position, fresh.count - 1)
+        guard let c = capture(fresh[position].type) else { return ["error": "The preview did not build"] }
+        window?.rootViewController = controller(for: c)
+        shown = fresh[position]
+        return ["ok": true]
+    }
+}
+
+/// The socket server: Chord connects once per request.
+enum Server {
+    static func start() {
+        guard let path = ProcessInfo.processInfo.environment["CHORD_PREVIEW_SOCKET"] else { return }
+        Thread.detachNewThread { serve(path) }
+    }
+
+    static func serve(_ path: String) {
+        let fd = socket(AF_UNIX, SOCK_STREAM, 0)
+        guard fd >= 0 else { return }
+        unlink(path)
+        var addr = sockaddr_un()
+        addr.sun_family = sa_family_t(AF_UNIX)
+        let bytes = Array(path.utf8.prefix(103))
+        withUnsafeMutableBytes(of: &addr.sun_path) { $0.copyBytes(from: bytes) }
+        let bound = withUnsafePointer(to: &addr) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) } }
+        guard bound == 0, listen(fd, 8) == 0 else { return }
+        while true {
+            let client = accept(fd, nil, nil)
+            guard client >= 0 else { continue }
+            var line = Data()
+            var byte: UInt8 = 0
+            while read(client, &byte, 1) == 1, byte != 10 { line.append(byte) }
+            let request = (try? JSONSerialization.jsonObject(with: line)) as? [String: Any] ?? [:]
+            let reply = DispatchQueue.main.sync { MainActor.assumeIsolated { handle(request) } }
+            var out = (try? JSONSerialization.data(withJSONObject: reply)) ?? Data("{}".utf8)
+            out.append(10)
+            _ = out.withUnsafeBytes { write(client, $0.baseAddress, $0.count) }
+            close(client)
+        }
+    }
+
+    @MainActor static func handle(_ request: [String: Any]) -> [String: Any] {
+        switch request["op"] as? String {
+        case "shown":
+            return Screen.shown.map { ["fileID": $0.fileID] } ?? ["error": "No preview shows"]
+        case "load":
+            guard let path = request["path"] as? String else { return ["error": "No path"] }
+            return Screen.load(path)
+        default:
+            return ["error": "Unknown request"]
+        }
     }
 }
 

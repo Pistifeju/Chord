@@ -47,6 +47,8 @@ export const commands = {
 	listDestinations: () => __TAURI_INVOKE<Destinations>("list_destinations"),
 	/**  Boots the worktree's preview simulator of the destination's model and shows the preview there, building it unless it runs already. The channel carries the preview's states until the view opens again. */
 	openPreview: (worktree: string, destination: RunDestination | null, onState: Channel<PreviewState>) => __TAURI_INVOKE<null>("open_preview", { worktree, destination, onState }),
+	/**  The view closed: saves stop rebuilding its preview, and its next open catches up. */
+	closePreview: (worktree: string) => __TAURI_INVOKE<void>("close_preview", { worktree }),
 	/**  The booted simulators Chord created; `open` marks the open worktree's. */
 	runningSimulators: (open: string | null) => __TAURI_INVOKE<RunningSimulator[]>("running_simulators", { open }),
 	/**  Sends `SimulatorsChanged` from now on. False when the simulator frameworks did not load, so the window asks on a timer instead. */
