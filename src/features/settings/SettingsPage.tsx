@@ -1,5 +1,6 @@
 // The Settings panel over the blurred window: a section list on the left, the chosen section's grouped rows on the right.
-import { useState, type KeyboardEvent, type ReactNode } from "react";
+import { useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { Theme } from "../../ipc/bindings";
 import { changeShortcut, commandTitles, resetShortcut, shortcutLabel, tooltip } from "../../app/commands";
 import { sheet } from "../../app/sheet";
@@ -9,6 +10,27 @@ import { onOff, Segmented } from "../../ui/Segmented";
 import { AppearanceIcon, CloseIcon, KeyboardIcon, MinusIcon, PhoneIcon, PlusIcon, SlidersIcon } from "../../ui/icons";
 import { appearance, changeTerminalFontSize, changeTextSize, closeSettings, keepAwake, setKeepAwake, setTheme, shortcutChanges } from "./store";
 import "./settings.css";
+
+// A press on the blurred window closes Settings on release; moving first drags the window instead.
+function dragWindowOrClose(e: MouseEvent) {
+  if (e.button !== 0) return;
+  const { screenX, screenY } = e;
+  const stop = () => {
+    window.removeEventListener("mousemove", move);
+    window.removeEventListener("mouseup", up);
+  };
+  const move = (m: globalThis.MouseEvent) => {
+    if (Math.hypot(m.screenX - screenX, m.screenY - screenY) < 4) return;
+    stop();
+    void getCurrentWindow().startDragging();
+  };
+  const up = () => {
+    stop();
+    closeSettings();
+  };
+  window.addEventListener("mousemove", move);
+  window.addEventListener("mouseup", up);
+}
 
 const themes: { value: Theme; label: string }[] = [
   { value: "system", label: "System" },
@@ -182,7 +204,7 @@ export function SettingsPage({ buildDataSize, simulatorServices }: { buildDataSi
   const shownSections = sections.filter((s) => s.id !== "simulators" || simulatorServices);
   const current = shownSections.find((s) => s.id === shown) ?? shownSections[0];
   return (
-    <div className="sheet-backdrop" inert={sheetOpen} onMouseDown={closeSettings}>
+    <div className="sheet-backdrop" inert={sheetOpen} onMouseDown={dragWindowOrClose}>
       <div className="settings" role="dialog" aria-modal="true" aria-label="Settings" onMouseDown={(e) => e.stopPropagation()}>
         <nav className="settings-nav" aria-label="Settings sections">
           {shownSections.map(({ id, title, icon }) => (
