@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, PoisonError};
 
+use serde::Serialize;
 use chord_core::{Error, StateChange};
 use chord_ios::{
     Bezel, Button, Input, RunningSimulator, ScreenButtons, ScreenRect, ScreenState, Screenshot,
@@ -12,6 +13,7 @@ use chord_ios::{
 use tauri::ipc::Channel;
 use tauri::{AppHandle, WebviewWindow};
 use tauri_plugin_dialog::DialogExt;
+use tauri_specta::Event;
 
 use super::blocking;
 
@@ -26,6 +28,33 @@ pub async fn running_simulators(
         chord_ios::running_simulators(open.as_deref())
     })
     .await
+}
+
+/// A simulator was added, removed, booted or shut down: the window reads the running ones again.
+#[derive(Serialize, specta::Type, tauri_specta::Event, Clone)]
+pub struct SimulatorsChanged;
+
+/// Sends `SimulatorsChanged` from now on. False when the simulator frameworks did not load, so the window asks on a timer instead.
+#[tauri::command]
+#[specta::specta]
+pub async fn watch_simulators(app: AppHandle) -> Result<bool, String> {
+    let unavailable = tauri::async_runtime::spawn_blocking(chord_ios::prepare_screen)
+        .await
+        .map_err(|error| error.to_string())?;
+    if unavailable.is_some() {
+        return Ok(false);
+    }
+    let (sent, watching) = std::sync::mpsc::channel();
+    let handle = app.clone();
+    app.run_on_main_thread(move || {
+        let _ = sent.send(chord_ios::watch_simulators(move || {
+            let _ = SimulatorsChanged.emit(&handle);
+        }));
+    })
+    .map_err(|error| error.to_string())?;
+    tauri::async_runtime::spawn_blocking(move || watching.recv().unwrap_or(false))
+        .await
+        .map_err(|error| error.to_string())
 }
 
 /// Shuts down every booted simulator Chord created except the worktree's own.

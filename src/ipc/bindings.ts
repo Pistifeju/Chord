@@ -47,6 +47,8 @@ export const commands = {
 	listDestinations: () => __TAURI_INVOKE<Destinations>("list_destinations"),
 	/**  The booted simulators Chord created; `open` marks the open worktree's. */
 	runningSimulators: (open: string | null) => __TAURI_INVOKE<RunningSimulator[]>("running_simulators", { open }),
+	/**  Sends `SimulatorsChanged` from now on. False when the simulator frameworks did not load, so the window asks on a timer instead. */
+	watchSimulators: () => __TAURI_INVOKE<boolean>("watch_simulators"),
 	/**  Shuts down every booted simulator Chord created except the worktree's own. */
 	shutDownOtherSimulators: (keep: string) => __TAURI_INVOKE<null>("shut_down_other_simulators", { keep }),
 	/**  The disk the DerivedData folders and simulators of the created worktrees take, in bytes, without the main checkouts'; a number the bindings can carry exactly up to 8 PB. */
@@ -84,6 +86,7 @@ export const commands = {
 /** Events */
 export const events = {
 	agentBuildRequested: makeEvent<AgentBuildRequested, AgentBuildRequested>("agent-build-requested"),
+	simulatorsChanged: makeEvent<SimulatorsChanged, SimulatorsChanged>("simulators-changed"),
 };
 
 /* Types */
@@ -654,6 +657,9 @@ export type SimulatorModels = {
 	/**  iPhones before the rest, each by name. */
 	models: RunDestination[],
 };
+
+/**  A simulator was added, removed, booted or shut down: the window reads the running ones again. */
+export type SimulatorsChanged = null;
 
 /**  A command the user can type after a slash; `name` has no slash. `origin` names the package it comes from; it is empty for a local file. */
 export type SlashCommand = SlashCommand_Serialize | SlashCommand_Deserialize;

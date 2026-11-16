@@ -15,7 +15,10 @@ use tauri_specta::{Event, collect_commands, collect_events};
 
 pub fn ipc() -> tauri_specta::Builder<tauri::Wry> {
     tauri_specta::Builder::new()
-        .events(collect_events![commands::build::AgentBuildRequested])
+        .events(collect_events![
+            commands::build::AgentBuildRequested,
+            commands::simulator::SimulatorsChanged
+        ])
         .commands(collect_commands![
             commands::state::load_state,
             commands::state::change_state,
@@ -52,6 +55,7 @@ pub fn ipc() -> tauri_specta::Builder<tauri::Wry> {
             commands::build::worktree_opened,
             commands::build::list_destinations,
             commands::simulator::running_simulators,
+            commands::simulator::watch_simulators,
             commands::simulator::shut_down_other_simulators,
             commands::simulator::build_data_size,
             commands::simulator::prune_build_data,

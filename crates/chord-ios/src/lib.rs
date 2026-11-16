@@ -26,6 +26,7 @@ pub use agent_tools::{AgentBuild, AgentTools};
 pub use build::{BuildEvent, BuildPhase, Builds};
 pub use caches::{
     RunningSimulator, build_data_size, forget, prune, running_simulators, shut_down_others,
+    watch_simulators,
 };
 pub use console::ConsoleTone;
 pub use destinations::{Destinations, SimulatorModels, list as list_destinations};

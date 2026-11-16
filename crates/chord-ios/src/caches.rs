@@ -11,6 +11,7 @@ use specta::Type;
 
 use crate::derived_data;
 use crate::simulator;
+use crate::simulator_kit;
 
 #[derive(Serialize, Type, Clone, Debug, PartialEq)]
 pub struct RunningSimulator {
@@ -36,6 +37,23 @@ pub fn running_simulators(open: Option<&Path>) -> Result<Vec<RunningSimulator>, 
             })
         })
         .collect())
+}
+
+thread_local! {
+    static WATCHING_SIMULATORS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Main thread, after `prepare_screen` loaded the frameworks. Calls `on_change` whenever a simulator is added, removed, boots or shuts down. Registers once per app run, since CoreSimulator offers no unregister: a later call keeps the first `on_change`. False when the frameworks did not load.
+pub fn watch_simulators(on_change: impl Fn() + 'static) -> bool {
+    let Ok(kit) = simulator_kit::load() else {
+        return false;
+    };
+    if !WATCHING_SIMULATORS.get() {
+        // The handler fires for the app's life, so its block is never released.
+        let watched = simulator_kit::guarded(|| std::mem::forget(kit.watch(on_change)));
+        WATCHING_SIMULATORS.set(watched.is_some());
+    }
+    WATCHING_SIMULATORS.get()
 }
 
 /// "com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro" reads "iPhone 17 Pro".
