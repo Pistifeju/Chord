@@ -79,9 +79,9 @@ export const errorCount = (build: Build): number => build.issues.length + build.
 
 export type Marker = { text: string; tone: "busy" | "done" | "stopped" | "failed" };
 
-// Marks a success or a stop as seen, so it leaves the card; any other build stays as it is.
+// Marks a success, a run past its build, or a stop as seen, so it leaves the card; any other build stays as it is.
 export const seenEnd = (build: Build): Build =>
-  (build.phase === "succeeded" || build.phase === "stopped") && !build.endSeen ? { ...build, endSeen: true } : build;
+  ["succeeded", "installing", "launching", "stopped"].includes(build.phase) && !build.endSeen ? { ...build, endSeen: true } : build;
 
 // The marker on the worktree's card: the last build's phase, until the next build starts; a seen success or stop shows none.
 export function markerText(build: Build): Marker | null {
@@ -91,15 +91,15 @@ export function markerText(build: Build): Marker | null {
     case "preparing":
     case "waiting":
     case "building":
+      return { text: "Building", tone: "busy" };
     case "installing":
     case "launching":
-      return { text: "Building", tone: "busy" };
+    case "succeeded":
+      return build.endSeen ? null : { text: "Build succeeded", tone: "done" };
     case "running":
       return { text: "Running", tone: "busy" };
     case "exited":
       return null;
-    case "succeeded":
-      return build.endSeen ? null : { text: "Build succeeded", tone: "done" };
     case "stopped":
       return build.endSeen ? null : { text: "Build stopped", tone: "stopped" };
     case "failed":

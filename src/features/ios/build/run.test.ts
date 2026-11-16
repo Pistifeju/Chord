@@ -34,9 +34,12 @@ test("the card's marker follows the build from building to its end", () => {
   assert.equal(markerText(seenEnd(state.build!)), null);
 });
 
-test("the card says Building until the app launches, then Running, and nothing once the app exits", () => {
-  let state = appliedEvent(noBuild, { kind: "phase", phase: "launching" }, 1000);
-  assert.deepEqual(markerText(state.build!), { text: "Building", tone: "busy" });
+test("a run's card says Build succeeded once the build is done, until seen or the app launches, then Running, and nothing once the app exits", () => {
+  let state = appliedEvent(noBuild, { kind: "phase", phase: "installing" }, 1000);
+  assert.deepEqual(markerText(state.build!), { text: "Build succeeded", tone: "done" });
+  assert.equal(markerText(seenEnd(state.build!)), null);
+  state = appliedEvent(state, { kind: "phase", phase: "launching" }, 1500);
+  assert.deepEqual(markerText(state.build!), { text: "Build succeeded", tone: "done" });
   state = appliedEvent(state, { kind: "phase", phase: "running" }, 2000);
   assert.deepEqual(markerText(state.build!), { text: "Running", tone: "busy" });
   state = appliedEvent(state, { kind: "exited" }, 3000);

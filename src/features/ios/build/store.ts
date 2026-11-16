@@ -9,7 +9,7 @@ import { emptyConsole, type ConsoleLine } from "./consoleLog";
 import { emptyLog, type Log } from "./log";
 import { appliedEvent, appliedSideEvent, isRunning, noBuild, seenEnd, viewAfterEvent, viewToShow, type Build, type BuildAndLog } from "./run";
 
-/** How long a success or a stop shows on the worktree's card. */
+/** How long a success or a stop shows on the card of the open worktree; another worktree's shows until the user goes to it. */
 const END_MARKER_MS = 5000;
 
 export const builds = externalStore<Record<string, Build>>({});
@@ -73,7 +73,7 @@ export function startBuild(worktree: string, run: boolean, agentRequest: number 
     const view = bottomPanelOf(bottomPanels.get(), worktree).view;
     const next = viewAfterEvent(view, event);
     if (next !== view) changeBottomPanel(worktree, { view: next });
-    if (event.kind === "succeeded" || event.kind === "stopped") setTimeout(() => current() && seeEnd(worktree), END_MARKER_MS);
+    if (event.kind === "succeeded" || event.kind === "stopped") setTimeout(() => current() && projects.get().selected === worktree && seeEnd(worktree), END_MARKER_MS);
   };
   // The log shows beside the terminal, and alone while the terminal is hidden.
   changeBottomPanel(worktree, { view: "build" });

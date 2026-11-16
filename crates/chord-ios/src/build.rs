@@ -32,6 +32,7 @@ pub enum BuildPhase {
     /// A build Chord did not start holds the build database.
     Waiting,
     Building,
+    /// The build succeeded: the simulator boots, then the app installs.
     Installing,
     Launching,
     /// The app runs on the destination.
@@ -364,6 +365,9 @@ impl Build {
         device: &Simulator,
         boot: thread::JoinHandle<Result<Option<&'static str>, Error>>,
     ) -> BuildEvent {
+        self.say(BuildEvent::Phase {
+            phase: BuildPhase::Installing,
+        });
         while !boot.is_finished() {
             if self.stopped() {
                 return BuildEvent::Stopped;
@@ -383,9 +387,6 @@ impl Build {
                 return Ok(None);
             }
             simulator::open_app();
-            self.say(BuildEvent::Phase {
-                phase: BuildPhase::Installing,
-            });
             let app = self.step(|register| {
                 xcode::built_app(&self.project, scheme, Some(udid), &self.worktree, register)
             })?;

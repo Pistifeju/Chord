@@ -160,7 +160,9 @@ export type BuildPhase =
 /**  Before xcodebuild: the project's scheme is looked up. */
 "preparing" | 
 /**  A build Chord did not start holds the build database. */
-"waiting" | "building" | "installing" | "launching" | 
+"waiting" | "building" | 
+/**  The build succeeded: the simulator boots, then the app installs. */
+"installing" | "launching" | 
 /**  The app runs on the destination. */
 "running";
 
