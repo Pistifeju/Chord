@@ -189,7 +189,7 @@ Edge cases:
 - [x] I1 **hard** Simulator view in the side panel (⌘⇧S), with its tab bar button: live frames from the IOSurface, touch, pinch and rotate, Home, Lock, Shake, keyboard.
 - [x] I2 Fallback message and "Open in Simulator / DeviceHub" when the private API fails to load.
 - [x] I3 Screenshot: thumbnail at the bottom left of the simulator; drag it into Finder or any app. With harness(attachments): drag it into a pane, or click to paste it into the focused agent. Settings row, off by default: a folder to save screenshots in.
-- [ ] I4 No frame callbacks while the window is hidden.
+- [x] I4 No frame callbacks while the window is hidden.
 
 Edge cases:
 - Input goes over DTUHID, one XPC connection to the guest's digitizer service, from CoreSimulator 1155.4 (Xcode 27) on, and over Indigo before; Home there relaunches SpringBoard. Shake posts `com.apple.UIKit.SimulatorShake` on both.

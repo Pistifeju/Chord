@@ -23,7 +23,8 @@ use crate::hid::{Blocking, Button, Hid, Input};
 use crate::screen_buttons::{self, Motion, ScreenButtons, srgb};
 use crate::simulator;
 use crate::simulator_kit::{
-    self, VoidBlock, call1, class, get, guarded, is_booted, msg, responds, text, udid_of,
+    self, ObjectBlock, VoidBlock, call1, class, get, guarded, is_booted, msg, responds, text,
+    udid_of,
 };
 
 /// How often an attached device without a screen yet gets its frame callbacks again: SimulatorKit creates the framebuffer descriptors lazily.
@@ -217,6 +218,52 @@ fn backing_scale(view: &NSView) -> f64 {
     }
 }
 
+/// NSWindowOcclusionStateVisible: clear while the window is minimized, on another Space, fully covered or its app hidden.
+const OCCLUSION_VISIBLE: usize = 2;
+
+/// Whether any of the window shows; a view with no window counts as visible.
+fn window_visible(view: &NSView) -> bool {
+    let window = get(view as *const NSView as *mut AnyObject, sel!(window));
+    if !responds(window, sel!(occlusionState)) {
+        return true;
+    }
+    // SAFETY: `occlusionState` returns an NSUInteger.
+    let state = unsafe {
+        msg::<unsafe extern "C" fn(*mut AnyObject, Sel) -> usize>()(window, sel!(occlusionState))
+    };
+    state & OCCLUSION_VISIBLE != 0
+}
+
+/// Calls `on_change` on the main thread whenever a window's occlusion changes. The center keeps the block for the app's life.
+fn watch_occlusion(on_change: impl Fn() + 'static) -> Option<()> {
+    let center = get(class(c"NSNotificationCenter")?, sel!(defaultCenter));
+    let main_queue = get(class(c"NSOperationQueue")?, sel!(mainQueue));
+    let block =
+        RcBlock::with_encoding::<_, _, _, ObjectBlock>(move |_: *mut AnyObject| on_change());
+    let name = objc2_foundation::NSString::from_str("NSWindowDidChangeOcclusionStateNotification");
+    // SAFETY: `addObserverForName:object:queue:usingBlock:` takes a name, nil, the main operation queue and a block; the center copies the block.
+    unsafe {
+        msg::<
+            unsafe extern "C" fn(
+                *mut AnyObject,
+                Sel,
+                *const objc2_foundation::NSString,
+                *mut AnyObject,
+                *mut AnyObject,
+                *const c_void,
+            ) -> *mut AnyObject,
+        >()(
+            center,
+            sel!(addObserverForName:object:queue:usingBlock:),
+            &*name,
+            std::ptr::null_mut(),
+            main_queue,
+            &*block as *const _ as *const c_void,
+        )
+    };
+    Some(())
+}
+
 /// The webview paints no background while the screen shows through it.
 fn set_draws_background(webview: &NSView, draws: bool) {
     let Some(number) = class(c"NSNumber") else {
@@ -281,6 +328,10 @@ struct Screen {
     motion: Motion,
     /// The device set's notification handler, for the app's life.
     _watch: RcBlock<dyn Fn(*mut AnyObject)>,
+    /// The window is hidden: no frame callbacks are registered.
+    window_hidden: bool,
+    /// A `check_screen` retry is queued: a show queues another only when none is.
+    checking: bool,
     shown: Option<Shown>,
     rect: ScreenRect,
     bezel: Bezel,
@@ -345,6 +396,7 @@ impl Screen {
         view.setHidden(true);
         parent.addSubview_positioned_relativeTo(&view, NSWindowOrderingMode::Below, Some(&webview));
         let watch = kit.watch(|| with(Screen::sync));
+        watch_occlusion(|| with(Screen::follow_window));
         Some(Screen {
             webview,
             view,
@@ -354,6 +406,8 @@ impl Screen {
             buttons: None,
             motion: Motion::default(),
             _watch: watch,
+            window_hidden: false,
+            checking: false,
             shown: None,
             rect: ScreenRect::default(),
             bezel: Bezel::default(),
@@ -525,17 +579,22 @@ impl Screen {
             lock_watch,
         });
         self.off(Some("Waiting for the simulator's screen"));
+        self.checking = true;
         self.wire();
         later(self.generation, Screen::check_screen);
     }
 
     fn wire(&mut self) {
         let generation = self.generation;
+        self.window_hidden = !window_visible(&self.webview);
         let Some(attached) = self.attached.as_mut() else {
             return;
         };
         unregister(&attached.descriptors, &attached.uuid);
         attached.descriptors = descriptors(Retained::as_ptr(&attached.device) as *mut AnyObject);
+        if self.window_hidden {
+            return;
+        }
         let on_frame = RcBlock::with_encoding::<_, _, _, VoidBlock>(move || {
             with(|screen| {
                 if screen.generation == generation {
@@ -550,6 +609,27 @@ impl Screen {
             &on_frame,
         );
         self.refresh();
+    }
+
+    /// Drops the frame callbacks while the window is hidden; registers them again and draws the current frame when it shows.
+    fn follow_window(&mut self) {
+        let hidden = !window_visible(&self.webview);
+        if hidden == self.window_hidden {
+            return;
+        }
+        self.window_hidden = hidden;
+        let Some(attached) = self.attached.as_ref() else {
+            return;
+        };
+        if hidden {
+            unregister(&attached.descriptors, &attached.uuid);
+        } else {
+            self.wire();
+            if !self.checking {
+                self.checking = true;
+                later(self.generation, Screen::check_screen);
+            }
+        }
     }
 
     fn detach(&mut self) {
@@ -570,7 +650,8 @@ impl Screen {
         let Some(attached) = self.attached.as_mut() else {
             return;
         };
-        if attached.shown.0 != 0 {
+        if attached.shown.0 != 0 || self.window_hidden {
+            self.checking = false;
             return;
         }
         attached.missing = if attached.descriptors.is_empty() {
