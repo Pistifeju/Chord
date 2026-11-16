@@ -130,6 +130,7 @@ function EntryRow({ worktree, row: { entry, depth, open }, selected }: { worktre
       // WebKit does not focus a clicked button, and ⌘⌫ acts on the focused row.
       onMouseDown={(event) => event.currentTarget.focus()}
       onClick={() => (entry.isDir ? toggleFolder(worktree, entry.path) : pathDrag.clicked() && showFile(worktree, entry.path))}
+      onDoubleClick={() => !entry.isDir && showFile(worktree, entry.path, false)}
       onContextMenu={(e) =>
         showMenu(e, [
           ["files.newFile", folder],

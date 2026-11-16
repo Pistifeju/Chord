@@ -128,6 +128,7 @@ Edge cases:
 - [x] F7 Open file by name (⌘⇧O).
 - [x] F8 Keyboard in the tree: ↑ ↓ move, → opens a folder, ← closes it or jumps to the parent, Return opens the file.
 - [x] F9 Drag a file from the tree into the composer to put its relative path in the draft.
+- [x] F10 Preview tab: a click in the tree, ⌘⇧O and a build error open the file in the focused group's preview tab (italic name), which the next file replaces; a double click on the row or the tab, or an edit, keeps it.
 
 Edge cases:
 - The tree refreshes on window focus and on Reload; open folders and the selection survive a refresh.

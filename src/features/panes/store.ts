@@ -7,7 +7,7 @@ import { anyRunning } from "../chat/transcript";
 import { allPaneIds, paneChanges, resumedPanes } from "./agents";
 import { isAtOrInside } from "../files/paths";
 import { filePanes, groupOf, withEvenSizes, withFilePanesMoved, withSizes, type FilePane } from "./layout";
-import { firstPanes, paneCount, withFileOpened, withFocus, withNewSession, withSplitFocused, withTabClosed, withTabMoved, type TabDrop } from "./sessions";
+import { firstPanes, paneCount, withFileKept, withFileOpened, withFocus, withNewSession, withSplitFocused, withTabClosed, withTabMoved, type TabDrop } from "./sessions";
 
 export const panes = externalStore<Record<string, WorktreePanes>>({});
 
@@ -84,12 +84,14 @@ export function confirmClose(sheet: CloseAgents) {
 
 export const moveTab = (worktree: string, tab: string, drop: TabDrop) => change(worktree, (p) => withTabMoved(p, tab, drop, newId()));
 
-// A file a tab already shows opens that tab, so a second editor never saves over it; any other opens in a new tab of the focused group.
-export function openFileTab(worktree: string, path: string) {
+// A file a tab already shows opens that tab, so a second editor never saves over it; any other opens in the focused group, as a preview when `preview`.
+export function openFileTab(worktree: string, path: string, preview: boolean) {
   const shown = filePaneOf(worktree, path);
-  const file: FilePane = { kind: "file", id: newId(), path };
-  change(worktree, (p) => (shown ? withFocus(p, shown.id) : withFileOpened(p, file)));
+  const file: FilePane = { kind: "file", id: newId(), path, preview };
+  change(worktree, (p) => (shown ? (preview ? withFocus(p, shown.id) : withFileKept(withFocus(p, shown.id), shown.id)) : withFileOpened(p, file)));
 }
+
+export const keepFilePane = (worktree: string, tab: string) => change(worktree, (p) => withFileKept(p, tab));
 
 export function moveFilePanes(worktree: string, from: string, to: string) {
   if (!panes.get()[worktree]) return;

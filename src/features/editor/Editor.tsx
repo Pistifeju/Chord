@@ -14,8 +14,8 @@ import { editorTheme } from "./theme";
 /** Milliseconds between two looks at the file's change time. */
 const CHANGE_CHECK_DELAY = 1000;
 
-// `onGone` closes whatever shows the file, a tab or a pane, once it cannot be read; `autoFocus` is off for a pane the focus is not on, so it does not take it from the agent.
-export function Editor({ worktree, path, autoFocus, onGone }: { worktree: string; path: string; autoFocus: boolean; onGone: () => void }) {
+// `onGone` closes whatever shows the file, a tab or a pane, once it cannot be read; `onEdit` keeps a preview tab once you type; `autoFocus` is off for a pane the focus is not on, so it does not take it from the agent.
+export function Editor({ worktree, path, autoFocus, onGone, onEdit }: { worktree: string; path: string; autoFocus: boolean; onGone: () => void; onEdit: () => void }) {
   const host = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView>(undefined);
   // The load finishes later than the render, so it reads the focus the pane has then.
@@ -43,7 +43,9 @@ export function Editor({ worktree, path, autoFocus, onGone }: { worktree: string
           language.of(support ?? []),
           editorTheme,
           EditorView.updateListener.of((update) => {
-            if (update.docChanged) scheduleSave(worktree, path, update.state.doc, update.state.lineBreak);
+            if (!update.docChanged) return;
+            scheduleSave(worktree, path, update.state.doc, update.state.lineBreak);
+            onEdit();
           }),
         ],
       });

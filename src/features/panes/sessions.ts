@@ -30,8 +30,21 @@ function withTabAdded(panes: WorktreePanes, group: string, tab: Tab): WorktreePa
 export const withNewSession = (panes: WorktreePanes, chat: string, group = focusedGroup(panes).id): WorktreePanes =>
   withTabAdded(panes, group, chatTab(chat, nextName(panes)));
 
-// A file opens in a tab of the focused group.
-export const withFileOpened = (panes: WorktreePanes, file: FilePane): WorktreePanes => withTabAdded(panes, focusedGroup(panes).id, file);
+// A file opens in a tab of the focused group; a preview takes the place of the group's preview tab, keeping its id.
+export function withFileOpened(panes: WorktreePanes, file: FilePane): WorktreePanes {
+  const group = focusedGroup(panes);
+  const preview = file.preview ? group.tabs.find((t) => t.kind === "file" && t.preview) : undefined;
+  if (!preview) return withTabAdded(panes, group.id, file);
+  const tabs = group.tabs.map((t) => (t.id === preview.id ? { ...file, id: preview.id } : t));
+  return { layout: withGroup(panes.layout, group.id, (g) => ({ ...g, tabs, active: preview.id })), focused: preview.id };
+}
+
+// A preview tab becomes a kept one.
+export function withFileKept(panes: WorktreePanes, tab: string): WorktreePanes {
+  const owner = groupOf(panes.layout, tab);
+  if (!owner?.tabs.some((t) => t.id === tab && t.kind === "file" && t.preview)) return panes;
+  return { ...panes, layout: withGroup(panes.layout, owner.id, (g) => ({ ...g, tabs: g.tabs.map((t) => (t.id === tab ? { ...t, preview: false } : t)) })) };
+}
 
 // Opens the tab in its group and gives it the focus.
 export function withFocus(panes: WorktreePanes, tab: string): WorktreePanes {

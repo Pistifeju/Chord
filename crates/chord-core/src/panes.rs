@@ -57,8 +57,13 @@ impl Layout {
 pub enum Tab {
     /// A chat with its agent; `name` shows until its first user message names it.
     Chat { id: String, name: String },
-    /// A file of the worktree, by its relative path.
-    File { id: String, path: String },
+    /// A file of the worktree, by its relative path; a `preview` tab gives its place to the next file opened in its group.
+    File {
+        id: String,
+        path: String,
+        #[serde(default)]
+        preview: bool,
+    },
 }
 
 impl Tab {
@@ -123,7 +128,11 @@ fn tabs_of(name: &str, layout: sessions::Layout) -> Vec<Tab> {
             id,
             name: name.to_string(),
         }],
-        sessions::Layout::File { id, path } => vec![Tab::File { id, path }],
+        sessions::Layout::File { id, path } => vec![Tab::File {
+            id,
+            path,
+            preview: false,
+        }],
         sessions::Layout::Split { children, .. } => children
             .into_iter()
             .flat_map(|child| tabs_of(name, child))
@@ -221,6 +230,7 @@ mod tests {
         let file = Tab::File {
             id: "f".into(),
             path: "x.ts".into(),
+            preview: false,
         };
         assert_eq!(
             panes,

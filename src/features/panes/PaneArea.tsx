@@ -20,7 +20,7 @@ import { CloseIcon, FileIcon, PiIcon, PlusIcon, SidePanelIcon } from "../../ui/i
 import { usePointerDrag } from "../../ui/pointerDrag";
 import { chatPaneIds, dropEdge, dropPreview, edgeDirection, fitsSplit, groupOf, minExtent, paneIds, resizedSizes, type Box, type Group } from "./layout";
 import { canClosePane, movesTab, tabName, type PaneNames, type TabDrop } from "./sessions";
-import { closeFilePane, closePane, endResize, ensurePanes, evenOutSplit, focusPane, moveTab, newSession, panes, resizeSplit } from "./store";
+import { closeFilePane, closePane, endResize, ensurePanes, evenOutSplit, focusPane, keepFilePane, moveTab, newSession, panes, resizeSplit } from "./store";
 import "./panes.css";
 
 type Drop = TabDrop & { box: Box };
@@ -109,8 +109,17 @@ function TabView({ tab, group, place, status, closable }: { tab: Tab; group: Gro
     if (tab.kind === "file") selectFile(worktree, tab.path);
   };
   return (
-    <div className="tab" data-selected={open} data-dragging={tab.id === drag.dragging} data-fresh={fresh || undefined}>
-      <button type="button" role="tab" className="tab-name" aria-selected={open} title={file ? tab.path : undefined} {...drag.handlers(tab.id)} onClick={show}>
+    <div className="tab" data-selected={open} data-dragging={tab.id === drag.dragging} data-fresh={fresh || undefined} data-preview={(file && tab.preview) || undefined}>
+      <button
+        type="button"
+        role="tab"
+        className="tab-name"
+        aria-selected={open}
+        title={file ? tab.path : undefined}
+        {...drag.handlers(tab.id)}
+        onClick={show}
+        onDoubleClick={() => keepFilePane(worktree, tab.id)}
+      >
         <span className="tab-status" data-status={status?.kind} title={status ? statusLabel(status) : undefined}>
           {status ? <StatusMark kind={status.kind} /> : file ? <FileIcon /> : <PiIcon />}
         </span>
@@ -218,11 +227,11 @@ function Divider({ worktree, path, index, direction, sizes, mins, container }: D
 }
 
 // An open file: the image view for an image, otherwise the editor.
-function FileView({ worktree, path, autoFocus, onGone }: { worktree: string; path: string; autoFocus: boolean; onGone: () => void }) {
+function FileView({ worktree, path, autoFocus, onGone, onEdit }: { worktree: string; path: string; autoFocus: boolean; onGone: () => void; onEdit: () => void }) {
   const mime = imageMime(path);
   const editor = editorView.use();
   if (mime) return <ImageView worktree={worktree} path={path} mime={mime} onGone={onGone} />;
-  return editor && <editor.Editor worktree={worktree} path={path} autoFocus={autoFocus} onGone={onGone} />;
+  return editor && <editor.Editor worktree={worktree} path={path} autoFocus={autoFocus} onGone={onGone} onEdit={onEdit} />;
 }
 
 function GroupView({ group, place, edges }: { group: Group; place: Place; edges: Edges }) {
@@ -235,7 +244,7 @@ function GroupView({ group, place, edges }: { group: Group; place: Place; edges:
       <GroupTabs group={group} place={place} edges={edges} />
       <div className="pane" data-pane={tab.id} data-split={place.split || undefined} data-focused={focused || undefined} onPointerDownCapture={focus} onFocusCapture={focus}>
         {tab.kind === "file" ? (
-          <FileView key={tab.id} worktree={worktree} path={tab.path} autoFocus={focused} onGone={() => closeFilePane(worktree, tab.id)} />
+          <FileView key={tab.id} worktree={worktree} path={tab.path} autoFocus={focused} onGone={() => closeFilePane(worktree, tab.id)} onEdit={() => keepFilePane(worktree, tab.id)} />
         ) : (
           <ChatPane key={tab.id} worktree={worktree} pane={tab.id} focused={focused} />
         )}

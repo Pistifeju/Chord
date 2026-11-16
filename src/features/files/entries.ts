@@ -36,7 +36,7 @@ export async function finishNameEdit(name: string) {
       const path = joinPath(edit.folder, name);
       await commands.createFile(worktree, path, edit.kind === "newFolder");
       // A pane can still show a file of this name deleted outside the app; a second editor would save over it.
-      if (edit.kind === "newFile") showFile(worktree, path);
+      if (edit.kind === "newFile") showFile(worktree, path, false);
     }
   } catch (error) {
     fail(error);

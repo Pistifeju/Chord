@@ -1,11 +1,11 @@
 // Tests for the tab and tab group rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { Layout, WorktreePanes } from "../../ipc/bindings.ts";
-import { firstPanes, paneNames, shownSession, tabName, withFileOpened, withFocus, withNewSession, withSplitFocused, withTabClosed, withTabMoved } from "./sessions.ts";
+import type { Layout, Tab, WorktreePanes } from "../../ipc/bindings.ts";
+import { firstPanes, paneNames, shownSession, tabName, withFileKept, withFileOpened, withFocus, withNewSession, withSplitFocused, withTabClosed, withTabMoved } from "./sessions.ts";
 
 const chat = (id: string, name: string) => ({ kind: "chat" as const, id, name });
-const group = (id: string, tabs: ReturnType<typeof chat>[], active: string): Layout => ({ kind: "group", id, tabs, active });
+const group = (id: string, tabs: Tab[], active: string): Layout => ({ kind: "group", id, tabs, active });
 
 // Two groups side by side: g1 holds p1 and p2, p2 open; g2 holds p3, which has the focus.
 const sideBySide: WorktreePanes = {
@@ -80,6 +80,17 @@ test("a file opens in a tab of the focused group", () => {
     id: "g2",
     tabs: [chat("p3", "Session 3"), { kind: "file", id: "f1", path: "src/a.ts" }],
     active: "f1",
+  });
+});
+
+test("a preview file takes the place of the focused group's preview tab until that tab is kept", () => {
+  const first = withFileOpened(firstPanes("g1", "p1"), { kind: "file", id: "f1", path: "a.ts", preview: true });
+  const second = withFileOpened(first, { kind: "file", id: "f2", path: "b.ts", preview: true });
+  assert.deepEqual(second, { layout: group("g1", [chat("p1", "Session 1"), { kind: "file", id: "f1", path: "b.ts", preview: true }], "f1"), focused: "f1" });
+  const third = withFileOpened(withFileKept(second, "f1"), { kind: "file", id: "f3", path: "c.ts", preview: true });
+  assert.deepEqual(third, {
+    layout: group("g1", [chat("p1", "Session 1"), { kind: "file", id: "f1", path: "b.ts", preview: false }, { kind: "file", id: "f3", path: "c.ts", preview: true }], "f3"),
+    focused: "f3",
   });
 });
 

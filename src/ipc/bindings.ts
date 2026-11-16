@@ -463,11 +463,19 @@ export type KeptBranch = {
 	reason: string,
 };
 
-export type Layout = 
+export type Layout = Layout_Serialize | Layout_Deserialize;
+
+export type Layout_Deserialize = 
 /**  Tabs that share one place, each with its own tab in the group's bar; `active` shows. */
-{ kind: "group"; id: string; tabs: Tab[]; active: string } | { kind: "split"; direction: Direction; 
+{ kind: "group"; id: string; tabs: Tab_Deserialize[]; active: string } | { kind: "split"; direction: Direction; 
 /**  Each child's share of the split; they add up to 1. */
-sizes: (number | null)[]; children: Layout[] };
+sizes: (number | null)[]; children: Layout_Deserialize[] };
+
+export type Layout_Serialize = 
+/**  Tabs that share one place, each with its own tab in the group's bar; `active` shows. */
+{ kind: "group"; id: string; tabs: Tab_Serialize[]; active: string } | { kind: "split"; direction: Direction; 
+/**  Each child's share of the split; they add up to 1. */
+sizes: (number | null)[]; children: Layout_Serialize[] };
 
 /**  The lines a call added to and removed from a file. */
 export type LineChanges = {
@@ -800,7 +808,7 @@ export type StateChange_Deserialize = ({ selectedWorktree?: string | null }) & {
 /**  `None` forgets the worktree's layouts. */
 ({ panes: {
 	worktree: string,
-	panes?: WorktreePanes | null,
+	panes?: WorktreePanes_Deserialize | null,
 } }) & { bottomPanel?: never; keptServices?: never; previewModel?: never; previewPick?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ sidePanel: {
 	worktree: string,
 	panel: SidePanel_Deserialize,
@@ -832,7 +840,7 @@ export type StateChange_Serialize = ({ selectedWorktree: string | null }) & { bo
 /**  `None` forgets the worktree's layouts. */
 ({ panes: {
 	worktree: string,
-	panes: WorktreePanes | null,
+	panes: WorktreePanes_Serialize | null,
 } }) & { bottomPanel?: never; keptServices?: never; previewModel?: never; previewPick?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ sidePanel: {
 	worktree: string,
 	panel: SidePanel_Serialize,
@@ -870,7 +878,7 @@ export type State_Deserialize = {
 	/**  The worktree open when the app last ran. */
 	selected?: string | null,
 	/**  Each worktree's session tabs and split layouts. */
-	panes?: { [key in string]: WorktreePanes },
+	panes?: { [key in string]: WorktreePanes_Deserialize },
 	/**  Each worktree's side panel: open or not, and its width. */
 	sidePanels?: { [key in string]: SidePanel_Deserialize },
 	/**  Each worktree's bottom panel: open or not, and its height. */
@@ -902,7 +910,7 @@ export type State_Serialize = {
 	/**  The worktree open when the app last ran. */
 	selected: string | null,
 	/**  Each worktree's session tabs and split layouts. */
-	panes: { [key in string]: WorktreePanes },
+	panes: { [key in string]: WorktreePanes_Serialize },
 	/**  Each worktree's side panel: open or not, and its width. */
 	sidePanels: { [key in string]: SidePanel_Serialize },
 	/**  Each worktree's bottom panel: open or not, and its height. */
@@ -976,11 +984,19 @@ export type SubgroupRow = {
 	kept: boolean,
 };
 
-export type Tab = 
+export type Tab = Tab_Serialize | Tab_Deserialize;
+
+export type Tab_Deserialize = 
 /**  A chat with its agent; `name` shows until its first user message names it. */
 { kind: "chat"; id: string; name: string } | 
-/**  A file of the worktree, by its relative path. */
-{ kind: "file"; id: string; path: string };
+/**  A file of the worktree, by its relative path; a `preview` tab gives its place to the next file opened in its group. */
+{ kind: "file"; id: string; path: string; preview?: boolean };
+
+export type Tab_Serialize = 
+/**  A chat with its agent; `name` shows until its first user message names it. */
+{ kind: "chat"; id: string; name: string } | 
+/**  A file of the worktree, by its relative path; a `preview` tab gives its place to the next file opened in its group. */
+{ kind: "file"; id: string; path: string; preview: boolean };
 
 export type TerminalEvent = { kind: "output"; text: string } | 
 /**  The shell ended, on its own or stopped; a shell a newer start replaced sends nothing. */
@@ -1009,8 +1025,16 @@ export type UsageWindow_Serialize = {
 
 export type Worktree = Worktree_Serialize | Worktree_Deserialize;
 
-export type WorktreePanes = {
-	layout: Layout,
+export type WorktreePanes = WorktreePanes_Serialize | WorktreePanes_Deserialize;
+
+export type WorktreePanes_Deserialize = {
+	layout: Layout_Deserialize,
+	/**  The id of the tab that has the focus: the open tab of one group. */
+	focused: string,
+};
+
+export type WorktreePanes_Serialize = {
+	layout: Layout_Serialize,
 	/**  The id of the tab that has the focus: the open tab of one group. */
 	focused: string,
 };

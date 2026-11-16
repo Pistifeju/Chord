@@ -136,6 +136,10 @@
   text-overflow: ellipsis;
 }
 
+.tab[data-preview] .tab-label {
+  font-style: italic;
+}
+
 .tab-close {
   display: grid;
   place-items: center;
