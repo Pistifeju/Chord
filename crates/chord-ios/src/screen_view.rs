@@ -1,4 +1,4 @@
-//! The Simulator view's native part: one NSView under the webview shows the shown worktree's simulator in its bezel (its framebuffer IOSurface as CALayer contents, no copies), follows it booting and shutting down, restarts a wedged boot once, and passes the view's input to the device.
+//! The Simulator and Preview views' native part: one NSView under the webview shows the shown worktree's run or preview simulator in its bezel (its framebuffer IOSurface as CALayer contents, no copies), follows it booting and shutting down, restarts a wedged boot once, and passes the view's input to the device.
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -21,7 +21,7 @@ use specta::Type;
 
 use crate::hid::{Blocking, Button, Hid, Input};
 use crate::screen_buttons::{self, Motion, ScreenButtons, srgb};
-use crate::simulator;
+use crate::simulator::{self, DeviceSet};
 use crate::simulator_kit::{
     self, ObjectBlock, VoidBlock, call1, class, get, guarded, is_booted, msg, responds, text,
     udid_of,
@@ -311,6 +311,7 @@ struct Shown {
     worktree: PathBuf,
     /// The worktree's simulator name.
     name: String,
+    set: DeviceSet,
     on_state: Box<dyn Fn(ScreenState)>,
 }
 
@@ -526,8 +527,9 @@ impl Screen {
         if self.restarting {
             return;
         }
+        let set = shown.set;
         let booted = kit
-            .device_named(&shown.name)
+            .device_named(set, &shown.name)
             .filter(|device| is_booted(Retained::as_ptr(device) as *mut AnyObject));
         let udid = booted
             .as_ref()
@@ -537,7 +539,7 @@ impl Screen {
             (Some(_), Some(udid)) if self.attached.as_ref().is_some_and(|a| a.udid == udid) => {}
             (Some(device), Some(udid)) => {
                 self.detach();
-                self.attach(kit, udid, device);
+                self.attach(kit, set, udid, device);
             }
             _ => {
                 self.wedged = None;
@@ -548,7 +550,13 @@ impl Screen {
         self.update_hidden();
     }
 
-    fn attach(&mut self, kit: &simulator_kit::Kit, udid: String, device: Retained<AnyObject>) {
+    fn attach(
+        &mut self,
+        kit: &simulator_kit::Kit,
+        set: DeviceSet,
+        udid: String,
+        device: Retained<AnyObject>,
+    ) {
         self.generation += 1;
         if !self.links.contains_key(&udid)
             && let Some(link) = Hid::new(&kit.version, udid.clone(), &device)
@@ -557,18 +565,23 @@ impl Screen {
         }
         let native = native_size(Retained::as_ptr(&device) as *mut AnyObject);
         let generation = self.generation;
-        let lock_watch = simulator::watch_lock(&udid, move |locked| {
-            DispatchQueue::main().exec_async(move || {
-                with(|screen| {
-                    if screen.generation == generation {
-                        if let Some(attached) = screen.attached.as_mut() {
-                            attached.lock_reports += 1;
-                        }
-                        screen.set_locked(locked);
-                    }
+        // The Preview view has no Lock button.
+        let lock_watch = (set == DeviceSet::Run)
+            .then(|| {
+                simulator::watch_lock(&udid, move |locked| {
+                    DispatchQueue::main().exec_async(move || {
+                        with(|screen| {
+                            if screen.generation == generation {
+                                if let Some(attached) = screen.attached.as_mut() {
+                                    attached.lock_reports += 1;
+                                }
+                                screen.set_locked(locked);
+                            }
+                        })
+                    });
                 })
-            });
-        });
+            })
+            .flatten();
         self.attached = Some(Attached {
             udid,
             device,
@@ -668,6 +681,10 @@ impl Screen {
             return later(self.generation, Screen::check_screen);
         }
         let udid = attached.udid.clone();
+        let set = self
+            .shown
+            .as_ref()
+            .map_or(DeviceSet::Run, |shown| shown.set);
         self.detach();
         if self.restarted.as_deref() == Some(&udid) {
             self.wedged = Some(udid);
@@ -677,8 +694,8 @@ impl Screen {
         self.restarting = true;
         self.off(Some("Restarting the simulator"));
         thread::spawn(move || {
-            simulator::shut_down(&udid);
-            let _ = simulator::boot(&udid);
+            simulator::shut_down(set, &udid);
+            let _ = simulator::boot(set, &udid);
             DispatchQueue::main().exec_async(|| {
                 with(|screen| {
                     screen.restarting = false;
@@ -822,13 +839,14 @@ pub fn prepare_screen() -> Option<ScreenState> {
     simulator_kit::load().err().map(unavailable)
 }
 
-/// Main thread. Shows the worktree's simulator under `webview` (a WKWebView) at `rect` in `bezel`; its state goes to `on_state`.
+/// Main thread. Shows the worktree's simulator, or with `preview` its preview simulator, under `webview` (a WKWebView) at `rect` in `bezel`; its state goes to `on_state`.
 ///
 /// # Safety
 /// `webview` must point to the window's live WKWebView.
 pub unsafe fn show_screen(
     webview: *mut c_void,
     worktree: &Path,
+    preview: bool,
     rect: ScreenRect,
     bezel: Bezel,
     on_state: impl Fn(ScreenState) + 'static,
@@ -857,13 +875,23 @@ pub unsafe fn show_screen(
         };
         guarded(|| {
             let name = simulator::name_of(worktree);
-            if screen.shown.as_ref().is_none_or(|shown| shown.name != name) {
+            let set = if preview {
+                DeviceSet::Preview
+            } else {
+                DeviceSet::Run
+            };
+            if screen
+                .shown
+                .as_ref()
+                .is_none_or(|shown| shown.name != name || shown.set != set)
+            {
                 screen.detach();
                 screen.wedged = None;
             }
             screen.shown = Some(Shown {
                 worktree: worktree.to_path_buf(),
                 name,
+                set,
                 on_state: Box::new(on_state),
             });
             screen.sent = None;

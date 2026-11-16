@@ -1,4 +1,4 @@
-//! Xcode's private CoreSimulator and SimulatorKit, loaded once from the selected Xcode: the default device set, a device by name, the set's change notifications, and the checks every private call goes through.
+//! Xcode's private CoreSimulator and SimulatorKit, loaded once from the selected Xcode: the default device set and Chord's preview device set, a device by name, the sets' change notifications, and the checks every private call goes through.
 
 use std::ffi::{CStr, CString, c_void};
 use std::sync::OnceLock;
@@ -10,7 +10,8 @@ use objc2::runtime::{AnyClass, AnyObject, Bool, Sel};
 use objc2::sel;
 use objc2_foundation::{NSArray, NSString};
 
-use crate::simulator;
+use crate::preview;
+use crate::simulator::{self, DeviceSet};
 
 /// `SimDevice.state` of a booted device.
 const BOOTED: u64 = 3;
@@ -18,6 +19,8 @@ const BOOTED: u64 = 3;
 pub(crate) struct Kit {
     /// The default `SimDeviceSet`, retained for the app's life. A pointer, so `Kit` can sit in a static.
     devices: usize,
+    /// The preview device set the same way; 0 when this Xcode cannot open a set by its path.
+    previews: usize,
     /// CoreSimulator's `CFBundleVersion`, such as `[1174, 9, 2]`.
     pub version: Vec<u32>,
 }
@@ -93,25 +96,60 @@ fn init() -> Result<Kit, String> {
     }
     Ok(Kit {
         devices: Retained::into_raw(set) as usize,
+        previews: preview_set(context),
         version,
     })
 }
 
+/// Chord's preview device set from the service context, retained for the app's life; 0 when it does not open.
+fn preview_set(context: *mut AnyObject) -> usize {
+    let with_path = sel!(deviceSetWithPath:error:);
+    let Some(folder) = preview::devices_folder().filter(|_| responds(context, with_path)) else {
+        return 0;
+    };
+    let folder = NSString::from_str(&folder.to_string_lossy());
+    // SAFETY: the selector exists; it takes an NSString and an optional error out-pointer.
+    let set = unsafe {
+        msg::<
+            unsafe extern "C" fn(
+                *mut AnyObject,
+                Sel,
+                *const NSString,
+                *mut c_void,
+            ) -> *mut AnyObject,
+        >()(context, with_path, &*folder, std::ptr::null_mut())
+    };
+    // SAFETY: an object pointer or null.
+    unsafe { Retained::retain(set) }
+        .filter(|set| {
+            let set = Retained::as_ptr(set) as *mut AnyObject;
+            responds(set, sel!(devices))
+                && responds(set, sel!(registerNotificationHandlerOnQueue:handler:))
+        })
+        .map_or(0, |set| Retained::into_raw(set) as usize)
+}
+
 impl Kit {
-    fn set(&self) -> *mut AnyObject {
-        self.devices as *mut AnyObject
+    fn set(&self, set: DeviceSet) -> *mut AnyObject {
+        match set {
+            DeviceSet::Run => self.devices as *mut AnyObject,
+            DeviceSet::Preview => self.previews as *mut AnyObject,
+        }
     }
 
     /// The device of the set named `name`, read from CoreSimulator's live list (no simctl call).
-    pub fn device_named(&self, name: &str) -> Option<Retained<AnyObject>> {
-        self.device_where(|device| text(get(device, sel!(name))).as_deref() == Some(name))
+    pub fn device_named(&self, set: DeviceSet, name: &str) -> Option<Retained<AnyObject>> {
+        self.device_where(set, |device| {
+            text(get(device, sel!(name))).as_deref() == Some(name)
+        })
     }
 
     fn device_where(
         &self,
+        set: DeviceSet,
         matches: impl Fn(*mut AnyObject) -> bool,
     ) -> Option<Retained<AnyObject>> {
-        let list = get(self.set(), sel!(devices));
+        let list = get(self.set(set), sel!(devices));
         if list.is_null() {
             return None;
         }
@@ -121,30 +159,40 @@ impl Kit {
             .find(|device| matches(Retained::as_ptr(device) as *mut AnyObject))
     }
 
+    /// The device of either set with the UDID.
     pub fn device_with_udid(&self, udid: &str) -> Option<Retained<AnyObject>> {
-        self.device_where(|device| udid_of(device).as_deref() == Some(udid))
+        [DeviceSet::Run, DeviceSet::Preview]
+            .into_iter()
+            .find_map(|set| {
+                self.device_where(set, |device| udid_of(device).as_deref() == Some(udid))
+            })
     }
 
-    /// Calls `on_change` on the main queue for every notification of the set: a device added, removed, or changing state or boot status. Keep the returned block for as long as it should fire.
+    /// Calls `on_change` on the main queue for every notification of both sets: a device added, removed, or changing state or boot status. Keep the returned block for as long as it should fire.
     pub fn watch(&self, on_change: impl Fn() + 'static) -> RcBlock<dyn Fn(*mut AnyObject)> {
         let block =
             RcBlock::with_encoding::<_, _, _, ObjectBlock>(move |_: *mut AnyObject| on_change());
-        // SAFETY: the selector exists (checked in `init`); it takes a queue and a `void (^)(NSDictionary *)`.
-        unsafe {
-            msg::<
-                unsafe extern "C" fn(
-                    *mut AnyObject,
-                    Sel,
-                    *const DispatchQueue,
-                    *const c_void,
-                ) -> u64,
-            >()(
-                self.set(),
-                sel!(registerNotificationHandlerOnQueue:handler:),
-                DispatchQueue::main(),
-                &*block as *const _ as *const c_void,
-            )
-        };
+        for set in [DeviceSet::Run, DeviceSet::Preview] {
+            if self.set(set).is_null() {
+                continue;
+            }
+            // SAFETY: the selector exists (checked in `init`); it takes a queue and a `void (^)(NSDictionary *)`.
+            unsafe {
+                msg::<
+                    unsafe extern "C" fn(
+                        *mut AnyObject,
+                        Sel,
+                        *const DispatchQueue,
+                        *const c_void,
+                    ) -> u64,
+                >()(
+                    self.set(set),
+                    sel!(registerNotificationHandlerOnQueue:handler:),
+                    DispatchQueue::main(),
+                    &*block as *const _ as *const c_void,
+                )
+            };
+        }
         block
     }
 }

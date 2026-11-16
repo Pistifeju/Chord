@@ -113,12 +113,13 @@ fn set_screen_place(rect: ScreenRect, bezel: Bezel) {
     *SCREEN_PLACE.lock().unwrap_or_else(PoisonError::into_inner) = (rect, bezel);
 }
 
-/// Shows the worktree's simulator under the webview at `rect`, the screen's CSS pixels in the window, in `bezel`; the channel carries its state.
+/// Shows the worktree's simulator, or with `preview` its preview simulator, under the webview at `rect`, the screen's CSS pixels in the window, in `bezel`; the channel carries its state.
 #[tauri::command]
 #[specta::specta]
 pub async fn show_simulator_screen(
     window: WebviewWindow,
     worktree: PathBuf,
+    preview: bool,
     rect: ScreenRect,
     bezel: Bezel,
     on_state: Channel<ScreenState>,
@@ -141,7 +142,9 @@ pub async fn show_simulator_screen(
                 let _ = on_state.send(state);
             };
             // SAFETY: Tauri hands over the window's live WKWebView on the main thread.
-            unsafe { chord_ios::show_screen(webview.inner(), &worktree, rect, bezel, send) };
+            unsafe {
+                chord_ios::show_screen(webview.inner(), &worktree, preview, rect, bezel, send)
+            };
         })
         .map_err(|error| error.to_string())
 }

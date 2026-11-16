@@ -17,14 +17,15 @@ let turn = 0;
 /** Grows with every touch; Rust drops a move older than the newest touch. */
 let touchSeq = 0;
 
-export function showScreen(worktree: string, rect: ScreenRect, bezel: Bezel) {
+/** `preview`: the worktree's preview simulator. */
+export function showScreen(worktree: string, preview: boolean, rect: ScreenRect, bezel: Bezel) {
   const mine = ++turn;
   screen.set(null);
   const channel = new Channel<ScreenState_Deserialize>();
   channel.onmessage = (state) => {
     if (turn === mine) screen.set({ worktree, state });
   };
-  commands.showSimulatorScreen(worktree, rect, bezel, channel).catch(fail);
+  commands.showSimulatorScreen(worktree, preview, rect, bezel, channel).catch(fail);
 }
 
 export const moveScreen = (rect: ScreenRect, bezel: Bezel) => void commands.moveSimulatorScreen(rect, bezel).catch(console.error);

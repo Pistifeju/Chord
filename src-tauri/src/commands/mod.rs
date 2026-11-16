@@ -4,6 +4,7 @@ pub mod app;
 pub mod build;
 pub mod chat;
 pub mod files;
+pub mod preview;
 pub mod projects;
 pub mod simulator;
 pub mod state;

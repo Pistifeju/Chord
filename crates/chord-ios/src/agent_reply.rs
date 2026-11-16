@@ -69,7 +69,7 @@ pub(crate) fn agent_reply(events: impl IntoIterator<Item = BuildEvent>, run: boo
     AgentReply::ok("Stopped")
 }
 
-fn issue_line(issue: &BuildIssue) -> String {
+pub(crate) fn issue_line(issue: &BuildIssue) -> String {
     match (&issue.file, issue.line) {
         (Some(file), Some(line)) => format!("{file}:{line}: {}", issue.message),
         _ => issue.message.clone(),

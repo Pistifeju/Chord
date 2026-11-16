@@ -1,4 +1,4 @@
-//! Chord's iOS support: building a worktree's Xcode project and running it on the worktree's simulator or a connected device. Depends on `chord-core`, never on Tauri.
+//! Chord's iOS support: building a worktree's Xcode project, running it on the worktree's simulator or a connected device, and showing its SwiftUI preview on the worktree's preview simulator. Depends on `chord-core`, never on Tauri.
 
 mod agent_reply;
 mod agent_tools;
@@ -11,6 +11,7 @@ mod destinations;
 mod device;
 mod hid;
 mod issues;
+mod preview;
 mod process;
 mod screen_buttons;
 mod screen_view;
@@ -32,6 +33,7 @@ pub use console::ConsoleTone;
 pub use destinations::{Destinations, SimulatorModels, list as list_destinations};
 pub use hid::{Blocking, Button, Input, Point, TouchPhase};
 pub use issues::BuildIssue;
+pub use preview::{PreviewState, set_cache_folder};
 pub use screen_buttons::{ButtonColors, ButtonFace, FaceIcon, FaceLook, Outline, ScreenButtons};
 pub use screen_view::{
     Bezel, ScreenRect, ScreenState, hide_screen, move_screen, prepare_screen, send_input,

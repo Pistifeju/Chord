@@ -3,7 +3,7 @@ import type { RunningSimulator, ServiceRow } from "../../../ipc/bindings";
 
 export const simulatorsTitle = (count: number): string => `${count} ${count === 1 ? "Simulator" : "Simulators"} Running`;
 
-export const simulatorLine = (simulator: RunningSimulator): string => `${simulator.worktree} · ${simulator.model}`;
+export const simulatorLine = (simulator: RunningSimulator): string => [simulator.worktree, ...(simulator.preview ? ["Preview"] : []), simulator.model].join(" · ");
 
 export const hasOtherSimulators = (running: RunningSimulator[]): boolean => running.some((simulator) => !simulator.open);
 

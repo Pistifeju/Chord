@@ -218,6 +218,13 @@ export const PhoneIcon = () => (
   </Icon>
 );
 
+export const EyeIcon = () => (
+  <Icon>
+    <path d="M1.75 8s2.25-4.25 6.25-4.25S14.25 8 14.25 8 12 12.25 8 12.25 1.75 8 1.75 8z" />
+    <circle cx="8" cy="8" r="2" />
+  </Icon>
+);
+
 export const StopIcon = () => (
   <Icon>
     <rect x="4" y="4" width="8" height="8" rx="1.5" fill="currentColor" />

@@ -76,7 +76,7 @@ Chord finds the folder with the path hash, a pure function. Its test hardcodes t
 
 ### 3.3 One build per worktree
 
-- Chord's own builds go through a slot per worktree: ⌘R and ⌘B replace the worktree's running build (kill its process group, wait for it to exit, then start). The rules are a pure module. The half where a preview build waits for ⌘R arrives with J1.
+- Chord's own builds go through a slot per worktree: ⌘R and ⌘B replace the worktree's running build (kill its process group, wait for it to exit, then start). The rules are a pure module. A preview build (J1) has a slot of its own: it waits while a ⌘R or ⌘B build holds the worktree and starts once that build ends or its app runs; a ⌘R or ⌘B takes over a running preview build, which then follows it. A ⌘R or ⌘B that succeeds in a worktree whose Preview view opened is followed by a preview build too.
 - A build Chord did not start (an agent's `xcodebuild`, Xcode) may hold `build.db`. Chord's build then waits, the log says "Waiting for another build in this worktree", and it starts when the database is free. It never kills a build it did not start.
 - Builds in different worktrees start at once. Two at once took 87.5 s each against 48.3 s alone, so parallel builds add no throughput. A machine-wide queue waits until three or more agents building at once show what hurts.
 
@@ -157,6 +157,8 @@ crates/chord-ios/src/
   build.rs          one xcodebuild: arguments, process group, log batches, the lock wait        step 1
   issues.rs         the error lines of a build log (pure)                                       step 1
   simulator.rs      the worktree's simulator: find, create, boot, shut down, delete, the cap    step 2
+  preview.rs        the preview simulator in Chord's own device set, the two-booted limit,
+                    the app launched with the preview helper (ChordPreview.swift)          step 8
   run.rs            install, launch, console                                                    step 2
   caches.rs         the running simulators, forget, prune, the size of the build data           step 4
   destinations.rs   run destinations from simctl and devicectl                                  step 3

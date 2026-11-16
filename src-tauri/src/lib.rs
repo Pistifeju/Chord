@@ -54,6 +54,7 @@ pub fn ipc() -> tauri_specta::Builder<tauri::Wry> {
             commands::build::stop_build,
             commands::build::worktree_opened,
             commands::build::list_destinations,
+            commands::preview::open_preview,
             commands::simulator::running_simulators,
             commands::simulator::watch_simulators,
             commands::simulator::shut_down_other_simulators,
@@ -89,6 +90,7 @@ pub fn run() {
         .invoke_handler(ipc.invoke_handler())
         .setup(move |app| {
             ipc.mount_events(app);
+            chord_ios::set_cache_folder(&app.path().app_cache_dir()?);
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;
             let store = Arc::new(Store::open(dir.join("state.json"))?);

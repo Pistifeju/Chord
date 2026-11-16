@@ -45,6 +45,8 @@ export const commands = {
 	worktreeOpened: (worktree: string) => __TAURI_INVOKE<null>("worktree_opened", { worktree }),
 	/**  The connected devices and the simulator models to run on. */
 	listDestinations: () => __TAURI_INVOKE<Destinations>("list_destinations"),
+	/**  Boots the worktree's preview simulator of the destination's model and shows the preview there, building it unless it runs already. The channel carries the preview's states until the view opens again. */
+	openPreview: (worktree: string, destination: RunDestination | null, onState: Channel<PreviewState>) => __TAURI_INVOKE<null>("open_preview", { worktree, destination, onState }),
 	/**  The booted simulators Chord created; `open` marks the open worktree's. */
 	runningSimulators: (open: string | null) => __TAURI_INVOKE<RunningSimulator[]>("running_simulators", { open }),
 	/**  Sends `SimulatorsChanged` from now on. False when the simulator frameworks did not load, so the window asks on a timer instead. */
@@ -57,8 +59,8 @@ export const commands = {
 	pruneBuildData: () => __TAURI_INVOKE<null>("prune_build_data"),
 	/**  The service groups Settings lists, each with whether it stays on. */
 	simulatorServiceGroups: () => __TAURI_INVOKE<ServiceRow_Serialize[]>("simulator_service_groups"),
-	/**  Shows the worktree's simulator under the webview at `rect`, the screen's CSS pixels in the window, in `bezel`; the channel carries its state. */
-	showSimulatorScreen: (worktree: string, rect: ScreenRect, bezel: Bezel, onState: Channel<ScreenState_Deserialize>) => __TAURI_INVOKE<null>("show_simulator_screen", { worktree, rect, bezel, onState }),
+	/**  Shows the worktree's simulator, or with `preview` its preview simulator, under the webview at `rect`, the screen's CSS pixels in the window, in `bezel`; the channel carries its state. */
+	showSimulatorScreen: (worktree: string, preview: boolean, rect: ScreenRect, bezel: Bezel, onState: Channel<ScreenState_Deserialize>) => __TAURI_INVOKE<null>("show_simulator_screen", { worktree, preview, rect, bezel, onState }),
 	moveSimulatorScreen: (rect: ScreenRect, bezel: Bezel) => __TAURI_INVOKE<null>("move_simulator_screen", { rect, bezel }),
 	/**  Draws Home, Lock and Shake natively under the screen, as the view laid them out. */
 	setSimulatorButtons: (buttons: ScreenButtons) => __TAURI_INVOKE<null>("set_simulator_buttons", { buttons }),
@@ -481,6 +483,16 @@ export type Point = {
 	y: number | null,
 };
 
+export type PreviewState = 
+/**  The preview simulator boots. */
+{ state: "starting" } | 
+/**  A ⌘R or ⌘B build of the worktree holds its build; the preview build follows it. */
+{ state: "waiting" } | { state: "building" } | 
+/**  The preview app runs on the preview simulator. */
+{ state: "live" } | 
+/**  Two other worktrees' preview simulators run; their folder names. */
+{ state: "full"; worktrees: string[] } | { state: "failed"; message: string };
+
 export type Project = {
 	path: string,
 	name: string,
@@ -526,6 +538,8 @@ export type RunningSimulator = {
 	model: string,
 	/**  It is the open worktree's. */
 	open: boolean,
+	/**  It shows the worktree's preview. */
+	preview: boolean,
 };
 
 /**  The button row under the screen, measured by the web: CSS pixels, from the row's top left. */
@@ -639,7 +653,7 @@ export type SidePanel_Serialize = {
 };
 
 /**  The view the side panel shows. */
-export type SideView = "files" | "simulator";
+export type SideView = "files" | "simulator" | "preview";
 
 export type Sidebar = Sidebar_Serialize | Sidebar_Deserialize;
 

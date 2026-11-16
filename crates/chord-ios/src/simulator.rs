@@ -1,4 +1,4 @@
-//! The worktree's simulator: found or created by name, booted, the app installed and launched on it with its output and OSLog read, and the Simulator app opened.
+//! The worktree's simulators, its run simulator in the default device set and its preview simulator in Chord's own: found or created by name, booted, the app installed and launched on it with its output and OSLog read, and the Simulator app opened.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -12,6 +12,7 @@ use chord_core::{Error, login_shell};
 
 use crate::console::{self, ConsoleTone};
 use crate::derived_data;
+use crate::preview;
 use crate::process::{self, end_group, xcrun};
 use crate::slim;
 use crate::xcode;
@@ -20,6 +21,30 @@ pub(crate) const PLUTIL: &str = "/usr/bin/plutil";
 pub(crate) const OPEN: &str = "/usr/bin/open";
 /// How long the launch waits for the log stream to start; it takes about a second.
 const STREAM_START: Duration = Duration::from_secs(3);
+
+/// Where a simulator lives: the default device set, which `xcodebuild`, Simulator and DeviceHub see, or Chord's own set of preview simulators, which they do not.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum DeviceSet {
+    Run,
+    Preview,
+}
+
+/// `simctl` with `args` in the set, through `xcrun`.
+pub(crate) fn simctl(
+    set: DeviceSet,
+    args: &[&str],
+    register: &dyn Fn(u32),
+) -> Result<String, Error> {
+    match set {
+        DeviceSet::Run => xcrun(&[&["simctl"], args].concat(), register),
+        DeviceSet::Preview => {
+            let folder = preview::devices_folder()
+                .ok_or_else(|| Error::Message("Chord has no preview device folder.".into()))?;
+            let folder = folder.to_string_lossy();
+            xcrun(&[&["simctl", "--set", &folder], args].concat(), register)
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Simulator {
@@ -75,9 +100,9 @@ fn device_where(listed: &Value, matches: impl Fn(&Value) -> bool) -> Option<Simu
     devices_where(listed, matches).next()
 }
 
-/// The simulators Chord created, by their name's shape: `Chord <folder> <6 letters>`.
-pub(crate) fn owned() -> Result<Vec<Simulator>, Error> {
-    Ok(devices_where(&list_devices()?, |device| {
+/// The simulators Chord created in the set, by their name's shape: `Chord <folder> <6 letters>`.
+pub(crate) fn owned(set: DeviceSet) -> Result<Vec<Simulator>, Error> {
+    Ok(devices_where(&list_devices(set)?, |device| {
         device["name"].as_str().and_then(worktree_folder).is_some()
     })
     .collect())
@@ -91,15 +116,15 @@ pub(crate) fn worktree_folder(name: &str) -> Option<&str> {
 }
 
 /// Shuts the simulator down and waits for it. No error when it is not booted.
-pub(crate) fn shut_down(udid: &str) {
-    let _ = xcrun(&["simctl", "shutdown", udid], &|_| {});
+pub(crate) fn shut_down(set: DeviceSet, udid: &str) {
+    let _ = simctl(set, &["shutdown", udid], &|_| {});
 }
 
 /// Shuts the simulators down, all at once, and waits for every one.
-pub(crate) fn shut_down_all(udids: Vec<String>) {
+pub(crate) fn shut_down_all(set: DeviceSet, udids: Vec<String>) {
     let ending: Vec<_> = udids
         .into_iter()
-        .map(|udid| thread::spawn(move || shut_down(&udid)))
+        .map(|udid| thread::spawn(move || shut_down(set, &udid)))
         .collect();
     for handle in ending {
         let _ = handle.join();
@@ -107,38 +132,47 @@ pub(crate) fn shut_down_all(udids: Vec<String>) {
 }
 
 /// Shuts the simulator down and deletes it with its data.
-pub(crate) fn delete(udid: &str) -> Result<(), Error> {
-    shut_down(udid);
-    xcrun(&["simctl", "delete", udid], &|_| {}).map(drop)
+pub(crate) fn delete(set: DeviceSet, udid: &str) -> Result<(), Error> {
+    shut_down(set, udid);
+    simctl(set, &["delete", udid], &|_| {}).map(drop)
 }
 
 fn device_named(listed: &Value, name: &str) -> Option<Simulator> {
     device_where(listed, |device| device["name"] == name)
 }
 
-fn list_devices() -> Result<Value, Error> {
-    let listed = xcrun(&["simctl", "list", "devices", "--json"], &|_| {})?;
+fn list_devices(set: DeviceSet) -> Result<Value, Error> {
+    let listed = simctl(set, &["list", "devices", "--json"], &|_| {})?;
     Ok(serde_json::from_str(&listed)?)
 }
 
-/// The worktree's simulator, if it exists.
-pub(crate) fn find(worktree: &Path) -> Result<Option<Simulator>, Error> {
-    Ok(device_named(&list_devices()?, &name_of(worktree)))
+/// The worktree's simulator in the set, if it exists.
+pub(crate) fn find(set: DeviceSet, worktree: &Path) -> Result<Option<Simulator>, Error> {
+    Ok(device_named(&list_devices(set)?, &name_of(worktree)))
 }
 
-/// The worktree's simulator, created on the first run: `wanted` (model and runtime identifiers), else the newest iOS runtime and the model it lists that reads best. A simulator of another model or runtime is deleted and created again; it is Chord's own.
+/// Whether the device of the set reports Booted.
+pub(crate) fn is_booted(set: DeviceSet, udid: &str) -> bool {
+    list_devices(set)
+        .ok()
+        .and_then(|listed| device_where(&listed, |device| device["udid"] == udid))
+        .is_some_and(|device| device.booted)
+}
+
+/// The worktree's simulator in the set, created on first use: `wanted` (model and runtime identifiers), else the newest iOS runtime and the model it lists that reads best. A simulator of another model or runtime is deleted and created again; it is Chord's own.
 pub(crate) fn find_or_create(
+    set: DeviceSet,
     worktree: &Path,
     wanted: Option<(&str, &str)>,
     register: &dyn Fn(u32),
 ) -> Result<Simulator, Error> {
-    if let Some(device) = find(worktree)? {
+    if let Some(device) = find(set, worktree)? {
         if wanted.is_none_or(|(model, runtime)| device.model == model && device.runtime == runtime)
         {
             return Ok(device);
         }
-        let _ = xcrun(&["simctl", "shutdown", &device.udid], register);
-        xcrun(&["simctl", "delete", &device.udid], register)?;
+        let _ = simctl(set, &["shutdown", &device.udid], register);
+        simctl(set, &["delete", &device.udid], register)?;
     }
     let (device_type, runtime) = match wanted {
         Some((model, runtime)) => (model.to_string(), runtime.to_string()),
@@ -152,14 +186,9 @@ pub(crate) fn find_or_create(
             })?
         }
     };
-    let udid = xcrun(
-        &[
-            "simctl",
-            "create",
-            &name_of(worktree),
-            &device_type,
-            &runtime,
-        ],
+    let udid = simctl(
+        set,
+        &["create", &name_of(worktree), &device_type, &runtime],
         register,
     )?;
     Ok(Simulator {
@@ -210,13 +239,14 @@ fn newest_ios_model(listed: &Value) -> Option<(String, String)> {
 }
 
 /// Boots the simulator and waits until it reports Booted. A device that does not fails with its state.
-pub(crate) fn boot(udid: &str) -> Result<(), Error> {
-    xcrun(&["simctl", "bootstatus", udid, "-b"], &|_| {})?;
-    match device_where(&list_devices()?, |device| device["udid"] == udid) {
-        Some(device) if device.booted => Ok(()),
-        _ => Err(Error::Message(
+pub(crate) fn boot(set: DeviceSet, udid: &str) -> Result<(), Error> {
+    simctl(set, &["bootstatus", udid, "-b"], &|_| {})?;
+    if is_booted(set, udid) {
+        Ok(())
+    } else {
+        Err(Error::Message(
             "The simulator does not report Booted after its boot.".into(),
-        )),
+        ))
     }
 }
 
@@ -229,7 +259,7 @@ pub(crate) fn boot_slim(
         && worktree_folder(&device.name).is_some()
         && slim::runtime_slims(&device.runtime);
     let written = slims.then(|| slim::write_overrides(&device.udid, kept_services));
-    boot(&device.udid)?;
+    boot(DeviceSet::Run, &device.udid)?;
     Ok(match written {
         Some(Err(_)) => Some("Chord could not slim the simulator; it runs with every service."),
         Some(Ok(off)) => (slim::holds(&device.udid, &off) == Some(false))
@@ -368,12 +398,13 @@ pub(crate) fn plist_value(file: &Path, key: &str, register: &dyn Fn(u32)) -> Res
     }
 }
 
-pub(crate) fn install(udid: &str, app: &Path, register: &dyn Fn(u32)) -> Result<(), Error> {
-    xcrun(
-        &["simctl", "install", udid, &app.to_string_lossy()],
-        register,
-    )
-    .map(drop)
+pub(crate) fn install(
+    set: DeviceSet,
+    udid: &str,
+    app: &Path,
+    register: &dyn Fn(u32),
+) -> Result<(), Error> {
+    simctl(set, &["install", udid, &app.to_string_lossy()], register).map(drop)
 }
 
 /// Ends the app; no error when it does not run.

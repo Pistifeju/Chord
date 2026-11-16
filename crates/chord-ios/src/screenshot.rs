@@ -10,7 +10,8 @@ use chord_core::Error;
 use specta::Type;
 
 use crate::process::xcrun;
-use crate::{simulator, xcode};
+use crate::simulator::{self, DeviceSet};
+use crate::xcode;
 
 const SIPS: &str = "/usr/bin/sips";
 /// The longest side of the preview, in pixels.
@@ -57,7 +58,7 @@ fn free_file(folder: &Path) -> PathBuf {
 /// Takes the screenshot of the worktree's booted simulator into `folder`, else the temporary folder.
 pub fn take_screenshot(worktree: &Path, folder: Option<&Path>) -> Result<Screenshot, Error> {
     xcode::require_tools()?;
-    let device = simulator::find(worktree)?
+    let device = simulator::find(DeviceSet::Run, worktree)?
         .filter(|device| device.booted)
         .ok_or_else(|| Error::Message("The simulator is off. Run boots it.".into()))?;
     let temporary = std::env::temp_dir().join("chord-screenshots");

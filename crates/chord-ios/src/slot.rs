@@ -1,4 +1,4 @@
-//! The build slots of each worktree: one build at a time, and a newer build takes over from the one that runs. A ⌘B while the app runs builds beside the run that holds the app and leaves it. Pure rules, no processes; build.rs keeps one `Slots` behind a mutex and does the signalling.
+//! The build slots of each worktree: one build at a time, and a newer build takes over from the one that runs. A ⌘B while the app runs builds beside the run that holds the app and leaves it. A preview build waits for the worktree's ⌘R or ⌘B build, then follows it, and either takes over from a preview build. Pure rules, no processes; build.rs keeps one `Slots` behind a mutex and does the signalling.
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -27,6 +27,9 @@ pub(crate) struct Slots {
     runs: HashMap<PathBuf, Run>,
     /// The build of a ⌘B that came while the worktree's run held the app.
     beside_app: HashMap<PathBuf, Run>,
+    previews: HashMap<PathBuf, Run>,
+    /// Worktrees whose preview build follows their ⌘R or ⌘B build.
+    waiting_previews: HashSet<PathBuf>,
     /// Runs a stop reached; kept after a takeover so the stopped run still knows it was stopped.
     stop_requests: HashSet<u64>,
     next_id: u64,
@@ -34,22 +37,22 @@ pub(crate) struct Slots {
 
 impl Slots {
     /// Takes a slot of the worktree for a new build. A build without `run` leaves a run that holds the app, and a newer one of its kind replaces it; any other build takes over every slot, so the app's console ends and a launch replaces the app.
+    /// A preview build it takes over follows it.
     pub fn ask(&mut self, worktree: &Path, run: bool) -> Start {
-        let id = self.next_id;
-        self.next_id += 1;
-        let fresh = Run {
-            id,
-            pid: None,
-            stopped: false,
-            app: false,
-        };
+        let fresh = self.fresh();
+        let id = fresh.id;
+        let preview = self.previews.remove(worktree);
+        if preview.is_some() {
+            self.waiting_previews.insert(worktree.to_path_buf());
+        }
+        let preview = preview.and_then(|run| run.pid);
         let holds_app = self.runs.get(worktree).is_some_and(|run| run.app);
         if !run && holds_app {
             let kill = self.beside_app.get(worktree).and_then(|run| run.pid);
             self.beside_app.insert(worktree.to_path_buf(), fresh);
             return Start {
                 id,
-                kill: kill.into_iter().collect(),
+                kill: kill.into_iter().chain(preview).collect(),
                 beside_app: true,
             };
         }
@@ -57,6 +60,7 @@ impl Slots {
             .into_iter()
             .flatten()
             .filter_map(|run| run.pid)
+            .chain(preview)
             .collect();
         self.runs.insert(worktree.to_path_buf(), fresh);
         Start {
@@ -66,12 +70,67 @@ impl Slots {
         }
     }
 
-    fn run_mut(&mut self, worktree: &Path, id: u64) -> Option<&mut Run> {
-        if self.runs.get(worktree).is_some_and(|run| run.id == id) {
-            self.runs.get_mut(worktree)
-        } else {
-            self.beside_app.get_mut(worktree).filter(|run| run.id == id)
+    fn fresh(&mut self) -> Run {
+        let id = self.next_id;
+        self.next_id += 1;
+        Run {
+            id,
+            pid: None,
+            stopped: false,
+            app: false,
         }
+    }
+
+    /// Takes the worktree's preview slot, unless a ⌘R or ⌘B build holds the worktree: then the preview build follows it and this returns None. A newer preview build takes over from the one that runs.
+    pub fn ask_preview(&mut self, worktree: &Path) -> Option<Start> {
+        if self.building(worktree) {
+            self.waiting_previews.insert(worktree.to_path_buf());
+            return None;
+        }
+        let fresh = self.fresh();
+        let id = fresh.id;
+        let kill = self.previews.insert(worktree.to_path_buf(), fresh);
+        Some(Start {
+            id,
+            kill: kill.and_then(|run| run.pid).into_iter().collect(),
+            beside_app: false,
+        })
+    }
+
+    /// A ⌘R or ⌘B build is on before its app runs.
+    fn building(&self, worktree: &Path) -> bool {
+        self.runs.get(worktree).is_some_and(|run| !run.app)
+            || self.beside_app.contains_key(worktree)
+    }
+
+    pub fn preview_runs(&self, worktree: &Path) -> bool {
+        self.previews.contains_key(worktree)
+    }
+
+    pub fn preview_waits(&self, worktree: &Path) -> bool {
+        self.waiting_previews.contains(worktree)
+    }
+
+    /// A preview build follows the worktree's ⌘R or ⌘B build.
+    pub fn follow_with_preview(&mut self, worktree: &Path) {
+        self.waiting_previews.insert(worktree.to_path_buf());
+    }
+
+    /// True once, when a preview build waits and no ⌘R or ⌘B build holds the worktree any longer.
+    pub fn take_waiting_preview(&mut self, worktree: &Path) -> bool {
+        !self.building(worktree) && self.waiting_previews.remove(worktree)
+    }
+
+    /// For a worktree that was deleted: stops its preview build, drops a waiting one, returns the process group to signal.
+    pub fn forget_preview(&mut self, worktree: &Path) -> Option<u32> {
+        self.waiting_previews.remove(worktree);
+        self.previews.remove(worktree).and_then(|run| run.pid)
+    }
+
+    fn run_mut(&mut self, worktree: &Path, id: u64) -> Option<&mut Run> {
+        [&mut self.runs, &mut self.beside_app, &mut self.previews]
+            .into_iter()
+            .find_map(|slots| slots.get_mut(worktree).filter(|run| run.id == id))
     }
 
     /// Records the process group run `id` started. True when the group must end at once: the run was stopped or replaced meanwhile.
@@ -145,11 +204,13 @@ impl Slots {
         let Self {
             runs,
             beside_app,
+            previews,
             stop_requests,
             ..
         } = self;
         runs.values_mut()
             .chain(beside_app.values_mut())
+            .chain(previews.values_mut())
             .filter_map(|run| {
                 run.stopped = true;
                 stop_requests.insert(run.id);
@@ -161,15 +222,10 @@ impl Slots {
     /// Run `id` ended: frees its slot and returns the run, unless a newer build holds the slot.
     pub fn finished(&mut self, worktree: &Path, id: u64) -> Option<Run> {
         self.stop_requests.remove(&id);
-        let slots = if self.runs.get(worktree).is_some_and(|run| run.id == id) {
-            &mut self.runs
-        } else {
-            &mut self.beside_app
-        };
-        if slots.get(worktree).is_some_and(|run| run.id == id) {
-            return slots.remove(worktree);
-        }
-        None
+        [&mut self.runs, &mut self.beside_app, &mut self.previews]
+            .into_iter()
+            .find(|slots| slots.get(worktree).is_some_and(|run| run.id == id))?
+            .remove(worktree)
     }
 }
 
@@ -271,6 +327,47 @@ mod tests {
         assert!(slots.take_stop_request(second));
         assert!(!slots.take_stop_request(second));
         assert!(!slots.take_stop_request(third));
+    }
+
+    #[test]
+    fn a_preview_build_waits_for_a_run_and_follows_once_its_app_runs() {
+        let mut slots = Slots::default();
+        let w = Path::new("/w");
+        let run = slots.ask(w, true).id;
+        assert_eq!(slots.ask_preview(w), None);
+        assert!(!slots.take_waiting_preview(w));
+        slots.app_launched(w, run);
+        assert!(slots.take_waiting_preview(w));
+        assert!(!slots.take_waiting_preview(w));
+        assert!(slots.ask_preview(w).is_some());
+        assert!(!slots.stopped(w, run));
+    }
+
+    #[test]
+    fn a_build_takes_over_a_preview_build_which_then_follows_it() {
+        let mut slots = Slots::default();
+        let w = Path::new("/w");
+        let preview = slots.ask_preview(w).unwrap().id;
+        slots.register(w, preview, 42);
+        let build = slots.ask(w, false);
+        assert_eq!(build.kill, vec![42]);
+        assert!(slots.stopped(w, preview));
+        assert!(!slots.take_waiting_preview(w));
+        assert!(slots.finished(w, build.id).is_some());
+        assert!(slots.take_waiting_preview(w));
+    }
+
+    #[test]
+    fn a_newer_preview_build_takes_over_and_a_stop_leaves_it() {
+        let mut slots = Slots::default();
+        let w = Path::new("/w");
+        let first = slots.ask_preview(w).unwrap().id;
+        slots.register(w, first, 42);
+        let second = slots.ask_preview(w).unwrap();
+        assert_eq!(second.kill, vec![42]);
+        assert!(slots.stopped(w, first));
+        assert_eq!(slots.stop(w), Vec::<u32>::new());
+        assert!(!slots.stopped(w, second.id));
     }
 
     #[test]

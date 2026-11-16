@@ -1,4 +1,4 @@
-// The Simulator view in the side panel: Home, Lock, Shake and Screenshot under the worktree's simulator screen, which the native view draws through the see-through hole; the screen takes clicks, drags, trackpad pinches and typing. Also its tab bar button.
+// The Simulator view in the side panel: Home, Lock, Shake and Screenshot under the worktree's simulator screen, which the native view draws through the see-through hole; the screen takes clicks, drags, trackpad pinches and typing. The Preview view shows its preview simulator here without the buttons. Also its tab bar button.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { shortcutLabel, tooltip } from "../../../app/commands";
 import type { Bezel, Button, ButtonFace, FaceIcon, ScreenButtons } from "../../../ipc/bindings";
@@ -49,7 +49,7 @@ type Touch = { fingers: Fingers; fromBottom: boolean };
 
 /** The native bezel's 8px frame and 1px edge (screen_view.rs), the 16px gap and the 28px button row under the screen. */
 const BEZEL = 9;
-const BELOW_SCREEN = BEZEL + 16 + 28;
+const BELOW_SCREEN_WITH_BUTTONS = BEZEL + 16 + 28;
 /** How far the hole reaches past the bezel, onto the native view's canvas margin (`CANVAS_MARGIN`, screen_view.rs): the native view can run this far ahead on a resize before the web's canvas covers its bezel. */
 const HOLE_MARGIN = 32;
 /** The area's margin in the view (simulator.css). */
@@ -105,16 +105,19 @@ function measureButtons(row: HTMLElement, screen: Rect, colors: ScreenButtons["c
   };
 }
 
-export function SimulatorView({ worktree }: { worktree: string }) {
+/** `preview`: the Preview view's line in place of the screen, null once the preview shows; the view then shows the preview simulator without the buttons. */
+export function SimulatorView({ worktree, preview }: { worktree: string; preview?: string | null }) {
   shortcutChanges.use();
+  const previewing = preview !== undefined;
+  const belowScreen = previewing ? BEZEL : BELOW_SCREEN_WITH_BUTTONS;
   const area = useRef<HTMLDivElement>(null);
   const surface = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState<Rect | null>(null);
   const current = screen.use();
   const state = current?.worktree === worktree ? current.state : null;
-  const live = state?.state === "live" ? state : null;
+  const live = state?.state === "live" && preview == null ? state : null;
   // The screen and its buttons fit together, centered as one group.
-  const rect = box && live ? fit({ ...box, height: box.height - BELOW_SCREEN }, live) : box;
+  const rect = box && live ? fit({ ...box, height: box.height - belowScreen }, live) : box;
   const touch = useRef<Touch | null>(null);
   const hover = useRef<Point | null>(null);
   const keysDown = useRef(new Set<string>());
@@ -156,12 +159,12 @@ export function SimulatorView({ worktree }: { worktree: string }) {
   useEffect(() => {
     if (!shown || !area.current) return;
     const start = boxOf(area.current);
-    showScreen(worktree, start, bezelOf(start));
+    showScreen(worktree, previewing, start, bezelOf(start));
     return () => {
       releaseKeys();
       hideScreen();
     };
-  }, [worktree, shown]);
+  }, [worktree, previewing, shown]);
 
   const rectKey = rect && JSON.stringify(rect);
   // Layout effects: the hole and the native screen move in the frame React paints them, not one paint later.
@@ -171,7 +174,7 @@ export function SimulatorView({ worktree }: { worktree: string }) {
 
   // Every render: the lock, hover and press all change the buttons' look. Sent only when it changed.
   useLayoutEffect(() => {
-    if (!live || !rect || !row.current) return;
+    if (!live || !rect || !row.current || previewing) return;
     const keys: { key: Key; face: FaceIcon }[] = [...buttons(live.locked).map(({ button, face }) => ({ key: button, face })), { key: "screenshot", face: "camera" }];
     const faces = keys.map(({ key, face }) => ({ face, look: pressed === key ? ("pressed" as const) : hovered === key ? ("hover" as const) : ("rest" as const) }));
     const next = measureButtons(row.current, rect, colors.buttons, faces);
@@ -206,7 +209,7 @@ export function SimulatorView({ worktree }: { worktree: string }) {
   useLayoutEffect(() => {
     if (!live || !rect || rect.width === 0) return;
     const outset = BEZEL + HOLE_MARGIN;
-    seeThrough.set({ x: rect.x - outset, y: rect.y - outset, width: rect.width + 2 * outset, height: rect.height + outset + BELOW_SCREEN + HOLE_MARGIN, radius: cornerRadius(rect) + outset });
+    seeThrough.set({ x: rect.x - outset, y: rect.y - outset, width: rect.width + 2 * outset, height: rect.height + outset + belowScreen + HOLE_MARGIN, radius: cornerRadius(rect) + outset });
     return () => seeThrough.set(null);
   }, [live !== null, rectKey]);
 
@@ -312,8 +315,8 @@ export function SimulatorView({ worktree }: { worktree: string }) {
   return (
     <div className="simulator">
       <div className="simulator-area" ref={area}>
-        {live && rect && rect.width > 0 && (
-          <div ref={row} className="simulator-buttons" role="group" aria-label="Simulator Buttons" style={{ left: rect.x + rect.width / 2, top: rect.y + rect.height + BELOW_SCREEN - 28 }}>
+        {live && rect && rect.width > 0 && !previewing && (
+          <div ref={row} className="simulator-buttons" role="group" aria-label="Simulator Buttons" style={{ left: rect.x + rect.width / 2, top: rect.y + rect.height + belowScreen - 28 }}>
             <div className="simulator-capsule">{buttons(live.locked).map(({ button, label, icon }) => faceButton(button, label, icon, () => pressButton(worktree, button)))}</div>
             <div className="simulator-capsule simulator-capsule-round">{faceButton("screenshot", "Take Screenshot", <CameraIcon />, () => takeScreenshot(worktree))}</div>
           </div>
@@ -342,13 +345,15 @@ export function SimulatorView({ worktree }: { worktree: string }) {
         ) : (
           <div className="simulator-empty">
             <p>
-              {state?.state === "unavailable"
-                ? `${state.message} Run (${shortcutLabel("build.run") ?? "⌘R"}) opens ${state.app} instead.`
-                : state?.state === "off" && state.message
-                  ? state.message
-                  : `The simulator is off. Run (${shortcutLabel("build.run") ?? "⌘R"}) boots it.`}
+              {previewing
+                ? (preview ?? (state?.state === "unavailable" || state?.state === "off" ? state.message : null) ?? "The preview simulator is off.")
+                : state?.state === "unavailable"
+                  ? `${state.message} Run (${shortcutLabel("build.run") ?? "⌘R"}) opens ${state.app} instead.`
+                  : state?.state === "off" && state.message
+                    ? state.message
+                    : `The simulator is off. Run (${shortcutLabel("build.run") ?? "⌘R"}) boots it.`}
             </p>
-            {state?.state === "unavailable" && (
+            {state?.state === "unavailable" && !previewing && (
               <button type="button" className="button-secondary" onClick={openSimulatorApp}>
                 Open in {state.app}
               </button>
@@ -356,7 +361,7 @@ export function SimulatorView({ worktree }: { worktree: string }) {
           </div>
         )}
       </div>
-      {live && box && rect && <ScreenshotThumbnail worktree={worktree} bottom={box.y + box.height + AREA_MARGIN - (rect.y + rect.height + BELOW_SCREEN - 28) - 28} />}
+      {live && box && rect && !previewing && <ScreenshotThumbnail worktree={worktree} bottom={box.y + box.height + AREA_MARGIN - (rect.y + rect.height + belowScreen - 28) - 28} />}
     </div>
   );
 }

@@ -194,6 +194,7 @@ pub enum SideView {
     #[default]
     Files,
     Simulator,
+    Preview,
 }
 
 #[derive(Serialize, Deserialize, Type, Clone, Debug, PartialEq)]

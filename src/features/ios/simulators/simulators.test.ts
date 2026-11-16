@@ -4,9 +4,9 @@ import { test } from "node:test";
 import { hasOtherSimulators, sizeText } from "./simulators.ts";
 
 test("Shut Down Others has work only for simulators beyond the open worktree's", () => {
-  const own = { worktree: "a", model: "m", open: true };
+  const own = { worktree: "a", model: "m", open: true, preview: false };
   assert.equal(hasOtherSimulators([own]), false);
-  assert.equal(hasOtherSimulators([own, { worktree: "b", model: "m", open: false }]), true);
+  assert.equal(hasOtherSimulators([own, { worktree: "b", model: "m", open: false, preview: true }]), true);
 });
 
 test("sizes use decimal units", () => {

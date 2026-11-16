@@ -1,4 +1,4 @@
-//! One build per worktree: its xcodebuild with its arguments, its own process group and its log in batches, the wait while a build Chord did not start holds the build database, the run of the app on the run destination after it with its console, and the stop that signals the whole group.
+//! One build per worktree: its xcodebuild with its arguments, its own process group and its log in batches, the wait while a build Chord did not start holds the build database, the run of the app on the run destination after it with its console, the preview build that follows it onto the preview simulator, and the stop that signals the whole group.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -12,15 +12,17 @@ use serde::Serialize;
 use chord_core::{Error, RunDestination, login_shell};
 use specta::Type;
 
+use crate::agent_reply::issue_line;
 use crate::capacity::{self, Booted};
 use crate::console::ConsoleTone;
 use crate::derived_data;
 use crate::device;
 use crate::issues::{BuildIssue, Issues};
+use crate::preview::{self, PreviewState};
 use crate::process::{self, BATCH_BYTES, BATCH_INTERVAL, GROUP_GRACE, end_group};
-use crate::simulator::{self, Simulator};
+use crate::simulator::{self, DeviceSet, Simulator};
 use crate::simulator_kit;
-use crate::slot::Slots;
+use crate::slot::{Slots, Start};
 use crate::xcode::{self, Project};
 
 const POLL: Duration = Duration::from_millis(100);
@@ -89,14 +91,29 @@ pub enum BuildEvent {
 #[derive(Clone, Default)]
 pub struct Builds(Arc<Inner>);
 
-/// A worktree and whether the build runs beside the app run.
-type TurnKey = (PathBuf, bool);
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+enum Lane {
+    Main,
+    BesideApp,
+    Preview,
+}
+
+type TurnKey = (PathBuf, Lane);
+
+/// A worktree whose Preview view opened, with its preview simulator.
+struct Preview {
+    udid: String,
+    /// The preview app launched on the simulator since its boot.
+    launched: bool,
+    on_state: Arc<dyn Fn(PreviewState) + Send + Sync>,
+}
 
 #[derive(Default)]
 struct Inner {
     slots: Mutex<Slots>,
-    /// Held by a worktree's build thread from its start to its end (a build beside the app run has its own turn), so a newer build starts after the old one ended.
+    /// Held by a worktree's build thread from its start to its end (a build beside the app run and a preview build have their own turns), so a newer build starts after the old one ended.
     turns: Mutex<HashMap<TurnKey, Arc<Mutex<()>>>>,
+    previews: Mutex<HashMap<PathBuf, Preview>>,
     /// The scheme of each project from its last build, so the next one skips `xcodebuild -list`.
     schemes: Mutex<HashMap<PathBuf, String>>,
     /// Held while a worktree's simulator is looked up and created, so two builds never create it twice.
@@ -132,29 +149,185 @@ impl Builds {
                 return;
             }
         };
-        let start = lock(&self.0.slots).ask(&worktree, run);
+        let (start, preview_waits) = {
+            let mut slots = lock(&self.0.slots);
+            let start = slots.ask(&worktree, run);
+            (start, slots.preview_waits(&worktree))
+        };
+        if preview_waits {
+            self.tell_preview(&worktree, PreviewState::Waiting);
+        }
+        let lane = if start.beside_app {
+            Lane::BesideApp
+        } else {
+            Lane::Main
+        };
+        self.spawn(
+            start,
+            lane,
+            Build {
+                builds: self.clone(),
+                worktree,
+                id: 0,
+                run,
+                preview: false,
+                destination,
+                kept_services,
+                project,
+                sink: Box::new(on_event),
+            },
+        );
+    }
+
+    /// Ends the builds `start` replaced and runs `build` with the slot's id on a thread, after the lane's older build ended.
+    fn spawn(&self, start: Start, lane: Lane, mut build: Build) {
         for pid in start.kill {
             thread::spawn(move || end_group(pid));
         }
         let turn = Arc::clone(
             lock(&self.0.turns)
-                .entry((worktree.clone(), start.beside_app))
+                .entry((build.worktree.clone(), lane))
                 .or_default(),
         );
-        let build = Build {
-            builds: self.clone(),
-            worktree,
-            id: start.id,
-            run,
-            destination,
-            kept_services,
-            project,
-            sink: Box::new(on_event),
-        };
+        build.id = start.id;
         thread::spawn(move || {
             let _turn = lock(&turn);
             build.run();
         });
+    }
+
+    /// The Preview view opened: boots the worktree's preview simulator of the destination's model, unless two others run, and starts a preview build unless the preview app already runs there. `on_state` hears the preview's states from then on, from any thread. Blocks during the boot.
+    pub fn open_preview(
+        &self,
+        worktree: PathBuf,
+        destination: Option<RunDestination>,
+        on_state: impl Fn(PreviewState) + Send + Sync + 'static,
+    ) {
+        let on_state: Arc<dyn Fn(PreviewState) + Send + Sync> = Arc::new(on_state);
+        if let Err(error) = self.project_of(&worktree) {
+            return on_state(PreviewState::Failed {
+                message: error.to_string(),
+            });
+        }
+        let wanted = match &destination {
+            Some(RunDestination::Simulator { model, runtime, .. }) => {
+                Some((model.as_str(), runtime.as_str()))
+            }
+            _ => None,
+        };
+        let (udid, fresh) =
+            match preview::boot(&worktree, wanted, || on_state(PreviewState::Starting)) {
+                Ok(preview::Booted::Ready { udid, fresh }) => (udid, fresh),
+                Ok(preview::Booted::Full(worktrees)) => {
+                    lock(&self.0.previews).remove(&worktree);
+                    return on_state(PreviewState::Full { worktrees });
+                }
+                Err(error) => {
+                    return on_state(PreviewState::Failed {
+                        message: error.to_string(),
+                    });
+                }
+            };
+        let launched = {
+            let mut previews = lock(&self.0.previews);
+            let launched = !fresh
+                && previews
+                    .get(&worktree)
+                    .is_some_and(|preview| preview.udid == udid && preview.launched);
+            previews.insert(
+                worktree.clone(),
+                Preview {
+                    udid,
+                    launched,
+                    on_state: Arc::clone(&on_state),
+                },
+            );
+            launched
+        };
+        let (runs, waits) = {
+            let slots = lock(&self.0.slots);
+            (
+                slots.preview_runs(&worktree),
+                slots.preview_waits(&worktree),
+            )
+        };
+        if launched {
+            on_state(PreviewState::Live);
+        } else if waits {
+            on_state(PreviewState::Waiting);
+        } else if runs {
+            on_state(PreviewState::Building);
+        } else {
+            self.start_preview(&worktree);
+        }
+    }
+
+    /// Tells the worktree's Preview view, the one that opened last.
+    fn tell_preview(&self, worktree: &Path, state: PreviewState) {
+        let on_state = lock(&self.0.previews)
+            .get(worktree)
+            .map(|preview| Arc::clone(&preview.on_state));
+        if let Some(on_state) = on_state {
+            on_state(state);
+        }
+    }
+
+    /// A preview build of a worktree whose Preview view opened: it waits for the worktree's ⌘R or ⌘B build, else takes over from its preview build.
+    fn start_preview(&self, worktree: &Path) {
+        if !lock(&self.0.previews).contains_key(worktree) {
+            return;
+        }
+        let project = match self.project_of(worktree) {
+            Ok(project) => project,
+            Err(error) => {
+                let message = error.to_string();
+                return self.tell_preview(worktree, PreviewState::Failed { message });
+            }
+        };
+        let Some(start) = lock(&self.0.slots).ask_preview(worktree) else {
+            return self.tell_preview(worktree, PreviewState::Waiting);
+        };
+        let (builds, path) = (self.clone(), worktree.to_path_buf());
+        let on_state = move |state| builds.tell_preview(&path, state);
+        // The preview build writes no log; its states stand in for the phases.
+        let sink = move |event| match event {
+            BuildEvent::Phase {
+                phase: BuildPhase::Waiting,
+            } => on_state(PreviewState::Waiting),
+            BuildEvent::Phase {
+                phase: BuildPhase::Building,
+            } => on_state(PreviewState::Building),
+            BuildEvent::Phase {
+                phase: BuildPhase::Running,
+            } => on_state(PreviewState::Live),
+            BuildEvent::Failed { issues, .. } => on_state(PreviewState::Failed {
+                message: issues.first().map(issue_line).unwrap_or_default(),
+            }),
+            _ => {}
+        };
+        self.spawn(
+            start,
+            Lane::Preview,
+            Build {
+                builds: self.clone(),
+                worktree: worktree.to_path_buf(),
+                id: 0,
+                run: false,
+                preview: true,
+                destination: None,
+                kept_services: BTreeMap::new(),
+                project,
+                sink: Box::new(sink),
+            },
+        );
+    }
+
+    /// Starts the worktree's preview build if one waits and no ⌘R or ⌘B build holds the worktree any longer.
+    fn follow_with_preview(&self, worktree: &Path) {
+        let waits = lock(&self.0.slots).take_waiting_preview(worktree);
+        if waits {
+            self.start_preview(worktree);
+        }
     }
 
     fn project_of(&self, worktree: &Path) -> Result<Project, Error> {
@@ -205,7 +378,12 @@ impl Builds {
 
     /// For a worktree that was deleted: stops its build, waits for the build database to be released, forgets its schemes.
     pub fn forget(&self, worktree: &Path) {
-        let pids = lock(&self.0.slots).stop(worktree);
+        let pids = {
+            let mut slots = lock(&self.0.slots);
+            let mut pids = slots.stop(worktree);
+            pids.extend(slots.forget_preview(worktree));
+            pids
+        };
         let ending: Vec<_> = pids
             .into_iter()
             .map(|pid| thread::spawn(move || end_group(pid)))
@@ -221,12 +399,13 @@ impl Builds {
         }
         lock(&self.0.schemes).retain(|project, _| !project.starts_with(worktree));
         lock(&self.0.opened).remove(&simulator::name_of(worktree));
+        lock(&self.0.previews).remove(worktree);
     }
 }
 
 /// Shuts down the simulators beyond what the RAM allows before `udid` boots. Best effort: a list that fails leaves them booted.
 fn make_room(udid: &str, opened: &HashMap<String, Instant>, busy: &HashSet<String>) {
-    let Ok(owned) = simulator::owned() else {
+    let Ok(owned) = simulator::owned(DeviceSet::Run) else {
         return;
     };
     // The target takes a place only when it is one of Chord's own.
@@ -244,7 +423,7 @@ fn make_room(udid: &str, opened: &HashMap<String, Instant>, busy: &HashSet<Strin
             udid: device.udid,
         })
         .collect();
-    simulator::shut_down_all(capacity::to_shut_down(booted, keep));
+    simulator::shut_down_all(DeviceSet::Run, capacity::to_shut_down(booted, keep));
 }
 
 struct Build {
@@ -253,6 +432,8 @@ struct Build {
     id: u64,
     /// Install and launch the app after the build.
     run: bool,
+    /// Install and launch the app on the worktree's preview simulator after the build.
+    preview: bool,
     destination: Option<RunDestination>,
     kept_services: BTreeMap<String, bool>,
     project: Project,
@@ -261,9 +442,22 @@ struct Build {
 
 impl Build {
     fn run(&self) {
-        let end = self.outcome();
+        let end = if self.preview {
+            self.preview_outcome()
+        } else {
+            self.outcome()
+        };
         self.say(end);
         lock(&self.builds.0.slots).finished(&self.worktree, self.id);
+        self.builds.follow_with_preview(&self.worktree);
+    }
+
+    fn app_launched(&self) {
+        lock(&self.builds.0.slots).app_launched(&self.worktree, self.id);
+        self.say(BuildEvent::Phase {
+            phase: BuildPhase::Running,
+        });
+        self.builds.follow_with_preview(&self.worktree);
     }
 
     /// Says an event unless a newer build took the slot: the old one stays silent.
@@ -319,6 +513,11 @@ impl Build {
             phase: BuildPhase::Building,
         });
         let end = self.xcodebuild(&scheme, target.id());
+        if end == BuildEvent::Succeeded
+            && lock(&self.builds.0.previews).contains_key(&self.worktree)
+        {
+            lock(&self.builds.0.slots).follow_with_preview(&self.worktree);
+        }
         match (end, target, boot) {
             (BuildEvent::Succeeded, Target::Simulator(device), Some(boot)) => {
                 self.run_app(&scheme, &device, boot)
@@ -330,6 +529,71 @@ impl Build {
         }
     }
 
+    /// A preview build: builds like ⌘B for a simulator, then launches the app on the preview simulator. One whose preview simulator was shut down meanwhile builds nothing.
+    fn preview_outcome(&self) -> BuildEvent {
+        let udid = lock(&self.builds.0.previews)
+            .get(&self.worktree)
+            .map(|preview| preview.udid.clone());
+        let Some(udid) = udid.filter(|udid| simulator::is_booted(DeviceSet::Preview, udid)) else {
+            self.set_launched(false);
+            return BuildEvent::Stopped;
+        };
+        self.set_launched(false);
+        if self.stopped() {
+            return BuildEvent::Stopped;
+        }
+        self.say(BuildEvent::Phase {
+            phase: BuildPhase::Building,
+        });
+        let scheme = match self.scheme() {
+            Ok(scheme) => scheme,
+            Err(_) if self.stopped() => return BuildEvent::Stopped,
+            Err(error) => return self.failed(error.to_string()),
+        };
+        if !self.wait_for_database() {
+            return BuildEvent::Stopped;
+        }
+        // The worktree's run simulator, so ⌘R and the preview build the same thing.
+        let target = simulator::find(DeviceSet::Run, &self.worktree)
+            .ok()
+            .flatten()
+            .map(|device| device.udid);
+        match self.xcodebuild(&scheme, target.as_deref()) {
+            BuildEvent::Succeeded => {}
+            end => return end,
+        }
+        let launched = self
+            .step(|register| {
+                xcode::built_app(
+                    &self.project,
+                    &scheme,
+                    target.as_deref(),
+                    &self.worktree,
+                    register,
+                )
+            })
+            .and_then(|app| self.step(|register| preview::launch(&udid, &app, register)));
+        if self.stopped() {
+            return BuildEvent::Stopped;
+        }
+        match launched {
+            Ok(()) => {
+                self.set_launched(true);
+                self.say(BuildEvent::Phase {
+                    phase: BuildPhase::Running,
+                });
+                BuildEvent::Succeeded
+            }
+            Err(error) => self.failed(error.to_string()),
+        }
+    }
+
+    fn set_launched(&self, launched: bool) {
+        if let Some(preview) = lock(&self.builds.0.previews).get_mut(&self.worktree) {
+            preview.launched = launched;
+        }
+    }
+
     /// What the build targets: a device; the worktree's own simulator, created by a run in the destination's model; a build that finds none builds for any simulator.
     fn target(&self) -> Result<Target, Error> {
         if let Some(RunDestination::Device { id, .. }) = &self.destination {
@@ -337,7 +601,7 @@ impl Build {
         }
         let _lookup = lock(&self.builds.0.simulators);
         if !self.run {
-            return Ok(simulator::find(&self.worktree)
+            return Ok(simulator::find(DeviceSet::Run, &self.worktree)
                 .ok()
                 .flatten()
                 .map_or(Target::AnySimulator, Target::Simulator));
@@ -348,8 +612,10 @@ impl Build {
             }
             _ => None,
         };
-        self.step(|register| simulator::find_or_create(&self.worktree, wanted, register))
-            .map(Target::Simulator)
+        self.step(|register| {
+            simulator::find_or_create(DeviceSet::Run, &self.worktree, wanted, register)
+        })
+        .map(Target::Simulator)
     }
 
     /// Runs `step` with the way to register its process group in the slot, so a stop ends it.
@@ -398,7 +664,7 @@ impl Build {
                 self.step(|register| simulator::plist_text(&app, "CFBundleIdentifier", register))?;
             let executable =
                 self.step(|register| simulator::plist_text(&app, "CFBundleExecutable", register))?;
-            self.step(|register| simulator::install(udid, &app, register))?;
+            self.step(|register| simulator::install(DeviceSet::Run, udid, &app, register))?;
             if self.stopped() {
                 return Ok(None);
             }
@@ -412,12 +678,7 @@ impl Build {
                     id,
                     &executable,
                     register,
-                    &|| {
-                        lock(&self.builds.0.slots).app_launched(&self.worktree, self.id);
-                        self.say(BuildEvent::Phase {
-                            phase: BuildPhase::Running,
-                        })
-                    },
+                    &|| self.app_launched(),
                     &|text, tone| self.say(BuildEvent::Console { text, tone }),
                 )
             })
@@ -455,12 +716,7 @@ impl Build {
                     udid,
                     &id,
                     register,
-                    &|| {
-                        lock(&self.builds.0.slots).app_launched(&self.worktree, self.id);
-                        self.say(BuildEvent::Phase {
-                            phase: BuildPhase::Running,
-                        })
-                    },
+                    &|| self.app_launched(),
                     &|text, tone| self.say(BuildEvent::Console { text, tone }),
                 )
             })

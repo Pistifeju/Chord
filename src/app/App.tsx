@@ -8,6 +8,7 @@ import { ScreenshotRows } from "../features/ios/simulator/ScreenshotRows";
 import { ServiceRows } from "../features/ios/simulators/ServiceRows";
 import { SimulatorsButton } from "../features/ios/simulators/SimulatorsButton";
 import { SimulatorToggle, SimulatorView } from "../features/ios/simulator/SimulatorView";
+import { PreviewToggle, PreviewView } from "../features/ios/preview/PreviewView";
 import { markerText } from "../features/ios/build/run";
 import { builds, watchAgentBuilds } from "../features/ios/build/store";
 import { OpenFileByNamePopup } from "../features/files/OpenFileByNamePopup";
@@ -135,7 +136,14 @@ export default function App() {
                           ]
                         : []
                     }
-                    sideViews={xcode ? [{ id: "simulator", title: "Simulator", button: <SimulatorToggle worktree={selected} />, body: <SimulatorView worktree={selected} /> }] : []}
+                    sideViews={
+                      xcode
+                        ? [
+                            { id: "simulator", title: "Simulator", button: <SimulatorToggle worktree={selected} />, body: <SimulatorView worktree={selected} /> },
+                            { id: "preview", title: "Preview", button: <PreviewToggle worktree={selected} />, body: <PreviewView worktree={selected} /> },
+                          ]
+                        : []
+                    }
                   />
                 )
               )}

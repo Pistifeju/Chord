@@ -200,9 +200,10 @@
   color: var(--ink);
 }
 
-/* With two or more views the buttons share one capsule, as the run control's buttons do: a 1px `line` edge, a 1px `line` between them. */
+/* With two or more views the buttons share one capsule, as the run control's buttons do: a 1px `line` edge, a 1px `line` between them. The 6px margin keeps Files' icon where a lone Files button has it. */
 .side-view-toggles:has(> .icon-button + .icon-button) {
   gap: 0;
+  margin-right: 6px;
   height: 28px;
   border: 1px solid var(--line);
   border-radius: var(--radius-control);

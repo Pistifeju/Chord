@@ -1,4 +1,4 @@
-//! The caches a worktree leaves outside its folder: its DerivedData folder and its simulator.
+//! The caches a worktree leaves outside its folder: its DerivedData folder, its run simulator and its preview simulator.
 
 use std::collections::HashSet;
 use std::fs;
@@ -10,7 +10,8 @@ use chord_core::{Error, Project, worktrees};
 use specta::Type;
 
 use crate::derived_data;
-use crate::simulator;
+use crate::preview;
+use crate::simulator::{self, DeviceSet};
 use crate::simulator_kit;
 
 #[derive(Serialize, Type, Clone, Debug, PartialEq)]
@@ -21,19 +22,30 @@ pub struct RunningSimulator {
     pub model: String,
     /// It is the open worktree's.
     pub open: bool,
+    /// It shows the worktree's preview.
+    pub preview: bool,
 }
 
-/// The booted simulators Chord created, in any worktree; `open` marks the one of the open worktree.
+/// The run and preview simulators Chord created in the set; a set that cannot be listed has none.
+fn owned_in(set: DeviceSet) -> Vec<simulator::Simulator> {
+    simulator::owned(set).unwrap_or_default()
+}
+
+/// The booted simulators Chord created, in any worktree, its preview simulators after its run simulators; `open` marks those of the open worktree.
 pub fn running_simulators(open: Option<&Path>) -> Result<Vec<RunningSimulator>, Error> {
     let open = open.map(simulator::name_of);
-    Ok(simulator::owned()?
+    let previews = owned_in(DeviceSet::Preview);
+    Ok(simulator::owned(DeviceSet::Run)?
         .into_iter()
-        .filter(|device| device.booted)
-        .filter_map(|device| {
+        .map(|device| (device, false))
+        .chain(previews.into_iter().map(|device| (device, true)))
+        .filter(|(device, _)| device.booted)
+        .filter_map(|(device, preview)| {
             Some(RunningSimulator {
                 worktree: simulator::worktree_folder(&device.name)?.into(),
                 model: model_name(&device.model),
                 open: open.as_deref() == Some(device.name.as_str()),
+                preview,
             })
         })
         .collect())
@@ -65,15 +77,21 @@ fn model_name(identifier: &str) -> String {
         .join(" ")
 }
 
-/// Shuts down every booted simulator Chord created except the worktree's own, all at once.
+/// Shuts down every booted simulator Chord created except the worktree's own run and preview simulators, all at once.
 pub fn shut_down_others(keep: &Path) -> Result<(), Error> {
     let keep = simulator::name_of(keep);
-    let others = simulator::owned()?
-        .into_iter()
-        .filter(|device| device.booted && device.name != keep)
-        .map(|device| device.udid)
-        .collect();
-    simulator::shut_down_all(others);
+    let others = |devices: Vec<simulator::Simulator>| {
+        devices
+            .into_iter()
+            .filter(|device| device.booted && device.name != keep)
+            .map(|device| device.udid)
+            .collect()
+    };
+    let runs = others(simulator::owned(DeviceSet::Run)?);
+    let previews = others(owned_in(DeviceSet::Preview));
+    let ending = std::thread::spawn(move || simulator::shut_down_all(DeviceSet::Preview, previews));
+    simulator::shut_down_all(DeviceSet::Run, runs);
+    let _ = ending.join();
     Ok(())
 }
 
@@ -81,10 +99,10 @@ pub fn shut_down_others(keep: &Path) -> Result<(), Error> {
 pub fn forget(worktree: &Path) {
     let real = resolved(worktree);
     remove_derived_data(|project| resolved(project).starts_with(&real));
-    if let Ok(owned) = simulator::owned() {
-        let name = simulator::name_of(worktree);
-        for device in owned.iter().filter(|device| device.name == name) {
-            let _ = simulator::delete(&device.udid);
+    let name = simulator::name_of(worktree);
+    for set in [DeviceSet::Run, DeviceSet::Preview] {
+        for device in owned_in(set).iter().filter(|device| device.name == name) {
+            let _ = simulator::delete(set, &device.udid);
         }
     }
 }
@@ -103,9 +121,12 @@ pub fn prune(projects: &[Project]) -> Result<(), Error> {
         }
     });
     let live = simulator_names(&live);
-    if let Ok(owned) = simulator::owned() {
-        for device in owned.iter().filter(|device| !live.contains(&device.name)) {
-            let _ = simulator::delete(&device.udid);
+    for set in [DeviceSet::Run, DeviceSet::Preview] {
+        for device in owned_in(set)
+            .iter()
+            .filter(|device| !live.contains(&device.name))
+        {
+            let _ = simulator::delete(set, &device.udid);
         }
     }
     Ok(())
@@ -146,16 +167,24 @@ pub fn build_data_size(projects: &[Project]) -> Result<u64, Error> {
         })
         .map(|(folder, _)| disk_size(folder))
         .sum();
-    let Some(developer) = derived_data::developer_folder() else {
-        return Ok(derived);
-    };
-    let devices = developer.join("CoreSimulator/Devices");
     let names = simulator_names(&live);
-    let simulators: u64 = simulator::owned()
-        .unwrap_or_default()
-        .iter()
-        .filter(|device| names.contains(&device.name))
-        .map(|device| disk_size(&devices.join(&device.udid)))
+    let folders = [
+        (
+            DeviceSet::Run,
+            derived_data::developer_folder()
+                .map(|developer| developer.join("CoreSimulator/Devices")),
+        ),
+        (DeviceSet::Preview, preview::devices_folder()),
+    ];
+    let simulators: u64 = folders
+        .into_iter()
+        .filter_map(|(set, folder)| Some((set, folder?)))
+        .flat_map(|(set, folder)| {
+            owned_in(set)
+                .into_iter()
+                .filter(|device| names.contains(&device.name))
+                .map(move |device| disk_size(&folder.join(&device.udid)))
+        })
         .sum();
     Ok(derived + simulators)
 }
