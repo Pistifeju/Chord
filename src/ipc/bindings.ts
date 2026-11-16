@@ -65,6 +65,8 @@ export const commands = {
 	sendSimulatorInput: (worktree: string, input: Input_Deserialize) => __TAURI_INVOKE<null>("send_simulator_input", { worktree, input }),
 	/**  Presses Home, Lock or Shake on the worktree's simulator. Shake, and Home before CoreSimulator 1155.4, run a tool; its error comes back. */
 	pressSimulatorButton: (worktree: string, button: Button) => __TAURI_INVOKE<null>("press_simulator_button", { worktree, button }),
+	/**  The Simulator view's fallback when the private API did not load. */
+	openSimulatorApp: () => __TAURI_INVOKE<null>("open_simulator_app"),
 	/**  Stops every agent, shell and build and ends the app once the user confirmed the quit. Panes stay saved as running, so they start again on launch. */
 	quitApp: () => __TAURI_INVOKE<null>("quit_app"),
 	/**  Saves the setting and applies it; a missing `caffeinate` fails before anything is saved, even with no agent working. */

@@ -389,7 +389,7 @@ impl Build {
             }
             // The Simulator view shows the device; the external app only stands in when it cannot.
             if simulator_kit::load().is_err() {
-                simulator::open_app();
+                let _ = simulator::open_app(false);
             }
             let app = self.step(|register| {
                 xcode::built_app(&self.project, scheme, Some(udid), &self.worktree, register)

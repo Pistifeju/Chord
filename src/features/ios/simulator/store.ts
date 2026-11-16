@@ -48,3 +48,5 @@ export function pressButton(worktree: string, button: Button) {
   const unlocks = button === "lock" && state?.state === "live" && state.locked;
   commands.pressSimulatorButton(worktree, unlocks ? "home" : button).catch(fail);
 }
+
+export const openSimulatorApp = () => void commands.openSimulatorApp().catch(fail);

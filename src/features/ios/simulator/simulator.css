@@ -88,8 +88,17 @@
 .simulator-empty {
   position: absolute;
   inset: 40% 0 auto;
-  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
   text-align: center;
+}
+
+.simulator-empty p {
+  margin: 0;
+  text-wrap: balance;
   font-size: calc(12px * var(--text-scale));
   color: var(--ink-muted);
 }

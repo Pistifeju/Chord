@@ -14,6 +14,7 @@ use crate::console::{self, ConsoleTone};
 use crate::derived_data;
 use crate::process::{self, end_group, xcrun};
 use crate::slim;
+use crate::xcode;
 
 pub(crate) const PLUTIL: &str = "/usr/bin/plutil";
 pub(crate) const OPEN: &str = "/usr/bin/open";
@@ -260,10 +261,19 @@ pub(crate) fn simulator_app() -> Option<PathBuf> {
     .find(|app| app.exists())
 }
 
-/// Opens the selected Xcode's simulator app. Best effort.
-pub(crate) fn open_app() {
-    if let Some(app) = simulator_app() {
-        let _ = Command::new(OPEN).arg("-g").arg(app).status();
+/// Opens the selected Xcode's simulator app, behind the window unless `front`.
+pub fn open_app(front: bool) -> Result<(), Error> {
+    xcode::require_tools()?;
+    let app = simulator_app()
+        .ok_or_else(|| Error::Message("The selected Xcode has no simulator app.".into()))?;
+    let mut open = Command::new(OPEN);
+    if !front {
+        open.arg("-g");
+    }
+    if open.arg(&app).status()?.success() {
+        Ok(())
+    } else {
+        Err(Error::Message(format!("{} did not open.", app.display())))
     }
 }
 

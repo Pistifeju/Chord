@@ -36,4 +36,5 @@ pub use screen_view::{
     set_buttons, show_screen,
 };
 pub use service_groups::{ServiceRow, SubgroupRow};
+pub use simulator::open_app;
 pub use slim::service_rows;

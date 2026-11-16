@@ -173,3 +173,10 @@ pub async fn press_simulator_button(
     .await
     .map_err(|error| error.to_string())?
 }
+
+/// The Simulator view's fallback when the private API did not load.
+#[tauri::command]
+#[specta::specta]
+pub async fn open_simulator_app(app: AppHandle) -> Result<(), String> {
+    blocking(app, |_, _| chord_ios::open_app(true)).await
+}

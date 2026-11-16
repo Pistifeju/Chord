@@ -8,7 +8,7 @@ import { appearance, shortcutChanges } from "../../settings/store";
 import { showsSideView, sidePanels, toggleSideView } from "../../sidepanel/store";
 import { hidUsage } from "./keys";
 import { clampToScreen, cornerRadius, fingersFor, fit, fromBottom, gestureFingers, secondFinger, toScreen, type Fingers, type Point, type Rect } from "./screen";
-import { hideScreen, moveScreen, pressButton, screen, sendKey, sendTouch, setButtons, showScreen } from "./store";
+import { hideScreen, moveScreen, openSimulatorApp, pressButton, screen, sendKey, sendTouch, setButtons, showScreen } from "./store";
 import "./simulator.css";
 
 export function SimulatorToggle({ worktree }: { worktree: string }) {
@@ -338,13 +338,20 @@ export function SimulatorView({ worktree }: { worktree: string }) {
             ))}
           </div>
         ) : (
-          <p className="simulator-empty">
-            {state?.state === "unavailable"
-              ? `${state.message} Run (${shortcutLabel("build.run") ?? "⌘R"}) opens ${state.app} instead.`
-              : state?.state === "off" && state.message
-                ? state.message
-                : `The simulator is off. Run (${shortcutLabel("build.run") ?? "⌘R"}) boots it.`}
-          </p>
+          <div className="simulator-empty">
+            <p>
+              {state?.state === "unavailable"
+                ? `${state.message} Run (${shortcutLabel("build.run") ?? "⌘R"}) opens ${state.app} instead.`
+                : state?.state === "off" && state.message
+                  ? state.message
+                  : `The simulator is off. Run (${shortcutLabel("build.run") ?? "⌘R"}) boots it.`}
+            </p>
+            {state?.state === "unavailable" && (
+              <button type="button" className="button-secondary" onClick={openSimulatorApp}>
+                Open in {state.app}
+              </button>
+            )}
+          </div>
         )}
       </div>
     </div>

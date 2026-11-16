@@ -62,6 +62,7 @@ pub fn ipc() -> tauri_specta::Builder<tauri::Wry> {
             commands::simulator::hide_simulator_screen,
             commands::simulator::send_simulator_input,
             commands::simulator::press_simulator_button,
+            commands::simulator::open_simulator_app,
             commands::app::quit_app,
             commands::app::set_keep_awake,
             commands::app::open_link,
