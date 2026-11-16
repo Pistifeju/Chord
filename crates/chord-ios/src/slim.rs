@@ -7,9 +7,9 @@ use std::process::Command;
 
 use chord_core::Error;
 
-use crate::process::{self, xcrun};
+use crate::process;
 use crate::service_groups::{GROUPS, ServiceGroup, ServiceRow, Subgroup, SubgroupRow};
-use crate::simulator::PLUTIL;
+use crate::simulator::{DeviceSet, PLUTIL, simctl};
 
 /// The earliest runtime whose launchd_sim reads the override store at its start.
 const FIRST_SLIM_RUNTIME: (u32, u32) = (18, 5);
@@ -171,15 +171,9 @@ pub(crate) fn write_overrides(
 
 /// Whether the booted simulator disabled every label in `off`; `None` when it could not be read.
 pub(crate) fn holds(udid: &str, off: &BTreeSet<&str>) -> Option<bool> {
-    let Ok(listed) = xcrun(
-        &[
-            "simctl",
-            "spawn",
-            udid,
-            "launchctl",
-            "print-disabled",
-            "system",
-        ],
+    let Ok(listed) = simctl(
+        DeviceSet::Run,
+        &["spawn", udid, "launchctl", "print-disabled", "system"],
         &|_| {},
     ) else {
         return None;

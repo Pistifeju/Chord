@@ -1,8 +1,6 @@
 //! Commands for the simulators and the build data of the worktrees: the running simulators, shutting the others down, the build data's size and its prune, and the Simulator view's screen and input.
 
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Mutex, PoisonError};
 
 use serde::Serialize;
 use chord_core::{Error, StateChange};
@@ -91,28 +89,6 @@ pub async fn simulator_service_groups(app: AppHandle) -> Result<Vec<ServiceRow>,
     .await
 }
 
-/// Bumped by every show and hide: a show that finishes loading after a later hide does nothing.
-static SCREEN_TURN: AtomicU64 = AtomicU64::new(0);
-/// The newest rect and bezel: a move that comes in while a show still loads must not be lost.
-static SCREEN_PLACE: Mutex<(ScreenRect, Bezel)> = Mutex::new((
-    ScreenRect {
-        x: 0.0,
-        y: 0.0,
-        width: 0.0,
-        height: 0.0,
-    },
-    Bezel {
-        radius: 0.0,
-        canvas: [0; 3],
-        frame: [0; 3],
-        edge: [0; 3],
-    },
-));
-
-fn set_screen_place(rect: ScreenRect, bezel: Bezel) {
-    *SCREEN_PLACE.lock().unwrap_or_else(PoisonError::into_inner) = (rect, bezel);
-}
-
 /// Shows the worktree's simulator, or with `preview` its preview simulator, under the webview at `rect`, the screen's CSS pixels in the window, in `bezel`; the channel carries its state.
 #[tauri::command]
 #[specta::specta]
@@ -124,8 +100,7 @@ pub async fn show_simulator_screen(
     bezel: Bezel,
     on_state: Channel<ScreenState>,
 ) -> Result<(), String> {
-    let turn = SCREEN_TURN.fetch_add(1, Ordering::SeqCst) + 1;
-    set_screen_place(rect, bezel);
+    let turn = chord_ios::begin_show(rect, bezel);
     let unavailable = tauri::async_runtime::spawn_blocking(chord_ios::prepare_screen)
         .await
         .map_err(|error| error.to_string())?;
@@ -134,17 +109,11 @@ pub async fn show_simulator_screen(
     }
     window
         .with_webview(move |webview| {
-            if SCREEN_TURN.load(Ordering::SeqCst) != turn {
-                return;
-            }
-            let (rect, bezel) = *SCREEN_PLACE.lock().unwrap_or_else(PoisonError::into_inner);
             let send = move |state| {
                 let _ = on_state.send(state);
             };
             // SAFETY: Tauri hands over the window's live WKWebView on the main thread.
-            unsafe {
-                chord_ios::show_screen(webview.inner(), &worktree, preview, rect, bezel, send)
-            };
+            unsafe { chord_ios::show_screen(webview.inner(), turn, &worktree, preview, send) };
         })
         .map_err(|error| error.to_string())
 }
@@ -152,8 +121,7 @@ pub async fn show_simulator_screen(
 #[tauri::command]
 #[specta::specta]
 pub fn move_simulator_screen(app: AppHandle, rect: ScreenRect, bezel: Bezel) -> Result<(), String> {
-    set_screen_place(rect, bezel);
-    app.run_on_main_thread(move || chord_ios::move_screen(rect, bezel))
+    app.run_on_main_thread(chord_ios::move_screen(rect, bezel))
         .map_err(|error| error.to_string())
 }
 
@@ -168,8 +136,7 @@ pub fn set_simulator_buttons(app: AppHandle, buttons: ScreenButtons) -> Result<(
 #[tauri::command]
 #[specta::specta]
 pub fn hide_simulator_screen(app: AppHandle) -> Result<(), String> {
-    SCREEN_TURN.fetch_add(1, Ordering::SeqCst);
-    app.run_on_main_thread(chord_ios::hide_screen)
+    app.run_on_main_thread(chord_ios::hide_screen())
         .map_err(|error| error.to_string())
 }
 

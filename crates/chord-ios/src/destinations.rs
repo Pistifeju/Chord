@@ -9,6 +9,7 @@ use chord_core::{Error, RunDestination};
 use specta::Type;
 
 use crate::process::xcrun;
+use crate::simulator::{DeviceSet, simctl};
 
 #[derive(Serialize, Type, Clone, Debug, PartialEq)]
 pub struct Destinations {
@@ -26,8 +27,9 @@ pub struct SimulatorModels {
 }
 
 pub fn list() -> Result<Destinations, Error> {
-    let simulators = xcrun(
-        &["simctl", "list", "devices", "available", "--json"],
+    let simulators = simctl(
+        DeviceSet::Run,
+        &["list", "devices", "available", "--json"],
         &|_| {},
     )?;
     Ok(Destinations {

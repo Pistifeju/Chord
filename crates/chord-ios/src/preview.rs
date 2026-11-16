@@ -132,21 +132,10 @@ pub(crate) fn launch(
     let helper = helper()?;
     let bundle = simulator::plist_text(app, "CFBundleIdentifier", register)?;
     simulator::install(DeviceSet::Preview, udid, app, register)?;
-    let folder = devices_folder()
-        .ok_or_else(|| Error::Message("Chord has no preview device folder.".into()))?;
-    let folder = folder.to_string_lossy();
-    let mut command = login_shell(
-        "xcrun",
-        &[
-            "simctl",
-            "--set",
-            &folder,
-            "launch",
-            "--terminate-running-process",
-            udid,
-            &bundle,
-        ],
-    );
+    let mut command = simulator::simctl_command(
+        DeviceSet::Preview,
+        &["launch", "--terminate-running-process", udid, &bundle],
+    )?;
     let socket = socket(worktree);
     let _ = std::fs::remove_file(&socket);
     hot_reload::launched(worktree);

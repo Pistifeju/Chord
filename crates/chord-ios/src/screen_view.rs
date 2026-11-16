@@ -4,6 +4,8 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::c_void;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Mutex, PoisonError};
 use std::thread;
 use std::time::Duration;
 
@@ -351,6 +353,26 @@ struct Screen {
 
 thread_local! {
     static SCREEN: RefCell<Option<Screen>> = const { RefCell::new(None) };
+}
+
+/// Bumped by every show and hide: a show that finishes loading after a later hide does nothing.
+static TURN: AtomicU64 = AtomicU64::new(0);
+/// The newest rect and bezel: a move that comes in while a show still loads must not be lost.
+static PLACE: Mutex<Option<(ScreenRect, Bezel)>> = Mutex::new(None);
+
+fn set_place(rect: ScreenRect, bezel: Bezel) {
+    *PLACE.lock().unwrap_or_else(PoisonError::into_inner) = Some((rect, bezel));
+}
+
+/// A show's place in line: a later show or hide makes it stale.
+#[derive(Clone, Copy, Debug)]
+pub struct ShowTurn(u64);
+
+/// Any thread, before `prepare_screen`: starts a show at `rect` in `bezel`; `show_screen` takes its turn.
+pub fn begin_show(rect: ScreenRect, bezel: Bezel) -> ShowTurn {
+    let turn = TURN.fetch_add(1, Ordering::SeqCst) + 1;
+    set_place(rect, bezel);
+    ShowTurn(turn)
 }
 
 /// Runs `f` on the screen state; skips when it is borrowed or not created yet.
@@ -839,18 +861,24 @@ pub fn prepare_screen() -> Option<ScreenState> {
     simulator_kit::load().err().map(unavailable)
 }
 
-/// Main thread. Shows the worktree's simulator, or with `preview` its preview simulator, under `webview` (a WKWebView) at `rect` in `bezel`; its state goes to `on_state`.
+/// Main thread. Shows the worktree's simulator, or with `preview` its preview simulator, under `webview` (a WKWebView) at the newest place; its state goes to `on_state`. Does nothing when a later show or hide made `turn` stale.
 ///
 /// # Safety
 /// `webview` must point to the window's live WKWebView.
 pub unsafe fn show_screen(
     webview: *mut c_void,
+    turn: ShowTurn,
     worktree: &Path,
     preview: bool,
-    rect: ScreenRect,
-    bezel: Bezel,
     on_state: impl Fn(ScreenState) + 'static,
 ) {
+    if TURN.load(Ordering::SeqCst) != turn.0 {
+        return;
+    }
+    let (rect, bezel) = PLACE
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .unwrap_or_default();
     let Some(mtm) = MainThreadMarker::new() else {
         return;
     };
@@ -904,13 +932,16 @@ pub unsafe fn show_screen(
     });
 }
 
-/// Main thread. Moves the shown screen to `rect` and redraws its bezel.
-pub fn move_screen(rect: ScreenRect, bezel: Bezel) {
-    with(|screen| {
-        screen.rect = rect;
-        screen.bezel = bezel;
-        screen.place();
-    });
+/// Any thread: keeps `rect` and `bezel` for a show still loading, and returns the move of the shown screen, to run on the main thread.
+pub fn move_screen(rect: ScreenRect, bezel: Bezel) -> impl FnOnce() + Send + 'static {
+    set_place(rect, bezel);
+    move || {
+        with(|screen| {
+            screen.rect = rect;
+            screen.bezel = bezel;
+            screen.place();
+        });
+    }
 }
 
 /// Main thread. Draws the buttons under the shown screen as the web laid them out.
@@ -926,15 +957,18 @@ pub fn set_buttons(buttons: ScreenButtons) {
     });
 }
 
-/// Main thread. Hides the screen and drops its frame callbacks; the webview paints its background again.
-pub fn hide_screen() {
-    with(|screen| {
-        screen.detach();
-        screen.shown = None;
-        screen.sent = None;
-        set_draws_background(&screen.webview, true);
-        screen.update_hidden();
-    });
+/// Any thread: makes a show still loading stale, and returns the hide, to run on the main thread. The hide drops the frame callbacks; the webview paints its background again.
+pub fn hide_screen() -> impl FnOnce() + Send + 'static {
+    TURN.fetch_add(1, Ordering::SeqCst);
+    || {
+        with(|screen| {
+            screen.detach();
+            screen.shown = None;
+            screen.sent = None;
+            set_draws_background(&screen.webview, true);
+            screen.update_hidden();
+        });
+    }
 }
 
 /// Main thread. Sends the view's input to the shown worktree's simulator; returns the tool run that carries it, if any.

@@ -29,21 +29,38 @@ pub(crate) enum DeviceSet {
     Preview,
 }
 
-/// `simctl` with `args` in the set, through `xcrun`.
+/// The `xcrun` arguments that run `simctl` with `args` in the set.
+fn simctl_args(set: DeviceSet, args: &[&str]) -> Result<Vec<String>, Error> {
+    let mut all = vec!["simctl".to_string()];
+    if set == DeviceSet::Preview {
+        let folder = preview::devices_folder()
+            .ok_or_else(|| Error::Message("Chord has no preview device folder.".into()))?;
+        all.extend(["--set".into(), folder.to_string_lossy().into_owned()]);
+    }
+    all.extend(args.iter().map(|arg| arg.to_string()));
+    Ok(all)
+}
+
+/// `simctl` with `args` in the set, through `xcrun`, run to its end.
 pub(crate) fn simctl(
     set: DeviceSet,
     args: &[&str],
     register: &dyn Fn(u32),
 ) -> Result<String, Error> {
-    match set {
-        DeviceSet::Run => xcrun(&[&["simctl"], args].concat(), register),
-        DeviceSet::Preview => {
-            let folder = preview::devices_folder()
-                .ok_or_else(|| Error::Message("Chord has no preview device folder.".into()))?;
-            let folder = folder.to_string_lossy();
-            xcrun(&[&["simctl", "--set", &folder], args].concat(), register)
-        }
-    }
+    let args = simctl_args(set, args)?;
+    xcrun(
+        &args.iter().map(String::as_str).collect::<Vec<_>>(),
+        register,
+    )
+}
+
+/// `simctl` with `args` in the set, through `xcrun` in a login shell, for a caller that streams its output or sets its environment.
+pub(crate) fn simctl_command(set: DeviceSet, args: &[&str]) -> Result<Command, Error> {
+    let args = simctl_args(set, args)?;
+    Ok(login_shell(
+        "xcrun",
+        &args.iter().map(String::as_str).collect::<Vec<_>>(),
+    ))
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -177,7 +194,7 @@ pub(crate) fn find_or_create(
     let (device_type, runtime) = match wanted {
         Some((model, runtime)) => (model.to_string(), runtime.to_string()),
         None => {
-            let runtimes = xcrun(&["simctl", "list", "runtimes", "--json"], register)?;
+            let runtimes = simctl(DeviceSet::Run, &["list", "runtimes", "--json"], register)?;
             newest_ios_model(&serde_json::from_str(&runtimes)?).ok_or_else(|| {
                 Error::Message(
                     "No iOS simulator runtime is installed. Add one in Xcode > Settings > Components."
@@ -310,8 +327,9 @@ pub fn open_app(front: bool) -> Result<(), Error> {
 /// Shake: the Darwin notification Simulator.app's Device > Shake posts; UIKit turns it into a shake motion.
 pub(crate) fn shake(udid: &str) -> Result<(), Error> {
     let notification = "com.apple.UIKit.SimulatorShake";
-    xcrun(
-        &["simctl", "spawn", udid, "notifyutil", "-p", notification],
+    simctl(
+        DeviceSet::Run,
+        &["spawn", udid, "notifyutil", "-p", notification],
         &|_| {},
     )
     .map(drop)
@@ -328,8 +346,9 @@ fn locked_in(line: &str) -> Option<bool> {
 
 /// SpringBoard's lock state now; None when the simulator does not answer.
 pub(crate) fn lock_state(udid: &str) -> Option<bool> {
-    let output = xcrun(
-        &["simctl", "spawn", udid, "notifyutil", "-g", LOCK_STATE],
+    let output = simctl(
+        DeviceSet::Run,
+        &["spawn", udid, "notifyutil", "-g", LOCK_STATE],
         &|_| {},
     );
     locked_in(&output.ok()?)
@@ -337,18 +356,11 @@ pub(crate) fn lock_state(udid: &str) -> Option<bool> {
 
 /// Follows SpringBoard's lock state: `on_change` gets it now and on every change, on a thread of its own, until the simulator shuts down or `stop_lock_watch` ends it. The watch's process group, or None when xcrun does not start.
 pub(crate) fn watch_lock(udid: &str, on_change: impl Fn(bool) + Send + 'static) -> Option<u32> {
-    let watch = login_shell(
-        "xcrun",
-        &[
-            "simctl",
-            "spawn",
-            udid,
-            "notifyutil",
-            "-v",
-            "-w",
-            LOCK_STATE,
-        ],
-    );
+    let watch = simctl_command(
+        DeviceSet::Run,
+        &["spawn", udid, "notifyutil", "-v", "-w", LOCK_STATE],
+    )
+    .ok()?;
     let (mut child, reader) = process::merged(watch, None).ok()?;
     let group = child.id();
     let udid = udid.to_string();
@@ -373,8 +385,9 @@ pub(crate) fn stop_lock_watch(group: u32) {
 
 /// Home where the Indigo home press is dropped: launching SpringBoard shows the home screen.
 pub(crate) fn show_home_screen(udid: &str) -> Result<(), Error> {
-    xcrun(
-        &["simctl", "launch", udid, "com.apple.springboard"],
+    simctl(
+        DeviceSet::Run,
+        &["launch", udid, "com.apple.springboard"],
         &|_| {},
     )
     .map(drop)
@@ -409,7 +422,7 @@ pub(crate) fn install(
 
 /// Ends the app; no error when it does not run.
 pub(crate) fn terminate(udid: &str, bundle_id: &str) {
-    let _ = xcrun(&["simctl", "terminate", udid, bundle_id], &|_| {});
+    let _ = simctl(DeviceSet::Run, &["terminate", udid, bundle_id], &|_| {});
 }
 
 /// One record of `log stream --style ndjson` as a console line and its tone; None for a line that is no record, such as the stream's own notices. A multi-line message stays one record.
@@ -451,10 +464,9 @@ pub(crate) fn launch(
         "process == \"{}\" AND sender != \"Foundation\"",
         executable.replace('"', "\\\"")
     );
-    let stream = login_shell(
-        "xcrun",
+    let stream = simctl_command(
+        DeviceSet::Run,
         &[
-            "simctl",
             "spawn",
             udid,
             "log",
@@ -464,7 +476,18 @@ pub(crate) fn launch(
             "--predicate",
             &predicate,
         ],
-    );
+    )?;
+    // --console-pty gives the app a terminal, so its print output is line-buffered, and simctl exits with the app's exit code.
+    let command = simctl_command(
+        DeviceSet::Run,
+        &[
+            "launch",
+            "--console-pty",
+            "--terminate-running-process",
+            udid,
+            bundle_id,
+        ],
+    )?;
     let (mut stream, stream_output) = process::merged(stream, None)?;
     register(stream.id());
     // Read on a thread that may outlive the launch: the stream's process in the simulator can hold the pipe open after a kill.
@@ -482,18 +505,6 @@ pub(crate) fn launch(
     });
     // The stream prints its filter notice once it runs; the launch waits for it so the app's first lines are caught.
     let _ = stream_started.recv_timeout(STREAM_START);
-    // --console-pty gives the app a terminal, so its print output is line-buffered, and simctl exits with the app's exit code.
-    let command = login_shell(
-        "xcrun",
-        &[
-            "simctl",
-            "launch",
-            "--console-pty",
-            "--terminate-running-process",
-            udid,
-            bundle_id,
-        ],
-    );
     let (mut child, reader) = match process::merged(command, Some(stream.id())) {
         Ok(started) => started,
         Err(error) => {
