@@ -12,6 +12,7 @@ import { PreviewToggle, PreviewView } from "../features/ios/preview/PreviewView"
 import { markerText } from "../features/ios/build/run";
 import { builds, watchAgentBuilds } from "../features/ios/build/store";
 import { OpenFileByNamePopup } from "../features/files/OpenFileByNamePopup";
+import { PreviewPickerPopup } from "../features/ios/preview/PreviewPickerPopup";
 import { TrashFilePopup } from "../features/files/TrashFilePopup";
 import { CloseAgentsPopup } from "../features/panes/CloseAgentsPopup";
 import { PaneArea } from "../features/panes/PaneArea";
@@ -159,6 +160,7 @@ export default function App() {
       <ForceRemovalPopup />
       <TrashFilePopup />
       <OpenFileByNamePopup />
+      <PreviewPickerPopup />
       <QuitPopup />
       <CloseAgentsPopup />
       <RemoveProjectPopup />

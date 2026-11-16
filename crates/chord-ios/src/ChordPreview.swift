@@ -1,4 +1,4 @@
-// The preview helper: a dylib preview.rs builds with swiftc and inserts into the app on a preview simulator. It takes over the app's entry point, finds the app's `#Preview` registry types and shows the first one full screen. It answers Chord on a Unix socket, one JSON object per line: which file the shown preview is in, and a hot reload's dylib (hot_reload.rs) to load and show the preview from.
+// The preview helper: a dylib preview.rs builds with swiftc and inserts into the app on a preview simulator. It takes over the app's entry point, finds the app's `#Preview` registry types and shows the one Chord picks full screen. It answers Chord on a Unix socket, one JSON object per line: which file the shown preview is in, another preview to show, and a hot reload's dylib (hot_reload.rs) to load and show the preview from.
 // Private behavior it relies on, checked on Xcode 27.1:
 // - Xcode's debug-dylib stub executable calls `__previews_injection_jit_link_entrypoint(argc, argv, …)` first when any image exports it.
 // - `Preview` hides its content, so the dylib interposes the public `Preview.init(_:traits:body:)` of SwiftUI and UIKit and keeps the arguments.
@@ -214,14 +214,21 @@ let addImageHook: Void = _dyld_register_func_for_add_image { header, _ in
         guard window == nil, let scene = scene as? UIWindowScene else { return }
         let w = UIWindow(windowScene: scene)
         w.backgroundColor = .systemBackground
-        let all = previews()
-        let first = all.lazy.compactMap { entry in capture(entry.type).map { (entry, $0) } }.first
-        shown = first?.0
-        position = first.map { shown in all.filter { $0.fileID == shown.0.fileID }.firstIndex { $0.line == shown.0.line } ?? 0 } ?? 0
-        w.rootViewController = first.map { controller(for: $0.1) } ?? UIViewController()
+        w.rootViewController = UIViewController()
         w.makeKeyAndVisible()
         window = w
         Server.start()
+    }
+
+    /// Shows the `index`th preview of the app's file named `file`, from the image the app launched with.
+    static func show(file: String, index: Int) -> [String: Any] {
+        let inFile = previews().filter { $0.fileID.hasSuffix("/" + file) }
+        guard inFile.indices.contains(index) else { return ["error": "The app has no preview \(index + 1) in \(file)"] }
+        guard let c = capture(inFile[index].type) else { return ["error": "The preview did not build"] }
+        window?.rootViewController = controller(for: c)
+        shown = inFile[index]
+        position = index
+        return ["ok": true]
     }
 
     /// Loads a hot reload's dylib and shows the shown preview from its image.
@@ -279,6 +286,9 @@ enum Server {
         switch request["op"] as? String {
         case "shown":
             return Screen.shown.map { ["fileID": $0.fileID] } ?? ["error": "No preview shows"]
+        case "show":
+            guard let file = request["file"] as? String, let index = request["index"] as? Int else { return ["error": "No preview"] }
+            return Screen.show(file: file, index: index)
         case "load":
             guard let path = request["path"] as? String else { return ["error": "No path"] }
             return Screen.load(path)

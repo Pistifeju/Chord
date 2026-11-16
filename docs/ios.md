@@ -161,6 +161,7 @@ crates/chord-ios/src/
   simulator.rs      the worktree's simulator: find, create, boot, shut down, delete, the cap    step 2
   preview.rs        the preview simulator in Chord's own device set, the two-booted limit,
                     the app launched with the preview helper (ChordPreview.swift)          step 8
+  preview_list.rs   the `#Preview`s in the worktree's Swift files, read from the source         step 8
   worktree_saves.rs the saves in a worktree whose Preview view opened, through FSEvents          step 8
   compile_commands.rs each module's driver line from the build output, its per-file commands     step 8
   hot_reload.rs     recompile, layout check and link of the saved view files, loaded by the helper step 8

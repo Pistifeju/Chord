@@ -52,6 +52,10 @@ pub(crate) fn launched(worktree: &Path) {
 
 /// Hot reloads the shown preview with every `.swift` file saved since its app launched that it uses. Ok: reloaded, nothing it uses changed, or a file does not compile and the last frame stays. Err: why it cannot reload, and the caller rebuilds.
 pub(crate) fn reload(worktree: &Path) -> Result<(), String> {
+    let saved = saved_files().get(worktree).cloned().unwrap_or_default();
+    if saved.is_empty() {
+        return Ok(());
+    }
     let file_id = preview::shown_file(worktree)?;
     let (module, name) = file_id.split_once('/').ok_or("the preview has no file")?;
     let drivers = compile_commands::drivers(worktree);
@@ -66,7 +70,6 @@ pub(crate) fn reload(worktree: &Path) -> Result<(), String> {
         .ok_or_else(|| format!("{file_id} has no compile command"))?;
     let jobs = compile_commands::jobs(worktree, driver)?;
     let folder = reload_folder(worktree).ok_or("Chord has no cache folder")?;
-    let saved = saved_files().get(worktree).cloned().unwrap_or_default();
     match compile(&jobs, &files, &folder, worktree, &shown, &saved)? {
         Built::Unused | Built::Errors => Ok(()),
         Built::Dylib { dylib, objects } => {

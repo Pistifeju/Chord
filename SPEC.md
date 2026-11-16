@@ -201,7 +201,7 @@ Edge cases:
 
 - [x] J1 **hard** Preview view in the side panel (⌘⇧P), with its tab bar button, on a second simulator in Chord's own device set; at most two preview simulators; a preview build waits for the worktree's ⌘R build, then follows.
 - [x] J2 **hard** Hot reload of the shown preview's file and the view files between it and the saved file; any other change rebuilds, and the view's header says so while it runs. Its hot reload folders go with the worktree: one forget, one prune, counted in the build data size.
-- [ ] J3 Preview picker in the Preview view's header: a sheet lists every `#Preview` by file, with search and ↑↓. The pick stays per worktree and does not follow the editor. Model picker per project beside it.
+- [x] J3 Preview picker in the Preview view's header: a sheet lists every `#Preview` by file, with search and ↑↓. The pick stays per worktree and does not follow the editor. Model picker per project beside it.
 - [ ] J4 Compile error keeps the last frame under a red bar with the first error as `file:line: message`; a click opens the file at that line.
 
 Edge cases:

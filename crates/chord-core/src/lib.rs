@@ -22,8 +22,8 @@ pub use harness::{
 pub use panes::{Direction, Layout, Tab, WorktreePanes};
 pub use projects::Project;
 pub use state::{
-    Appearance, BottomPanel, BottomView, PaneAgent, RunDestination, Shortcut, SidePanel, SideView,
-    Sidebar, State, StateChange, Store, Theme,
+    Appearance, BottomPanel, BottomView, PaneAgent, PreviewPick, RunDestination, Shortcut,
+    SidePanel, SideView, Sidebar, State, StateChange, Store, Theme,
 };
 pub use terminal::{TerminalEvent, Terminals};
 pub use worktrees::{KeptBranch, Removal, Worktree, xcode_bundles};

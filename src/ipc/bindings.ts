@@ -45,10 +45,14 @@ export const commands = {
 	worktreeOpened: (worktree: string) => __TAURI_INVOKE<null>("worktree_opened", { worktree }),
 	/**  The connected devices and the simulator models to run on. */
 	listDestinations: () => __TAURI_INVOKE<Destinations>("list_destinations"),
-	/**  Boots the worktree's preview simulator of the destination's model and shows the preview there, building it unless it runs already. The channel carries the preview's states until the view opens again. */
-	openPreview: (worktree: string, destination: RunDestination | null, onState: Channel<PreviewState>) => __TAURI_INVOKE<null>("open_preview", { worktree, destination, onState }),
+	/**  Boots the worktree's preview simulator of the destination's model and shows the picked preview there, building it unless it runs already. The channel carries the preview's states until the view opens again. */
+	openPreview: (worktree: string, destination: RunDestination | null, pick: PreviewPick_Deserialize | null, onState: Channel<PreviewState>) => __TAURI_INVOKE<null>("open_preview", { worktree, destination, pick, onState }),
 	/**  The view closed: saves stop rebuilding its preview, and its next open catches up. */
 	closePreview: (worktree: string) => __TAURI_INVOKE<void>("close_preview", { worktree }),
+	/**  Every `#Preview` in the worktree's Swift files, by file. */
+	listPreviews: (worktree: string) => __TAURI_INVOKE<PreviewPick_Serialize[]>("list_previews", { worktree }),
+	/**  Shows another `#Preview` in the worktree's open Preview view. */
+	pickPreview: (worktree: string, pick: PreviewPick_Deserialize) => __TAURI_INVOKE<null>("pick_preview", { worktree, pick }),
 	/**  The booted simulators Chord created; `open` marks the open worktree's. */
 	runningSimulators: (open: string | null) => __TAURI_INVOKE<RunningSimulator[]>("running_simulators", { open }),
 	/**  Sends `SimulatorsChanged` from now on. False when the simulator frameworks did not load, so the window asks on a timer instead. */
@@ -485,6 +489,27 @@ export type Point = {
 	y: number | null,
 };
 
+/**  One `#Preview` of a worktree: its file and its place among the file's previews. */
+export type PreviewPick = PreviewPick_Serialize | PreviewPick_Deserialize;
+
+/**  One `#Preview` of a worktree: its file and its place among the file's previews. */
+export type PreviewPick_Deserialize = {
+	/**  Relative to the worktree, `/`-separated. */
+	file: string,
+	index: number,
+	/**  The macro's name argument; none for an unnamed preview. */
+	name?: string | null,
+};
+
+/**  One `#Preview` of a worktree: its file and its place among the file's previews. */
+export type PreviewPick_Serialize = {
+	/**  Relative to the worktree, `/`-separated. */
+	file: string,
+	index: number,
+	/**  The macro's name argument; none for an unnamed preview. */
+	name: string | null,
+};
+
 export type PreviewState = 
 /**  The preview simulator boots. */
 { state: "starting" } | 
@@ -493,7 +518,9 @@ export type PreviewState =
 /**  The preview app runs on the preview simulator. */
 { state: "live" } | 
 /**  Two other worktrees' preview simulators run; their folder names. */
-{ state: "full"; worktrees: string[] } | { state: "failed"; message: string };
+{ state: "full"; worktrees: string[] } | 
+/**  No pick, or the picked `#Preview` is gone. */
+{ state: "unpicked" } | { state: "failed"; message: string };
 
 export type Project = {
 	path: string,
@@ -707,52 +734,68 @@ export type State = State_Serialize | State_Deserialize;
 export type StateChange = StateChange_Serialize | StateChange_Deserialize;
 
 /**  One change the frontend saves. */
-export type StateChange_Deserialize = ({ selectedWorktree?: string | null }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; screenshotFolder?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ sidebarHidden: boolean }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ theme: Theme }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never } | ({ textPercent: number }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; theme?: never } | ({ terminalFontSize: number }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ shortcuts: { [key in string]: Shortcut_Deserialize | null } }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
+export type StateChange_Deserialize = ({ selectedWorktree?: string | null }) & { bottomPanel?: never; keptServices?: never; panes?: never; previewModel?: never; previewPick?: never; runDestination?: never; screenshotFolder?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ sidebarHidden: boolean }) & { bottomPanel?: never; keptServices?: never; panes?: never; previewModel?: never; previewPick?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ theme: Theme }) & { bottomPanel?: never; keptServices?: never; panes?: never; previewModel?: never; previewPick?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never } | ({ textPercent: number }) & { bottomPanel?: never; keptServices?: never; panes?: never; previewModel?: never; previewPick?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; theme?: never } | ({ terminalFontSize: number }) & { bottomPanel?: never; keptServices?: never; panes?: never; previewModel?: never; previewPick?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ shortcuts: { [key in string]: Shortcut_Deserialize | null } }) & { bottomPanel?: never; keptServices?: never; panes?: never; previewModel?: never; previewPick?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
 /**  `None` forgets the worktree's layouts. */
 ({ panes: {
 	worktree: string,
 	panes?: WorktreePanes | null,
-} }) & { bottomPanel?: never; keptServices?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ sidePanel: {
+} }) & { bottomPanel?: never; keptServices?: never; previewModel?: never; previewPick?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ sidePanel: {
 	worktree: string,
 	panel: SidePanel_Deserialize,
-} }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ bottomPanel: {
+} }) & { bottomPanel?: never; keptServices?: never; panes?: never; previewModel?: never; previewPick?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ bottomPanel: {
 	worktree: string,
 	panel: BottomPanel_Deserialize,
-} }) & { keptServices?: never; panes?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
+} }) & { keptServices?: never; panes?: never; previewModel?: never; previewPick?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
 /**  `ids` are subgroup ids, or a group id for a group without subgroups; all are set in one save. */
 ({ keptServices: {
 	ids: string[],
 	kept: boolean,
-} }) & { bottomPanel?: never; panes?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ screenshotFolder?: string | null }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
+} }) & { bottomPanel?: never; panes?: never; previewModel?: never; previewPick?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ screenshotFolder?: string | null }) & { bottomPanel?: never; keptServices?: never; panes?: never; previewModel?: never; previewPick?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
 /**  `None` returns the project to the default. */
 ({ runDestination: {
 	project: string,
 	destination?: RunDestination | null,
-} }) & { bottomPanel?: never; keptServices?: never; panes?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never };
+} }) & { bottomPanel?: never; keptServices?: never; panes?: never; previewModel?: never; previewPick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
+/**  `None` returns the project to the default. */
+({ previewModel: {
+	project: string,
+	model?: RunDestination | null,
+} }) & { bottomPanel?: never; keptServices?: never; panes?: never; previewPick?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ previewPick: {
+	worktree: string,
+	pick: PreviewPick_Deserialize,
+} }) & { bottomPanel?: never; keptServices?: never; panes?: never; previewModel?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never };
 
 /**  One change the frontend saves. */
-export type StateChange_Serialize = ({ selectedWorktree: string | null }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; screenshotFolder?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ sidebarHidden: boolean }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ theme: Theme }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never } | ({ textPercent: number }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; theme?: never } | ({ terminalFontSize: number }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ shortcuts: { [key in string]: Shortcut_Serialize | null } }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
+export type StateChange_Serialize = ({ selectedWorktree: string | null }) & { bottomPanel?: never; keptServices?: never; panes?: never; previewModel?: never; previewPick?: never; runDestination?: never; screenshotFolder?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ sidebarHidden: boolean }) & { bottomPanel?: never; keptServices?: never; panes?: never; previewModel?: never; previewPick?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ theme: Theme }) & { bottomPanel?: never; keptServices?: never; panes?: never; previewModel?: never; previewPick?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never } | ({ textPercent: number }) & { bottomPanel?: never; keptServices?: never; panes?: never; previewModel?: never; previewPick?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; theme?: never } | ({ terminalFontSize: number }) & { bottomPanel?: never; keptServices?: never; panes?: never; previewModel?: never; previewPick?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ shortcuts: { [key in string]: Shortcut_Serialize | null } }) & { bottomPanel?: never; keptServices?: never; panes?: never; previewModel?: never; previewPick?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
 /**  `None` forgets the worktree's layouts. */
 ({ panes: {
 	worktree: string,
 	panes: WorktreePanes | null,
-} }) & { bottomPanel?: never; keptServices?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ sidePanel: {
+} }) & { bottomPanel?: never; keptServices?: never; previewModel?: never; previewPick?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ sidePanel: {
 	worktree: string,
 	panel: SidePanel_Serialize,
-} }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ bottomPanel: {
+} }) & { bottomPanel?: never; keptServices?: never; panes?: never; previewModel?: never; previewPick?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ bottomPanel: {
 	worktree: string,
 	panel: BottomPanel_Serialize,
-} }) & { keptServices?: never; panes?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
+} }) & { keptServices?: never; panes?: never; previewModel?: never; previewPick?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
 /**  `ids` are subgroup ids, or a group id for a group without subgroups; all are set in one save. */
 ({ keptServices: {
 	ids: string[],
 	kept: boolean,
-} }) & { bottomPanel?: never; panes?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ screenshotFolder: string | null }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
+} }) & { bottomPanel?: never; panes?: never; previewModel?: never; previewPick?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ screenshotFolder: string | null }) & { bottomPanel?: never; keptServices?: never; panes?: never; previewModel?: never; previewPick?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
 /**  `None` returns the project to the default. */
 ({ runDestination: {
 	project: string,
 	destination: RunDestination | null,
-} }) & { bottomPanel?: never; keptServices?: never; panes?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never };
+} }) & { bottomPanel?: never; keptServices?: never; panes?: never; previewModel?: never; previewPick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
+/**  `None` returns the project to the default. */
+({ previewModel: {
+	project: string,
+	model: RunDestination | null,
+} }) & { bottomPanel?: never; keptServices?: never; panes?: never; previewPick?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ previewPick: {
+	worktree: string,
+	pick: PreviewPick_Serialize,
+} }) & { bottomPanel?: never; keptServices?: never; panes?: never; previewModel?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never };
 
 export type State_Deserialize = {
 	projects?: Project[],
@@ -778,6 +821,10 @@ export type State_Deserialize = {
 	keptServices?: { [key in string]: boolean },
 	/**  Each project's run destination; a project without one runs on the newest iPhone simulator. */
 	runDestinations?: { [key in string]: RunDestination },
+	/**  Each project's preview simulator model; a project without one previews on the newest iPhone. */
+	previewModels?: { [key in string]: RunDestination },
+	/**  The `#Preview` each worktree's Preview view shows. */
+	previewPicks?: { [key in string]: PreviewPick_Deserialize },
 	/**  Where the Simulator view's screenshots are kept; none keeps them in a temporary folder. */
 	screenshotFolder?: string | null,
 };
@@ -806,6 +853,10 @@ export type State_Serialize = {
 	keptServices: { [key in string]: boolean },
 	/**  Each project's run destination; a project without one runs on the newest iPhone simulator. */
 	runDestinations: { [key in string]: RunDestination },
+	/**  Each project's preview simulator model; a project without one previews on the newest iPhone. */
+	previewModels: { [key in string]: RunDestination },
+	/**  The `#Preview` each worktree's Preview view shows. */
+	previewPicks: { [key in string]: PreviewPick_Serialize },
 	/**  Where the Simulator view's screenshots are kept; none keeps them in a temporary folder. */
 	screenshotFolder: string | null,
 };

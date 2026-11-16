@@ -1,4 +1,4 @@
-/* The Preview view: its header over the Simulator view's screen. Rules: DESIGN.md, Preview view. */
+/* The Preview view: its header with the picker and model buttons over the Simulator view's screen. Rules: DESIGN.md, Preview view. */
 .preview {
   display: flex;
   flex-direction: column;
@@ -10,10 +10,59 @@
   align-items: center;
   height: 24px;
   padding: 4px 6px 0 18px;
+  gap: 8px;
   box-sizing: content-box;
 }
 
+.preview-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  height: 24px;
+  padding: 0 8px;
+  border: none;
+  border-radius: var(--radius-inset);
+  background: transparent;
+  white-space: nowrap;
+  transition: background-color var(--t-fast) var(--ease-out);
+}
+
+.preview-button:hover {
+  background: var(--raised);
+}
+
+.preview-button:active {
+  background: var(--selected);
+}
+
+.preview-button svg {
+  flex: none;
+  color: var(--ink-muted);
+}
+
+.preview-model {
+  max-width: 50%;
+  margin-left: auto;
+}
+
+.preview-file,
+.preview-muted {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preview-file {
+  color: var(--ink);
+}
+
+.preview-muted {
+  color: var(--ink-muted);
+}
+
 .preview-rebuilding {
+  flex: none;
   display: flex;
   align-items: center;
   gap: 6px;

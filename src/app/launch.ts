@@ -9,6 +9,7 @@ import { sidebar } from "../features/sidebar/store";
 import { loadSidePanels } from "../features/sidepanel/store";
 import { screenshotFolder } from "../features/ios/simulator/store";
 import { loadRunDestinations, refreshDestinations } from "../features/ios/build/destinationStore";
+import { loadPreviewChoices } from "../features/ios/preview/store";
 import { loadBottomPanels } from "../features/bottompanel/store";
 import { loadGitCounts } from "../features/worktrees/gitCountsRefresh";
 import { hasXcodeProject, worktreeAt } from "../features/worktrees/projects";
@@ -34,6 +35,7 @@ export async function launch() {
     loadSidePanels(state.sidePanels);
     loadBottomPanels(state.bottomPanels);
     loadRunDestinations(state.runDestinations);
+    loadPreviewChoices(state.previewPicks, state.previewModels);
     // A pi that never sends its history must not keep the window hidden; its chat fills in once it does.
     const resumed = Promise.race([resumeAgents(state.runningPanes), historyWait()]);
     await loadProjects(state.projects, state.selected);

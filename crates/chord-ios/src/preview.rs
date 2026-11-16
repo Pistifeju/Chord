@@ -1,4 +1,4 @@
-//! The worktree's preview simulator in Chord's own device set, at most two booted at once, and the app launched on it with the preview helper (ChordPreview.swift), which shows the app's first `#Preview` full screen and answers on a socket for the hot reload.
+//! The worktree's preview simulator in Chord's own device set, at most two booted at once, and the app launched on it with the preview helper (ChordPreview.swift), which shows the picked `#Preview` full screen and answers on a socket for a new pick and the hot reload.
 
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 
 use serde::Serialize;
 use serde_json::{Value, json};
-use chord_core::{Error, login_shell};
+use chord_core::{Error, PreviewPick, login_shell};
 use specta::Type;
 
 use crate::derived_data::path_hash;
@@ -60,6 +60,8 @@ pub enum PreviewState {
     Full {
         worktrees: Vec<String>,
     },
+    /// No pick, or the picked `#Preview` is gone.
+    Unpicked,
     Failed {
         message: String,
     },
@@ -198,6 +200,21 @@ pub(crate) fn shown_file(worktree: &Path) -> Result<String, String> {
         .as_str()
         .map(String::from)
         .ok_or_else(|| "the preview app named no file".into())
+}
+
+/// The helper knows a preview by its `fileID`, `Module/File.swift`, and the worktree path's module is unknown.
+// shortcut: two modules' files of the same name with previews mix up; pass the module once the picker reads it from the compile commands.
+fn file_name(pick: &PreviewPick) -> &str {
+    pick.file.rsplit('/').next().unwrap_or(&pick.file)
+}
+
+/// Has the preview app show another `#Preview` from the image it launched with.
+pub(crate) fn show(worktree: &Path, pick: &PreviewPick) -> Result<(), String> {
+    request(
+        worktree,
+        &json!({ "op": "show", "file": file_name(pick), "index": pick.index }),
+    )
+    .map(drop)
 }
 
 /// Has the preview app load a hot reload's dylib and show the preview from it.

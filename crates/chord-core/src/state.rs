@@ -39,6 +39,10 @@ pub struct State {
     pub kept_services: BTreeMap<String, bool>,
     /// Each project's run destination; a project without one runs on the newest iPhone simulator.
     pub run_destinations: BTreeMap<PathBuf, RunDestination>,
+    /// Each project's preview simulator model; a project without one previews on the newest iPhone.
+    pub preview_models: BTreeMap<PathBuf, RunDestination>,
+    /// The `#Preview` each worktree's Preview view shows.
+    pub preview_picks: BTreeMap<PathBuf, PreviewPick>,
     /// Where the Simulator view's screenshots are kept; none keeps them in a temporary folder.
     pub screenshot_folder: Option<PathBuf>,
 }
@@ -69,6 +73,17 @@ impl RunDestination {
             RunDestination::Device { name, .. } | RunDestination::Simulator { name, .. } => name,
         }
     }
+}
+
+/// One `#Preview` of a worktree: its file and its place among the file's previews.
+#[derive(Serialize, Deserialize, Type, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PreviewPick {
+    /// Relative to the worktree, `/`-separated.
+    pub file: String,
+    pub index: u32,
+    /// The macro's name argument; none for an unnamed preview.
+    pub name: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Type, Clone, Debug, PartialEq)]
@@ -122,6 +137,15 @@ pub enum StateChange {
         project: PathBuf,
         destination: Option<RunDestination>,
     },
+    /// `None` returns the project to the default.
+    PreviewModel {
+        project: PathBuf,
+        model: Option<RunDestination>,
+    },
+    PreviewPick {
+        worktree: PathBuf,
+        pick: PreviewPick,
+    },
 }
 
 impl State {
@@ -156,6 +180,17 @@ impl State {
                     self.run_destinations.remove(&project);
                 }
             },
+            StateChange::PreviewModel { project, model } => match model {
+                Some(model) => {
+                    self.preview_models.insert(project, model);
+                }
+                None => {
+                    self.preview_models.remove(&project);
+                }
+            },
+            StateChange::PreviewPick { worktree, pick } => {
+                self.preview_picks.insert(worktree, pick);
+            }
             StateChange::Panes { worktree, panes } => match panes {
                 Some(panes) => {
                     self.panes.insert(worktree, panes);

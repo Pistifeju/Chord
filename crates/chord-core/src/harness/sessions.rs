@@ -190,6 +190,7 @@ impl Sessions {
             }
             state.side_panels.remove(worktree);
             state.bottom_panels.remove(worktree);
+            state.preview_picks.remove(worktree);
         })
     }
 }

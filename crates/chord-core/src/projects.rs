@@ -27,6 +27,7 @@ pub fn remove(store: &Store, path: &Path) -> Result<(), Error> {
     store.update(|state| {
         state.projects.retain(|p| p.path != path);
         state.run_destinations.remove(path);
+        state.preview_models.remove(path);
     })
 }
 

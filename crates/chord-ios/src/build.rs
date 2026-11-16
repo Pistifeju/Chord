@@ -9,7 +9,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
-use chord_core::{Error, RunDestination, login_shell};
+use chord_core::{Error, PreviewPick, RunDestination, login_shell};
 use specta::Type;
 
 use crate::agent_reply::issue_line;
@@ -21,6 +21,7 @@ use crate::device;
 use crate::hot_reload;
 use crate::issues::{BuildIssue, Issues};
 use crate::preview::{self, PreviewState};
+use crate::preview_list;
 use crate::process::{self, BATCH_BYTES, BATCH_INTERVAL, GROUP_GRACE, end_group};
 use crate::simulator::{self, DeviceSet, Simulator};
 use crate::simulator_kit;
@@ -112,6 +113,8 @@ struct Preview {
     open: bool,
     /// A save landed while the view was closed: the app runs old code.
     missed: bool,
+    /// The `#Preview` the next launch shows.
+    pick: Option<PreviewPick>,
     on_state: Arc<dyn Fn(PreviewState) + Send + Sync>,
 }
 
@@ -205,14 +208,19 @@ impl Builds {
         });
     }
 
-    /// The Preview view opened: boots the worktree's preview simulator of the destination's model, unless two others run, and starts a preview build unless the preview app already runs there. `on_state` hears the preview's states from then on, from any thread. Blocks during the boot.
+    /// The Preview view opened: boots the worktree's preview simulator of the destination's model, unless two others run, and starts a preview build of `pick` unless the preview app already runs there. `on_state` hears the preview's states from then on, from any thread. Blocks during the boot.
     pub fn open_preview(
         &self,
         worktree: PathBuf,
         destination: Option<RunDestination>,
+        pick: Option<PreviewPick>,
         on_state: impl Fn(PreviewState) + Send + Sync + 'static,
     ) {
         let on_state: Arc<dyn Fn(PreviewState) + Send + Sync> = Arc::new(on_state);
+        // No simulator boots for nothing to show; the first pick opens the view again.
+        if pick.is_none() {
+            return on_state(PreviewState::Unpicked);
+        }
         if let Err(error) = self.project_of(&worktree) {
             return on_state(PreviewState::Failed {
                 message: error.to_string(),
@@ -237,12 +245,14 @@ impl Builds {
                     });
                 }
             };
-        let launched = {
+        let (launched, picked) = {
             let mut previews = lock(&self.0.previews);
+            let before = previews.get(&worktree);
             let launched = !fresh
-                && previews.get(&worktree).is_some_and(|preview| {
+                && before.is_some_and(|preview| {
                     preview.udid == udid && preview.launched && !preview.missed
                 });
+            let picked = before.is_some_and(|preview| preview.pick != pick);
             previews.insert(
                 worktree.clone(),
                 Preview {
@@ -250,10 +260,11 @@ impl Builds {
                     launched,
                     open: true,
                     missed: false,
+                    pick,
                     on_state: Arc::clone(&on_state),
                 },
             );
-            launched
+            (launched, picked)
         };
         self.watch(&worktree);
         let (runs, waits) = {
@@ -263,7 +274,9 @@ impl Builds {
                 slots.preview_waits(&worktree),
             )
         };
-        if launched {
+        if launched && picked {
+            self.show_pick(&worktree);
+        } else if launched {
             on_state(PreviewState::Live);
         } else if waits {
             on_state(PreviewState::Waiting);
@@ -271,6 +284,41 @@ impl Builds {
             on_state(PreviewState::Building);
         } else {
             self.start_preview(&worktree);
+        }
+    }
+
+    /// The Preview view picked another `#Preview`: the preview app shows it at once, or the next launch does.
+    pub fn pick_preview(&self, worktree: &Path, pick: PreviewPick) {
+        match lock(&self.0.previews).get_mut(worktree) {
+            Some(preview) => preview.pick = Some(pick),
+            None => return,
+        }
+        self.show_pick(worktree);
+    }
+
+    /// Shows the pick in the running preview app with the saves since its launch, else rebuilds; a preview build that runs or waits launches with it anyway.
+    fn show_pick(&self, worktree: &Path) {
+        let (launched, pick) = match lock(&self.0.previews).get(worktree) {
+            Some(preview) => (preview.launched, preview.pick.clone()),
+            None => return,
+        };
+        {
+            let mut slots = lock(&self.0.slots);
+            if slots.holds_preview(worktree) {
+                // A build that fails or launched with the old pick still leaves a preview build to follow.
+                return slots.follow_with_preview(worktree);
+            }
+        }
+        let shown = launched
+            && pick.is_some_and(|pick| {
+                preview::show(worktree, &pick)
+                    .and_then(|()| hot_reload::reload(worktree))
+                    .is_ok()
+            });
+        if shown {
+            self.tell_preview(worktree, PreviewState::Live);
+        } else {
+            self.start_preview(worktree);
         }
     }
 
@@ -323,8 +371,15 @@ impl Builds {
 
     /// A preview build of a worktree whose Preview view opened: it waits for the worktree's ⌘R or ⌘B build, else takes over from its preview build.
     fn start_preview(&self, worktree: &Path) {
-        if !lock(&self.0.previews).contains_key(worktree) {
-            return;
+        let pick = match lock(&self.0.previews).get(worktree) {
+            Some(preview) => preview.pick.clone(),
+            None => return,
+        };
+        if !pick.is_some_and(|pick| preview_list::holds(worktree, &pick)) {
+            if let Some(preview) = lock(&self.0.previews).get_mut(worktree) {
+                preview.launched = false;
+            }
+            return self.tell_preview(worktree, PreviewState::Unpicked);
         }
         let project = match self.project_of(worktree) {
             Ok(project) => project,
@@ -625,6 +680,15 @@ impl Build {
             })
             .and_then(|app| {
                 self.step(|register| preview::launch(&self.worktree, &udid, &app, register))
+            })
+            .and_then(|()| {
+                // The pick after launch: a pick made during the build shows without another one.
+                let pick = lock(&self.builds.0.previews)
+                    .get(&self.worktree)
+                    .and_then(|preview| preview.pick.clone());
+                pick.map_or(Ok(()), |pick| {
+                    preview::show(&self.worktree, &pick).map_err(Error::Message)
+                })
             });
         if self.stopped() {
             return BuildEvent::Stopped;

@@ -21,3 +21,8 @@ test("the header says Rebuilding only while a build replaces a shown preview", (
 test("the limit names the worktrees whose previews run", () => {
   assert.equal(previewLine(appliedState(undefined, { state: "full", worktrees: ["login", "onboarding"] })), "Two previews already run: login, onboarding.");
 });
+
+test("a gone pick takes the shown preview away and asks for a pick", () => {
+  const live = appliedState(undefined, { state: "live" });
+  assert.equal(previewLine(appliedState(live, { state: "unpicked" })), "Pick a preview.");
+});
