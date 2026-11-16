@@ -20,6 +20,9 @@
 
 /* The view beside the terminal: its own column behind a 1px rule. */
 .bottom-main + .bottom-side {
+  position: relative;
+  /* The terminal keeps room to work in. */
+  max-width: calc(100% - 200px);
   border-left: 1px solid var(--line);
 }
 

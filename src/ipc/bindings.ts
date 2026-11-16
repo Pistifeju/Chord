@@ -77,8 +77,8 @@ export const commands = {
 	pressSimulatorButton: (worktree: string, button: Button) => __TAURI_INVOKE<null>("press_simulator_button", { worktree, button }),
 	/**  The Simulator view's fallback when the private API did not load. */
 	openSimulatorApp: () => __TAURI_INVOKE<null>("open_simulator_app"),
-	/**  Takes a screenshot of the worktree's simulator into the screenshot folder of Settings, else a temporary one. */
-	takeSimulatorScreenshot: (worktree: string) => __TAURI_INVOKE<Screenshot>("take_simulator_screenshot", { worktree }),
+	/**  Takes a screenshot of the worktree's simulator, or with `preview` its preview simulator, into the screenshot folder of Settings, else a temporary one. */
+	takeSimulatorScreenshot: (worktree: string, preview: boolean) => __TAURI_INVOKE<Screenshot>("take_simulator_screenshot", { worktree, preview }),
 	/**  Asks for the screenshot folder and saves the pick; no pick keeps the setting and returns `None`. */
 	pickScreenshotFolder: () => __TAURI_INVOKE<string | null>("pick_screenshot_folder"),
 	/**  Starts a native drag of a file, shown as `preview`, out of the window: Finder and other apps take it, and so does a chat pane. */
@@ -144,6 +144,8 @@ export type BottomPanel_Deserialize = {
 	/**  In pixels. */
 	height?: number,
 	view?: BottomView,
+	/**  The view column's width beside the terminal, in pixels. */
+	sideWidth?: number,
 };
 
 export type BottomPanel_Serialize = {
@@ -152,6 +154,8 @@ export type BottomPanel_Serialize = {
 	/**  In pixels. */
 	height: number,
 	view: BottomView,
+	/**  The view column's width beside the terminal, in pixels. */
+	sideWidth: number,
 };
 
 /**  The view beside the terminal; `Terminal` means none. */

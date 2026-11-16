@@ -11,12 +11,16 @@ export const {
   resize: resizeBottomPanel,
   endResize: endBottomPanelResize,
 } = panelStore<"height", BottomPanel>({
-  fallback: { open: false, height: 240, view: "terminal" },
+  fallback: { open: false, height: 240, view: "terminal", sideWidth: 480 },
   size: "height",
   min: 120,
   max: 800,
   save: (worktree, panel) => commands.changeState({ bottomPanel: { worktree, panel } }),
 });
+
+/** A drag of the view column's left edge sets its width; endBottomPanelResize saves it. */
+export const resizeBottomSide = (worktree: string, width: number) =>
+  bottomPanels.set({ ...bottomPanels.get(), [worktree]: { ...bottomPanelOf(bottomPanels.get(), worktree), sideWidth: Math.round(Math.max(200, width)) } });
 
 /** A drag of the top edge: below 60px it hides the panel with every view in it, else it sets the height. */
 export const dragBottomPanel = (worktree: string, size: number) =>

@@ -7,14 +7,14 @@ import { CloseIcon } from "../../ui/icons";
 import { terminalView } from "../../app/deferredViews";
 import "@xterm/xterm/css/xterm.css";
 import "../terminal/terminal.css";
-import { bottomPanelOf, bottomPanels, changeBottomPanel, dragBottomPanel, endBottomPanelResize, showBottomPanel } from "./store";
+import { bottomPanelOf, bottomPanels, changeBottomPanel, dragBottomPanel, endBottomPanelResize, resizeBottomSide, showBottomPanel } from "./store";
 import "./bottompanel.css";
 
 /** A view beside the terminal, with the command that shows or hides it. */
 export type BottomViewSlot = { id: Exclude<BottomView, "terminal">; title: string; toggleCommand: string; body: ReactNode };
 
 export function BottomPanel({ worktree, views }: { worktree: string; views: BottomViewSlot[] }) {
-  const { open, height, view } = bottomPanelOf(bottomPanels.use(), worktree);
+  const { open, height, view, sideWidth } = bottomPanelOf(bottomPanels.use(), worktree);
   const terminal = terminalView.use();
   // A saved view this worktree no longer has stays hidden.
   const shown = views.find((slot) => slot.id === view);
@@ -34,7 +34,8 @@ export function BottomPanel({ worktree, views }: { worktree: string; views: Bott
       </div>
       )}
       {shown && (
-        <div className="bottom-main bottom-side" aria-label={shown.title}>
+        <div className="bottom-main bottom-side" style={open ? { flex: `0 1 ${sideWidth}px` } : undefined} aria-label={shown.title}>
+          {open && <PanelEdge side="left" onResize={(size) => resizeBottomSide(worktree, size)} onEnd={() => endBottomPanelResize(worktree)} />}
           <div className="bottom-header">
             {views.length > 1 ? (
               <div className="bottom-tabs" role="tablist">

@@ -240,6 +240,8 @@ pub struct BottomPanel {
     /// In pixels.
     pub height: u16,
     pub view: BottomView,
+    /// The view column's width beside the terminal, in pixels.
+    pub side_width: u16,
 }
 
 impl Default for BottomPanel {
@@ -248,6 +250,7 @@ impl Default for BottomPanel {
             open: false,
             height: 240,
             view: BottomView::Terminal,
+            side_width: 480,
         }
     }
 }
