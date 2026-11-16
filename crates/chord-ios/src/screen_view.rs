@@ -28,8 +28,8 @@ use crate::simulator_kit::{
 
 /// How often an attached device without a screen yet gets its frame callbacks again: SimulatorKit creates the framebuffer descriptors lazily.
 const RETRY: Duration = Duration::from_secs(1);
-/// How long after a Lock or Home press the lock state gets read again: SpringBoard reports it only after its animation, and not at all when the press changed nothing.
-const LOCK_RECHECK: Duration = Duration::from_millis(1500);
+/// How long after a Lock or Home press the lock state gets read again: SpringBoard reports it only after its animation, up to 3 s for Lock, and not at all when the press changed nothing.
+const LOCK_RECHECK: Duration = Duration::from_millis(3500);
 /// How long after a Home on a locked device the lock state gets read: still locked means the press only woke the screen.
 const WAKE_CHECK: Duration = Duration::from_millis(400);
 /// Retries in a row without any framebuffer descriptor that make a wedged boot.
@@ -254,6 +254,8 @@ struct Attached {
     shown: (usize, u32),
     size: (usize, usize),
     locked: bool,
+    /// Lock states the watch reported; a recheck that sees a new one leaves the watch's state.
+    lock_reports: u32,
     /// The lock state watch's process group.
     lock_watch: Option<u32>,
 }
@@ -501,6 +503,9 @@ impl Screen {
             DispatchQueue::main().exec_async(move || {
                 with(|screen| {
                     if screen.generation == generation {
+                        if let Some(attached) = screen.attached.as_mut() {
+                            attached.lock_reports += 1;
+                        }
                         screen.set_locked(locked);
                     }
                 })
@@ -516,6 +521,7 @@ impl Screen {
             shown: (0, 0),
             size: (0, 0),
             locked: false,
+            lock_reports: 0,
             lock_watch,
         });
         self.off(Some("Waiting for the simulator's screen"));
@@ -664,7 +670,11 @@ impl Screen {
         let Some(attached) = &self.attached else {
             return;
         };
-        let (udid, generation) = (attached.udid.clone(), self.generation);
+        let (udid, generation, reports) = (
+            attached.udid.clone(),
+            self.generation,
+            attached.lock_reports,
+        );
         thread::spawn(move || {
             thread::sleep(after);
             let Some(locked) = simulator::lock_state(&udid) else {
@@ -676,7 +686,14 @@ impl Screen {
                         return;
                     }
                     if !(unlocking && locked) {
-                        return screen.set_locked(locked);
+                        let reported = screen
+                            .attached
+                            .as_ref()
+                            .is_some_and(|attached| attached.lock_reports != reports);
+                        if !reported {
+                            screen.set_locked(locked);
+                        }
+                        return;
                     }
                     let home = Input::Button {
                         button: Button::Home,

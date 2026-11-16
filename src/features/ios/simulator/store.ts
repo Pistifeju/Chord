@@ -72,7 +72,7 @@ export async function takeScreenshot(worktree: string) {
 
 export const dismissScreenshot = () => shot.set(null);
 
-export const dragScreenshot = ({ screenshot }: Shot) => void commands.dragFileOut(screenshot.file, screenshot.preview).catch(fail);
+export const dragScreenshot = ({ screenshot }: Shot) => void commands.dragFileOut(screenshot.file, screenshot.preview).then(dismissScreenshot, fail);
 
 /** The focused chat pane, unless its agent takes no attachments: the rule a drop into a pane follows. */
 export const attachingPane = (): string | null => {
