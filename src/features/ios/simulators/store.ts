@@ -1,5 +1,5 @@
-// Connects the running simulators and the build data size to IPC: the list kept fresh while the button shows, Shut Down Others, and the size read when Settings shows it.
-import { commands, type RunningSimulator } from "../../../ipc/bindings";
+// Connects the running simulators, the build data size and the service groups to IPC: the list kept fresh while the button shows, Shut Down Others, the size and the groups read when Settings shows them, and the switches saved through Rust and the groups read back with each one's resolved state.
+import { commands, type RunningSimulator, type ServiceRow } from "../../../ipc/bindings";
 import { externalStore } from "../../../ui/externalStore";
 import { fail } from "../../worktrees/store";
 
@@ -7,6 +7,7 @@ const REFRESH_MS = 5000;
 
 export const runningSimulators = externalStore<RunningSimulator[]>([]);
 export const buildDataSize = externalStore<number | null>(null);
+export const serviceGroups = externalStore<ServiceRow[]>([]);
 
 // A failed read shows no simulators and reports each distinct error once, so a missing xcrun shows its install step without a toast every few seconds.
 let reported = "";
@@ -41,4 +42,13 @@ export async function shutDownOthers(worktree: string) {
 export async function loadBuildDataSize() {
   // The size is a readout: a failed read leaves the value blank.
   buildDataSize.set(await commands.buildDataSize().catch(() => null));
+}
+
+export async function loadServiceGroups() {
+  serviceGroups.set(await commands.simulatorServiceGroups());
+}
+
+export async function setServiceKept(ids: string[], kept: boolean) {
+  await commands.changeState({ keptServices: { ids, kept } });
+  await loadServiceGroups();
 }

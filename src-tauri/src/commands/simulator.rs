@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use chord_ios::RunningSimulator;
+use chord_ios::{RunningSimulator, ServiceRow};
 use tauri::AppHandle;
 
 use super::blocking;
@@ -42,4 +42,14 @@ pub async fn build_data_size(app: AppHandle) -> Result<f64, String> {
 #[specta::specta]
 pub async fn prune_build_data(app: AppHandle) -> Result<(), String> {
     blocking(app, |_, store| chord_ios::prune(&store.get().projects)).await
+}
+
+/// The service groups Settings lists, each with whether it stays on.
+#[tauri::command]
+#[specta::specta]
+pub async fn simulator_service_groups(app: AppHandle) -> Result<Vec<ServiceRow>, String> {
+    blocking(app, |_, store| {
+        Ok(chord_ios::service_rows(&store.get().kept_services))
+    })
+    .await
 }

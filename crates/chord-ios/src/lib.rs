@@ -11,7 +11,9 @@ mod destinations;
 mod device;
 mod issues;
 mod process;
+mod service_groups;
 mod simulator;
+mod slim;
 mod slot;
 mod xcode;
 
@@ -23,3 +25,5 @@ pub use caches::{
 pub use console::ConsoleTone;
 pub use destinations::{Destinations, SimulatorModels, list as list_destinations};
 pub use issues::BuildIssue;
+pub use service_groups::{ServiceRow, SubgroupRow};
+pub use slim::service_rows;

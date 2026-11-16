@@ -53,6 +53,8 @@ export const commands = {
 	buildDataSize: () => __TAURI_INVOKE<number | null>("build_data_size"),
 	/**  Removes the build data of worktrees that are gone. It does nothing while any project's worktrees cannot be listed: a project that is not mounted must not look empty. */
 	pruneBuildData: () => __TAURI_INVOKE<null>("prune_build_data"),
+	/**  The service groups Settings lists, each with whether it stays on. */
+	simulatorServiceGroups: () => __TAURI_INVOKE<ServiceRow_Serialize[]>("simulator_service_groups"),
 	/**  Stops every agent, shell and build and ends the app once the user confirmed the quit. Panes stay saved as running, so they start again on launch. */
 	quitApp: () => __TAURI_INVOKE<null>("quit_app"),
 	/**  Saves the setting and applies it; a missing `caffeinate` fails before anything is saved, even with no agent working. */
@@ -439,6 +441,35 @@ export type RunningSimulator = {
 	open: boolean,
 };
 
+/**  One row of Settings' Simulators section: a group with the state of its switch. */
+export type ServiceRow = ServiceRow_Serialize | ServiceRow_Deserialize;
+
+/**  One row of Settings' Simulators section: a group with the state of its switch. */
+export type ServiceRow_Deserialize = {
+	id: string,
+	name: string,
+	effect: string,
+	/**  The sum of its subgroups'. */
+	memoryMb: number,
+	/**  On when every subgroup is kept, off when none is, `None` when they differ. */
+	kept?: boolean | null,
+	/**  Empty for a group with one coherent function, which has no rows to open. */
+	subgroups: SubgroupRow[],
+};
+
+/**  One row of Settings' Simulators section: a group with the state of its switch. */
+export type ServiceRow_Serialize = {
+	id: string,
+	name: string,
+	effect: string,
+	/**  The sum of its subgroups'. */
+	memoryMb: number,
+	/**  On when every subgroup is kept, off when none is, `None` when they differ. */
+	kept: boolean | null,
+	/**  Empty for a group with one coherent function, which has no rows to open. */
+	subgroups: SubgroupRow[],
+};
+
 export type Shortcut = Shortcut_Serialize | Shortcut_Deserialize;
 
 export type Shortcut_Deserialize = {
@@ -520,42 +551,52 @@ export type State = State_Serialize | State_Deserialize;
 export type StateChange = StateChange_Serialize | StateChange_Deserialize;
 
 /**  One change the frontend saves. */
-export type StateChange_Deserialize = ({ selectedWorktree?: string | null }) & { bottomPanel?: never; panes?: never; runDestination?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ sidebarHidden: boolean }) & { bottomPanel?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ theme: Theme }) & { bottomPanel?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never } | ({ textPercent: number }) & { bottomPanel?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; theme?: never } | ({ terminalFontSize: number }) & { bottomPanel?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ shortcuts: { [key in string]: Shortcut_Deserialize | null } }) & { bottomPanel?: never; panes?: never; runDestination?: never; selectedWorktree?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
+export type StateChange_Deserialize = ({ selectedWorktree?: string | null }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ sidebarHidden: boolean }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ theme: Theme }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never } | ({ textPercent: number }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; theme?: never } | ({ terminalFontSize: number }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ shortcuts: { [key in string]: Shortcut_Deserialize | null } }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; selectedWorktree?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
 /**  `None` forgets the worktree's layouts. */
 ({ panes: {
 	worktree: string,
 	panes?: WorktreePanes | null,
-} }) & { bottomPanel?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ sidePanel: {
+} }) & { bottomPanel?: never; keptServices?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ sidePanel: {
 	worktree: string,
 	panel: SidePanel_Deserialize,
-} }) & { bottomPanel?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ bottomPanel: {
+} }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ bottomPanel: {
 	worktree: string,
 	panel: BottomPanel_Deserialize,
-} }) & { panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
+} }) & { keptServices?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
+/**  `ids` are subgroup ids, or a group id for a group without subgroups; all are set in one save. */
+({ keptServices: {
+	ids: string[],
+	kept: boolean,
+} }) & { bottomPanel?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
 /**  `None` returns the project to the default. */
 ({ runDestination: {
 	project: string,
 	destination?: RunDestination | null,
-} }) & { bottomPanel?: never; panes?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never };
+} }) & { bottomPanel?: never; keptServices?: never; panes?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never };
 
 /**  One change the frontend saves. */
-export type StateChange_Serialize = ({ selectedWorktree: string | null }) & { bottomPanel?: never; panes?: never; runDestination?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ sidebarHidden: boolean }) & { bottomPanel?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ theme: Theme }) & { bottomPanel?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never } | ({ textPercent: number }) & { bottomPanel?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; theme?: never } | ({ terminalFontSize: number }) & { bottomPanel?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ shortcuts: { [key in string]: Shortcut_Serialize | null } }) & { bottomPanel?: never; panes?: never; runDestination?: never; selectedWorktree?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
+export type StateChange_Serialize = ({ selectedWorktree: string | null }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ sidebarHidden: boolean }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ theme: Theme }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never } | ({ textPercent: number }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; theme?: never } | ({ terminalFontSize: number }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ shortcuts: { [key in string]: Shortcut_Serialize | null } }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; selectedWorktree?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
 /**  `None` forgets the worktree's layouts. */
 ({ panes: {
 	worktree: string,
 	panes: WorktreePanes | null,
-} }) & { bottomPanel?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ sidePanel: {
+} }) & { bottomPanel?: never; keptServices?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ sidePanel: {
 	worktree: string,
 	panel: SidePanel_Serialize,
-} }) & { bottomPanel?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ bottomPanel: {
+} }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ bottomPanel: {
 	worktree: string,
 	panel: BottomPanel_Serialize,
-} }) & { panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
+} }) & { keptServices?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
+/**  `ids` are subgroup ids, or a group id for a group without subgroups; all are set in one save. */
+({ keptServices: {
+	ids: string[],
+	kept: boolean,
+} }) & { bottomPanel?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
 /**  `None` returns the project to the default. */
 ({ runDestination: {
 	project: string,
 	destination: RunDestination | null,
-} }) & { bottomPanel?: never; panes?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never };
+} }) & { bottomPanel?: never; keptServices?: never; panes?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never };
 
 export type State_Deserialize = {
 	projects?: Project[],
@@ -577,6 +618,8 @@ export type State_Deserialize = {
 	runningPanes?: string[],
 	/**  What each pane's agent runs: its harness and the session it last held. */
 	agents?: { [key in string]: PaneAgent_Deserialize },
+	/**  The switches of the simulator service subgroups, by subgroup id or group id: `true` keeps it on, `false` lets a boot switch it off. A group id covers the group's subgroups without a switch of their own; with neither, the group's default applies. */
+	keptServices?: { [key in string]: boolean },
 	/**  Each project's run destination; a project without one runs on the newest iPhone simulator. */
 	runDestinations?: { [key in string]: RunDestination },
 };
@@ -601,6 +644,8 @@ export type State_Serialize = {
 	runningPanes: string[],
 	/**  What each pane's agent runs: its harness and the session it last held. */
 	agents: { [key in string]: PaneAgent_Serialize },
+	/**  The switches of the simulator service subgroups, by subgroup id or group id: `true` keeps it on, `false` lets a boot switch it off. A group id covers the group's subgroups without a switch of their own; with neither, the group's default applies. */
+	keptServices: { [key in string]: boolean },
 	/**  Each project's run destination; a project without one runs on the newest iPhone simulator. */
 	runDestinations: { [key in string]: RunDestination },
 };
@@ -647,6 +692,16 @@ export type SubagentNode_Serialize = {
 };
 
 export type SubagentState = "running" | "done" | "error";
+
+/**  One subgroup of Settings' Simulators section with the state of its switch. */
+export type SubgroupRow = {
+	id: string,
+	name: string,
+	effect: string,
+	memoryMb: number,
+	/**  The user's switch for it, else the switch of its group, else the group's default. */
+	kept: boolean,
+};
 
 export type Tab = 
 /**  A chat with its agent; `name` shows until its first user message names it. */

@@ -35,6 +35,8 @@ pub struct State {
     pub running_panes: BTreeSet<String>,
     /// What each pane's agent runs: its harness and the session it last held.
     pub agents: BTreeMap<String, PaneAgent>,
+    /// The switches of the simulator service subgroups, by subgroup id or group id: `true` keeps it on, `false` lets a boot switch it off. A group id covers the group's subgroups without a switch of their own; with neither, the group's default applies.
+    pub kept_services: BTreeMap<String, bool>,
     /// Each project's run destination; a project without one runs on the newest iPhone simulator.
     pub run_destinations: BTreeMap<PathBuf, RunDestination>,
 }
@@ -107,6 +109,11 @@ pub enum StateChange {
         worktree: PathBuf,
         panel: BottomPanel,
     },
+    /// `ids` are subgroup ids, or a group id for a group without subgroups; all are set in one save.
+    KeptServices {
+        ids: Vec<String>,
+        kept: bool,
+    },
     /// `None` returns the project to the default.
     RunDestination {
         project: PathBuf,
@@ -128,6 +135,11 @@ impl State {
             }
             StateChange::BottomPanel { worktree, panel } => {
                 self.bottom_panels.insert(worktree, panel);
+            }
+            StateChange::KeptServices { ids, kept } => {
+                for id in ids {
+                    self.kept_services.insert(id, kept);
+                }
             }
             StateChange::RunDestination {
                 project,

@@ -140,6 +140,24 @@
   padding: 10px 16px;
 }
 
+.settings-row[data-nested="true"] {
+  padding-left: 34px;
+}
+
+.settings-disclosure {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+}
+
+.settings-disclosure [data-hidden] {
+  visibility: hidden;
+}
+
 .settings-row + .settings-row {
   border-top: 1px solid var(--line);
 }

@@ -159,7 +159,7 @@ Edge cases:
 - [x] H8 At most `max(1, RAM in GB / 6)` of Chord's run simulators stay booted; one more shuts down the one whose worktree was opened longest ago and has no run in progress.
 - [x] H9 harness(tools): `build` builds the worktree like ⌘B, in the same slot. The agent gets no log; the Build view shows it. The tool returns the error lines as `file:line: message`, 30 at most; a failed build with no such line returns the log's last 20 lines. A build that ⌘R or ⌘B takes over returns "Stopped".
 - [x] H10 harness(tools): `run` builds and runs like ⌘R on the worktree's simulator and returns "Launched", "Stopped" or what `build` returns. Both tools exist only in a worktree with an `.xcodeproj` or `.xcworkspace`.
-- [ ] H11 Slim simulators: before a boot, Chord writes launchd disable overrides into its own simulators, so the background services a run does not need (Siri, Spotlight, widgets, iCloud and more) never start. A Rust port of simslim's service list, with its MIT notice. Settings section Simulators: one row per service group with its name, what stops working and its memory, and a switch to keep it on.
+- [x] H11 Slim simulators: before a boot, Chord writes launchd disable overrides into its own simulators, so the background services a run does not need (Siri, Spotlight, widgets, iCloud and more) never start. A Rust port of simslim's service list, with its MIT notice. Settings section Simulators: one row per service group with its name, what stops working and its memory, and a switch to keep it on.
 
 Edge cases:
 - ⌘R opens the selected Xcode's simulator app (DeviceHub from Xcode 27, Simulator.app before).
@@ -178,6 +178,7 @@ Edge cases:
 - H11 slims only simulators Chord owns, on iOS 18.5 or newer; an older runtime boots stock.
 - H11: a switch change reaches each Chord simulator at its next boot.
 - H11 keeps App Store, Push & Media (L3) and Safari Sync & Web Services (L2 universal links) on by default, and never lists a service the simulator needs to boot.
+- H11: every service group with several functions opens to its subgroups, each with its own name, effect, memory and On / Off switch; the group row's switch sets them all, and a service stays on while any subgroup that lists it is kept.
 - H11: Chord reads the overrides back after the boot; a lost override leaves the simulator stock and the run goes on.
 - H9 and H10: each tool's description tells the agent to build and run through the tools and never to use `simctl … booted`; a call that runs long reports every 30 s that it still runs.
 - H4: ⌘B while the app runs builds beside the run that holds the app, as Xcode does: the app, its console and the Running marker stay (the marker says Building while it builds), ⌘. stops the app and the build, and a ⌘R takeover ends both and launches with `--terminate-running-process`.

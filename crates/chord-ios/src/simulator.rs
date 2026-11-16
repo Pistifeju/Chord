@@ -1,5 +1,6 @@
 //! The worktree's simulator: found or created by name, booted, the app installed and launched on it with its output and OSLog read, and the Simulator app opened.
 
+use std::collections::BTreeMap;
 use std::path::Path;
 use std::process::{Child, Command};
 use std::sync::mpsc;
@@ -12,13 +13,14 @@ use chord_core::{Error, login_shell};
 use crate::console::{self, ConsoleTone};
 use crate::derived_data;
 use crate::process::{self, end_group, xcrun};
+use crate::slim;
 
 pub(crate) const PLUTIL: &str = "/usr/bin/plutil";
 pub(crate) const OPEN: &str = "/usr/bin/open";
 /// How long the launch waits for the log stream to start; it takes about a second.
 const STREAM_START: Duration = Duration::from_secs(3);
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Simulator {
     pub udid: String,
     pub name: String,
@@ -213,6 +215,24 @@ pub(crate) fn boot(udid: &str) -> Result<(), Error> {
             "The simulator does not report Booted after its boot.".into(),
         )),
     }
+}
+
+/// Boots the simulator, slim when it is one of Chord's own, shut down and on iOS 18.5 or newer: the overrides of the services the user does not keep go in before the boot and are read back after it. Returns a note when slimming was skipped or did not fully hold; the run goes on either way.
+pub(crate) fn boot_slim(
+    device: &Simulator,
+    kept_services: &BTreeMap<String, bool>,
+) -> Result<Option<&'static str>, Error> {
+    let slims = !device.booted
+        && worktree_folder(&device.name).is_some()
+        && slim::runtime_slims(&device.runtime);
+    let written = slims.then(|| slim::write_overrides(&device.udid, kept_services));
+    boot(&device.udid)?;
+    Ok(match written {
+        Some(Err(_)) => Some("Chord could not slim the simulator; it runs with every service."),
+        Some(Ok(off)) => (slim::holds(&device.udid, &off) == Some(false))
+            .then_some("The simulator did not keep all of its slimming; some services may run."),
+        None => None,
+    })
 }
 
 /// Opens the selected Xcode's simulator app: DeviceHub from Xcode 27, Simulator.app before. Best effort.

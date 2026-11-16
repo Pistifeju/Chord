@@ -55,6 +55,7 @@ pub fn ipc() -> tauri_specta::Builder<tauri::Wry> {
             commands::simulator::shut_down_other_simulators,
             commands::simulator::build_data_size,
             commands::simulator::prune_build_data,
+            commands::simulator::simulator_service_groups,
             commands::app::quit_app,
             commands::app::set_keep_awake,
             commands::app::open_link,

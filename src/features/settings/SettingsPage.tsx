@@ -4,7 +4,9 @@ import type { Theme } from "../../ipc/bindings";
 import { changeShortcut, commandTitles, resetShortcut, shortcutLabel, tooltip } from "../../app/commands";
 import { sheet } from "../../app/sheet";
 import { recordedShortcut } from "../../app/shortcuts";
-import { AppearanceIcon, CloseIcon, KeyboardIcon, MinusIcon, PlusIcon, SlidersIcon } from "../../ui/icons";
+import { Row } from "../../ui/Row";
+import { onOff, Segmented } from "../../ui/Segmented";
+import { AppearanceIcon, CloseIcon, KeyboardIcon, MinusIcon, PhoneIcon, PlusIcon, SlidersIcon } from "../../ui/icons";
 import { appearance, changeTerminalFontSize, changeTextSize, closeSettings, keepAwake, setKeepAwake, setTheme, shortcutChanges } from "./store";
 import "./settings.css";
 
@@ -18,21 +20,10 @@ const sections = [
   { id: "general", title: "General", icon: <SlidersIcon /> },
   { id: "appearance", title: "Appearance", icon: <AppearanceIcon /> },
   { id: "shortcuts", title: "Shortcuts", icon: <KeyboardIcon /> },
+  { id: "simulators", title: "Simulators", icon: <PhoneIcon /> },
 ] as const;
 
 type SectionId = (typeof sections)[number]["id"];
-
-function Row({ title, description, children }: { title: string; description?: ReactNode; children: ReactNode }) {
-  return (
-    <div className="settings-row">
-      <div className="settings-row-text">
-        <span className="settings-label">{title}</span>
-        {description}
-      </div>
-      {children}
-    </div>
-  );
-}
 
 function Group({ heading, notice, children }: { heading: string; notice?: ReactNode; children: ReactNode }) {
   return (
@@ -63,19 +54,7 @@ function General({ buildDataSize }: { buildDataSize: ReactNode }) {
             </>
           }
         >
-          <div className="segmented" role="radiogroup" aria-label="Keep the Mac awake while an agent runs">
-            {[true, false].map((value) => (
-              <button
-                key={String(value)}
-                type="button"
-                role="radio"
-                aria-checked={enabled === value}
-                onClick={() => setKeepAwake(value).then((failure) => setError(failure ?? ""))}
-              >
-                {value ? "On" : "Off"}
-              </button>
-            ))}
-          </div>
+          <Segmented label="Keep the Mac awake while an agent runs" options={onOff} value={enabled} onChange={(value) => setKeepAwake(value).then((failure) => setError(failure ?? ""))} />
         </Row>
       </Group>
       {buildDataSize && (
@@ -95,13 +74,7 @@ function Appearance() {
     <>
       <Group heading="Window">
         <Row title="Theme" description={<p className="settings-description">System follows the macOS appearance.</p>}>
-          <div className="segmented" role="radiogroup" aria-label="Theme">
-            {themes.map(({ value, label }) => (
-              <button key={value} type="button" role="radio" aria-checked={theme === value} onClick={() => setTheme(value)}>
-                {label}
-              </button>
-            ))}
-          </div>
+          <Segmented label="Theme" options={themes} value={theme} onChange={setTheme} />
         </Row>
         <Row title="Text size" description={<p className="settings-description">Scales all text in the window.</p>}>
           <div className="settings-stepper">
@@ -194,17 +167,26 @@ function Shortcuts() {
   );
 }
 
-// `buildDataSize` is the Build Data row's value, passed in by a window that has an Xcode project, so settings imports nothing from features/ios.
-export function SettingsPage({ buildDataSize }: { buildDataSize: ReactNode }) {
+function Simulators({ services }: { services: ReactNode }) {
+  return (
+    <Group heading="Background services" notice={<p className="settings-description">Applies at the next boot · iOS 18.5 and newer</p>}>
+      {services}
+    </Group>
+  );
+}
+
+// `buildDataSize` is the Build Data row's value and `simulatorServices` the Simulators section's rows, passed in by a window that has an Xcode project, so settings imports nothing from features/ios.
+export function SettingsPage({ buildDataSize, simulatorServices }: { buildDataSize: ReactNode; simulatorServices: ReactNode }) {
   const [shown, setShown] = useState<SectionId>("general");
   const sheetOpen = sheet.use() !== null;
-  const current = sections.find((s) => s.id === shown)!;
+  const shownSections = sections.filter((s) => s.id !== "simulators" || simulatorServices);
+  const current = shownSections.find((s) => s.id === shown) ?? shownSections[0];
   return (
     <div className="sheet-backdrop" inert={sheetOpen} onMouseDown={closeSettings}>
       <div className="settings" role="dialog" aria-modal="true" aria-label="Settings" onMouseDown={(e) => e.stopPropagation()}>
         <nav className="settings-nav" aria-label="Settings sections">
-          {sections.map(({ id, title, icon }) => (
-            <button key={id} type="button" className="settings-nav-item" aria-current={id === shown ? "page" : undefined} onClick={() => setShown(id)}>
+          {shownSections.map(({ id, title, icon }) => (
+            <button key={id} type="button" className="settings-nav-item" aria-current={id === current.id ? "page" : undefined} onClick={() => setShown(id)}>
               {icon}
               {title}
             </button>
@@ -224,9 +206,10 @@ export function SettingsPage({ buildDataSize }: { buildDataSize: ReactNode }) {
             </button>
           </header>
           <div className="settings-content">
-            {shown === "general" && <General buildDataSize={buildDataSize} />}
-            {shown === "appearance" && <Appearance />}
-            {shown === "shortcuts" && <Shortcuts />}
+            {current.id === "general" && <General buildDataSize={buildDataSize} />}
+            {current.id === "appearance" && <Appearance />}
+            {current.id === "shortcuts" && <Shortcuts />}
+            {current.id === "simulators" && <Simulators services={simulatorServices} />}
           </div>
         </div>
       </div>

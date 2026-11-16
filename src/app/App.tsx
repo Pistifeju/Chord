@@ -4,6 +4,7 @@ import { BuildView } from "../features/ios/build/BuildView";
 import { ConsoleView } from "../features/ios/build/ConsoleView";
 import { RunControl } from "../features/ios/build/RunControl";
 import { BuildDataSize } from "../features/ios/simulators/BuildDataSize";
+import { ServiceRows } from "../features/ios/simulators/ServiceRows";
 import { SimulatorsButton } from "../features/ios/simulators/SimulatorsButton";
 import { markerText } from "../features/ios/build/run";
 import { builds, watchAgentBuilds } from "../features/ios/build/store";
@@ -45,6 +46,7 @@ export default function App() {
   const sheetOpen = sheet.use() !== null;
   const ready = launched.use();
   const buildStates = builds.use();
+  const projectHasXcode = hasXcodeProject(state);
   const xcode = worktreeAt(state, selected)?.xcode === true;
   // The iOS parts of the sidebar, the tab bar, and the bottom panel are slots, so no core feature imports features/ios.
   const markers = useMemo(
@@ -113,7 +115,7 @@ export default function App() {
           </div>
         </div>
       </div>
-      {settings && <SettingsPage buildDataSize={hasXcodeProject(state) ? <BuildDataSize /> : null} />}
+      {settings && <SettingsPage buildDataSize={projectHasXcode ? <BuildDataSize /> : null} simulatorServices={projectHasXcode ? <ServiceRows /> : null} />}
       <ProjectDrop />
       <NewWorktreePopup />
       <DeleteWorktreePopup />

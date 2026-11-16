@@ -1,6 +1,6 @@
 //! One build per worktree: its xcodebuild with its arguments, its own process group and its log in batches, the wait while a build Chord did not start holds the build database, the run of the app on the run destination after it with its console, and the stop that signals the whole group.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::RecvTimeoutError;
@@ -110,12 +110,13 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 }
 
 impl Builds {
-    /// Starts a build of the worktree's project, and with `run` the app's install and launch, and returns. The app runs on the `destination`: a connected device, or a simulator of that model that is the worktree's own; without one, the worktree's own simulator of the newest iPhone model. `on_event` hears its phases, log and end from a thread of its own. A build already running there stops first. A build that cannot start, such as a missing `xcodebuild` with its install step, ends as a failed one.
+    /// Starts a build of the worktree's project, and with `run` the app's install and launch, and returns. The app runs on the `destination`: a connected device, or a simulator of that model that is the worktree's own; without one, the worktree's own simulator of the newest iPhone model. `kept_services` are the user's switches of the service groups a boot keeps on. `on_event` hears its phases, log and end from a thread of its own. A build already running there stops first. A build that cannot start, such as a missing `xcodebuild` with its install step, ends as a failed one.
     pub fn start(
         &self,
         worktree: PathBuf,
         run: bool,
         destination: Option<RunDestination>,
+        kept_services: BTreeMap<String, bool>,
         on_event: impl Fn(BuildEvent) + Send + Sync + 'static,
     ) {
         let project = match self.project_of(&worktree) {
@@ -144,6 +145,7 @@ impl Builds {
             id: start.id,
             run,
             destination,
+            kept_services,
             project,
             sink: Box::new(on_event),
         };
@@ -250,6 +252,7 @@ struct Build {
     /// Install and launch the app after the build.
     run: bool,
     destination: Option<RunDestination>,
+    kept_services: BTreeMap<String, bool>,
     project: Project,
     sink: Box<dyn Fn(BuildEvent) + Send + Sync>,
 }
@@ -300,11 +303,12 @@ impl Build {
         // The first boot hides inside the build.
         let boot = match &target {
             Target::Simulator(device) if self.run => {
-                let udid = device.udid.clone();
+                let device = device.clone();
                 let (opened, busy) = self.builds.opened_and_running();
+                let kept_services = self.kept_services.clone();
                 Some(thread::spawn(move || {
-                    make_room(&udid, &opened, &busy);
-                    simulator::boot(&udid)
+                    make_room(&device.udid, &opened, &busy);
+                    simulator::boot_slim(&device, &kept_services)
                 }))
             }
             _ => None,
@@ -358,7 +362,7 @@ impl Build {
         &self,
         scheme: &str,
         device: &Simulator,
-        boot: thread::JoinHandle<Result<(), Error>>,
+        boot: thread::JoinHandle<Result<Option<&'static str>, Error>>,
     ) -> BuildEvent {
         while !boot.is_finished() {
             if self.stopped() {
@@ -371,7 +375,10 @@ impl Build {
             .unwrap_or_else(|_| Err(Error::Message("The simulator's boot crashed.".into())));
         let udid = device.udid.as_str();
         let mut bundle = None;
-        let ended = booted.and_then(|()| {
+        let ended = booted.and_then(|slimming_note| {
+            if let Some(note) = slimming_note {
+                self.log(format!("{note}\n"));
+            }
             if self.stopped() {
                 return Ok(None);
             }

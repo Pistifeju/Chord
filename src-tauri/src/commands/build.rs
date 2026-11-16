@@ -25,10 +25,11 @@ pub async fn start_build(
     agent_request: Option<u32>,
     on_event: Channel<BuildEvent>,
 ) -> Result<(), String> {
-    blocking(app, move |app, _| {
+    blocking(app, move |app, store| {
         let agent = agent_request.and_then(|request| app.state::<AgentTools>().take(request));
+        let kept_services = store.get().kept_services;
         app.state::<Builds>()
-            .start(worktree, run, destination, move |event| {
+            .start(worktree, run, destination, kept_services, move |event| {
                 if let Some(agent) = &agent {
                     let _ = agent.send(event.clone());
                 }
