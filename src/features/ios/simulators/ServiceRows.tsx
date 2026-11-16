@@ -13,12 +13,14 @@ const keep = (ids: string[], kept: boolean) => setServiceKept(ids, kept).catch(f
 function GroupRows({ group }: { group: ServiceRow }) {
   const [open, setOpen] = useState(false);
   const expandable = group.subgroups.length > 0;
+  // The name and the description both sit inside the toggle, so a click on either opens the group.
   const label = (
     <>
       <span className="turn-chevron" data-open={open} data-hidden={!expandable || undefined}>
         <ChevronIcon />
       </span>
-      <span className="settings-label">{group.name}</span>
+      <span>{group.name}</span>
+      <span className="settings-description">{serviceDescription(group, group.subgroups)}</span>
     </>
   );
   const title = expandable ? (
@@ -30,7 +32,7 @@ function GroupRows({ group }: { group: ServiceRow }) {
   );
   return (
     <>
-      <Row title={title} description={<p className="settings-description">{serviceDescription(group, group.subgroups)}</p>}>
+      <Row title={title}>
         <Segmented<boolean> label={`Keep ${group.name} on`} options={onOff} value={group.kept ?? null} onChange={(kept) => keep(groupSwitchIds(group), kept)} />
       </Row>
       {open &&

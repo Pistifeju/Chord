@@ -144,14 +144,21 @@
   padding-left: 34px;
 }
 
+/* The chevron column keeps its 18px in every row, so names and descriptions line up with the nested rows' 34px. */
 .settings-disclosure {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr);
   align-items: center;
-  gap: 6px;
+  gap: 2px 6px;
   padding: 0;
   border: none;
+  border-radius: var(--radius-inset);
   background: transparent;
   text-align: left;
+}
+
+.settings-disclosure > .settings-description {
+  grid-column: 2;
 }
 
 .settings-disclosure [data-hidden] {
