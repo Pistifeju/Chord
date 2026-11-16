@@ -177,7 +177,7 @@ Edge cases:
 - Chord never stops or deletes a simulator or a DerivedData folder it does not own.
 - H11 slims only simulators Chord owns, on iOS 18.5 or newer; an older runtime boots stock.
 - H11: a switch change reaches each Chord simulator at its next boot.
-- H11 keeps App Store, Push & Media (L3) and Safari Sync & Web Services (L2 universal links) on by default, and never lists a service the simulator needs to boot.
+- H11 keeps App Store, Push & Media and Safari Sync & Web Services on by default, and never lists a service the simulator needs to boot.
 - H11: every service group with several functions opens to its subgroups, each with its own name, effect, memory and On / Off switch; the group row's switch sets them all, and a service stays on while any subgroup that lists it is kept.
 - H11: Chord reads the overrides back after the boot; a lost override leaves the simulator stock and the run goes on.
 - H9 and H10: each tool's description tells the agent to build and run through the tools and never to use `simctl … booted`; a call that runs long reports every 30 s that it still runs.
@@ -218,14 +218,11 @@ Edge cases:
 ## 12. Simulator tools (iOS)
 
 - [ ] L1 Appearance menu on the Simulator view: light / dark, Dynamic Type size, language and region of the worktree's simulator.
-- [ ] L2 Open URL: a field on the Simulator view sends a deep link or web URL to the worktree's simulator (`simctl openurl`); recent URLs per project.
-- [ ] L3 Push notification: drop a JSON payload on the Simulator view, or pick a recent one; `simctl push` sends it to the running app's bundle id.
 - [ ] L4 Scheme and build configuration (Debug / Release), per project, as submenus of the play button's menu under the destinations; ⌘R and ⌘B use them.
 - [ ] L5 Screen recording: record / stop button next to the I3 screenshot button (`simctl io recordVideo`); the video gets the I3 thumbnail and drag.
 
 Edge cases:
-- L1 to L3 act on the worktree's own simulator and are disabled while it is not booted.
-- A payload without `Simulator Target Bundle` goes to the last built app.
+- L1 acts on the worktree's own simulator and is disabled while it is not booted.
 - A window close or stop of the simulator ends a recording and keeps the file.
 
 ## 13. Harness capabilities these features need
