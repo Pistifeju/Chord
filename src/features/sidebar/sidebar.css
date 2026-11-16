@@ -51,10 +51,12 @@
 
 .project-name {
   padding: 6px 10px 6px;
-  font-size: calc(12px * var(--text-scale));
+  font-size: calc(11px * var(--text-scale));
   font-weight: 600;
   line-height: 16px;
-  color: var(--ink-secondary);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -118,11 +120,6 @@
   min-height: 20px;
 }
 
-/* Branch and hint differ in size, so they share a baseline instead of a center. */
-.worktree-line:first-child {
-  align-items: baseline;
-}
-
 .worktree-meta {
   min-height: 16px;
   font-size: calc(12px * var(--text-scale));
@@ -140,7 +137,8 @@
 .worktree-title {
   flex: 1;
   color: var(--ink);
-  font-size: calc(14px * var(--text-scale));
+  font-size: calc(13px * var(--text-scale));
+  font-weight: 500;
   line-height: 20px;
 }
 
@@ -236,10 +234,6 @@
 
 .worktree-card[aria-current="true"] .worktree-head {
   color: var(--ink-secondary);
-}
-
-.worktree-card[aria-current="true"] .worktree-title {
-  font-weight: 500;
 }
 
 .worktree-head:focus-visible {
