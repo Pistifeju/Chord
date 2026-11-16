@@ -29,16 +29,13 @@
   padding: 0 8px 12px;
 }
 
-/* The status bar's height and top edge, so its line runs to the window's left edge; the -1px covers the sidebar's right edge below that line. */
 .sidebar-footer {
   display: flex;
   align-items: center;
   flex: none;
-  height: 32px;
-  margin-right: -1px;
+  height: 36px;
   padding: 0 8px;
   border-top: 1px solid var(--line);
-  background: var(--panel);
 }
 
 /* A hairline between projects, so each project's cards read as one group. */

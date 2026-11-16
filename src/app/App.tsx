@@ -149,9 +149,9 @@ export default function App() {
                 )
               )}
             </main>
-            <StatusBar simulators={xcode && selected ? <SimulatorsButton worktree={selected} /> : null} />
           </div>
         </div>
+        <StatusBar simulators={xcode && selected ? <SimulatorsButton worktree={selected} /> : null} />
       </div>
       {settings && <SettingsPage buildDataSize={projectHasXcode ? <BuildDataSize /> : null} simulatorScreenshots={projectHasXcode ? <ScreenshotRows /> : null} simulatorServices={projectHasXcode ? <ServiceRows /> : null} />}
       <ProjectDrop />

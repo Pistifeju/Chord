@@ -1,4 +1,4 @@
-/* The window's layout: title bar row, the full-height sidebar, the main area with the status bar under it. */
+/* The window's layout: title bar row, the sidebar and the main area, the status bar under both. */
 .app {
   --sidebar-width: 264px;
   --sidebar-inset: 8px;
@@ -66,9 +66,9 @@
   align-items: center;
   flex: none;
   height: 32px;
-  padding: 0 12px 0 6px;
+  padding: 0 12px;
   border-top: 1px solid var(--line);
-  background: var(--panel);
+  background: var(--canvas);
   font-size: calc(12px * var(--text-scale));
   color: var(--ink-muted);
 }
