@@ -466,7 +466,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
                     <circle cx="7" cy="7" r="5.5" pathLength="100" />
                     <circle cx="7" cy="7" r="5.5" pathLength="100" style={{ strokeDasharray: `${context.percent ?? 0} 100` }} />
                   </svg>
-                  {context.percent === null ? "?" : `${context.percent}%`}
+                  <span className="chat-context-percent">{context.percent === null ? "?" : `${context.percent}%`}</span>
                 </span>
               )}
               <button

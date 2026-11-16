@@ -624,6 +624,34 @@
   flex: none;
 }
 
+/* Nothing in the bar overlaps: as it narrows, the model name ellipsizes, then the context percentage hides (the ring and its tooltip stay), then the thinking level, then the model name. */
+.chat-composer-bar {
+  container-type: inline-size;
+}
+
+@container (max-width: 300px) {
+  .chat-context-percent {
+    display: none;
+  }
+}
+
+@container (max-width: 240px) {
+  .chat-picker + .chat-picker {
+    display: none;
+  }
+}
+
+@container (max-width: 140px) {
+  .chat-composer-bar .chat-pickers {
+    display: none;
+  }
+
+  .chat-composer-bar .chat-pickers + .chat-context {
+    margin-left: auto;
+    border-left: none;
+  }
+}
+
 .chat-pickers {
   display: flex;
   min-width: 0;
@@ -726,6 +754,7 @@
   place-items: center;
   width: 32px;
   height: 32px;
+  flex: none;
   padding: 0;
   margin-left: auto;
   border-radius: 50%;
