@@ -5,6 +5,7 @@ import type { BottomViewSlot } from "../../bottompanel/BottomPanel";
 import type { ConsoleTone } from "../../../ipc/bindings";
 import { FindBar } from "../../../ui/FindBar";
 import type { Find } from "../../../ui/find";
+import { appearance } from "../../settings/store";
 import { matchesIn, segmentsOf } from "./log";
 import "./build.css";
 
@@ -13,8 +14,6 @@ const LINE_HEIGHT = 18;
 /** Rows mounted beyond the ones in view, so a fast scroll shows no gap. */
 const OVERSCAN = 20;
 const FOLLOW_SLACK = 8;
-
-const textScale = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--text-scale")) || 1;
 
 type Viewport = { top: number; height: number; offset: number };
 
@@ -42,7 +41,7 @@ export function LogView({ view, label, lines, toneAt, restartKey, head, atStart,
   const following = useRef(true);
   const [viewport, setViewport] = useState<Viewport>({ top: 0, height: 0, offset: 0 });
   const [current, setCurrent] = useState(0);
-  const rowHeight = LINE_HEIGHT * textScale();
+  const rowHeight = (LINE_HEIGHT * appearance.usePart((a) => a.textPercent)) / 100;
 
   const sync = () => {
     const el = scroller.current;

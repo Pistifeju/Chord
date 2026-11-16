@@ -2,6 +2,7 @@
 import { Fragment, useEffect, useRef, useState, type PointerEvent, type ReactNode, type RefObject } from "react";
 import type { Direction, Layout, Status, Tab } from "../../ipc/bindings";
 import { tooltip } from "../../app/commands";
+import { editorView } from "../../app/deferredViews";
 import { imageMime } from "../chat/attachments";
 import { ChatPane } from "../chat/ChatPane";
 import { chats, usePaneNames } from "../chat/store";
@@ -13,7 +14,6 @@ import { BottomPanel, type BottomViewSlot } from "../bottompanel/BottomPanel";
 import { SidePanel, type SideViewSlot } from "../sidepanel/SidePanel";
 import { sidePanelOf, sidePanels, showsSideView, toggleSideView } from "../sidepanel/store";
 import { sidebar } from "../sidebar/store";
-import { Editor } from "../editor/Editor";
 import { ImageView } from "../editor/ImageView";
 import { selectFile } from "../files/store";
 import { ChatIcon, CloseIcon, FileIcon, PlusIcon, SidePanelIcon } from "../../ui/icons";
@@ -220,7 +220,9 @@ function Divider({ worktree, path, index, direction, sizes, mins, container }: D
 // An open file: the image view for an image, otherwise the editor.
 function FileView({ worktree, path, autoFocus, onGone }: { worktree: string; path: string; autoFocus: boolean; onGone: () => void }) {
   const mime = imageMime(path);
-  return mime ? <ImageView worktree={worktree} path={path} mime={mime} onGone={onGone} /> : <Editor worktree={worktree} path={path} autoFocus={autoFocus} onGone={onGone} />;
+  const editor = editorView.use();
+  if (mime) return <ImageView worktree={worktree} path={path} mime={mime} onGone={onGone} />;
+  return editor && <editor.Editor worktree={worktree} path={path} autoFocus={autoFocus} onGone={onGone} />;
 }
 
 function GroupView({ group, place, edges }: { group: Group; place: Place; edges: Edges }) {
