@@ -3,9 +3,8 @@ import { commands, type Project } from "../../ipc/bindings";
 import { closeSheet, openSheet, sheet, sheetOf } from "../../app/sheet";
 import { externalStore } from "../../ui/externalStore";
 import { shownSession } from "../panes/sessions";
-import { allPaneIds, vanishedWorktrees } from "../panes/agents";
-import { chats } from "../chat/store";
-import { forgetPanes, panes } from "../panes/store";
+import { vanishedWorktrees } from "../panes/agents";
+import { agentsWorkIn, forgetPanes, panes } from "../panes/store";
 import { settingsOpen } from "../settings/store";
 import { goneWorktrees, noProjects, withProject, withoutProject, withoutWorktree, withSavedSelection, withSelectionRestored, withWorktrees, worktreeOrder, type Projects } from "./projects";
 
@@ -80,8 +79,7 @@ export async function addFolders(folders: string[]) {
 // A remove that would stop a working agent asks first.
 export function requestRemoveProject(path: string) {
   const { worktrees, list } = projects.get();
-  const working = (worktrees[path] ?? []).some((w) => allPaneIds(panes.get()[w.path]).some((pane) => chats.get()[pane]?.running));
-  if (!working) return void removeProject(path);
+  if (!agentsWorkIn((worktrees[path] ?? []).map((w) => w.path))) return void removeProject(path);
   openSheet({ kind: "removeProject", path, name: list.find((p) => p.path === path)?.name ?? path });
 }
 

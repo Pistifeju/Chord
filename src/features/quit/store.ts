@@ -4,7 +4,7 @@ import { commands } from "../../ipc/bindings";
 import { chats } from "../chat/store";
 import { closeSheet, openSheet } from "../../app/sheet";
 import { flushAllSaves } from "../editor/store";
-import { quitNeedsAsking } from "./rules";
+import { anyRunning } from "../chat/transcript";
 
 export const cancelQuit = () => closeSheet("quit");
 
@@ -16,7 +16,8 @@ export const confirmQuit = () => {
 };
 
 export const requestQuit = () => {
-  if (quitNeedsAsking(chats.get())) openSheet({ kind: "quit" });
+  const all = chats.get();
+  if (anyRunning(all, Object.keys(all))) openSheet({ kind: "quit" });
   else confirmQuit();
 };
 

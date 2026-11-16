@@ -3,7 +3,8 @@ import { commands, type Direction, type WorktreePanes } from "../../ipc/bindings
 import { externalStore } from "../../ui/externalStore";
 import { closeSheet, openSheet, type Sheet } from "../../app/sheet";
 import { chats, forgetChat, startChat } from "../chat/store";
-import { paneChanges, resumedPanes } from "./agents";
+import { anyRunning } from "../chat/transcript";
+import { allPaneIds, paneChanges, resumedPanes } from "./agents";
 import { isAtOrInside } from "../files/paths";
 import { filePanes, groupOf, withEvenSizes, withFilePanesMoved, withSizes, type FilePane } from "./layout";
 import { firstPanes, paneCount, withFileOpened, withFocus, withNewSession, withSplitFocused, withTabClosed, withTabMoved, type TabDrop } from "./sessions";
@@ -11,6 +12,8 @@ import { firstPanes, paneCount, withFileOpened, withFocus, withNewSession, withS
 export const panes = externalStore<Record<string, WorktreePanes>>({});
 
 export const loadPanes = (saved: Record<string, WorktreePanes>) => panes.set(saved);
+
+export const agentsWorkIn = (worktrees: string[]) => anyRunning(chats.get(), worktrees.flatMap((worktree) => allPaneIds(panes.get()[worktree])));
 
 export function resumeAgents(running: string[]) {
   return Promise.all(resumedPanes(panes.get(), running).map(([worktree, pane]) => startChat(worktree, pane)));
@@ -68,7 +71,7 @@ type CloseAgents = Extract<Sheet, { kind: "closeAgents" }>;
 export function closePane(worktree: string, tab: string) {
   const current = panesOf(worktree);
   const { gone } = paneChanges(current, withTabClosed(current, tab));
-  if (gone.some((pane) => chats.get()[pane]?.running)) openSheet({ kind: "closeAgents", worktree, id: tab });
+  if (anyRunning(chats.get(), gone)) openSheet({ kind: "closeAgents", worktree, id: tab });
   else change(worktree, (p) => withTabClosed(p, tab));
 }
 

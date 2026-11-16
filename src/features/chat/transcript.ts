@@ -59,6 +59,8 @@ export type Chat = {
 
 export const emptyChat: Chat = { agent: "idle", items: [], running: false, since: null, capabilities: null, notice: null, dialog: null, model: null, context: null, commands: [], subagents: [], queued: [], report: null, historyLength: 0 };
 
+export const anyRunning = (chats: Record<string, Chat>, panes: string[]) => panes.some((pane) => chats[pane]?.running);
+
 export const isStreaming = (item: Item) => "streaming" in item && item.streaming;
 
 const closed = (items: Item[]): Item[] => items.map((item) => ("streaming" in item && item.streaming ? { ...item, streaming: false } : item));
