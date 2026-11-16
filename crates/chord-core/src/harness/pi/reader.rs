@@ -16,7 +16,15 @@ struct Kind {
     kind: String,
     // A reply chunk needs only this field, so its record is not parsed a second time.
     #[serde(rename = "assistantMessageEvent")]
-    update: Option<Value>,
+    update: Option<Update>,
+}
+
+// Each update carries the whole reply so far as `partial`; serde skips it unbuilt.
+#[derive(Deserialize)]
+struct Update {
+    #[serde(rename = "type")]
+    kind: Option<String>,
+    delta: Option<String>,
 }
 
 const READ_KINDS: [&str; 12] = [
@@ -179,7 +187,9 @@ impl ShownSession {
 fn read_line(line: &[u8], shown: &mut ShownSession) -> Read {
     match serde_json::from_slice::<Kind>(line) {
         Ok(Kind { kind, update }) if kind == "message_update" => Read {
-            events: message_update(update.as_ref().unwrap_or(&Value::Null)),
+            events: update.map_or_else(Vec::new, |update| {
+                message_update(update.kind.as_deref(), update.delta.as_deref())
+            }),
             requests: vec![],
         },
         Ok(Kind { kind, .. }) if READ_KINDS.contains(&kind.as_str()) => {

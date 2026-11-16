@@ -139,7 +139,10 @@ pub(super) fn events_from(record: &Value) -> Vec<HarnessEvent> {
         Some("compaction_end") if record["reason"] == "manual" => {
             vec![HarnessEvent::State { running: false }]
         }
-        Some("message_update") => message_update(&record["assistantMessageEvent"]),
+        Some("message_update") => {
+            let update = &record["assistantMessageEvent"];
+            message_update(update["type"].as_str(), update["delta"].as_str())
+        }
         Some("tool_execution_start") => {
             vec![tool_start(
                 record["toolCallId"].as_str(),
@@ -480,8 +483,8 @@ pub(super) fn subagent_nodes(snapshot: &str) -> Vec<SubagentNode> {
     nodes
 }
 
-pub(super) fn message_update(update: &Value) -> Vec<HarnessEvent> {
-    match (update["type"].as_str(), update["delta"].as_str()) {
+pub(super) fn message_update(kind: Option<&str>, delta: Option<&str>) -> Vec<HarnessEvent> {
+    match (kind, delta) {
         (Some("text_delta"), Some(text)) => {
             vec![HarnessEvent::MessageChunk { text: text.into() }]
         }
