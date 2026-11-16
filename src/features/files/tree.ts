@@ -22,8 +22,10 @@ export function visibleRows(tree: Tree): Row[] {
   const rows: Row[] = [];
   const add = (folder: string, depth: number) => {
     for (const entry of tree.children[folder] ?? []) {
-      if (needle && !keeps(tree, entry, needle)) continue;
-      const open = entry.isDir && (tree.open.includes(entry.path) || (needle !== "" && below(tree, entry, needle)));
+      let inside: boolean | undefined;
+      const isInside = () => (inside ??= below(tree, entry, needle));
+      if (needle && !entry.name.toLowerCase().includes(needle) && !isInside()) continue;
+      const open = entry.isDir && (tree.open.includes(entry.path) || (needle !== "" && isInside()));
       rows.push({ entry, depth, open });
       if (open) add(entry.path, depth + 1);
     }

@@ -101,13 +101,14 @@ export function stepsSummary(steps: Step[]): string {
   const edited = new Set(calls.filter((call) => call.title === "Edit" || call.title === "Write").map((call) => call.detail)).size;
   const other = calls.filter((call) => !["Read", "Search", "List", "Run", "Edit", "Write"].includes(call.title)).length;
   const thoughts = steps.length - calls.length;
+  const [read, searches, listed, ran] = [count("Read"), count("Search"), count("List"), count("Run")];
   const parts = [
     thoughts > 0 && plural(thoughts, "thought", "thoughts"),
-    count("Read") > 0 && `read ${plural(count("Read"), "file", "files")}`,
-    count("Search") > 0 && plural(count("Search"), "search", "searches"),
-    count("List") > 0 && `listed ${plural(count("List"), "folder", "folders")}`,
+    read > 0 && `read ${plural(read, "file", "files")}`,
+    searches > 0 && plural(searches, "search", "searches"),
+    listed > 0 && `listed ${plural(listed, "folder", "folders")}`,
     edited > 0 && `edited ${plural(edited, "file", "files")}`,
-    count("Run") > 0 && `ran ${plural(count("Run"), "command", "commands")}`,
+    ran > 0 && `ran ${plural(ran, "command", "commands")}`,
     other > 0 && plural(other, "tool call", "tool calls"),
   ].filter((part) => part !== false);
   const text = parts.join(", ");

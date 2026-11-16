@@ -384,7 +384,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
               <StartButton worktree={worktree} pane={pane} />
             </div>
           ) : (
-            <Messages pane={pane} items={chat.items} running={chat.running} queued={chat.queued} subagents={subagentRows} historyLength={chat.historyLength} />
+            <Messages pane={pane} items={shownItems.current} running={chat.running} queued={chat.queued} subagents={subagentRows} historyLength={chat.historyLength} />
           )}
         </div>
         <button type="button" className="chat-jump" data-shown={away || undefined} title="Jump to Latest" aria-label="Jump to Latest" onClick={jumpToEnd}>
