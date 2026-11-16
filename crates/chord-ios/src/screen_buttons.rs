@@ -1,4 +1,4 @@
-//! The Simulator view's Home, Lock and Shake capsule and its screenshot circle, drawn natively under the screen so they move with it on a resize, with the lock's shackle turning and the phone shaking. The web lays them out and keeps clear buttons over them for clicks, focus and tooltips.
+//! The Simulator view's Home, Lock and Shake capsule and its screenshot and Appearance circles, drawn natively under the screen so they move with it on a resize, with the lock's shackle turning and the phone shaking. The web lays them out and keeps clear buttons over them for clicks, focus and tooltips.
 
 use std::f64::consts::PI;
 
@@ -69,6 +69,7 @@ pub enum FaceIcon {
     Unlock,
     Shake,
     Camera,
+    Appearance,
 }
 
 #[derive(Deserialize, Type, Clone, Copy, Debug, PartialEq)]
@@ -160,6 +161,24 @@ fn icon_path(icon: FaceIcon) -> CFRetained<CGMutablePath> {
             // SAFETY: as above.
             unsafe { CGMutablePath::add_arc(at, none, 8.0, up(8.75), 2.25, 0.0, 2.0 * PI, false) };
         }
+        // The ring; the filled half is its own layer (`left_half_path`).
+        FaceIcon::Appearance => {
+            // SAFETY: as above.
+            unsafe { CGMutablePath::add_arc(at, none, 8.0, 8.0, 6.0, 0.0, 2.0 * PI, false) };
+        }
+    }
+    path
+}
+
+/// The filled left half of src/ui/icons.tsx's appearance icon.
+fn left_half_path() -> CFRetained<CGMutablePath> {
+    let path = CGMutablePath::new();
+    let at = Some(&*path);
+    let none = std::ptr::null();
+    // SAFETY: a live path and no transform.
+    unsafe {
+        CGMutablePath::add_arc(at, none, 8.0, 8.0, 6.0, PI / 2.0, 3.0 * PI / 2.0, false);
+        CGMutablePath::close_subpath(at);
     }
     path
 }
@@ -307,6 +326,12 @@ pub(crate) fn draw(row: &CALayer, spec: &ScreenButtons, scale: f64, motion: Moti
                         0.45,
                     );
                 }
+            }
+            FaceIcon::Appearance => {
+                let half = stroke(&left_half_path(), &color, scale);
+                half.setFillColor(Some(&color));
+                half.setFrame(CGRect::new(CGPoint::new(0.0, 0.0), CGSize::new(ICON, ICON)));
+                icon.addSublayer(&half);
             }
             FaceIcon::Home | FaceIcon::Camera => {}
         }

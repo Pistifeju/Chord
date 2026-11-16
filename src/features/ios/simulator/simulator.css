@@ -7,13 +7,6 @@
   min-height: 0;
 }
 
-/* The Appearance button at the right. */
-.simulator-header {
-  display: flex;
-  justify-content: flex-end;
-  padding: 4px 6px 0;
-}
-
 .simulator-area {
   position: relative;
   container: simulator / inline-size;
@@ -31,7 +24,7 @@
   outline: none;
 }
 
-/* Home, Lock and Shake in one hairline pill under the screen, the screenshot button in a hairline circle 8px after it, icons only. Each fill sits 1px inside the hairline, its radius concentric with the pill's. The native view draws them (screen_buttons.rs) so they move with the screen; these clear buttons lay them out and take clicks, focus and tooltips. */
+/* Home, Lock and Shake in one hairline pill under the screen, the screenshot and Appearance buttons each in a hairline circle 8px after it, icons only. Each fill sits 1px inside the hairline, its radius concentric with the pill's. The native view draws them (screen_buttons.rs) so they move with the screen; these clear buttons lay them out and take clicks, focus and tooltips. */
 .simulator-buttons {
   position: fixed;
   display: flex;

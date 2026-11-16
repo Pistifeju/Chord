@@ -1,4 +1,4 @@
-//! The worktree's run simulator's appearance: light or dark and the Dynamic Type size through `simctl ui`, which act at once, and the language and region in the simulator's global preferences, which an app reads when it next launches. The languages and regions offered are the ones the Mac's own locales list.
+//! The appearance of the worktree's run or preview simulator: light or dark and the Dynamic Type size through `simctl ui`, which act at once, and the language and region in the simulator's global preferences, which an app reads when it next launches. The languages and regions offered are the ones the Mac's own locales list.
 
 use std::collections::BTreeSet;
 use std::io::ErrorKind;
@@ -174,30 +174,67 @@ fn region_of_locale(text: &str) -> Option<String> {
     is_region(&region).then_some(region)
 }
 
-fn booted(worktree: &Path) -> Result<Simulator, Error> {
-    xcode::require_tools()?;
-    simulator::find(DeviceSet::Run, worktree)?
-        .filter(|device| device.booted)
-        .ok_or_else(|| Error::Message("The simulator is off. Run boots it.".into()))
+/// A booted simulator of a device set.
+struct Device {
+    set: DeviceSet,
+    udid: String,
 }
 
-fn ui<T: DeserializeOwned>(udid: &str, name: &str) -> Option<T> {
-    let value = simulator::simctl(DeviceSet::Run, &["ui", udid, name], &|_| {}).ok()?;
-    setting(value.trim())
-}
+impl Device {
+    /// The worktree's booted run simulator, or with `preview` its preview simulator.
+    fn booted(worktree: &Path, preview: bool) -> Result<Device, Error> {
+        xcode::require_tools()?;
+        let set = if preview {
+            DeviceSet::Preview
+        } else {
+            DeviceSet::Run
+        };
+        let device: Simulator = simulator::find(set, worktree)?
+            .filter(|device| device.booted)
+            .ok_or_else(|| Error::Message("The simulator is off. Run boots it.".into()))?;
+        Ok(Device {
+            set,
+            udid: device.udid,
+        })
+    }
 
-fn preference(udid: &str, key: &str) -> Option<String> {
-    simulator::simctl(
-        DeviceSet::Run,
-        &["spawn", udid, "defaults", "read", "-g", key],
-        &|_| {},
-    )
-    .ok()
-}
+    fn simctl(&self, args: &[&str]) -> Result<String, Error> {
+        simulator::simctl(self.set, args, &|_| {})
+    }
 
-fn write_preference(udid: &str, args: &[&str]) -> Result<(), Error> {
-    let command = [&["spawn", udid, "defaults", "write", "-g"], args].concat();
-    simulator::simctl(DeviceSet::Run, &command, &|_| {}).map(drop)
+    fn ui<T: DeserializeOwned>(&self, name: &str) -> Option<T> {
+        let value = self.simctl(&["ui", &self.udid, name]).ok()?;
+        setting(value.trim())
+    }
+
+    fn set_ui(&self, name: &str, value: String) -> Result<(), Error> {
+        self.simctl(&["ui", &self.udid, name, &value]).map(drop)
+    }
+
+    fn preference(&self, key: &str) -> Option<String> {
+        self.simctl(&["spawn", &self.udid, "defaults", "read", "-g", key])
+            .ok()
+    }
+
+    fn write_preference(&self, args: &[&str]) -> Result<(), Error> {
+        let command = [&["spawn", &self.udid, "defaults", "write", "-g"], args].concat();
+        self.simctl(&command).map(drop)
+    }
+
+    /// The simulator's first language; a device without `AppleLanguages` takes its `AppleLocale`'s.
+    fn language(&self) -> Option<String> {
+        self.preference("AppleLanguages")
+            .and_then(|text| first_language(&text))
+            .or_else(|| {
+                self.preference("AppleLocale")
+                    .and_then(|text| language_of(text.trim()))
+            })
+    }
+
+    fn region(&self) -> Option<String> {
+        self.preference("AppleLocale")
+            .and_then(|text| region_of_locale(&text))
+    }
 }
 
 fn locale_listing() -> Result<String, Error> {
@@ -220,57 +257,48 @@ fn locale_listing() -> Result<String, Error> {
     Ok(String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
-/// The simulator's first language; a device without `AppleLanguages` takes its `AppleLocale`'s.
-fn current_language(udid: &str) -> Option<String> {
-    preference(udid, "AppleLanguages")
-        .and_then(|text| first_language(&text))
-        .or_else(|| preference(udid, "AppleLocale").and_then(|text| language_of(text.trim())))
-}
-
-fn current_region(udid: &str) -> Option<String> {
-    preference(udid, "AppleLocale").and_then(|text| region_of_locale(&text))
-}
-
-/// The worktree's booted run simulator's settings, with the languages and regions the Mac offers.
-pub fn read(worktree: &Path) -> Result<SimulatorAppearance, Error> {
-    let device = booted(worktree)?;
+/// The worktree's booted run simulator's settings, or with `preview` its preview simulator's, with the languages and regions the Mac offers.
+pub fn read(worktree: &Path, preview: bool) -> Result<SimulatorAppearance, Error> {
+    let device = Device::booted(worktree, preview)?;
     let (languages, regions) = locale_codes(&locale_listing()?);
     Ok(SimulatorAppearance {
-        style: ui(&device.udid, "appearance"),
-        content_size: ui(&device.udid, "content_size"),
-        language: current_language(&device.udid),
-        region: current_region(&device.udid),
+        style: device.ui("appearance"),
+        content_size: device.ui("content_size"),
+        language: device.language(),
+        region: device.region(),
         content_sizes: CONTENT_SIZES.to_vec(),
         languages,
         regions,
     })
 }
 
-/// Applies `change` to the worktree's booted run simulator. A language or region reaches an app the next time it launches.
-pub fn set(worktree: &Path, change: &SimulatorAppearanceChange) -> Result<(), Error> {
-    let device = booted(worktree)?;
-    let udid = device.udid.as_str();
-    let ui = |name: &str, value: String| {
-        simulator::simctl(DeviceSet::Run, &["ui", udid, name, &value], &|_| {}).map(drop)
-    };
+/// Applies `change` to the worktree's booted run simulator, or with `preview` its preview simulator. A language or region reaches an app the next time it launches.
+pub fn set(
+    worktree: &Path,
+    preview: bool,
+    change: &SimulatorAppearanceChange,
+) -> Result<(), Error> {
+    let device = Device::booted(worktree, preview)?;
     match change {
-        SimulatorAppearanceChange::Style { style } => ui("appearance", word(style)),
-        SimulatorAppearanceChange::ContentSize { size } => ui("content_size", word(size)),
+        SimulatorAppearanceChange::Style { style } => device.set_ui("appearance", word(style)),
+        SimulatorAppearanceChange::ContentSize { size } => {
+            device.set_ui("content_size", word(size))
+        }
         // The locale carries the language too, so it follows, as iOS's Settings does it.
         SimulatorAppearanceChange::Language { language } if is_language(language) => {
-            write_preference(udid, &["AppleLanguages", "-array", language])?;
-            match current_region(udid) {
+            device.write_preference(&["AppleLanguages", "-array", language])?;
+            match device.region() {
                 Some(region) => {
-                    write_preference(udid, &["AppleLocale", &format!("{language}_{region}")])
+                    device.write_preference(&["AppleLocale", &format!("{language}_{region}")])
                 }
                 None => Ok(()),
             }
         }
         SimulatorAppearanceChange::Region { region } if is_region(region) => {
-            let language = current_language(udid).ok_or_else(|| {
+            let language = device.language().ok_or_else(|| {
                 Error::Message("The simulator's language is unknown. Pick a language first.".into())
             })?;
-            write_preference(udid, &["AppleLocale", &format!("{language}_{region}")])
+            device.write_preference(&["AppleLocale", &format!("{language}_{region}")])
         }
         _ => Err(Error::Message(
             "That appearance setting is not valid.".into(),

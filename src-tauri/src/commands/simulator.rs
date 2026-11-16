@@ -231,26 +231,31 @@ pub async fn take_simulator_screenshot(
     .await
 }
 
-/// The worktree's booted simulator's appearance settings and the choices the Mac offers.
+/// The worktree's booted simulator's appearance settings, or with `preview` its preview simulator's, and the choices the Mac offers.
 #[tauri::command]
 #[specta::specta]
 pub async fn simulator_appearance(
     app: AppHandle,
     worktree: PathBuf,
+    preview: bool,
 ) -> Result<SimulatorAppearance, String> {
-    blocking(app, move |_, _| chord_ios::read_appearance(&worktree)).await
+    blocking(app, move |_, _| {
+        chord_ios::read_appearance(&worktree, preview)
+    })
+    .await
 }
 
-/// Changes one appearance setting of the worktree's booted simulator.
+/// Changes one appearance setting of the worktree's booted simulator, or with `preview` its preview simulator.
 #[tauri::command]
 #[specta::specta]
 pub async fn set_simulator_appearance(
     app: AppHandle,
     worktree: PathBuf,
+    preview: bool,
     change: SimulatorAppearanceChange,
 ) -> Result<(), String> {
     blocking(app, move |_, _| {
-        chord_ios::set_appearance(&worktree, &change)
+        chord_ios::set_appearance(&worktree, preview, &change)
     })
     .await
 }

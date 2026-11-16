@@ -79,10 +79,10 @@ export const commands = {
 	openSimulatorApp: () => __TAURI_INVOKE<null>("open_simulator_app"),
 	/**  Takes a screenshot of the worktree's simulator, or with `preview` its preview simulator, into the screenshot folder of Settings, else a temporary one. */
 	takeSimulatorScreenshot: (worktree: string, preview: boolean) => __TAURI_INVOKE<Screenshot>("take_simulator_screenshot", { worktree, preview }),
-	/**  The worktree's booted simulator's appearance settings and the choices the Mac offers. */
-	simulatorAppearance: (worktree: string) => __TAURI_INVOKE<SimulatorAppearance_Serialize>("simulator_appearance", { worktree }),
-	/**  Changes one appearance setting of the worktree's booted simulator. */
-	setSimulatorAppearance: (worktree: string, change: SimulatorAppearanceChange) => __TAURI_INVOKE<null>("set_simulator_appearance", { worktree, change }),
+	/**  The worktree's booted simulator's appearance settings, or with `preview` its preview simulator's, and the choices the Mac offers. */
+	simulatorAppearance: (worktree: string, preview: boolean) => __TAURI_INVOKE<SimulatorAppearance_Serialize>("simulator_appearance", { worktree, preview }),
+	/**  Changes one appearance setting of the worktree's booted simulator, or with `preview` its preview simulator. */
+	setSimulatorAppearance: (worktree: string, preview: boolean, change: SimulatorAppearanceChange) => __TAURI_INVOKE<null>("set_simulator_appearance", { worktree, preview, change }),
 	/**  Asks for the screenshot folder and saves the pick; no pick keeps the setting and returns `None`. */
 	pickScreenshotFolder: () => __TAURI_INVOKE<string | null>("pick_screenshot_folder"),
 	/**  Starts a native drag of a file, shown as `preview`, out of the window: Finder and other apps take it, and so does a chat pane. */
@@ -296,7 +296,7 @@ export type Direction =
 "column";
 
 /**  The icons of src/ui/icons.tsx the buttons show. */
-export type FaceIcon = "home" | "lock" | "unlock" | "shake" | "camera";
+export type FaceIcon = "home" | "lock" | "unlock" | "shake" | "camera" | "appearance";
 
 export type FaceLook = "rest" | "hover" | "pressed";
 

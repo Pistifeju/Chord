@@ -1,15 +1,16 @@
-// The Simulator view in the side panel: a header with the Appearance menu, Home, Lock, Shake and Screenshot under the worktree's simulator screen, which the native view draws through the see-through hole; the screen takes clicks, drags, trackpad pinches and typing. The Preview view shows its preview simulator here with only Screenshot. Also its tab bar button.
+// The Simulator view in the side panel: Home, Lock, Shake, Screenshot and the Appearance menu under the worktree's simulator screen, which the native view draws through the see-through hole; the screen takes clicks, drags, trackpad pinches and typing. The Preview view shows its preview simulator here with only Screenshot and Appearance. Also its tab bar button.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { shortcutLabel, tooltip } from "../../../app/commands";
 import type { Bezel, Button, ButtonFace, FaceIcon, ScreenButtons } from "../../../ipc/bindings";
-import { CameraIcon, HomeIcon, LockIcon, PhoneIcon, ShakeIcon, UnlockIcon } from "../../../ui/icons";
+import { AppearanceIcon, CameraIcon, HomeIcon, LockIcon, PhoneIcon, ShakeIcon, UnlockIcon } from "../../../ui/icons";
 import { seeThrough } from "../../../ui/seeThrough";
 import { shortcutChanges } from "../../settings/store";
 import { showsSideView, sidePanels, toggleSideView } from "../../sidepanel/store";
 import { hidUsage } from "./keys";
 import { clampToScreen, cornerRadius, fingersFor, fit, fromBottom, gestureFingers, secondFinger, toScreen, type Fingers, type Point, type Rect } from "./screen";
 import { hideScreen, moveScreen, openSimulatorApp, pressButton, screen, sendKey, sendTouch, setButtons, showScreen, takeScreenshot } from "./store";
-import { AppearanceButton } from "./AppearanceButton";
+import { loadAppearance, openAppearanceMenu } from "./appearanceMenu";
+import { fail } from "../../worktrees/store";
 import { ScreenshotThumbnail } from "./Screenshot";
 import "./simulator.css";
 
@@ -36,7 +37,7 @@ const buttons = (locked: boolean): { button: Button; label: string; face: FaceIc
   { button: "shake", label: "Shake", face: "shake", icon: <ShakeIcon /> },
 ];
 
-type Key = Button | "screenshot";
+type Key = Button | "screenshot" | "appearance";
 
 const boxOf = (element: Element): Rect => {
   const { left, top, width, height } = element.getBoundingClientRect();
@@ -106,7 +107,7 @@ function measureButtons(row: HTMLElement, screen: Rect, colors: ScreenButtons["c
   };
 }
 
-/** `preview`: the Preview view's line in place of the screen, null once the preview shows; the view then shows the preview simulator with only Screenshot. */
+/** `preview`: the Preview view's line in place of the screen, null once the preview shows; the view then shows the preview simulator with only Screenshot and Appearance. */
 export function SimulatorView({ worktree, preview }: { worktree: string; preview?: string | null }) {
   shortcutChanges.use();
   const previewing = preview !== undefined;
@@ -166,6 +167,11 @@ export function SimulatorView({ worktree, preview }: { worktree: string; preview
     };
   }, [worktree, previewing, shown]);
 
+  // Read ahead, so the Appearance menu opens without waiting on the simulator.
+  useEffect(() => {
+    if (live) loadAppearance(worktree, previewing).catch(console.error);
+  }, [worktree, live !== null, previewing]);
+
   const rectKey = rect && JSON.stringify(rect);
   // Layout effects: the hole and the native screen move in the frame React paints them, not one paint later.
   useLayoutEffect(() => {
@@ -175,7 +181,7 @@ export function SimulatorView({ worktree, preview }: { worktree: string; preview
   // Every render: the lock, hover and press all change the buttons' look. Sent only when it changed.
   useLayoutEffect(() => {
     if (!live || !rect || !row.current) return;
-    const keys: { key: Key; face: FaceIcon }[] = [...(previewing ? [] : buttons(live.locked).map(({ button, face }) => ({ key: button, face }))), { key: "screenshot", face: "camera" }];
+    const keys: { key: Key; face: FaceIcon }[] = [...(previewing ? [] : buttons(live.locked).map(({ button, face }) => ({ key: button, face }))), { key: "screenshot", face: "camera" }, { key: "appearance", face: "appearance" }];
     const faces = keys.map(({ key, face }) => ({ face, look: pressed === key ? ("pressed" as const) : hovered === key ? ("hover" as const) : ("rest" as const) }));
     const next = measureButtons(row.current, rect, colors.buttons, faces);
     const key = JSON.stringify(next);
@@ -185,14 +191,14 @@ export function SimulatorView({ worktree, preview }: { worktree: string; preview
     }
   });
 
-  const faceButton = (key: Key, label: string, icon: ReactNode, press: () => void) => (
+  const faceButton = (key: Key, label: string, icon: ReactNode, press: (button: HTMLButtonElement) => void, title = tooltip(`simulator.${key}`)) => (
     <button
       key={key}
       type="button"
       className="simulator-button"
-      title={tooltip(`simulator.${key}`)}
+      title={title}
       aria-label={label}
-      onClick={press}
+      onClick={(e) => press(e.currentTarget)}
       onPointerEnter={() => setHovered(key)}
       onPointerLeave={() => setHovered((last) => (last === key ? null : last))}
       onPointerDown={(e) => {
@@ -314,16 +320,14 @@ export function SimulatorView({ worktree, preview }: { worktree: string; preview
 
   return (
     <div className="simulator">
-      {!previewing && (
-        <div className="simulator-header">
-          <AppearanceButton worktree={worktree} enabled={live !== null} />
-        </div>
-      )}
       <div className="simulator-area" ref={area}>
         {live && rect && rect.width > 0 && (
           <div ref={row} className="simulator-buttons" role="group" aria-label="Simulator Buttons" style={{ left: rect.x + rect.width / 2, top: rect.y + rect.height + BELOW_SCREEN - 28 }}>
             {!previewing && <div className="simulator-capsule">{buttons(live.locked).map(({ button, label, icon }) => faceButton(button, label, icon, () => pressButton(worktree, button)))}</div>}
             <div className="simulator-capsule simulator-capsule-round">{faceButton("screenshot", "Take Screenshot", <CameraIcon />, () => takeScreenshot(worktree, previewing))}</div>
+            <div className="simulator-capsule simulator-capsule-round">
+              {faceButton("appearance", "Appearance", <AppearanceIcon />, (button) => void openAppearanceMenu(worktree, previewing, button).catch(fail), "Appearance")}
+            </div>
           </div>
         )}
         {live && rect ? (
