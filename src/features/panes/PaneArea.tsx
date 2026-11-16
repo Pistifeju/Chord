@@ -18,7 +18,7 @@ import { ImageView } from "../editor/ImageView";
 import { selectFile } from "../files/store";
 import { ChatIcon, CloseIcon, FileIcon, PlusIcon, SidePanelIcon } from "../../ui/icons";
 import { usePointerDrag } from "../../ui/pointerDrag";
-import { chatPaneIds, dropEdge, dropPreview, groupOf, paneIds, resizedSizes, type Box, type Group } from "./layout";
+import { chatPaneIds, dropEdge, dropPreview, edgeDirection, fitsSplit, groupOf, minExtent, paneIds, resizedSizes, type Box, type Group } from "./layout";
 import { canClosePane, movesTab, tabName, type PaneNames, type TabDrop } from "./sessions";
 import { closeFilePane, closePane, endResize, ensurePanes, evenOutSplit, focusPane, moveTab, newSession, panes, resizeSplit } from "./store";
 import "./panes.css";
@@ -49,6 +49,7 @@ function dropAt(x: number, y: number, last: Drop | null): Drop | null {
   if (under?.closest("[data-group-bar]")) return { group: group.dataset.group, edge: null, box: rectOf(group) };
   const box = rectOf(body);
   const edge = dropEdge(x, y, box);
+  if (!fitsSplit(rectOf(group), edgeDirection(edge))) return null;
   return { group: group.dataset.group, edge, box: dropPreview(edge, box) };
 }
 
@@ -163,15 +164,16 @@ function GroupTabs({ group, place, edges }: { group: Group; place: Place; edges:
   );
 }
 
-type DividerProps = { worktree: string; path: number[]; index: number; direction: Direction; sizes: number[]; container: RefObject<HTMLDivElement | null> };
+/** mins: the pixels the children before and after the divider need. */
+type DividerProps = { worktree: string; path: number[]; index: number; direction: Direction; sizes: number[]; mins: [number, number]; container: RefObject<HTMLDivElement | null> };
 type Drag = { start: number; sizes: number[]; total: number; frame: number; moved: number | null };
 
-function Divider({ worktree, path, index, direction, sizes, container }: DividerProps) {
+function Divider({ worktree, path, index, direction, sizes, mins, container }: DividerProps) {
   const drag = useRef<Drag | null>(null);
   const along = (e: PointerEvent) => (direction === "row" ? e.clientX : e.clientY);
 
   const apply = (d: Drag) => {
-    if (d.moved !== null) resizeSplit(worktree, path, resizedSizes(d.sizes, index, d.moved / d.total));
+    if (d.moved !== null) resizeSplit(worktree, path, resizedSizes(d.sizes, index, d.moved / d.total, [mins[0] / d.total, mins[1] / d.total]));
   };
 
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
@@ -252,7 +254,7 @@ function LayoutView({ layout, path, place, edges }: { layout: Layout; path: numb
     <div className="split" data-direction={layout.direction} ref={container}>
       {layout.children.map((child, i) => (
         <Fragment key={child.kind === "split" ? `split-${i}` : child.id}>
-          {i > 0 && <Divider worktree={place.worktree} path={path} index={i - 1} direction={layout.direction} sizes={sizes} container={container} />}
+          {i > 0 && <Divider worktree={place.worktree} path={path} index={i - 1} direction={layout.direction} sizes={sizes} mins={[minExtent(layout.children[i - 1], layout.direction), minExtent(child, layout.direction)]} container={container} />}
           <div className="split-child" style={{ flex: `${sizes[i]} 1 0` }}>
             <LayoutView
               layout={child}

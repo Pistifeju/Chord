@@ -30,8 +30,13 @@ test("closing a pane gives its share to the others and collapses a split of one"
 });
 
 test("a divider moves the two panes beside it and stops at the minimum", () => {
-  assert.deepEqual(resizedSizes([0.5, 0.5], 0, 0.2).map((n) => Math.round(n * 100) / 100), [0.7, 0.3]);
-  assert.deepEqual(resizedSizes([0.5, 0.3, 0.2], 1, 0.9).map((n) => Math.round(n * 100) / 100), [0.5, 0.4, 0.1]);
+  assert.deepEqual(resizedSizes([0.5, 0.5], 0, 0.2, [0.1, 0.1]).map((n) => Math.round(n * 100) / 100), [0.7, 0.3]);
+  assert.deepEqual(resizedSizes([0.5, 0.3, 0.2], 1, 0.9, [0.1, 0.1]).map((n) => Math.round(n * 100) / 100), [0.5, 0.4, 0.1]);
+});
+
+test("a pane already below its minimum keeps its size and can only grow", () => {
+  assert.deepEqual(resizedSizes([0.9, 0.1], 0, 0.05, [0.3, 0.3]).map((n) => Math.round(n * 100) / 100), [0.9, 0.1]);
+  assert.deepEqual(resizedSizes([0.9, 0.1], 0, -0.2, [0.3, 0.3]).map((n) => Math.round(n * 100) / 100), [0.7, 0.3]);
 });
 
 test("double-click evens out the sizes of one split", () => {

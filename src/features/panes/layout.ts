@@ -6,8 +6,8 @@ export type Split = Extract<Layout, { kind: "split" }>;
 export type Group = Extract<Layout, { kind: "group" }>;
 export type FilePane = Extract<Tab, { kind: "file" }>;
 
-/** The share a child keeps at least, so a divider never hides a group. */
-const MIN_SIZE = 0.1;
+/** The pixels a tab group keeps at least along each direction, so its tab bar and composer stay readable. */
+const MIN_GROUP: Record<Direction, number> = { row: 280, column: 200 };
 
 export const groups = (layout: Layout): Group[] => (layout.kind === "split" ? layout.children.flatMap(groups) : [layout]);
 
@@ -77,6 +77,16 @@ export function dropEdge(x: number, y: number, box: Box): Edge {
   return near.edge;
 }
 
+// Both halves of `box` split along `direction` keep the group minimum.
+export const fitsSplit = (box: Box, direction: Direction): boolean => (direction === "row" ? box.width : box.height) / 2 >= MIN_GROUP[direction];
+
+// The pixels `layout` needs along `direction`: children side by side add up, children across it need the largest.
+export function minExtent(layout: Layout, direction: Direction): number {
+  if (layout.kind === "group") return MIN_GROUP[direction];
+  const mins = layout.children.map((child) => minExtent(child, direction));
+  return layout.direction === direction ? mins.reduce((sum, min) => sum + min, 0) : Math.max(...mins);
+}
+
 export const edgeDirection = (edge: Edge): Direction => (edge === "left" || edge === "right" ? "row" : "column");
 
 // The half of the group that a drop on `edge` would fill.
@@ -116,9 +126,11 @@ export const withSizes = (layout: Layout, path: number[], sizes: number[]): Layo
 
 export const withEvenSizes = (layout: Layout, path: number[]): Layout => withSplitAt(layout, path, (split) => ({ ...split, sizes: evenSizes(split.children.length) }));
 
-// Moves the divider after child `index` by `delta` (a share of the split); the two children it touches keep MIN_SIZE.
-export function resizedSizes(sizes: number[], index: number, delta: number): number[] {
+// Moves the divider after child `index` by `delta` (a share of the split); the two children it touches keep their `mins` (shares), or their size if already below it.
+export function resizedSizes(sizes: number[], index: number, delta: number, mins: [number, number]): number[] {
   const pair = sizes[index] + sizes[index + 1];
-  const first = Math.min(Math.max(sizes[index] + delta, MIN_SIZE), pair - MIN_SIZE);
+  const low = Math.min(mins[0], sizes[index]);
+  const high = pair - Math.min(mins[1], sizes[index + 1]);
+  const first = Math.min(Math.max(sizes[index] + delta, low), high);
   return sizes.map((size, i) => (i === index ? first : i === index + 1 ? pair - first : size));
 }
