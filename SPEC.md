@@ -98,7 +98,7 @@ Edge cases:
 - [x] E5 harness(tool-images): images a tool returns show in one thumbnail row below its step group, folded or open, and open in the E4 lightbox.
 - [x] E6 harness(dialogs): extension dialogs (select, confirm, input) over the composer; a select marks the current option and shows its filter row.
 - [x] E7 harness(commands): slash menu with the typed part marked; a bubble shows `/skill:name`, not the expanded skill.
-- [x] E8 **hard** harness(sessions): resume, fork, clone, tree, export, new; the session's name on its tab; history on restart.
+- [x] E8 **hard** harness(sessions): resume, fork, clone, tree, export, new; `/new` mid-run kills the busy agent and starts a new one at once; the session's name on its tab; history on restart.
 - [x] E16 harness(sessions): `/reload` reloads extensions, skills, prompts and context files in the running agent, without a restart; the slash menu reads the commands again.
 - [x] E19 harness(sessions): `/compact` in the slash menu summarizes the session to free the context; text after it says what the summary keeps. The chat shows Working while it runs, Esc stops it, and the transcript then holds what the agent still sees: a folded row with the summary, then the newest messages.
 - [x] E9 harness(models): model picker with search; thinking level picker.
@@ -199,15 +199,19 @@ Edge cases:
 
 ## 10. SwiftUI previews (iOS, private API)
 
-- [ ] J1 **hard** Preview view in the side panel (⌘⇧P), on a second simulator in Chord's own device set; model picker per project; at most two preview simulators; a preview build waits for the worktree's ⌘R build, then follows.
-- [ ] J2 **hard** Hot reload of the shown preview's file and the view files between it and the saved file; any other change rebuilds. Its hot reload folders go with the worktree: one forget, one prune, counted in the build data size.
-- [ ] J3 Previews tab in the sidebar: every `#Preview` by file, search, ↑↓, search text and scroll kept per worktree.
-- [ ] J4 Compile error keeps the last frame under a red bar that opens the build log.
+- [ ] J1 **hard** Preview view in the side panel (⌘⇧P), with its tab bar button, on a second simulator in Chord's own device set; at most two preview simulators; a preview build waits for the worktree's ⌘R build, then follows.
+- [ ] J2 **hard** Hot reload of the shown preview's file and the view files between it and the saved file; any other change rebuilds, and the view's header says so while it runs. Its hot reload folders go with the worktree: one forget, one prune, counted in the build data size.
+- [ ] J3 Preview picker in the Preview view's header: a sheet lists every `#Preview` by file, with search and ↑↓. The pick stays per worktree and does not follow the editor. Model picker per project beside it.
+- [ ] J4 Compile error keeps the last frame under a red bar with the first error as `file:line: message`; a click opens the file at that line.
 
 Edge cases:
 - Rebuild on stale file lists, stored property changes and ⌘R builds; modules of 128 files and more work.
 - No restart loop after saves.
 - A preview switch that failed during launch is sent again.
+- A third worktree's Preview view says that two previews already run and names their worktrees.
+- Preview simulators show in the status bar's Simulators menu, and Shut Down Others stops them too; H8's cap counts only run simulators.
+- The preview build writes no line into the H3 build log.
+- A pick whose `#Preview` is gone shows the picker's empty state until the user picks again.
 
 ## 11. Settings and onboarding
 
