@@ -1,7 +1,7 @@
 // Tests for the transcript rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { callTime, chatAfter, chatFed, emptyChat, shownSteps, stepImages, stepsChanges, stepsSummary, type Step } from "./transcript.ts";
+import { callTime, chatAfter, chatFed, emptyChat, queuedImages, shownSteps, stepImages, stepsChanges, stepsSummary, withSteerImages, type Step } from "./transcript.ts";
 
 test("chunks of one reply join into one streaming message until it ends", () => {
   let chat = chatAfter(emptyChat, { kind: "message_chunk", text: "Hel" }, 0);
@@ -165,4 +165,13 @@ test("a run time of a minute or more reads in minutes", () => {
   const slow = (ms: number): Step => ({ kind: "call", id: "c", title: "Run", detail: "ls", state: "done", images: [], ms });
   assert.equal(callTime(slow(6600)), "6.6 s");
   assert.equal(callTime(slow(556_000)), "9m 16s");
+});
+
+test("a steer's images show in the queue until the agent takes the steer in", () => {
+  const image = { data: "x", mime_type: "image/png" };
+  let chat = withSteerImages({ ...emptyChat, running: true }, "look", [image]);
+  chat = chatAfter(chat, { kind: "queue", steering: ["look"] }, 0);
+  assert.deepEqual(queuedImages(chat.steerImages, "look"), [image]);
+  chat = chatAfter(chat, { kind: "user_message_chunk", text: "look", images: [image] }, 0);
+  assert.deepEqual(chat.steerImages, []);
 });

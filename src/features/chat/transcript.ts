@@ -51,13 +51,28 @@ export type Chat = {
   subagents: SubagentNode[];
   /** Steering messages the agent has not taken in yet. */
   queued: string[];
+  /** The images of steers sent while the agent ran, until it takes them in; its queue holds only their text. */
+  steerImages: SteerImages[];
   /** The status Rust reported; null until the first run. */
   report: StatusReport | null;
   /** How many of the items came back as the session's history; they show without the arrival motion. */
   historyLength: number;
 };
 
-export const emptyChat: Chat = { agent: "idle", items: [], running: false, since: null, capabilities: null, notice: null, dialog: null, model: null, context: null, commands: [], subagents: [], queued: [], report: null, historyLength: 0 };
+export const emptyChat: Chat = { agent: "idle", items: [], running: false, since: null, capabilities: null, notice: null, dialog: null, model: null, context: null, commands: [], subagents: [], queued: [], steerImages: [], report: null, historyLength: 0 };
+
+export type SteerImages = { text: string; images: Image[] };
+
+/** Remembers the images of a message sent while the agent runs, so its queued row shows them. */
+export const withSteerImages = (chat: Chat, text: string, images: Image[]): Chat =>
+  chat.running && images.length > 0 ? { ...chat, steerImages: [...chat.steerImages, { text, images }] } : chat;
+
+export const queuedImages = (steers: SteerImages[], text: string): Image[] => steers.find((steer) => steer.text === text)?.images ?? [];
+
+const withoutSteer = (steers: SteerImages[], text: string) => {
+  const i = steers.findIndex((steer) => steer.text === text);
+  return i < 0 ? steers : steers.filter((_, j) => j !== i);
+};
 
 export const anyRunning = (chats: Record<string, Chat>, panes: string[]) => panes.some((pane) => chats[pane]?.running);
 
@@ -155,7 +170,7 @@ export function chatFed(chat: Chat, replay: Replay, event: HarnessEvent, now: nu
 export function chatAfter(chat: Chat, event: HarnessEvent, now: number): Chat {
   switch (event.kind) {
     case "user_message_chunk":
-      return { ...chat, items: [...closed(chat.items), { role: "user", text: event.text, streaming: false, images: event.images, at: event.at ?? now }] };
+      return { ...chat, steerImages: withoutSteer(chat.steerImages, event.text), items: [...closed(chat.items), { role: "user", text: event.text, streaming: false, images: event.images, at: event.at ?? now }] };
     case "message_chunk": {
       const last = chat.items[chat.items.length - 1];
       if (last?.role === "assistant" && last.streaming) return { ...chat, items: withLast<Item>(chat.items, { ...last, text: last.text + event.text }) };
@@ -222,7 +237,7 @@ export function chatAfter(chat: Chat, event: HarnessEvent, now: number): Chat {
       return { ...chat, notice: event.text };
     // The lineage is not cleared here: the extension empties it itself on a new session, and a snapshot it restores arrives before this event. Rust's `status_for` starts the status over here.
     case "history_start":
-      return { ...chat, items: [], queued: [], report: null, historyLength: 0 };
+      return { ...chat, items: [], queued: [], steerImages: [], report: null, historyLength: 0 };
     case "history_end":
       return { ...chat, historyLength: chat.items.length };
     // Rust saves the session; the intake hands the draft, the export and the usage to the store; the transcript holds none of them.
@@ -233,6 +248,6 @@ export function chatAfter(chat: Chat, event: HarnessEvent, now: number): Chat {
       return chat;
     case "exited":
       // Nobody is left to answer a dialog, a picker menu included.
-      return { ...chat, agent: "idle", running: false, queued: [], context: null, subagents: [], dialog: null, items: closed(chat.items) };
+      return { ...chat, agent: "idle", running: false, queued: [], steerImages: [], context: null, subagents: [], dialog: null, items: closed(chat.items) };
   }
 }

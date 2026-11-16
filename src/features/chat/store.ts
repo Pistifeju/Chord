@@ -7,7 +7,7 @@ import { usage } from "../usage/store";
 import { notify } from "../worktrees/store";
 import { fileName, imageExtensions, imageMime, type Attachment } from "./attachments";
 import { intakes } from "./intake";
-import { emptyChat, type Chat } from "./transcript";
+import { emptyChat, withSteerImages, type Chat } from "./transcript";
 
 export const chats = externalStore<Record<string, Chat>>({});
 
@@ -127,12 +127,14 @@ export function attachPasted(pane: string, file: File) {
 // The waiting images leave the composer once the harness took the message; a failed send keeps them and puts the text back in an empty draft.
 export function sendMessage(pane: string, text: string) {
   const sent = attachments.get()[pane] ?? [];
-  update(pane, (chat) => ({ ...chat, notice: null }));
+  const images = sent.map((a) => a.image);
+  update(pane, (chat) => withSteerImages({ ...chat, notice: null }, text, images));
   commands
-    .sendMessage(pane, text, sent.map((a) => a.image))
+    .sendMessage(pane, text, images)
     .then(() => attachments.set({ ...attachments.get(), [pane]: (attachments.get()[pane] ?? []).filter((a) => !sent.includes(a)) }))
     .catch((error) => {
       if (!drafts.get()[pane]) setDraft(pane, text);
+      update(pane, (chat) => ({ ...chat, steerImages: chat.steerImages.filter((steer) => steer.images !== images) }));
       noticeOf(pane, error);
     });
 }
