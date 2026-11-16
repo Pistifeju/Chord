@@ -91,13 +91,13 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --canvas: #000000;
-  --panel: #111111;
+  --canvas: #0f1011;
+  --panel: #18191a;
   --raised: rgba(255, 255, 255, 0.05);
   --selected: rgba(255, 255, 255, 0.09);
-  --sheet: #111111;
+  --sheet: #18191a;
   --control-selected: rgba(255, 255, 255, 0.1);
-  --bubble: #1e1e1e;
+  --bubble: #1e1f22;
 
   --line: rgba(255, 255, 255, 0.08);
   --line-strong: rgba(255, 255, 255, 0.12);
@@ -161,11 +161,13 @@
 .sidebar {
   --selected: #ffffff;
   --selected-ring: rgba(228, 228, 231, 0.7);
+  --card-hover: var(--raised);
 }
 
 :root[data-theme="dark"] .sidebar {
   --selected: rgba(255, 255, 255, 0.06);
   --selected-ring: transparent;
+  --card-hover: rgba(255, 255, 255, 0.03);
 }
 
 * { box-sizing: border-box; }

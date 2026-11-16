@@ -56,7 +56,8 @@ export default function App() {
   const overlay = sheetOpen || settings;
   // A sheet and Settings blur the window, and the blur cannot reach the native view under the hole: the hole closes under them.
   // Only open or closed here: the hole's rect moves on every resize frame and redraws just `SeeThroughHole`.
-  const hole = !overlay && seeThrough.usePart((open) => open !== null);
+  const holeOpen = seeThrough.usePart((open) => open !== null);
+  const hole = !overlay && holeOpen;
   const lastFocus = useRef<HTMLElement | null>(null);
   // inert drops the focus when a sheet or Settings opens; it goes back once they close, unless their action placed it.
   useEffect(() => {

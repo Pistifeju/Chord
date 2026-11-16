@@ -31,6 +31,20 @@ button:focus-visible {
   background: var(--selected);
 }
 
+/* An icon-only button's icon presses to 90%. */
+.icon-button > svg,
+.settings-step > svg,
+.tab-close > svg {
+  transition: transform var(--t-fast) var(--ease-out);
+}
+
+.icon-button:active:not(:disabled) > svg,
+.settings-step:active:not(:disabled) > svg,
+.tab-close:active > svg {
+  transform: scale(0.9);
+  transition-duration: 60ms;
+}
+
 .icon-button:disabled {
   background: transparent;
   color: var(--ink-disabled);
@@ -65,10 +79,12 @@ button:focus-visible {
   visibility: hidden;
 }
 
+/* The hover and pressed fills ride a wide inset shadow, since a gradient cannot transition. */
 .button-secondary,
 .button-destructive {
   background: var(--sheet);
-  box-shadow: inset 0 0 0 1px var(--line-strong), var(--shadow-control);
+  box-shadow: inset 0 0 0 1px var(--line-strong), inset 0 0 0 999px transparent, var(--shadow-control);
+  transition: box-shadow var(--t-fast) var(--ease-out);
 }
 
 .button-destructive {
@@ -77,12 +93,12 @@ button:focus-visible {
 
 .button-secondary:hover,
 .button-destructive:hover {
-  background: linear-gradient(var(--raised), var(--raised)), var(--sheet);
+  box-shadow: inset 0 0 0 1px var(--line-strong), inset 0 0 0 999px var(--raised), var(--shadow-control);
 }
 
 .button-secondary:active,
 .button-destructive:active {
-  background: linear-gradient(var(--selected), var(--selected)), var(--sheet);
+  box-shadow: inset 0 0 0 1px var(--line-strong), inset 0 0 0 999px var(--selected), var(--shadow-control);
 }
 
 .spinner {
@@ -474,6 +490,12 @@ button:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .turn-chevron {
     transition: none;
+  }
+
+  .icon-button:active:not(:disabled) > svg,
+  .settings-step:active:not(:disabled) > svg,
+  .tab-close:active > svg {
+    transform: none;
   }
 
   .spinner {

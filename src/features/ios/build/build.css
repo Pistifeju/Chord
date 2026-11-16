@@ -126,9 +126,8 @@ button.build-issue:focus-visible {
   border-radius: var(--radius-control);
 }
 
-/* The tab bar's 2px gap counts toward the 12px. */
 .tabbar .run-controls {
-  margin: 0 10px 0 auto;
+  margin: 0 12px 0 auto;
 }
 
 .tabbar .run-controls ~ .side-view-toggles {

@@ -12,7 +12,7 @@ use dispatch2::{DispatchQueue, DispatchTime};
 use objc2::rc::Retained;
 use objc2::runtime::{AnyObject, Bool, Sel};
 use objc2::{MainThreadMarker, sel};
-use objc2_app_kit::{NSView, NSWindowOrderingMode};
+use objc2_app_kit::{NSAutoresizingMaskOptions, NSView, NSWindowOrderingMode};
 use objc2_core_foundation::{CGPoint, CGRect, CGSize};
 use objc2_foundation::{NSArray, NSUUID};
 use objc2_quartz_core::{CACurrentMediaTime, CALayer, CATransaction};
@@ -394,6 +394,10 @@ impl Screen {
         root.addSublayer(&frame);
         root.addSublayer(&capsule);
         view.setHidden(true);
+        // During the zoom animation the webview shows its old frame pinned top left, so the view stays pinned there too, under the hole, until the web moves it.
+        if !parent.isFlipped() {
+            view.setAutoresizingMask(NSAutoresizingMaskOptions::ViewMinYMargin);
+        }
         parent.addSubview_positioned_relativeTo(&view, NSWindowOrderingMode::Below, Some(&webview));
         let watch = kit.watch(|| with(Screen::sync));
         watch_occlusion(|| with(Screen::follow_window));

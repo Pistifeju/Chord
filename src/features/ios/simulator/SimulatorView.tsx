@@ -71,7 +71,7 @@ function tokenRgb(name: string): [number, number, number] {
 
 const themeColors = () => ({
   bezel: { canvas: tokenRgb("canvas"), frame: tokenRgb("bezel"), edge: tokenRgb("line-strong") },
-  buttons: { icon: tokenRgb("ink-muted"), line: tokenRgb("line"), hover: tokenRgb("raised"), pressed: tokenRgb("selected") },
+  buttons: { icon: tokenRgb("ink-secondary"), line: tokenRgb("line-strong"), hover: tokenRgb("raised"), pressed: tokenRgb("selected") },
 });
 
 /** The theme's colors for the native bezel and buttons, read again when the theme changes. */

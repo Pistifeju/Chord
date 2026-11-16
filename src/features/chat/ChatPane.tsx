@@ -288,7 +288,11 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
   useEffect(() => {
     if (ready && focused && !dialogOpen) composer.current?.focus();
   }, [ready, focused, dialogOpen]);
-  const togglePicker = (command: "/model" | "/thinking") => (menu ? answerDialog(pane, menu.dialog.id, { kind: "cancelled" }) : openPicker(pane, command));
+  // The open picker's button closes it; the other picker's button swaps to its own. The dialog's title is the button's title.
+  const togglePicker = (command: "/model" | "/thinking", title: string) => {
+    if (menu) answerDialog(pane, menu.dialog.id, { kind: "cancelled" });
+    if (menu?.dialog.title !== title) openPicker(pane, command);
+  };
 
   // Follow the reply while the reader sits at the bottom; reading further up pauses it. A session that opens starts the transcript over and shows its end.
   const firstItem = useRef(chat.items[0]);
@@ -450,11 +454,11 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
               )}
               {labels && (
                 <div className="chat-pickers">
-                  <button type="button" className="chat-picker" title="Model" disabled={!ready} data-menu-toggle onClick={() => togglePicker("/model")}>
+                  <button type="button" className="chat-picker" title="Model" disabled={!ready} data-menu-toggle onClick={() => togglePicker("/model", "Model")}>
                     {labels.name}
                   </button>
                   {labels.thinking && (
-                    <button type="button" className="chat-picker" title="Thinking Level" disabled={!ready} data-menu-toggle onClick={() => togglePicker("/thinking")}>
+                    <button type="button" className="chat-picker" title="Thinking Level" disabled={!ready} data-menu-toggle onClick={() => togglePicker("/thinking", "Thinking Level")}>
                       {labels.thinking}
                     </button>
                   )}

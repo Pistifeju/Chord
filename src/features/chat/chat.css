@@ -673,6 +673,10 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition:
+    background-color var(--t-fast) var(--ease-out),
+    color var(--t-fast) var(--ease-out),
+    transform var(--t-fast) var(--ease-out);
 }
 
 .chat-picker + .chat-picker {
@@ -691,6 +695,7 @@
 
 .chat-picker:active:not(:disabled) {
   background: var(--selected);
+  transform: scale(0.97);
 }
 
 .chat-picker:disabled {
@@ -808,7 +813,8 @@
     transition: none;
   }
 
-  .chat-send:active:not(:disabled) {
+  .chat-send:active:not(:disabled),
+  .chat-picker:active:not(:disabled) {
     transform: none;
   }
 

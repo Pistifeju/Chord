@@ -33,7 +33,10 @@
   background: transparent;
   color: var(--ink-secondary);
   text-align: left;
-  transition: background-color var(--t-fast) var(--ease-out);
+  transition:
+    background-color var(--t-fast) var(--ease-out),
+    color var(--t-fast) var(--ease-out),
+    transform var(--t-fast) var(--ease-out);
 }
 
 .settings-nav-item svg {
@@ -48,6 +51,7 @@
 
 .settings-nav-item:active {
   background: var(--selected);
+  transform: scale(0.985);
 }
 
 .settings-nav-item[aria-current="page"] {
@@ -271,5 +275,9 @@
 
   .settings-nav-item {
     transition: none;
+  }
+
+  .settings-nav-item:active {
+    transform: none;
   }
 }

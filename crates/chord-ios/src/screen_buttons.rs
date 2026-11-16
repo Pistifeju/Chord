@@ -9,7 +9,7 @@ use objc2_core_graphics::{CGColor, CGMutablePath};
 use objc2_foundation::{NSArray, NSNumber, NSString};
 use objc2_quartz_core::{
     CAAnimation, CABasicAnimation, CAKeyframeAnimation, CALayer, CAMediaTiming,
-    CAMediaTimingFunction, CAShapeLayer, kCALineCapRound, kCALineJoinRound,
+    CAMediaTimingFunction, CAShapeLayer, CATransform3D, kCALineCapRound, kCALineJoinRound,
     kCAMediaTimingFunctionEaseOut,
 };
 use serde::Deserialize;
@@ -278,6 +278,10 @@ pub(crate) fn draw(row: &CALayer, spec: &ScreenButtons, scale: f64, motion: Moti
         let color = srgb(colors.icon);
         let icon = stroke(&icon_path(face.icon), &color, scale);
         icon.setFrame(from_top(height, face.icon_x, face.icon_y, ICON, ICON));
+        // A pressed icon shrinks to 90%, as the web's icon buttons do.
+        if face.look == FaceLook::Pressed {
+            icon.setTransform(CATransform3D::new_scale(0.9, 0.9, 1.0));
+        }
         match face.icon {
             FaceIcon::Lock | FaceIcon::Unlock => {
                 let shackle = stroke(&shackle_path(), &color, scale);

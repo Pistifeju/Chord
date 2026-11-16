@@ -15,10 +15,8 @@
 .tabbar {
   display: flex;
   align-items: center;
-  gap: 2px;
   flex: none;
   height: var(--titlebar-height);
-  padding-left: 8px;
   overflow: hidden;
   position: relative;
   z-index: 2;
@@ -36,9 +34,11 @@
   align-items: center;
   min-width: 0;
   overflow: hidden;
-  height: 28px;
+  align-self: stretch;
+  /* Leaves the bar's 1px bottom line visible under the tab's fill. */
+  margin-bottom: 1px;
   max-width: 220px;
-  border-radius: var(--radius-control);
+  border-radius: 0;
   color: var(--ink-muted);
   transition: background-color var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out);
 }
