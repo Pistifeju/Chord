@@ -9,7 +9,7 @@ import { ChevronDownIcon, PhoneIcon, PlayIcon, StopIcon } from "../../../ui/icon
 import { sameDestination } from "./destination";
 import { chooseRunDestination, destinations, refreshDestinations, runDestinationOf, useRunDestination } from "./destinationStore";
 import { isRunning, isStarting } from "./run";
-import { builds, startBuild, stopBuild } from "./store";
+import { builds, runApp, stopBuild } from "./store";
 
 const disabledLine = (text: string) => MenuItem.new({ text, enabled: false });
 
@@ -67,7 +67,7 @@ export function RunControl({ worktree }: { worktree: string }) {
         className="icon-button run-control"
         title={tooltip(building ? "build.stop" : "build.run")}
         aria-label={building ? "Stop" : "Run"}
-        onClick={() => (building ? stopBuild(worktree) : startBuild(worktree, true))}
+        onClick={() => (building ? stopBuild(worktree) : runApp(worktree))}
       >
         {building ? <StopIcon /> : <PlayIcon />}
       </button>

@@ -6,10 +6,10 @@ import { projects } from "../../worktrees/store";
 import { worktreeAt } from "../../worktrees/projects";
 import { findsOf } from "./find";
 import { isStarting, isRunning } from "./run";
-import { builds, startBuild, stopBuild, toggleLogView } from "./store";
+import { builds, runApp, startBuild, stopBuild, toggleLogView } from "./store";
 
 // The selected worktree while it has an Xcode project and no sheet-like page covers it.
-const xcodeWorktree = (): string | null => {
+export const xcodeWorktree = (): string | null => {
   const { selected } = projects.get();
   return !settingsOpen.get() && worktreeAt(projects.get(), selected)?.xcode ? selected : null;
 };
@@ -22,7 +22,7 @@ const focusedLogView = (): { worktree: string; view: BottomViewSlot["id"] } | nu
 };
 
 export const buildCommands: AppCommand[] = [
-  { id: "build.run", title: "Run", shortcut: { key: "r", cmd: true }, when: () => xcodeWorktree() !== null, run: () => startBuild(xcodeWorktree()!, true) },
+  { id: "build.run", title: "Run", shortcut: { key: "r", cmd: true }, when: () => xcodeWorktree() !== null, run: () => runApp(xcodeWorktree()!) },
   { id: "build.start", title: "Build", shortcut: { key: "b", cmd: true }, when: () => xcodeWorktree() !== null, run: () => startBuild(xcodeWorktree()!, false) },
   {
     id: "build.stop",

@@ -2336,6 +2336,7 @@ dependencies = [
  "bitflags 2.13.2",
  "objc2",
  "objc2-core-foundation",
+ "objc2-core-graphics",
  "objc2-foundation",
 ]
 
@@ -3298,8 +3299,16 @@ dependencies = [
 name = "chord-ios"
 version = "0.1.0"
 dependencies = [
+ "block2",
+ "dispatch2",
  "libc",
  "md-5",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-core-foundation",
+ "objc2-core-graphics",
+ "objc2-foundation",
+ "objc2-quartz-core",
  "serde",
  "serde_json",
  "chord-core",

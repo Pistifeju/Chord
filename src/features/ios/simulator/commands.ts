@@ -1,0 +1,27 @@
+// The Simulator view's commands for the commands table: show or hide the view, and press Home, Lock or Unlock, or Shake on its simulator.
+import type { AppCommand } from "../../../app/commands";
+import type { Button } from "../../../ipc/bindings";
+import { showsSideView, sidePanels, toggleSideView } from "../../sidepanel/store";
+import { xcodeWorktree } from "../build/commands";
+import { pressButton } from "./store";
+
+// The selected worktree while its side panel shows the Simulator view.
+const shownWorktree = (): string | null => {
+  const worktree = xcodeWorktree();
+  return worktree && showsSideView(sidePanels.get(), worktree, "simulator") ? worktree : null;
+};
+
+const press = (button: Button) => () => pressButton(shownWorktree()!, button);
+
+export const simulatorCommands: AppCommand[] = [
+  {
+    id: "simulator.toggle",
+    title: "Show or Hide Simulator",
+    shortcut: { key: "s", cmd: true, shift: true },
+    when: () => xcodeWorktree() !== null,
+    run: () => toggleSideView(xcodeWorktree()!, "simulator"),
+  },
+  { id: "simulator.home", title: "Home", shortcut: { key: "h", cmd: true, shift: true }, when: () => shownWorktree() !== null, run: press("home") },
+  { id: "simulator.lock", title: "Lock or Unlock", shortcut: { key: "l", cmd: true }, when: () => shownWorktree() !== null, run: press("lock") },
+  { id: "simulator.shake", title: "Shake", shortcut: { key: "z", cmd: true, ctrl: true }, when: () => shownWorktree() !== null, run: press("shake") },
+];

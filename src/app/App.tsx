@@ -6,6 +6,7 @@ import { RunControl } from "../features/ios/build/RunControl";
 import { BuildDataSize } from "../features/ios/simulators/BuildDataSize";
 import { ServiceRows } from "../features/ios/simulators/ServiceRows";
 import { SimulatorsButton } from "../features/ios/simulators/SimulatorsButton";
+import { SimulatorToggle, SimulatorView } from "../features/ios/simulator/SimulatorView";
 import { markerText } from "../features/ios/build/run";
 import { builds, watchAgentBuilds } from "../features/ios/build/store";
 import { OpenFileByNamePopup } from "../features/files/OpenFileByNamePopup";
@@ -28,6 +29,7 @@ import { ProjectDrop } from "../features/worktrees/ProjectDrop";
 import { watchGitCounts } from "../features/worktrees/gitCountsRefresh";
 import { hasXcodeProject, worktreeAt } from "../features/worktrees/projects";
 import { dismissError, projects } from "../features/worktrees/store";
+import { seeThrough } from "../ui/seeThrough";
 import { WarningToast } from "../ui/Toast";
 import { StatusBar } from "./StatusBar";
 import { runShortcut } from "./commands";
@@ -38,6 +40,11 @@ import "./app.css";
 // A shortcut during launch would open a sheet the window does not show yet.
 const shortcutWhenLaunched = (e: KeyboardEvent) => launched.get() && runShortcut(e);
 
+function SeeThroughHole() {
+  const hole = seeThrough.use();
+  return hole && <div className="see-through" style={{ left: hole.x, top: hole.y, width: hole.width, height: hole.height, borderRadius: hole.radius }} />;
+}
+
 export default function App() {
   const state = projects.use();
   const { list, selected, error, errorIsNotice } = state;
@@ -46,6 +53,9 @@ export default function App() {
   const sheetOpen = sheet.use() !== null;
   const ready = launched.use();
   const overlay = sheetOpen || settings;
+  // A sheet and Settings blur the window, and the blur cannot reach the native view under the hole: the hole closes under them.
+  // Only open or closed here: the hole's rect moves on every resize frame and redraws just `SeeThroughHole`.
+  const hole = !overlay && seeThrough.usePart((open) => open !== null);
   const lastFocus = useRef<HTMLElement | null>(null);
   // inert drops the focus when a sheet or Settings opens; it goes back once they close, unless their action placed it.
   useEffect(() => {
@@ -95,7 +105,8 @@ export default function App() {
     );
   }
   return (
-    <div className="app">
+    <div className="app" data-see-through={hole ? true : undefined}>
+      {hole && <SeeThroughHole />}
       {/* An open sheet or Settings keeps keyboard focus and clicks inside itself. */}
       <div className="app-content" inert={overlay}>
         <div className="titlebar" data-tauri-drag-region>
@@ -122,6 +133,7 @@ export default function App() {
                           ]
                         : []
                     }
+                    sideViews={xcode ? [{ id: "simulator", title: "Simulator", button: <SimulatorToggle worktree={selected} />, body: <SimulatorView worktree={selected} /> }] : []}
                   />
                 )
               )}

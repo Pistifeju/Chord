@@ -182,20 +182,52 @@
   min-height: 0;
 }
 
-/* Sits at the bar's right end, and in the same place over the open side panel. */
-.files-toggle {
+/* The side panel's view buttons: at the bar's right end, and in the same place over the open side panel, 2px apart in both. */
+.side-view-toggles {
+  display: flex;
   flex: none;
+  gap: 2px;
   margin-right: 8px;
 }
 
-.tabbar .files-toggle {
-  margin: 0 8px 0 auto;
+.tabbar .side-view-toggles {
+  margin-left: auto;
 }
 
-.files-toggle[aria-pressed="true"],
-.files-toggle:active {
+.side-view-toggles .icon-button[aria-pressed="true"],
+.side-view-toggles .icon-button:active {
   background: var(--selected);
   color: var(--ink);
+}
+
+/* With two or more views the buttons share one capsule, as the run control's buttons do: a 1px `line` edge, a 1px `line` between them. */
+.side-view-toggles:has(> .icon-button + .icon-button) {
+  gap: 0;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+}
+
+.side-view-toggles:has(> .icon-button + .icon-button) > .icon-button {
+  width: 30px;
+  height: 26px;
+  border-radius: 0;
+}
+
+.side-view-toggles:has(> .icon-button + .icon-button) > .icon-button + .icon-button {
+  box-shadow: inset 1px 0 var(--line);
+}
+
+.side-view-toggles:has(> .icon-button + .icon-button) > .icon-button:first-child {
+  border-radius: 7px 0 0 7px;
+}
+
+.side-view-toggles:has(> .icon-button + .icon-button) > .icon-button:last-child {
+  border-radius: 0 7px 7px 0;
+}
+
+.side-view-toggles:has(> .icon-button + .icon-button) > .icon-button:focus-visible {
+  outline-offset: -2px;
 }
 
 .pane-layout {

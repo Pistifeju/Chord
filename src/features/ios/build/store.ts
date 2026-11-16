@@ -1,8 +1,9 @@
-// Connects the build rules to IPC: each worktree's build, run and log, started and stopped, and the bottom panel's Build and Console views.
+// Connects the build rules to IPC: each worktree's build, run and log, started and stopped, the bottom panel's Build and Console views, and the Simulator view a run opens.
 import { Channel } from "@tauri-apps/api/core";
 import { commands, events, type BuildEvent_Deserialize } from "../../../ipc/bindings";
 import { externalStore } from "../../../ui/externalStore";
 import { bottomPanelOf, bottomPanels, changeBottomPanel } from "../../bottompanel/store";
+import { openSideView } from "../../sidepanel/store";
 import { fail, projects } from "../../worktrees/store";
 import { runDestinationOf } from "./destinationStore";
 import { emptyConsole, type ConsoleLine } from "./consoleLog";
@@ -81,6 +82,12 @@ export function startBuild(worktree: string, run: boolean, agentRequest: number 
   // An agent's run goes to the worktree's simulator, never to the user's device.
   const target = agentRequest !== null && run && destination?.kind === "device" ? null : destination;
   commands.startBuild(worktree, run, target, agentRequest, channel).catch(fail);
+}
+
+/** ⌘R and the play button: a run on a simulator shows it in the Simulator view. An agent's run calls `startBuild` and moves nothing. */
+export function runApp(worktree: string) {
+  if (runDestinationOf(worktree)?.kind !== "device") openSideView(worktree, "simulator");
+  startBuild(worktree, true);
 }
 
 export function watchAgentBuilds(): () => void {

@@ -23,6 +23,7 @@
   --on-accent: #ffffff;
   --focus-ring: rgba(27, 78, 216, 0.6);
   --scrim: rgba(0, 0, 0, 0.3);
+  --bezel: #18181b;
 
   --danger: #e7000b;
   --success: #009966;
@@ -112,6 +113,7 @@
   --accent-wash: rgba(52, 107, 241, 0.28);
   --focus-ring: rgba(111, 155, 255, 0.75);
   --scrim: rgba(0, 0, 0, 0.6);
+  --bezel: #27272a;
 
   --danger: #fb414a;
   --success: #00bc7d;

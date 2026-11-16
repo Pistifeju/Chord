@@ -115,3 +115,20 @@
   border-color: var(--ink-muted);
   border-right-color: transparent;
 }
+
+/* The see-through hole (src/ui/seeThrough.ts): the backgrounds over it go clear, and its shadow paints the canvas everywhere else, under every other part of the window. */
+:root:has(.app[data-see-through]) {
+  background: transparent;
+}
+
+.app[data-see-through] .app-column,
+.app[data-see-through] .side-panel {
+  background: transparent;
+}
+
+.see-through {
+  position: fixed;
+  z-index: -1;
+  box-shadow: 0 0 0 100vmax var(--canvas);
+  pointer-events: none;
+}

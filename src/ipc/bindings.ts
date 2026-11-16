@@ -55,6 +55,16 @@ export const commands = {
 	pruneBuildData: () => __TAURI_INVOKE<null>("prune_build_data"),
 	/**  The service groups Settings lists, each with whether it stays on. */
 	simulatorServiceGroups: () => __TAURI_INVOKE<ServiceRow_Serialize[]>("simulator_service_groups"),
+	/**  Shows the worktree's simulator under the webview at `rect`, the screen's CSS pixels in the window, in `bezel`; the channel carries its state. */
+	showSimulatorScreen: (worktree: string, rect: ScreenRect, bezel: Bezel, onState: Channel<ScreenState_Deserialize>) => __TAURI_INVOKE<null>("show_simulator_screen", { worktree, rect, bezel, onState }),
+	moveSimulatorScreen: (rect: ScreenRect, bezel: Bezel) => __TAURI_INVOKE<null>("move_simulator_screen", { rect, bezel }),
+	/**  Draws Home, Lock and Shake natively under the screen, as the view laid them out. */
+	setSimulatorButtons: (buttons: ScreenButtons_Deserialize) => __TAURI_INVOKE<null>("set_simulator_buttons", { buttons }),
+	hideSimulatorScreen: () => __TAURI_INVOKE<null>("hide_simulator_screen"),
+	/**  Sends a touch or key of the Simulator view to the worktree's simulator, in order: the main thread runs them one by one. Buttons go through `press_simulator_button`. */
+	sendSimulatorInput: (worktree: string, input: Input_Deserialize) => __TAURI_INVOKE<null>("send_simulator_input", { worktree, input }),
+	/**  Presses Home, Lock or Shake on the worktree's simulator. Shake, and Home before CoreSimulator 1155.4, run a tool; its error comes back. */
+	pressSimulatorButton: (worktree: string, button: Button) => __TAURI_INVOKE<null>("press_simulator_button", { worktree, button }),
 	/**  Stops every agent, shell and build and ends the app once the user confirmed the quit. Panes stay saved as running, so they start again on launch. */
 	quitApp: () => __TAURI_INVOKE<null>("quit_app"),
 	/**  Saves the setting and applies it; a missing `caffeinate` fails before anything is saved, even with no agent working. */
@@ -95,6 +105,16 @@ export type Appearance_Serialize = {
 	textPercent: number,
 	/**  In pixels. */
 	terminalFontSize: number,
+};
+
+/**  The phone's frame around the screen: the screen's corner radius and the window's colors as sRGB bytes. Drawn natively, so frame and screen move in the same frame. */
+export type Bezel = {
+	radius: number | null,
+	/**  The canvas under the frame's rounded corners. */
+	canvas: [number, number, number],
+	frame: [number, number, number],
+	/**  The 1px line outside the frame. */
+	edge: [number, number, number],
 };
 
 export type BottomPanel = BottomPanel_Serialize | BottomPanel_Deserialize;
@@ -166,6 +186,47 @@ export type BuildPhase =
 /**  The app runs on the destination. */
 "running";
 
+export type Button = "home" | "lock" | "shake";
+
+/**  Opaque sRGB bytes, as the web paints them over the canvas. */
+export type ButtonColors = {
+	ink: [number, number, number],
+	icon: [number, number, number],
+	line: [number, number, number],
+	hover: [number, number, number],
+	pressed: [number, number, number],
+};
+
+export type ButtonFace = ButtonFace_Serialize | ButtonFace_Deserialize;
+
+export type ButtonFace_Deserialize = {
+	icon: FaceIcon,
+	x: number | null,
+	y: number | null,
+	width: number | null,
+	height: number | null,
+	/**  The 16px icon's top left. */
+	iconX: number | null,
+	iconY: number | null,
+	/**  None in a narrow view, which shows the icons only. */
+	label?: FaceLabel | null,
+	look: FaceLook,
+};
+
+export type ButtonFace_Serialize = {
+	icon: FaceIcon,
+	x: number | null,
+	y: number | null,
+	width: number | null,
+	height: number | null,
+	/**  The 16px icon's top left. */
+	iconX: number | null,
+	iconY: number | null,
+	/**  None in a narrow view, which shows the icons only. */
+	label: FaceLabel | null,
+	look: FaceLook,
+};
+
 /**  What a harness can do; the adapter returns its list when a session starts, and the UI hides a control whose capability is missing. */
 export type Capability = 
 /**  Streaming replies, a composer and stopping a run. */
@@ -222,6 +283,19 @@ export type Direction =
 "row" | 
 /**  Children sit one above the other. */
 "column";
+
+/**  The icons of src/ui/icons.tsx the buttons show. */
+export type FaceIcon = "home" | "lock" | "unlock" | "shake";
+
+export type FaceLabel = {
+	text: string,
+	x: number | null,
+	y: number | null,
+	width: number | null,
+	height: number | null,
+};
+
+export type FaceLook = "rest" | "hover" | "pressed";
 
 export type FileEntry = {
 	/**  What the row shows: a chain of single-child folders reads as one name, `src/app/views`. */
@@ -365,6 +439,20 @@ export type Image = {
 	mime_type: string,
 };
 
+export type Input = Input_Serialize | Input_Deserialize;
+
+export type Input_Deserialize = 
+/**  One or two fingers. `seq` grows with every touch the view sends; `from_bottom` marks a swipe that starts at the bottom edge. */
+{ kind: "touch"; seq: number; phase: TouchPhase; first: Point; second?: Point | null; fromBottom: boolean } | 
+/**  A USB HID keyboard usage (page 7). */
+{ kind: "key"; usage: number; down: boolean } | { kind: "button"; button: Button };
+
+export type Input_Serialize = 
+/**  One or two fingers. `seq` grows with every touch the view sends; `from_bottom` marks a swipe that starts at the bottom edge. */
+{ kind: "touch"; seq: number; phase: TouchPhase; first: Point; second: Point | null; fromBottom: boolean } | 
+/**  A USB HID keyboard usage (page 7). */
+{ kind: "key"; usage: number; down: boolean } | { kind: "button"; button: Button };
+
 export type KeptBranch = {
 	name: string,
 	reason: string,
@@ -394,6 +482,12 @@ export type PaneAgent_Serialize = {
 	harness: string,
 	/**  What the harness opens the session by; none until it reports one. */
 	session: string | null,
+};
+
+/**  A point on the screen: 0…1 from the top left. */
+export type Point = {
+	x: number | null,
+	y: number | null,
 };
 
 export type Project = {
@@ -442,6 +536,59 @@ export type RunningSimulator = {
 	/**  It is the open worktree's. */
 	open: boolean,
 };
+
+/**  The capsule under the screen, measured by the web: CSS pixels, from the capsule's top left. */
+export type ScreenButtons = ScreenButtons_Serialize | ScreenButtons_Deserialize;
+
+/**  The capsule under the screen, measured by the web: CSS pixels, from the capsule's top left. */
+export type ScreenButtons_Deserialize = {
+	width: number | null,
+	height: number | null,
+	/**  From the screen's bottom edge to the capsule's top; the capsule centers under the screen. */
+	gap: number | null,
+	radius: number | null,
+	fontSize: number | null,
+	colors: ButtonColors,
+	faces: ButtonFace_Deserialize[],
+};
+
+/**  The capsule under the screen, measured by the web: CSS pixels, from the capsule's top left. */
+export type ScreenButtons_Serialize = {
+	width: number | null,
+	height: number | null,
+	/**  From the screen's bottom edge to the capsule's top; the capsule centers under the screen. */
+	gap: number | null,
+	radius: number | null,
+	fontSize: number | null,
+	colors: ButtonColors,
+	faces: ButtonFace_Serialize[],
+};
+
+/**  Where the screen goes, in the webview's CSS pixels from its top left; the bezel goes around it. */
+export type ScreenRect = {
+	x: number | null,
+	y: number | null,
+	width: number | null,
+	height: number | null,
+};
+
+export type ScreenState = ScreenState_Serialize | ScreenState_Deserialize;
+
+export type ScreenState_Deserialize = 
+/**  Frames show; the screen's size in pixels and whether SpringBoard is locked. */
+{ state: "live"; width: number; height: number; locked: boolean } | 
+/**  No booted simulator, or one with no screen yet; `message` says why when it is more than off. */
+{ state: "off"; message?: string | null } | 
+/**  The private API did not load; `app` names the simulator app to open instead. */
+{ state: "unavailable"; message: string; app: string };
+
+export type ScreenState_Serialize = 
+/**  Frames show; the screen's size in pixels and whether SpringBoard is locked. */
+{ state: "live"; width: number; height: number; locked: boolean } | 
+/**  No booted simulator, or one with no screen yet; `message` says why when it is more than off. */
+{ state: "off"; message: string | null } | 
+/**  The private API did not load; `app` names the simulator app to open instead. */
+{ state: "unavailable"; message: string; app: string };
 
 /**  One row of Settings' Simulators section: a group with the state of its switch. */
 export type ServiceRow = ServiceRow_Serialize | ServiceRow_Deserialize;
@@ -498,13 +645,18 @@ export type SidePanel_Deserialize = {
 	open?: boolean,
 	/**  In pixels. */
 	width?: number,
+	view?: SideView,
 };
 
 export type SidePanel_Serialize = {
 	open: boolean,
 	/**  In pixels. */
 	width: number,
+	view: SideView,
 };
+
+/**  The view the side panel shows. */
+export type SideView = "files" | "simulator";
 
 export type Sidebar = Sidebar_Serialize | Sidebar_Deserialize;
 
@@ -718,6 +870,8 @@ export type TerminalEvent = { kind: "output"; text: string } |
 export type Theme = "system" | "light" | "dark";
 
 export type ToolOutcome = "done" | "failed" | "stopped";
+
+export type TouchPhase = "down" | "move" | "up";
 
 /**  One subscription usage window: its label, e.g. "5h 42%", and when it resets, in ms since the epoch; none when the harness does not say. */
 export type UsageWindow = UsageWindow_Serialize | UsageWindow_Deserialize;

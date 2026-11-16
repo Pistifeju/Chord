@@ -19,6 +19,7 @@ use crate::device;
 use crate::issues::{BuildIssue, Issues};
 use crate::process::{self, BATCH_BYTES, BATCH_INTERVAL, GROUP_GRACE, end_group};
 use crate::simulator::{self, Simulator};
+use crate::simulator_kit;
 use crate::slot::Slots;
 use crate::xcode::{self, Project};
 
@@ -386,7 +387,10 @@ impl Build {
             if self.stopped() {
                 return Ok(None);
             }
-            simulator::open_app();
+            // The Simulator view shows the device; the external app only stands in when it cannot.
+            if simulator_kit::load().is_err() {
+                simulator::open_app();
+            }
             let app = self.step(|register| {
                 xcode::built_app(&self.project, scheme, Some(udid), &self.worktree, register)
             })?;

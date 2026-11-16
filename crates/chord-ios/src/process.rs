@@ -73,7 +73,7 @@ pub(crate) fn read_lines(reader: PipeReader) -> Receiver<Vec<u8>> {
     received
 }
 
-fn signal_group(pid: u32, signal: i32) -> bool {
+pub(crate) fn signal_group(pid: u32, signal: i32) -> bool {
     let Ok(pid) = i32::try_from(pid) else {
         return false;
     };

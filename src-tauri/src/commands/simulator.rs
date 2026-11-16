@@ -1,9 +1,14 @@
-//! Commands for the simulators and the build data of the worktrees: the running simulators, shutting the others down, the build data's size and its prune.
+//! Commands for the simulators and the build data of the worktrees: the running simulators, shutting the others down, the build data's size and its prune, and the Simulator view's screen and input.
 
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Mutex, PoisonError};
 
-use chord_ios::{RunningSimulator, ServiceRow};
-use tauri::AppHandle;
+use chord_ios::{
+    Bezel, Button, Input, RunningSimulator, ScreenButtons, ScreenRect, ScreenState, ServiceRow,
+};
+use tauri::ipc::Channel;
+use tauri::{AppHandle, WebviewWindow};
 
 use super::blocking;
 
@@ -52,4 +57,119 @@ pub async fn simulator_service_groups(app: AppHandle) -> Result<Vec<ServiceRow>,
         Ok(chord_ios::service_rows(&store.get().kept_services))
     })
     .await
+}
+
+/// Bumped by every show and hide: a show that finishes loading after a later hide does nothing.
+static SCREEN_TURN: AtomicU64 = AtomicU64::new(0);
+/// The newest rect and bezel: a move that comes in while a show still loads must not be lost.
+static SCREEN_PLACE: Mutex<(ScreenRect, Bezel)> = Mutex::new((
+    ScreenRect {
+        x: 0.0,
+        y: 0.0,
+        width: 0.0,
+        height: 0.0,
+    },
+    Bezel {
+        radius: 0.0,
+        canvas: [0; 3],
+        frame: [0; 3],
+        edge: [0; 3],
+    },
+));
+
+fn set_screen_place(rect: ScreenRect, bezel: Bezel) {
+    *SCREEN_PLACE.lock().unwrap_or_else(PoisonError::into_inner) = (rect, bezel);
+}
+
+/// Shows the worktree's simulator under the webview at `rect`, the screen's CSS pixels in the window, in `bezel`; the channel carries its state.
+#[tauri::command]
+#[specta::specta]
+pub async fn show_simulator_screen(
+    window: WebviewWindow,
+    worktree: PathBuf,
+    rect: ScreenRect,
+    bezel: Bezel,
+    on_state: Channel<ScreenState>,
+) -> Result<(), String> {
+    let turn = SCREEN_TURN.fetch_add(1, Ordering::SeqCst) + 1;
+    set_screen_place(rect, bezel);
+    let unavailable = tauri::async_runtime::spawn_blocking(chord_ios::prepare_screen)
+        .await
+        .map_err(|error| error.to_string())?;
+    if let Some(state) = unavailable {
+        return on_state.send(state).map_err(|error| error.to_string());
+    }
+    window
+        .with_webview(move |webview| {
+            if SCREEN_TURN.load(Ordering::SeqCst) != turn {
+                return;
+            }
+            let (rect, bezel) = *SCREEN_PLACE.lock().unwrap_or_else(PoisonError::into_inner);
+            let send = move |state| {
+                let _ = on_state.send(state);
+            };
+            // SAFETY: Tauri hands over the window's live WKWebView on the main thread.
+            unsafe { chord_ios::show_screen(webview.inner(), &worktree, rect, bezel, send) };
+        })
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn move_simulator_screen(app: AppHandle, rect: ScreenRect, bezel: Bezel) -> Result<(), String> {
+    set_screen_place(rect, bezel);
+    app.run_on_main_thread(move || chord_ios::move_screen(rect, bezel))
+        .map_err(|error| error.to_string())
+}
+
+/// Draws Home, Lock and Shake natively under the screen, as the view laid them out.
+#[tauri::command]
+#[specta::specta]
+pub fn set_simulator_buttons(app: AppHandle, buttons: ScreenButtons) -> Result<(), String> {
+    app.run_on_main_thread(move || chord_ios::set_buttons(buttons))
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn hide_simulator_screen(app: AppHandle) -> Result<(), String> {
+    SCREEN_TURN.fetch_add(1, Ordering::SeqCst);
+    app.run_on_main_thread(chord_ios::hide_screen)
+        .map_err(|error| error.to_string())
+}
+
+/// Sends a touch or key of the Simulator view to the worktree's simulator, in order: the main thread runs them one by one. Buttons go through `press_simulator_button`.
+#[tauri::command]
+#[specta::specta]
+pub fn send_simulator_input(app: AppHandle, worktree: PathBuf, input: Input) -> Result<(), String> {
+    app.run_on_main_thread(move || {
+        if let Some(blocking) = chord_ios::send_input(&worktree, input) {
+            tauri::async_runtime::spawn_blocking(move || blocking.run());
+        }
+    })
+    .map_err(|error| error.to_string())
+}
+
+/// Presses Home, Lock or Shake on the worktree's simulator. Shake, and Home before CoreSimulator 1155.4, run a tool; its error comes back.
+#[tauri::command]
+#[specta::specta]
+pub async fn press_simulator_button(
+    app: AppHandle,
+    worktree: PathBuf,
+    button: Button,
+) -> Result<(), String> {
+    let (sent, run) = std::sync::mpsc::channel();
+    app.run_on_main_thread(move || {
+        let _ = sent.send(chord_ios::send_input(
+            &worktree,
+            Input::Button { button },
+        ));
+    })
+    .map_err(|error| error.to_string())?;
+    tauri::async_runtime::spawn_blocking(move || match run.recv() {
+        Ok(Some(blocking)) => blocking.run().map_err(|error| error.to_string()),
+        _ => Ok(()),
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }

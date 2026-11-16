@@ -116,12 +116,11 @@ button.build-issue:focus-visible {
   color: var(--ink-muted);
 }
 
-/* The run control sits at the tab bar's right end, 12px before the Files button, and in the side panel's title bar row in the same place. One hairline capsule, the destination then play, a hairline between them. */
+/* The run control sits at the tab bar's right end, 12px before the side panel's view buttons, and in the side panel's title bar row in the same place. One hairline capsule, the destination then play, a hairline between them. */
 .run-controls {
   display: flex;
-  flex: 0 1 auto;
+  flex: none;
   align-items: center;
-  min-width: 0;
   height: 28px;
   border: 1px solid var(--line);
   border-radius: var(--radius-control);
@@ -132,7 +131,7 @@ button.build-issue:focus-visible {
   margin: 0 10px 0 auto;
 }
 
-.tabbar .run-controls ~ .files-toggle {
+.tabbar .run-controls ~ .side-view-toggles {
   margin-left: 0;
 }
 
@@ -140,7 +139,6 @@ button.build-issue:focus-visible {
   display: flex;
   align-items: center;
   gap: 6px;
-  min-width: 0;
   max-width: 280px;
   height: 26px;
   padding: 0 6px 0 8px;
@@ -175,6 +173,48 @@ button.build-issue:focus-visible {
   white-space: nowrap;
 }
 
+/* The capsule never shrinks, so it never crosses the side panel's left edge: in a narrow bar the tabs give way first, then the name hides, then the iOS version, then the destination, and play stays. */
+.tabbar,
+.side-panel-bar {
+  container-type: inline-size;
+}
+
+@container (max-width: 600px) {
+  .tabbar .run-destination-name {
+    display: none;
+  }
+}
+
+@container (max-width: 420px) {
+  .tabbar .run-destination-os {
+    display: none;
+  }
+}
+
+@container (max-width: 360px) {
+  .tabbar .run-destination {
+    display: none;
+  }
+}
+
+@container (max-width: 340px) {
+  .side-panel-bar .run-destination-name {
+    display: none;
+  }
+}
+
+@container (max-width: 230px) {
+  .side-panel-bar .run-destination-os {
+    display: none;
+  }
+}
+
+@container (max-width: 170px) {
+  .side-panel-bar .run-destination {
+    display: none;
+  }
+}
+
 .run-destination-os {
   flex: none;
   color: var(--ink-muted);
@@ -189,6 +229,20 @@ button.build-issue:focus-visible {
   border-radius: 0 7px 7px 0;
   box-shadow: inset 1px 0 var(--line);
   color: var(--success);
+}
+
+@container (max-width: 360px) {
+  .tabbar .icon-button.run-control {
+    border-radius: 7px;
+    box-shadow: none;
+  }
+}
+
+@container (max-width: 170px) {
+  .side-panel-bar .icon-button.run-control {
+    border-radius: 7px;
+    box-shadow: none;
+  }
 }
 
 .icon-button.run-control[aria-label="Stop"],

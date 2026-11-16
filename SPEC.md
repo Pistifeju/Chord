@@ -162,7 +162,7 @@ Edge cases:
 - [x] H11 Slim simulators: before a boot, Chord writes launchd disable overrides into its own simulators, so the background services a run does not need (Siri, Spotlight, widgets, iCloud and more) never start. A Rust port of simslim's service list, with its MIT notice. Settings section Simulators: one row per service group with its name, what stops working and its memory, and a switch to keep it on.
 
 Edge cases:
-- ⌘R opens the selected Xcode's simulator app (DeviceHub from Xcode 27, Simulator.app before).
+- ⌘R opens the Simulator view in the side panel; when the private API fails to load, the selected Xcode's simulator app (DeviceHub from Xcode 27, Simulator.app before).
 - The console reads output lossily; a failed launch fails the run; multi-line OSLog messages stay whole.
 - A fresh simulator warms up during the build.
 - The build log rewrites once per 100 KB past its cap.
@@ -186,10 +186,16 @@ Edge cases:
 
 ## 9. Simulator (iOS, private API)
 
-- [ ] I1 **hard** Simulator view in the side panel (⌘⇧S), with its tab bar button: live frames from the IOSurface, touch, pinch and rotate, Home, Lock, Shake, keyboard.
+- [x] I1 **hard** Simulator view in the side panel (⌘⇧S), with its tab bar button: live frames from the IOSurface, touch, pinch and rotate, Home, Lock, Shake, keyboard.
 - [ ] I2 Fallback message and "Open in Simulator / DeviceHub" when the private API fails to load.
 - [ ] I3 Screenshot: thumbnail at the bottom right; drag it into Finder or any app. With harness(attachments): drag it into a pane, or click to paste it into the focused agent. Settings row, off by default: a folder to save screenshots in.
 - [ ] I4 No frame callbacks while the window is hidden.
+
+Edge cases:
+- Input goes over DTUHID, one XPC connection to the guest's digitizer service, from CoreSimulator 1155.4 (Xcode 27) on, and over Indigo before; Home there relaunches SpringBoard. Shake posts `com.apple.UIKit.SimulatorShake` on both.
+- The view follows boots and shutdowns through CoreSimulator's notifications, without polling. A boot that shows no screen restarts once; a second one shows the error.
+- An agent's run neither opens the panel nor the simulator app.
+- Lock reads Unlock while SpringBoard is locked; Unlock presses Home, and a second Home when the first only woke the screen.
 
 ## 10. SwiftUI previews (iOS, private API)
 

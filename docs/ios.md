@@ -160,8 +160,12 @@ crates/chord-ios/src/
   run.rs            install, launch, console                                                    step 2
   caches.rs         the running simulators, forget, prune, the size of the build data           step 4
   destinations.rs   run destinations from simctl and devicectl                                  step 3
+  simulator_kit.rs  CoreSimulator and SimulatorKit loaded from the selected Xcode, devices by name step 6
+  screen_view.rs    the Simulator view's native view under the webview, its frames and states    step 6
+  hid/              the view's input: DTUHID from CoreSimulator 1155.4, Indigo before            step 6
 src-tauri/src/commands/build.rs, simulator.rs
 src/features/ios/build/         the run control and its menu, the run status, the build log, the run state rules
+src/features/ios/simulator/     the Simulator view: the screen's fit, keys, input and its buttons
 ```
 
 - `chord-ios` depends on `chord-core` and has no `tauri` dependency. `src-tauri` wires both: its delete command calls core, then the iOS cleanup.
@@ -197,6 +201,7 @@ This plan added H8, H9 and H10 to `SPEC.md`, the `tools` capability to its secti
 - The wait on a locked database: the error text is Xcode 27.1's. `lsof -t build.db` may name the holder before a build starts; nobody ran it.
 - Shared module caches under parallel builds: one run passed. Whether `xcodebuild` honours `CLANG_MODULE_CACHE_PATH` from the environment comes from source 1, not from a run here.
 - Every time in section 2 is one run of one project on one machine. Simulator times come from a separate device set and iOS 27.0.
+- The private API of section 10 on Xcode 27.1. Section 9's input runs over DTUHID there, from Meta idb's reverse engineering: touch, keys, Home and Lock passed on Xcode 27.1 with CoreSimulator 1174.9.2, with and without DeviceHub. The Indigo path of older Xcodes nobody ran here.
 - Section 3.6's MCP server for ACP agents: both adapters pass `mcpServers` on in their code, read on 2026-11-15; nobody ran a session with it.
 
 ## Sources

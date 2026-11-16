@@ -1,7 +1,7 @@
-// The Files view's commands for the commands table: show the view, open a file by name, and the tree's right-click actions on an entry's relative path.
+// The Files view's commands for the commands table: show or hide the view, open a file by name, and the tree's right-click actions on an entry's relative path.
 import type { AppCommand } from "../../app/commands";
 import { settingsOpen } from "../settings/store";
-import { toggleSidePanel } from "../sidepanel/store";
+import { toggleSideView } from "../sidepanel/store";
 import { fail, projects } from "../worktrees/store";
 import { openFileByName, requestTrash, revealFile, startNew, startRename } from "./store";
 import { joinPath } from "./paths";
@@ -25,7 +25,7 @@ export const filesCommands: AppCommand[] = [
     title: "Show or Hide Files",
     shortcut: { key: "e", cmd: true, shift: true },
     when: () => !settingsOpen.get() && projects.get().selected !== null,
-    run: () => toggleSidePanel(projects.get().selected!),
+    run: () => toggleSideView(projects.get().selected!, "files"),
   },
   {
     id: "files.openByName",

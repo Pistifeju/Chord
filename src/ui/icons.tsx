@@ -223,3 +223,31 @@ export const StopIcon = () => (
     <rect x="4" y="4" width="8" height="8" rx="1.5" fill="currentColor" />
   </Icon>
 );
+
+export const HomeIcon = () => (
+  <Icon>
+    <path d="M2.5 7.25 8 2.75l5.5 4.5" />
+    <path d="M4 6v7.25h8V6" />
+  </Icon>
+);
+
+export const LockIcon = () => (
+  <Icon>
+    <rect x="3.25" y="7" width="9.5" height="7" rx="1.75" />
+    <path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" />
+  </Icon>
+);
+
+export const UnlockIcon = () => (
+  <Icon>
+    <rect x="3.25" y="7" width="9.5" height="7" rx="1.75" />
+    <path d="M5.5 7V5a2.5 2.5 0 0 1 4.9-.7" />
+  </Icon>
+);
+
+export const ShakeIcon = () => (
+  <Icon>
+    <rect x="5.25" y="2.75" width="5.5" height="10.5" rx="1.5" />
+    <path d="M2.75 6v4M13.25 6v4" />
+  </Icon>
+);

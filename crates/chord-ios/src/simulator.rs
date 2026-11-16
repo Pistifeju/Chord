@@ -1,7 +1,7 @@
 //! The worktree's simulator: found or created by name, booted, the app installed and launched on it with its output and OSLog read, and the Simulator app opened.
 
 use std::collections::BTreeMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
 use std::sync::mpsc;
 use std::thread;
@@ -171,10 +171,12 @@ pub(crate) fn find_or_create(
 }
 
 fn version_of(runtime: &Value) -> Vec<u32> {
-    runtime["version"]
-        .as_str()
-        .unwrap_or_default()
-        .split('.')
+    dotted_version(runtime["version"].as_str().unwrap_or_default())
+}
+
+/// `1174.9.2` as `[1174, 9, 2]`, comparable part by part.
+pub(crate) fn dotted_version(text: &str) -> Vec<u32> {
+    text.split('.')
         .filter_map(|part| part.parse().ok())
         .collect()
 }
@@ -235,22 +237,107 @@ pub(crate) fn boot_slim(
     })
 }
 
-/// Opens the selected Xcode's simulator app: DeviceHub from Xcode 27, Simulator.app before. Best effort.
-pub(crate) fn open_app() {
-    let Ok(developer) = xcrun(&["--find", "xcodebuild"], &|_| {}) else {
-        return;
-    };
+/// The selected Xcode's `Contents/Developer` folder.
+pub(crate) fn developer_dir() -> Option<PathBuf> {
+    let xcodebuild = xcrun(&["--find", "xcodebuild"], &|_| {}).ok()?;
     // `<Xcode>/Contents/Developer/usr/bin/xcodebuild`
-    let Some(developer) = Path::new(developer.trim()).ancestors().nth(3) else {
-        return;
-    };
-    let candidates = [
+    Some(
+        Path::new(xcodebuild.trim())
+            .ancestors()
+            .nth(3)?
+            .to_path_buf(),
+    )
+}
+
+/// The selected Xcode's simulator app: DeviceHub from Xcode 27, Simulator.app before.
+pub(crate) fn simulator_app() -> Option<PathBuf> {
+    let developer = developer_dir()?;
+    [
         developer.join("../Applications/DeviceHub.app"),
         developer.join("Applications/Simulator.app"),
-    ];
-    if let Some(app) = candidates.iter().find(|app| app.exists()) {
+    ]
+    .into_iter()
+    .find(|app| app.exists())
+}
+
+/// Opens the selected Xcode's simulator app. Best effort.
+pub(crate) fn open_app() {
+    if let Some(app) = simulator_app() {
         let _ = Command::new(OPEN).arg("-g").arg(app).status();
     }
+}
+
+/// Shake: the Darwin notification Simulator.app's Device > Shake posts; UIKit turns it into a shake motion.
+pub(crate) fn shake(udid: &str) -> Result<(), Error> {
+    let notification = "com.apple.UIKit.SimulatorShake";
+    xcrun(
+        &["simctl", "spawn", udid, "notifyutil", "-p", notification],
+        &|_| {},
+    )
+    .map(drop)
+}
+
+const LOCK_STATE: &str = "com.apple.springboard.lockstate";
+
+/// The lock state in a `notifyutil` line: `<key> <state>`, or `-v`'s `[n] <time> <key> <state> <type>`.
+fn locked_in(line: &str) -> Option<bool> {
+    let mut words = line.split_whitespace();
+    words.find(|word| *word == LOCK_STATE)?;
+    words.next()?.parse::<u64>().ok().map(|state| state != 0)
+}
+
+/// SpringBoard's lock state now; None when the simulator does not answer.
+pub(crate) fn lock_state(udid: &str) -> Option<bool> {
+    let output = xcrun(
+        &["simctl", "spawn", udid, "notifyutil", "-g", LOCK_STATE],
+        &|_| {},
+    );
+    locked_in(&output.ok()?)
+}
+
+/// Follows SpringBoard's lock state: `on_change` gets it now and on every change, on a thread of its own, until the simulator shuts down or `stop_lock_watch` ends it. The watch's process group, or None when xcrun does not start.
+pub(crate) fn watch_lock(udid: &str, on_change: impl Fn(bool) + Send + 'static) -> Option<u32> {
+    let watch = login_shell(
+        "xcrun",
+        &[
+            "simctl",
+            "spawn",
+            udid,
+            "notifyutil",
+            "-v",
+            "-w",
+            LOCK_STATE,
+        ],
+    );
+    let (mut child, reader) = process::merged(watch, None).ok()?;
+    let group = child.id();
+    let udid = udid.to_string();
+    thread::spawn(move || {
+        // The watch starts first: a change between the two still arrives. `-g` goes alone because notifyutil buffers it until the first notification.
+        if let Some(locked) = lock_state(&udid) {
+            on_change(locked);
+        }
+        for line in std::io::BufRead::lines(std::io::BufReader::new(reader)).map_while(Result::ok) {
+            if let Some(locked) = locked_in(&line) {
+                on_change(locked);
+            }
+        }
+        let _ = child.wait();
+    });
+    Some(group)
+}
+
+pub(crate) fn stop_lock_watch(group: u32) {
+    process::signal_group(group, libc::SIGTERM);
+}
+
+/// Home where the Indigo home press is dropped: launching SpringBoard shows the home screen.
+pub(crate) fn show_home_screen(udid: &str) -> Result<(), Error> {
+    xcrun(
+        &["simctl", "launch", udid, "com.apple.springboard"],
+        &|_| {},
+    )
+    .map(drop)
 }
 
 /// A text value of the app's Info.plist, such as `CFBundleIdentifier`.
@@ -465,6 +552,16 @@ mod tests {
             newest_ios_model(&listed),
             Some(("p18pro".into(), "ios-27-1".into()))
         );
+    }
+
+    #[test]
+    fn reads_the_lock_state_of_both_notifyutil_lines() {
+        assert_eq!(locked_in("com.apple.springboard.lockstate 1\n"), Some(true));
+        assert_eq!(
+            locked_in("[3] 1794833259.759 com.apple.springboard.lockstate 0 port"),
+            Some(false)
+        );
+        assert_eq!(locked_in("notifyutil: no such device"), None);
     }
 
     #[test]

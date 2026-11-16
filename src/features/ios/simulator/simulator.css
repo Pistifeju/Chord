@@ -1,0 +1,95 @@
+/* The Simulator view in the side panel. Rules: DESIGN.md, Simulator view. */
+.simulator {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.simulator-area {
+  position: relative;
+  container: simulator / inline-size;
+  flex: 1;
+  min-height: 0;
+  /* 12px clear of the panel, plus the bezel. */
+  margin: 21px;
+}
+
+/* Clear: the native view under the webview draws the screen here. */
+.simulator-screen {
+  position: fixed;
+  touch-action: none;
+  /* The bezel around it is native too (screen_view.rs), so frame and screen move together. */
+  outline: none;
+}
+
+/* Home, Lock and Shake under the screen, as the run control: one hairline capsule, a hairline between the buttons, each an icon and its name. The native view draws them (screen_buttons.rs) so they move with the screen; these clear buttons lay them out and take clicks, focus and tooltips. */
+.simulator-buttons {
+  position: fixed;
+  display: flex;
+  height: 28px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  transform: translateX(-50%);
+}
+
+.simulator-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px 0 8px;
+  border: none;
+  background: transparent;
+  color: transparent;
+  font-size: calc(12px * var(--text-scale));
+  white-space: nowrap;
+}
+
+.simulator-button svg {
+  flex: none;
+}
+
+.simulator-button:focus-visible {
+  outline-offset: -2px;
+}
+
+.simulator-button:first-child {
+  border-radius: 7px 0 0 7px;
+}
+
+.simulator-button:last-child {
+  border-radius: 0 7px 7px 0;
+}
+
+/* A narrow panel keeps the icons only; the tooltips still name them. */
+@container simulator (max-width: 260px) {
+  .simulator-button {
+    padding: 0 9px;
+  }
+
+  .simulator-button-label {
+    display: none;
+  }
+}
+
+.simulator-finger {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--sheet);
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.simulator-empty {
+  position: absolute;
+  inset: 40% 0 auto;
+  margin: 0;
+  text-align: center;
+  font-size: calc(12px * var(--text-scale));
+  color: var(--ink-muted);
+}

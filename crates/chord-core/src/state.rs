@@ -170,6 +170,7 @@ pub struct SidePanel {
     pub open: bool,
     /// In pixels.
     pub width: u16,
+    pub view: SideView,
 }
 
 impl Default for SidePanel {
@@ -177,8 +178,18 @@ impl Default for SidePanel {
         SidePanel {
             open: false,
             width: 300,
+            view: SideView::Files,
         }
     }
+}
+
+/// The view the side panel shows.
+#[derive(Serialize, Deserialize, Type, Clone, Copy, Debug, Default, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum SideView {
+    #[default]
+    Files,
+    Simulator,
 }
 
 #[derive(Serialize, Deserialize, Type, Clone, Debug, PartialEq)]

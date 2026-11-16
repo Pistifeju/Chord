@@ -10,8 +10,8 @@ import { seenDone, statusLabel } from "../status/status";
 import { StatusMark } from "../status/StatusMark";
 import { finished } from "../status/store";
 import { BottomPanel, type BottomViewSlot } from "../bottompanel/BottomPanel";
-import { SidePanel } from "../sidepanel/SidePanel";
-import { sidePanelOf, sidePanels, toggleSidePanel } from "../sidepanel/store";
+import { SidePanel, type SideViewSlot } from "../sidepanel/SidePanel";
+import { sidePanelOf, sidePanels, showsSideView, toggleSideView } from "../sidepanel/store";
 import { sidebar } from "../sidebar/store";
 import { Editor } from "../editor/Editor";
 import { ImageView } from "../editor/ImageView";
@@ -32,7 +32,8 @@ type TabDrag = { handlers: (tab: string) => object; clicked: () => boolean; drag
 type Edges = { top: boolean; left: boolean; right: boolean };
 
 // seen: the tabs already shown, so a tab that remounts after a split or a move does not animate in again.
-type Place = { worktree: string; focused: string; split: boolean; names: PaneNames; drag: TabDrag; seen: Set<string>; runControl: ReactNode };
+// corner: the buttons at the window's top right end: the run control and the side panel's view buttons.
+type Place = { worktree: string; focused: string; split: boolean; names: PaneNames; drag: TabDrag; seen: Set<string>; corner: ReactNode };
 
 const rectOf = (element: Element): Box => {
   const { left, top, width, height } = element.getBoundingClientRect();
@@ -81,15 +82,15 @@ function useTabDrag(worktree: string) {
 
 function FilesToggle({ worktree }: { worktree: string }) {
   shortcutChanges.use();
-  const shown = sidePanels.usePart((all) => sidePanelOf(all, worktree).open);
+  const shown = sidePanels.usePart((all) => showsSideView(all, worktree, "files"));
   return (
     <button
       type="button"
-      className="icon-button files-toggle"
+      className="icon-button"
       title={tooltip("files.toggle")}
       aria-label="Show or Hide Files"
       aria-pressed={shown}
-      onClick={() => toggleSidePanel(worktree)}
+      onClick={() => toggleSideView(worktree, "files")}
     >
       <SidePanelIcon />
     </button>
@@ -155,10 +156,7 @@ function GroupTabs({ group, place, edges }: { group: Group; place: Place; edges:
         <PlusIcon />
       </button>
       {edges.top && edges.right && !sidePanelOpen && (
-        <>
-          {place.runControl}
-          <FilesToggle worktree={worktree} />
-        </>
+        place.corner
       )}
     </div>
   );
@@ -283,8 +281,8 @@ function TabGhost({ tab, pointer, names }: { tab: Tab; pointer: { left: number; 
   );
 }
 
-// `runControl` and `bottomViews` are the iOS parts of the window, passed in by App.
-export function PaneArea({ worktree, runControl, bottomViews }: { worktree: string; runControl: ReactNode; bottomViews: BottomViewSlot[] }) {
+// `runControl`, `bottomViews` and `sideViews` are the iOS parts of the window, passed in by App.
+export function PaneArea({ worktree, runControl, bottomViews, sideViews }: { worktree: string; runControl: ReactNode; bottomViews: BottomViewSlot[]; sideViews: SideViewSlot[] }) {
   const current = panes.use()[worktree];
   useEffect(() => ensurePanes(worktree), [worktree]);
   const names = usePaneNames(current ? chatPaneIds(current.layout) : []);
@@ -293,7 +291,18 @@ export function PaneArea({ worktree, runControl, bottomViews }: { worktree: stri
   if (!current) return null;
   // The tabs a worktree opens with show still.
   seen.current ??= new Set(paneIds(current.layout));
-  const place: Place = { worktree, focused: current.focused, split: current.layout.kind === "split", names, drag: tabDrag, seen: seen.current, runControl };
+  const corner = (
+    <>
+      {runControl}
+      <div className="side-view-toggles">
+        {sideViews.map((view) => (
+          <Fragment key={view.id}>{view.button}</Fragment>
+        ))}
+        <FilesToggle worktree={worktree} />
+      </div>
+    </>
+  );
+  const place: Place = { worktree, focused: current.focused, split: current.layout.kind === "split", names, drag: tabDrag, seen: seen.current, corner };
   const dragged = tabDrag.dragging ? groupOf(current.layout, tabDrag.dragging)?.tabs.find((t) => t.id === tabDrag.dragging) : undefined;
   return (
     <div className="panes">
@@ -303,13 +312,7 @@ export function PaneArea({ worktree, runControl, bottomViews }: { worktree: stri
         </div>
         <BottomPanel worktree={worktree} views={bottomViews} />
       </div>
-      <SidePanel worktree={worktree} bar={
-          <>
-            {runControl}
-            <FilesToggle worktree={worktree} />
-          </>
-        }
-      />
+      <SidePanel worktree={worktree} views={sideViews} bar={corner} />
       {drop && <div className="drop-edge" style={drop.box} />}
       {dragged && pointer && <TabGhost tab={dragged} pointer={pointer} names={names} />}
     </div>
