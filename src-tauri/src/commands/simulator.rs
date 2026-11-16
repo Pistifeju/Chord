@@ -4,11 +4,14 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, PoisonError};
 
+use chord_core::{Error, StateChange};
 use chord_ios::{
-    Bezel, Button, Input, RunningSimulator, ScreenButtons, ScreenRect, ScreenState, ServiceRow,
+    Bezel, Button, Input, RunningSimulator, ScreenButtons, ScreenRect, ScreenState, Screenshot,
+    ServiceRow,
 };
 use tauri::ipc::Channel;
 use tauri::{AppHandle, WebviewWindow};
+use tauri_plugin_dialog::DialogExt;
 
 use super::blocking;
 
@@ -179,4 +182,67 @@ pub async fn press_simulator_button(
 #[specta::specta]
 pub async fn open_simulator_app(app: AppHandle) -> Result<(), String> {
     blocking(app, |_, _| chord_ios::open_app(true)).await
+}
+
+/// Takes a screenshot of the worktree's simulator into the screenshot folder of Settings, else a temporary one.
+#[tauri::command]
+#[specta::specta]
+pub async fn take_simulator_screenshot(
+    app: AppHandle,
+    worktree: PathBuf,
+) -> Result<Screenshot, String> {
+    blocking(app, move |_, store| {
+        let folder = store.get().screenshot_folder;
+        chord_ios::take_screenshot(&worktree, folder.as_deref())
+    })
+    .await
+}
+
+/// Asks for the screenshot folder and saves the pick; no pick keeps the setting and returns `None`.
+#[tauri::command]
+#[specta::specta]
+pub async fn pick_screenshot_folder(app: AppHandle) -> Result<Option<PathBuf>, String> {
+    blocking(app, |app, store| {
+        let Some(folder) = app
+            .dialog()
+            .file()
+            .set_title("Screenshot Folder")
+            .blocking_pick_folder()
+        else {
+            return Ok(None);
+        };
+        let folder = folder
+            .into_path()
+            .map_err(|error| Error::Message(error.to_string()))?;
+        store.update(|state| state.apply(StateChange::ScreenshotFolder(Some(folder.clone()))))?;
+        Ok(Some(folder))
+    })
+    .await
+}
+
+/// Starts a native drag of a file, shown as `preview`, out of the window: Finder and other apps take it, and so does a chat pane.
+#[tauri::command]
+#[specta::specta]
+pub async fn drag_file_out(
+    app: AppHandle,
+    window: WebviewWindow,
+    file: PathBuf,
+    preview: PathBuf,
+) -> Result<(), String> {
+    let (sent, started) = std::sync::mpsc::channel();
+    app.run_on_main_thread(move || {
+        let _ = sent.send(drag::start_drag(
+            &window,
+            drag::DragItem::Files(vec![file]),
+            drag::Image::File(preview),
+            |_, _| {},
+            drag::Options::default(),
+        ));
+    })
+    .map_err(|error| error.to_string())?;
+    tauri::async_runtime::spawn_blocking(move || started.recv())
+        .await
+        .map_err(|error| error.to_string())?
+        .map_err(|error| error.to_string())?
+        .map_err(|error| error.to_string())
 }

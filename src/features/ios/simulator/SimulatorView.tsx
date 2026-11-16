@@ -1,14 +1,15 @@
-// The Simulator view in the side panel: Home, Lock and Shake over the worktree's simulator screen, which the native view draws through the see-through hole; the screen takes clicks, drags, trackpad pinches and typing. Also its tab bar button.
+// The Simulator view in the side panel: Home, Lock, Shake and Screenshot under the worktree's simulator screen, which the native view draws through the see-through hole; the screen takes clicks, drags, trackpad pinches and typing. Also its tab bar button.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { shortcutLabel, tooltip } from "../../../app/commands";
-import type { Bezel, Button, ButtonFace_Deserialize as ButtonFace, FaceIcon, ScreenButtons_Deserialize as ScreenButtons } from "../../../ipc/bindings";
-import { HomeIcon, LockIcon, PhoneIcon, ShakeIcon, UnlockIcon } from "../../../ui/icons";
+import type { Bezel, Button, ButtonFace, FaceIcon, ScreenButtons } from "../../../ipc/bindings";
+import { CameraIcon, HomeIcon, LockIcon, PhoneIcon, ShakeIcon, UnlockIcon } from "../../../ui/icons";
 import { seeThrough } from "../../../ui/seeThrough";
-import { appearance, shortcutChanges } from "../../settings/store";
+import { shortcutChanges } from "../../settings/store";
 import { showsSideView, sidePanels, toggleSideView } from "../../sidepanel/store";
 import { hidUsage } from "./keys";
 import { clampToScreen, cornerRadius, fingersFor, fit, fromBottom, gestureFingers, secondFinger, toScreen, type Fingers, type Point, type Rect } from "./screen";
-import { hideScreen, moveScreen, openSimulatorApp, pressButton, screen, sendKey, sendTouch, setButtons, showScreen } from "./store";
+import { hideScreen, moveScreen, openSimulatorApp, pressButton, screen, sendKey, sendTouch, setButtons, showScreen, takeScreenshot } from "./store";
+import { ScreenshotThumbnail } from "./Screenshot";
 import "./simulator.css";
 
 export function SimulatorToggle({ worktree }: { worktree: string }) {
@@ -34,6 +35,8 @@ const buttons = (locked: boolean): { button: Button; label: string; face: FaceIc
   { button: "shake", label: "Shake", face: "shake", icon: <ShakeIcon /> },
 ];
 
+type Key = Button | "screenshot";
+
 const boxOf = (element: Element): Rect => {
   const { left, top, width, height } = element.getBoundingClientRect();
   return { x: left, y: top, width, height };
@@ -44,11 +47,13 @@ type GestureEvent = Event & { scale: number; rotation: number };
 
 type Touch = { fingers: Fingers; fromBottom: boolean };
 
-/** The native bezel's 8px frame and 1px edge (screen_view.rs), the 16px gap and the 28px button capsule under the screen. */
+/** The native bezel's 8px frame and 1px edge (screen_view.rs), the 16px gap and the 28px button row under the screen. */
 const BEZEL = 9;
 const BELOW_SCREEN = BEZEL + 16 + 28;
 /** How far the hole reaches past the bezel, onto the native view's canvas margin (`CANVAS_MARGIN`, screen_view.rs): the native view can run this far ahead on a resize before the web's canvas covers its bezel. */
 const HOLE_MARGIN = 32;
+/** The area's margin in the view (simulator.css). */
+const AREA_MARGIN = 21;
 
 const paint = Object.assign(document.createElement("canvas"), { width: 1, height: 1 }).getContext("2d", { willReadFrequently: true });
 
@@ -66,7 +71,7 @@ function tokenRgb(name: string): [number, number, number] {
 
 const themeColors = () => ({
   bezel: { canvas: tokenRgb("canvas"), frame: tokenRgb("bezel"), edge: tokenRgb("line-strong") },
-  buttons: { ink: tokenRgb("ink"), icon: tokenRgb("ink-muted"), line: tokenRgb("line"), hover: tokenRgb("raised"), pressed: tokenRgb("selected") },
+  buttons: { icon: tokenRgb("ink-muted"), line: tokenRgb("line"), hover: tokenRgb("raised"), pressed: tokenRgb("selected") },
 });
 
 /** The theme's colors for the native bezel and buttons, read again when the theme changes. */
@@ -81,26 +86,21 @@ function useThemeColors() {
 }
 
 /** The clear buttons' layout and looks, for the native view to draw under the screen. */
-function measureButtons(capsule: HTMLElement, screen: Rect, colors: ScreenButtons["colors"], faces: { face: FaceIcon; look: ButtonFace["look"] }[]): ScreenButtons {
-  const box = capsule.getBoundingClientRect();
+function measureButtons(row: HTMLElement, screen: Rect, colors: ScreenButtons["colors"], faces: { face: FaceIcon; look: ButtonFace["look"] }[]): ScreenButtons {
+  const box = row.getBoundingClientRect();
   const from = (element: Element) => {
     const { left, top, width, height } = element.getBoundingClientRect();
     return { x: left - box.left, y: top - box.top, width, height };
   };
-  const elements = [...capsule.children];
   return {
     width: box.width,
     height: box.height,
     gap: box.top - (screen.y + screen.height),
-    radius: parseFloat(getComputedStyle(capsule).borderTopLeftRadius) || 0,
-    fontSize: parseFloat(getComputedStyle(elements[0] ?? capsule).fontSize) || 12,
     colors,
-    faces: elements.map((element, i) => {
+    outlines: [...row.querySelectorAll(".simulator-capsule")].map(from),
+    faces: [...row.querySelectorAll(".simulator-button")].map((element, i) => {
       const icon = from(element.querySelector("svg") ?? element);
-      const label = element.querySelector(".simulator-button-label");
-      // A narrow view hides the names.
-      const shown = label && label.getClientRects().length > 0 ? { text: label.textContent ?? "", ...from(label) } : null;
-      return { icon: faces[i].face, look: faces[i].look, ...from(element), iconX: icon.x, iconY: icon.y, label: shown };
+      return { icon: faces[i].face, look: faces[i].look, ...from(element), iconX: icon.x, iconY: icon.y };
     }),
   };
 }
@@ -121,12 +121,10 @@ export function SimulatorView({ worktree }: { worktree: string }) {
   const [circles, setCircles] = useState<Point[]>([]);
   const colors = useThemeColors();
   const bezelOf = (screen: Rect): Bezel => ({ radius: cornerRadius(screen), ...colors.bezel });
-  const capsule = useRef<HTMLDivElement>(null);
-  const [hovered, setHovered] = useState<Button | null>(null);
-  const [pressed, setPressed] = useState<Button | null>(null);
+  const row = useRef<HTMLDivElement>(null);
+  const [hovered, setHovered] = useState<Key | null>(null);
+  const [pressed, setPressed] = useState<Key | null>(null);
   const sentButtons = useRef("");
-  // Text size changes the names' width without a render of its own.
-  appearance.usePart((all) => all.textPercent);
 
   useLayoutEffect(() => {
     const element = area.current;
@@ -171,17 +169,38 @@ export function SimulatorView({ worktree }: { worktree: string }) {
     if (rect) moveScreen(rect, bezelOf(rect));
   }, [rectKey, colors]);
 
-  // Every render: the buttons' names, size, hover and press all change their layout or look. Sent only when it changed.
+  // Every render: the lock, hover and press all change the buttons' look. Sent only when it changed.
   useLayoutEffect(() => {
-    if (!live || !rect || !capsule.current) return;
-    const faces = buttons(live.locked).map(({ button, face }) => ({ face, look: pressed === button ? ("pressed" as const) : hovered === button ? ("hover" as const) : ("rest" as const) }));
-    const next = measureButtons(capsule.current, rect, colors.buttons, faces);
+    if (!live || !rect || !row.current) return;
+    const keys: { key: Key; face: FaceIcon }[] = [...buttons(live.locked).map(({ button, face }) => ({ key: button, face })), { key: "screenshot", face: "camera" }];
+    const faces = keys.map(({ key, face }) => ({ face, look: pressed === key ? ("pressed" as const) : hovered === key ? ("hover" as const) : ("rest" as const) }));
+    const next = measureButtons(row.current, rect, colors.buttons, faces);
     const key = JSON.stringify(next);
     if (key !== sentButtons.current) {
       sentButtons.current = key;
       setButtons(next);
     }
   });
+
+  const faceButton = (key: Key, label: string, icon: ReactNode, press: () => void) => (
+    <button
+      key={key}
+      type="button"
+      className="simulator-button"
+      title={tooltip(`simulator.${key}`)}
+      aria-label={label}
+      onClick={press}
+      onPointerEnter={() => setHovered(key)}
+      onPointerLeave={() => setHovered((last) => (last === key ? null : last))}
+      onPointerDown={(e) => {
+        if (e.button !== 0) return;
+        setPressed(key);
+        window.addEventListener("pointerup", () => setPressed(null), { once: true });
+      }}
+    >
+      {icon}
+    </button>
+  );
 
   // The hole takes the native bezel and buttons in, and some of the canvas around them.
   useLayoutEffect(() => {
@@ -294,26 +313,9 @@ export function SimulatorView({ worktree }: { worktree: string }) {
     <div className="simulator">
       <div className="simulator-area" ref={area}>
         {live && rect && rect.width > 0 && (
-          <div ref={capsule} className="simulator-buttons" role="group" aria-label="Simulator Buttons" style={{ left: rect.x + rect.width / 2, top: rect.y + rect.height + BELOW_SCREEN - 28 }}>
-            {buttons(live.locked).map(({ button, label, icon }) => (
-              <button
-                key={button}
-                type="button"
-                className="simulator-button"
-                title={tooltip(`simulator.${button}`)}
-                onClick={() => pressButton(worktree, button)}
-                onPointerEnter={() => setHovered(button)}
-                onPointerLeave={() => setHovered((last) => (last === button ? null : last))}
-                onPointerDown={(e) => {
-                  if (e.button !== 0) return;
-                  setPressed(button);
-                  window.addEventListener("pointerup", () => setPressed(null), { once: true });
-                }}
-              >
-                {icon}
-                <span className="simulator-button-label">{label}</span>
-              </button>
-            ))}
+          <div ref={row} className="simulator-buttons" role="group" aria-label="Simulator Buttons" style={{ left: rect.x + rect.width / 2, top: rect.y + rect.height + BELOW_SCREEN - 28 }}>
+            <div className="simulator-capsule">{buttons(live.locked).map(({ button, label, icon }) => faceButton(button, label, icon, () => pressButton(worktree, button)))}</div>
+            <div className="simulator-capsule simulator-capsule-round">{faceButton("screenshot", "Take Screenshot", <CameraIcon />, () => takeScreenshot(worktree))}</div>
           </div>
         )}
         {live && rect ? (
@@ -354,6 +356,7 @@ export function SimulatorView({ worktree }: { worktree: string }) {
           </div>
         )}
       </div>
+      {live && box && rect && <ScreenshotThumbnail worktree={worktree} bottom={box.y + box.height + AREA_MARGIN - (rect.y + rect.height + BELOW_SCREEN - 28) - 28} />}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { BuildView } from "../features/ios/build/BuildView";
 import { ConsoleView } from "../features/ios/build/ConsoleView";
 import { RunControl } from "../features/ios/build/RunControl";
 import { BuildDataSize } from "../features/ios/simulators/BuildDataSize";
+import { ScreenshotRows } from "../features/ios/simulator/ScreenshotRows";
 import { ServiceRows } from "../features/ios/simulators/ServiceRows";
 import { SimulatorsButton } from "../features/ios/simulators/SimulatorsButton";
 import { SimulatorToggle, SimulatorView } from "../features/ios/simulator/SimulatorView";
@@ -142,7 +143,7 @@ export default function App() {
           </div>
         </div>
       </div>
-      {settings && <SettingsPage buildDataSize={projectHasXcode ? <BuildDataSize /> : null} simulatorServices={projectHasXcode ? <ServiceRows /> : null} />}
+      {settings && <SettingsPage buildDataSize={projectHasXcode ? <BuildDataSize /> : null} simulatorScreenshots={projectHasXcode ? <ScreenshotRows /> : null} simulatorServices={projectHasXcode ? <ServiceRows /> : null} />}
       <ProjectDrop />
       <NewWorktreePopup />
       <DeleteWorktreePopup />

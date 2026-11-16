@@ -183,6 +183,10 @@
   text-wrap: pretty;
 }
 
+.settings-path {
+  overflow-wrap: anywhere;
+}
+
 .settings-description:empty {
   display: none;
 }

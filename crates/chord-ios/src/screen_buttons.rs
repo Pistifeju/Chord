@@ -1,39 +1,45 @@
-//! The Simulator view's Home, Lock and Shake buttons, drawn natively under the screen so they move with it on a resize. The web lays them out and keeps clear buttons over them for clicks, focus and tooltips.
+//! The Simulator view's Home, Lock and Shake capsule and its screenshot circle, drawn natively under the screen so they move with it on a resize, with the lock's shackle turning and the phone shaking. The web lays them out and keeps clear buttons over them for clicks, focus and tooltips.
 
 use std::f64::consts::PI;
 
-use objc2::runtime::{AnyObject, Sel};
-use objc2::sel;
+use objc2::rc::Retained;
+use objc2::runtime::AnyObject;
 use objc2_core_foundation::{CFRetained, CGPoint, CGRect, CGSize};
 use objc2_core_graphics::{CGColor, CGMutablePath};
-use objc2_foundation::NSString;
+use objc2_foundation::{NSArray, NSNumber, NSString};
 use objc2_quartz_core::{
-    CACornerMask, CALayer, CAShapeLayer, CATextLayer, kCAAlignmentLeft, kCALineCapRound,
-    kCALineJoinRound,
+    CAAnimation, CABasicAnimation, CAKeyframeAnimation, CALayer, CAMediaTiming,
+    CAMediaTimingFunction, CAShapeLayer, kCALineCapRound, kCALineJoinRound,
+    kCAMediaTimingFunctionEaseOut,
 };
 use serde::Deserialize;
 use specta::Type;
 
-use crate::simulator_kit::{class, msg};
-
-/// The capsule under the screen, measured by the web: CSS pixels, from the capsule's top left.
+/// The button row under the screen, measured by the web: CSS pixels, from the row's top left.
 #[derive(Deserialize, Type, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ScreenButtons {
     pub width: f64,
     pub height: f64,
-    /// From the screen's bottom edge to the capsule's top; the capsule centers under the screen.
+    /// From the screen's bottom edge to the row's top; the row centers under the screen.
     pub gap: f64,
-    pub radius: f64,
-    pub font_size: f64,
     pub colors: ButtonColors,
+    /// The hairline pills the faces sit in: the capsule and the circle.
+    pub outlines: Vec<Outline>,
     pub faces: Vec<ButtonFace>,
+}
+
+#[derive(Deserialize, Type, Clone, Copy, Debug, PartialEq)]
+pub struct Outline {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
 }
 
 /// Opaque sRGB bytes, as the web paints them over the canvas.
 #[derive(Deserialize, Type, Clone, Copy, Debug, PartialEq)]
 pub struct ButtonColors {
-    pub ink: [u8; 3],
     pub icon: [u8; 3],
     pub line: [u8; 3],
     pub hover: [u8; 3],
@@ -51,18 +57,7 @@ pub struct ButtonFace {
     /// The 16px icon's top left.
     pub icon_x: f64,
     pub icon_y: f64,
-    /// None in a narrow view, which shows the icons only.
-    pub label: Option<FaceLabel>,
     pub look: FaceLook,
-}
-
-#[derive(Deserialize, Type, Clone, Debug, PartialEq)]
-pub struct FaceLabel {
-    pub text: String,
-    pub x: f64,
-    pub y: f64,
-    pub width: f64,
-    pub height: f64,
 }
 
 /// The icons of src/ui/icons.tsx the buttons show.
@@ -73,6 +68,7 @@ pub enum FaceIcon {
     Lock,
     Unlock,
     Shake,
+    Camera,
 }
 
 #[derive(Deserialize, Type, Clone, Copy, Debug, PartialEq)]
@@ -85,6 +81,21 @@ pub enum FaceLook {
 
 const ICON: f64 = 16.0;
 const ICON_STROKE: f64 = 1.3;
+
+/// When the lock icon last turned and the phone last shook, in media time. Every `draw` adds what is left of each, so a redraw for a hover keeps them going.
+#[derive(Default, Clone, Copy)]
+pub(crate) struct Motion {
+    pub lock: Option<f64>,
+    pub shake: Option<f64>,
+}
+
+/// The Lock or Unlock icon `spec` shows.
+pub(crate) fn lock_icon(spec: &ScreenButtons) -> Option<FaceIcon> {
+    spec.faces
+        .iter()
+        .map(|face| face.icon)
+        .find(|icon| matches!(icon, FaceIcon::Lock | FaceIcon::Unlock))
+}
 
 pub(crate) fn srgb([red, green, blue]: [u8; 3]) -> CFRetained<CGColor> {
     let [red, green, blue] = [red, green, blue].map(|part| f64::from(part) / 255.0);
@@ -121,69 +132,135 @@ fn icon_path(icon: FaceIcon) -> CFRetained<CGMutablePath> {
         // SAFETY: as above.
         unsafe { CGMutablePath::add_rounded_rect(at, none, rect, radius, radius) };
     };
-    // The shackle: over the top from the left post, clockwise to `end` radians.
-    let shackle = |end: f64| {
-        line(&[(5.5, 7.0), (5.5, 5.0)]);
-        // SAFETY: as above.
-        unsafe { CGMutablePath::add_arc(at, none, 8.0, up(5.0), 2.5, PI, end, true) };
-    };
     match icon {
         FaceIcon::Home => {
             line(&[(2.5, 7.25), (8.0, 2.75), (13.5, 7.25)]);
             line(&[(4.0, 6.0), (4.0, 13.25), (12.0, 13.25), (12.0, 6.0)]);
         }
-        FaceIcon::Lock => {
-            rounded(3.25, 7.0, 9.5, 7.0, 1.75);
-            shackle(0.0);
-            // SAFETY: as above.
-            unsafe { CGMutablePath::add_line_to_point(at, none, 10.5, up(7.0)) };
-        }
-        // Open: the shackle stops short, at the arc's end point (10.4, 4.3).
-        FaceIcon::Unlock => {
-            rounded(3.25, 7.0, 9.5, 7.0, 1.75);
-            shackle(0.7_f64.atan2(2.4));
-        }
+        // The body; the shackle is its own layer (`shackle_path`).
+        FaceIcon::Lock | FaceIcon::Unlock => rounded(3.25, 7.0, 9.5, 7.0, 1.75),
         FaceIcon::Shake => {
             rounded(5.25, 2.75, 5.5, 10.5, 1.5);
             line(&[(2.75, 6.0), (2.75, 10.0)]);
             line(&[(13.25, 6.0), (13.25, 10.0)]);
         }
+        FaceIcon::Camera => {
+            line(&[
+                (2.5, 5.25),
+                (4.6, 5.25),
+                (5.6, 3.75),
+                (10.4, 3.75),
+                (11.4, 5.25),
+                (13.5, 5.25),
+                (13.5, 12.75),
+                (2.5, 12.75),
+                (2.5, 5.25),
+            ]);
+            line(&[(10.25, 8.75)]);
+            // SAFETY: as above.
+            unsafe { CGMutablePath::add_arc(at, none, 8.0, up(8.75), 2.25, 0.0, 2.0 * PI, false) };
+        }
     }
     path
 }
 
-/// The system font at `size`, and its line height.
-fn system_font(size: f64) -> Option<(*mut AnyObject, f64)> {
-    let fonts = class(c"NSFont")?;
-    // SAFETY: `systemFontOfSize:` returns an autoreleased NSFont; its metrics return CGFloat.
+/// The closed shackle of src/ui/icons.tsx's lock: up the left post, over the top, down the right post.
+fn shackle_path() -> CFRetained<CGMutablePath> {
+    let path = CGMutablePath::new();
+    let at = Some(&*path);
+    let none = std::ptr::null();
+    // SAFETY: a live path and no transform.
     unsafe {
-        let font = msg::<unsafe extern "C" fn(*mut AnyObject, Sel, f64) -> *mut AnyObject>()(
-            fonts,
-            sel!(systemFontOfSize:),
-            size,
-        );
-        if font.is_null() {
-            return None;
-        }
-        let metric =
-            |selector| msg::<unsafe extern "C" fn(*mut AnyObject, Sel) -> f64>()(font, selector);
-        let line = metric(sel!(ascender)) - metric(sel!(descender)) + metric(sel!(leading));
-        Some((font, line))
+        CGMutablePath::move_to_point(at, none, 5.5, ICON - 7.0);
+        CGMutablePath::add_line_to_point(at, none, 5.5, ICON - 5.0);
+        CGMutablePath::add_arc(at, none, 8.0, ICON - 5.0, 2.5, PI, 0.0, true);
+        CGMutablePath::add_line_to_point(at, none, 10.5, ICON - 7.0);
     }
+    path
 }
 
-/// Fills `capsule` with the buttons of `spec`; `scale` is the window's backing scale. The caller places the capsule.
-pub(crate) fn draw(capsule: &CALayer, spec: &ScreenButtons, scale: f64) {
+/// The share of the closed shackle the open one draws: its left post and the arc to (10.4, 4.3).
+fn open_shackle() -> f64 {
+    (2.0 + 2.5 * (PI - 0.7_f64.atan2(2.4))) / (4.0 + 2.5 * PI)
+}
+
+fn number(value: f64) -> Retained<NSNumber> {
+    NSNumber::new_f64(value)
+}
+
+fn ease_out() -> Retained<CAMediaTimingFunction> {
+    // SAFETY: Core Animation's own constant.
+    CAMediaTimingFunction::functionWithName(unsafe { kCAMediaTimingFunctionEaseOut })
+}
+
+/// A turn of `layer` about its center through `angles` (radians), from `begin` for `duration` seconds.
+fn turn(layer: &CALayer, angles: &[f64], begin: f64, duration: f64) {
+    let values: Vec<Retained<NSNumber>> = angles.iter().copied().map(number).collect();
+    let values: Vec<&AnyObject> = values.iter().map(|value| -> &AnyObject { value }).collect();
+    let animation = CAKeyframeAnimation::animationWithKeyPath(Some(&NSString::from_str(
+        "transform.rotation.z",
+    )));
+    // SAFETY: an array of NSNumber, as the key path takes.
+    unsafe { animation.setValues(Some(&NSArray::from_slice(&values))) };
+    animation.setBeginTime(begin);
+    animation.setDuration(duration);
+    animation.setTimingFunction(Some(&ease_out()));
+    layer.addAnimation_forKey(&animation, Some(&NSString::from_str("turn")));
+}
+
+/// The shackle's stroke from `from` to the layer's own end, from `begin`.
+fn draw_shackle(shackle: &CAShapeLayer, from: f64, begin: f64) {
+    let animation = CABasicAnimation::animationWithKeyPath(Some(&NSString::from_str("strokeEnd")));
+    let from = number(from);
+    let from: &AnyObject = &from;
+    // SAFETY: an NSNumber, as strokeEnd takes.
+    unsafe { animation.setFromValue(Some(from)) };
+    animation.setBeginTime(begin);
+    animation.setDuration(0.3);
+    animation.setTimingFunction(Some(&ease_out()));
+    let animation: &CAAnimation = &animation;
+    shackle.addAnimation_forKey(animation, Some(&NSString::from_str("shackle")));
+}
+
+/// A 16px icon stroke in `color`.
+fn stroke(path: &CGMutablePath, color: &CGColor, scale: f64) -> Retained<CAShapeLayer> {
+    let layer = CAShapeLayer::new();
+    layer.setPath(Some(path));
+    layer.setFillColor(None);
+    layer.setStrokeColor(Some(color));
+    layer.setLineWidth(ICON_STROKE);
+    // SAFETY: Core Animation's own constants.
+    unsafe {
+        layer.setLineCap(kCALineCapRound);
+        layer.setLineJoin(kCALineJoinRound);
+    }
+    layer.setContentsScale(scale);
+    layer
+}
+
+/// A pill: a radius of half its height.
+fn pill(layer: &CALayer, frame: CGRect) {
+    layer.setFrame(frame);
+    layer.setCornerRadius(frame.size.height / 2.0);
+}
+
+/// Fills `row` with the outlines and faces of `spec`; `scale` is the window's backing scale. The caller places the row.
+pub(crate) fn draw(row: &CALayer, spec: &ScreenButtons, scale: f64, motion: Motion) {
     // SAFETY: drops the old faces.
-    unsafe { capsule.setSublayers(None) };
+    unsafe { row.setSublayers(None) };
     let colors = spec.colors;
     let height = spec.height;
-    capsule.setCornerRadius(spec.radius);
-    capsule.setBorderWidth(1.0);
-    capsule.setBorderColor(Some(&srgb(colors.line)));
-    let font = system_font(spec.font_size);
-    let last = spec.faces.len().saturating_sub(1);
-    for (index, face) in spec.faces.iter().enumerate() {
+    for outline in &spec.outlines {
+        let edge = CALayer::new();
+        pill(
+            &edge,
+            from_top(height, outline.x, outline.y, outline.width, outline.height),
+        );
+        edge.setBorderWidth(1.0);
+        edge.setBorderColor(Some(&srgb(colors.line)));
+        row.addSublayer(&edge);
+    }
+    for face in &spec.faces {
         let fill = match face.look {
             FaceLook::Rest => None,
             FaceLook::Hover => Some(colors.hover),
@@ -191,65 +268,49 @@ pub(crate) fn draw(capsule: &CALayer, spec: &ScreenButtons, scale: f64) {
         };
         if let Some(fill) = fill {
             let back = CALayer::new();
-            back.setFrame(from_top(height, face.x, face.y, face.width, face.height));
+            pill(
+                &back,
+                from_top(height, face.x, face.y, face.width, face.height),
+            );
             back.setBackgroundColor(Some(&srgb(fill)));
-            let left = CACornerMask::LayerMinXMinYCorner | CACornerMask::LayerMinXMaxYCorner;
-            let right = CACornerMask::LayerMaxXMinYCorner | CACornerMask::LayerMaxXMaxYCorner;
-            let corners = match (index == 0, index == last) {
-                (true, true) => left | right,
-                (true, false) => left,
-                (false, true) => right,
-                (false, false) => CACornerMask::empty(),
-            };
-            back.setMaskedCorners(corners);
-            back.setCornerRadius((spec.radius - 1.0).max(0.0));
-            capsule.addSublayer(&back);
+            row.addSublayer(&back);
         }
-        if index > 0 {
-            let divider = CALayer::new();
-            divider.setFrame(from_top(height, face.x, face.y, 1.0, face.height));
-            divider.setBackgroundColor(Some(&srgb(colors.line)));
-            capsule.addSublayer(&divider);
-        }
-        let icon = CAShapeLayer::new();
+        let color = srgb(colors.icon);
+        let icon = stroke(&icon_path(face.icon), &color, scale);
         icon.setFrame(from_top(height, face.icon_x, face.icon_y, ICON, ICON));
-        icon.setPath(Some(&icon_path(face.icon)));
-        icon.setFillColor(None);
-        icon.setStrokeColor(Some(&srgb(colors.icon)));
-        icon.setLineWidth(ICON_STROKE);
-        // SAFETY: Core Animation's own constants.
-        unsafe {
-            icon.setLineCap(kCALineCapRound);
-            icon.setLineJoin(kCALineJoinRound);
-        }
-        icon.setContentsScale(scale);
-        capsule.addSublayer(&icon);
-        if let (Some(label), Some((font, line))) = (&face.label, font) {
-            let text = CATextLayer::new();
-            // Centered on the web's line box, which is taller than the font's line.
-            let top = label.y + (label.height - line) / 2.0;
-            // 2px spare: the native text can measure a hair wider than the web's.
-            text.setFrame(from_top(height, label.x, top, label.width + 2.0, line));
-            // SAFETY: an NSString, and an NSFont the layer retains.
-            unsafe {
-                text.setString(Some(&NSString::from_str(&label.text)));
-                msg::<unsafe extern "C" fn(*const CATextLayer, Sel, *mut AnyObject)>()(
-                    &*text,
-                    sel!(setFont:),
-                    font,
-                );
-                text.setAlignmentMode(kCAAlignmentLeft);
+        match face.icon {
+            FaceIcon::Lock | FaceIcon::Unlock => {
+                let shackle = stroke(&shackle_path(), &color, scale);
+                shackle.setFrame(CGRect::new(CGPoint::new(0.0, 0.0), CGSize::new(ICON, ICON)));
+                let (open, closed) = (open_shackle(), 1.0);
+                let (from, to) = match face.icon {
+                    FaceIcon::Lock => (open, closed),
+                    _ => (closed, open),
+                };
+                shackle.setStrokeEnd(to);
+                if let Some(begin) = motion.lock {
+                    draw_shackle(&shackle, from, begin);
+                    turn(&icon, &[0.0, -0.14, 0.07, 0.0], begin, 0.35);
+                }
+                icon.addSublayer(&shackle);
             }
-            text.setFontSize(spec.font_size);
-            text.setForegroundColor(Some(&srgb(colors.ink)));
-            text.setWrapped(false);
-            text.setContentsScale(scale);
-            capsule.addSublayer(&text);
+            FaceIcon::Shake => {
+                if let Some(begin) = motion.shake {
+                    turn(
+                        &icon,
+                        &[0.0, -0.26, 0.22, -0.16, 0.1, -0.04, 0.0],
+                        begin,
+                        0.45,
+                    );
+                }
+            }
+            FaceIcon::Home | FaceIcon::Camera => {}
         }
+        row.addSublayer(&icon);
     }
 }
 
-/// The capsule's frame in a view of `view_height`, under a screen whose top left sits at `screen` in it.
+/// The row's frame in a view of `view_height`, under a screen whose top left sits at `screen` in it.
 pub(crate) fn capsule_frame(
     spec: &ScreenButtons,
     view_height: f64,

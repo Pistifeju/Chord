@@ -14,6 +14,7 @@ mod issues;
 mod process;
 mod screen_buttons;
 mod screen_view;
+mod screenshot;
 mod service_groups;
 mod simulator;
 mod simulator_kit;
@@ -30,11 +31,12 @@ pub use console::ConsoleTone;
 pub use destinations::{Destinations, SimulatorModels, list as list_destinations};
 pub use hid::{Blocking, Button, Input, Point, TouchPhase};
 pub use issues::BuildIssue;
-pub use screen_buttons::{ButtonColors, ButtonFace, FaceIcon, FaceLabel, FaceLook, ScreenButtons};
+pub use screen_buttons::{ButtonColors, ButtonFace, FaceIcon, FaceLook, Outline, ScreenButtons};
 pub use screen_view::{
     Bezel, ScreenRect, ScreenState, hide_screen, move_screen, prepare_screen, send_input,
     set_buttons, show_screen,
 };
+pub use screenshot::{Screenshot, take_screenshot};
 pub use service_groups::{ServiceRow, SubgroupRow};
 pub use simulator::open_app;
 pub use slim::service_rows;

@@ -87,6 +87,11 @@ export const removeAttachment = (pane: string, id: number) => attachments.set({ 
 
 const noticeOf = (pane: string, error: unknown) => update(pane, (chat) => ({ ...chat, notice: String(error) }));
 
+/** Attachments need the capability and an agent that is not idle; one still starting takes them. */
+export const takesAttachments = (chat: Chat) => chat.capabilities?.includes("attachments") === true && chat.agent !== "idle";
+
+export const focusComposer = (pane: string) => document.querySelector<HTMLElement>(`[data-pane="${CSS.escape(pane)}"] .chat-input`)?.focus();
+
 // A file that is not an image is skipped.
 export async function attachFiles(pane: string, paths: string[]) {
   for (const path of paths) {

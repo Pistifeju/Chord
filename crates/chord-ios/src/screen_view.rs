@@ -15,12 +15,12 @@ use objc2::{MainThreadMarker, sel};
 use objc2_app_kit::{NSView, NSWindowOrderingMode};
 use objc2_core_foundation::{CGPoint, CGRect, CGSize};
 use objc2_foundation::{NSArray, NSUUID};
-use objc2_quartz_core::{CALayer, CATransaction};
+use objc2_quartz_core::{CACurrentMediaTime, CALayer, CATransaction};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
 use crate::hid::{Blocking, Button, Hid, Input};
-use crate::screen_buttons::{self, ScreenButtons, srgb};
+use crate::screen_buttons::{self, Motion, ScreenButtons, srgb};
 use crate::simulator;
 use crate::simulator_kit::{
     self, VoidBlock, call1, class, get, guarded, is_booted, msg, responds, text, udid_of,
@@ -276,6 +276,7 @@ struct Screen {
     /// Home, Lock and Shake under the frame, once the web has laid them out.
     capsule: Retained<CALayer>,
     buttons: Option<ScreenButtons>,
+    motion: Motion,
     /// The device set's notification handler, for the app's life.
     _watch: RcBlock<dyn Fn(*mut AnyObject)>,
     shown: Option<Shown>,
@@ -349,6 +350,7 @@ impl Screen {
             layer,
             capsule,
             buttons: None,
+            motion: Motion::default(),
             _watch: watch,
             shown: None,
             rect: ScreenRect::default(),
@@ -361,6 +363,19 @@ impl Screen {
             restarting: false,
             wedged: None,
         })
+    }
+
+    fn draw_buttons(&self) {
+        let Some(buttons) = &self.buttons else { return };
+        CATransaction::begin();
+        CATransaction::setDisableActions(true);
+        screen_buttons::draw(
+            &self.capsule,
+            buttons,
+            backing_scale(&self.view),
+            self.motion,
+        );
+        CATransaction::commit();
     }
 
     fn send_state(&mut self, state: ScreenState) {
@@ -771,11 +786,12 @@ pub fn move_screen(rect: ScreenRect, bezel: Bezel) {
 /// Main thread. Draws the buttons under the shown screen as the web laid them out.
 pub fn set_buttons(buttons: ScreenButtons) {
     with(|screen| {
-        CATransaction::begin();
-        CATransaction::setDisableActions(true);
-        screen_buttons::draw(&screen.capsule, &buttons, backing_scale(&screen.view));
-        CATransaction::commit();
+        let was = screen.buttons.as_ref().and_then(screen_buttons::lock_icon);
+        if was.is_some() && was != screen_buttons::lock_icon(&buttons) {
+            screen.motion.lock = Some(CACurrentMediaTime());
+        }
         screen.buttons = Some(buttons);
+        screen.draw_buttons();
         screen.place();
     });
 }
@@ -817,7 +833,11 @@ pub fn send_input(worktree: &Path, input: Input) -> Option<Blocking> {
         match button {
             Button::Lock => screen.set_locked(true),
             Button::Home => screen.set_locked(false),
-            Button::Shake => return,
+            Button::Shake => {
+                screen.motion.shake = Some(CACurrentMediaTime());
+                screen.draw_buttons();
+                return;
+            }
         }
         let after = if unlocking { WAKE_CHECK } else { LOCK_RECHECK };
         screen.recheck_lock(after, unlocking);

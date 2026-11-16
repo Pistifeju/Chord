@@ -251,3 +251,10 @@ export const ShakeIcon = () => (
     <path d="M2.75 6v4M13.25 6v4" />
   </Icon>
 );
+
+export const CameraIcon = () => (
+  <Icon>
+    <path d="M2.5 5.25h2.1l1-1.5h4.8l1 1.5h2.1v7.5h-11z" />
+    <circle cx="8" cy="8.75" r="2.25" />
+  </Icon>
+);

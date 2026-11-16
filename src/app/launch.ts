@@ -7,6 +7,7 @@ import { keepAwake, loadAppearance } from "../features/settings/store";
 import { loadPanes, resumeAgents } from "../features/panes/store";
 import { sidebar } from "../features/sidebar/store";
 import { loadSidePanels } from "../features/sidepanel/store";
+import { screenshotFolder } from "../features/ios/simulator/store";
 import { loadRunDestinations, refreshDestinations } from "../features/ios/build/destinationStore";
 import { loadBottomPanels } from "../features/bottompanel/store";
 import { loadGitCounts } from "../features/worktrees/gitCountsRefresh";
@@ -26,6 +27,7 @@ export async function launch() {
     const state = await commands.loadState();
     loadAppearance(state.appearance);
     keepAwake.set(state.keepAwake);
+    screenshotFolder.set(state.screenshotFolder);
     loadShortcutChanges(state.shortcuts);
     sidebar.set(state.sidebar);
     loadPanes(state.panes);

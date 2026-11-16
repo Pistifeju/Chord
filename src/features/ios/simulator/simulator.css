@@ -1,5 +1,6 @@
 /* The Simulator view in the side panel. Rules: DESIGN.md, Simulator view. */
 .simulator {
+  position: relative;
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -23,27 +24,38 @@
   outline: none;
 }
 
-/* Home, Lock and Shake under the screen, as the run control: one hairline capsule, a hairline between the buttons, each an icon and its name. The native view draws them (screen_buttons.rs) so they move with the screen; these clear buttons lay them out and take clicks, focus and tooltips. */
+/* Home, Lock and Shake in one hairline pill under the screen, the screenshot button in a hairline circle 8px after it, icons only. Each fill sits 1px inside the hairline, its radius concentric with the pill's. The native view draws them (screen_buttons.rs) so they move with the screen; these clear buttons lay them out and take clicks, focus and tooltips. */
 .simulator-buttons {
   position: fixed;
   display: flex;
-  height: 28px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-control);
+  gap: 8px;
   transform: translateX(-50%);
+}
+
+.simulator-capsule {
+  display: flex;
+  height: 28px;
+  padding: 1px;
+  border: 1px solid transparent;
+  border-radius: 14px;
 }
 
 .simulator-button {
   display: flex;
   align-items: center;
-  gap: 6px;
-  height: 26px;
-  padding: 0 10px 0 8px;
+  justify-content: center;
+  width: 36px;
+  height: 24px;
+  padding: 0;
   border: none;
+  border-radius: 12px;
   background: transparent;
   color: transparent;
-  font-size: calc(12px * var(--text-scale));
-  white-space: nowrap;
+}
+
+/* The screenshot circle: 28px round. */
+.simulator-capsule-round .simulator-button {
+  width: 24px;
 }
 
 .simulator-button svg {
@@ -52,25 +64,6 @@
 
 .simulator-button:focus-visible {
   outline-offset: -2px;
-}
-
-.simulator-button:first-child {
-  border-radius: 7px 0 0 7px;
-}
-
-.simulator-button:last-child {
-  border-radius: 0 7px 7px 0;
-}
-
-/* A narrow panel keeps the icons only; the tooltips still name them. */
-@container simulator (max-width: 260px) {
-  .simulator-button {
-    padding: 0 9px;
-  }
-
-  .simulator-button-label {
-    display: none;
-  }
 }
 
 .simulator-finger {
@@ -101,4 +94,52 @@
   text-wrap: balance;
   font-size: calc(12px * var(--text-scale));
   color: var(--ink-muted);
+}
+
+/* The thumbnail of the last shot at the view's bottom left, its bottom level with the button row's bottom (bottom set inline). */
+.simulator-thumbnail {
+  position: absolute;
+  left: 8px;
+  display: block;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-inset);
+  background: var(--sheet);
+  box-shadow: var(--shadow-popover);
+  touch-action: none;
+  animation: simulator-thumbnail-in var(--t-med) var(--ease-out);
+}
+
+.simulator-thumbnail[data-leaving] {
+  animation: simulator-thumbnail-out var(--t-med) ease-in forwards;
+}
+
+.simulator-thumbnail img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 56px;
+  max-height: 96px;
+  pointer-events: none;
+}
+
+@keyframes simulator-thumbnail-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--thumbnail-rise, 4px));
+  }
+}
+
+@keyframes simulator-thumbnail-out {
+  to {
+    opacity: 0;
+    transform: translateY(var(--thumbnail-rise, 4px));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .simulator-thumbnail {
+    --thumbnail-rise: 0;
+  }
 }

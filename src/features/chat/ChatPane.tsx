@@ -23,7 +23,7 @@ import { steppedIndex } from "./dialog";
 import { isTicking, subagentLine, subagentSummary } from "./subagents";
 import { completion, slashMenu, slashQuery } from "./slash";
 import { closeLightbox, lightboxes, openLightbox, stepLightbox } from "./viewing";
-import { answerDialog, attachFiles, attachments, attachPasted, chatOf, chats, closeSlash, drafts, openPicker, pathDropPane, pickAttachments, removeAttachment, sendMessage, setDraft, slashClosed, startChat } from "./store";
+import { answerDialog, attachFiles, attachments, attachPasted, chatOf, chats, closeSlash, drafts, openPicker, pathDropPane, pickAttachments, removeAttachment, sendMessage, setDraft, slashClosed, startChat, takesAttachments } from "./store";
 import { callTime, isStreaming, shownSteps, stepImages, stepsChanges, stepsSummary, stepsTime, type CompactionMark, type Item, type Message, type StepGroup } from "./transcript";
 import "./chat.css";
 
@@ -240,7 +240,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
   const [slashActive, setSlashActive] = useState(0);
   const ready = chat.agent === "ready";
   const hasChat = chat.capabilities === null || chat.capabilities.includes("chat");
-  const canAttach = chat.capabilities?.includes("attachments") === true && chat.agent !== "idle";
+  const canAttach = takesAttachments(chat);
   const steers = chat.running && chat.capabilities?.includes("steer") === true;
   const slashRows = slashMenu(chat.commands, draft, closedOn);
   const slashAt = Math.min(slashActive, slashRows.length - 1);

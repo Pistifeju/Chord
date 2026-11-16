@@ -39,6 +39,8 @@ pub struct State {
     pub kept_services: BTreeMap<String, bool>,
     /// Each project's run destination; a project without one runs on the newest iPhone simulator.
     pub run_destinations: BTreeMap<PathBuf, RunDestination>,
+    /// Where the Simulator view's screenshots are kept; none keeps them in a temporary folder.
+    pub screenshot_folder: Option<PathBuf>,
 }
 
 /// Where ⌘R runs the app: a connected device, or a simulator model and iOS version that exist among the user's simulators.
@@ -114,6 +116,7 @@ pub enum StateChange {
         ids: Vec<String>,
         kept: bool,
     },
+    ScreenshotFolder(Option<PathBuf>),
     /// `None` returns the project to the default.
     RunDestination {
         project: PathBuf,
@@ -141,6 +144,7 @@ impl State {
                     self.kept_services.insert(id, kept);
                 }
             }
+            StateChange::ScreenshotFolder(folder) => self.screenshot_folder = folder,
             StateChange::RunDestination {
                 project,
                 destination,

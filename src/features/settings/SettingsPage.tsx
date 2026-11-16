@@ -189,16 +189,19 @@ function Shortcuts() {
   );
 }
 
-function Simulators({ services }: { services: ReactNode }) {
+function Simulators({ screenshots, services }: { screenshots: ReactNode; services: ReactNode }) {
   return (
-    <Group heading="Background services" notice={<p className="settings-description">Applies at the next boot · iOS 18.5 and newer</p>}>
-      {services}
-    </Group>
+    <>
+      <Group heading="Screenshots">{screenshots}</Group>
+      <Group heading="Background services" notice={<p className="settings-description">Applies at the next boot · iOS 18.5 and newer</p>}>
+        {services}
+      </Group>
+    </>
   );
 }
 
-// `buildDataSize` is the Build Data row's value and `simulatorServices` the Simulators section's rows, passed in by a window that has an Xcode project, so settings imports nothing from features/ios.
-export function SettingsPage({ buildDataSize, simulatorServices }: { buildDataSize: ReactNode; simulatorServices: ReactNode }) {
+// `buildDataSize` is the Build Data row's value, `simulatorScreenshots` and `simulatorServices` the Simulators section's rows, passed in by a window that has an Xcode project, so settings imports nothing from features/ios.
+export function SettingsPage({ buildDataSize, simulatorScreenshots, simulatorServices }: { buildDataSize: ReactNode; simulatorScreenshots: ReactNode; simulatorServices: ReactNode }) {
   const [shown, setShown] = useState<SectionId>("general");
   const sheetOpen = sheet.use() !== null;
   const shownSections = sections.filter((s) => s.id !== "simulators" || simulatorServices);
@@ -231,7 +234,7 @@ export function SettingsPage({ buildDataSize, simulatorServices }: { buildDataSi
             {current.id === "general" && <General buildDataSize={buildDataSize} />}
             {current.id === "appearance" && <Appearance />}
             {current.id === "shortcuts" && <Shortcuts />}
-            {current.id === "simulators" && <Simulators services={simulatorServices} />}
+            {current.id === "simulators" && <Simulators screenshots={simulatorScreenshots} services={simulatorServices} />}
           </div>
         </div>
       </div>

@@ -1,6 +1,6 @@
 // The Files view: the worktree folder's name with Collapse All and Reload, its filter field and its tree with its right-click menu and name fields.
 import { Fragment, memo, useEffect, useRef, useState, type CSSProperties } from "react";
-import { addPathToDraft, pathDropPane } from "../chat/store";
+import { addPathToDraft, focusComposer, pathDropPane } from "../chat/store";
 import { showMenu } from "../../app/commands";
 import { usePointerDrag } from "../../ui/pointerDrag";
 import { ChevronIcon, CollapseAllIcon, FileIcon, FilterIcon, FolderIcon, ReloadIcon } from "../../ui/icons";
@@ -104,7 +104,7 @@ function usePathDrag() {
       pathDropPane.set(null);
       if (!dropped || !pane) return;
       addPathToDraft(pane, path);
-      document.querySelector<HTMLElement>(`[data-pane="${CSS.escape(pane)}"] .chat-input`)?.focus();
+      focusComposer(pane);
     },
   });
   return { dragging, ...drag };

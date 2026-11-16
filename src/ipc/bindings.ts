@@ -59,7 +59,7 @@ export const commands = {
 	showSimulatorScreen: (worktree: string, rect: ScreenRect, bezel: Bezel, onState: Channel<ScreenState_Deserialize>) => __TAURI_INVOKE<null>("show_simulator_screen", { worktree, rect, bezel, onState }),
 	moveSimulatorScreen: (rect: ScreenRect, bezel: Bezel) => __TAURI_INVOKE<null>("move_simulator_screen", { rect, bezel }),
 	/**  Draws Home, Lock and Shake natively under the screen, as the view laid them out. */
-	setSimulatorButtons: (buttons: ScreenButtons_Deserialize) => __TAURI_INVOKE<null>("set_simulator_buttons", { buttons }),
+	setSimulatorButtons: (buttons: ScreenButtons) => __TAURI_INVOKE<null>("set_simulator_buttons", { buttons }),
 	hideSimulatorScreen: () => __TAURI_INVOKE<null>("hide_simulator_screen"),
 	/**  Sends a touch or key of the Simulator view to the worktree's simulator, in order: the main thread runs them one by one. Buttons go through `press_simulator_button`. */
 	sendSimulatorInput: (worktree: string, input: Input_Deserialize) => __TAURI_INVOKE<null>("send_simulator_input", { worktree, input }),
@@ -67,6 +67,12 @@ export const commands = {
 	pressSimulatorButton: (worktree: string, button: Button) => __TAURI_INVOKE<null>("press_simulator_button", { worktree, button }),
 	/**  The Simulator view's fallback when the private API did not load. */
 	openSimulatorApp: () => __TAURI_INVOKE<null>("open_simulator_app"),
+	/**  Takes a screenshot of the worktree's simulator into the screenshot folder of Settings, else a temporary one. */
+	takeSimulatorScreenshot: (worktree: string) => __TAURI_INVOKE<Screenshot>("take_simulator_screenshot", { worktree }),
+	/**  Asks for the screenshot folder and saves the pick; no pick keeps the setting and returns `None`. */
+	pickScreenshotFolder: () => __TAURI_INVOKE<string | null>("pick_screenshot_folder"),
+	/**  Starts a native drag of a file, shown as `preview`, out of the window: Finder and other apps take it, and so does a chat pane. */
+	dragFileOut: (file: string, preview: string) => __TAURI_INVOKE<null>("drag_file_out", { file, preview }),
 	/**  Stops every agent, shell and build and ends the app once the user confirmed the quit. Panes stay saved as running, so they start again on launch. */
 	quitApp: () => __TAURI_INVOKE<null>("quit_app"),
 	/**  Saves the setting and applies it; a missing `caffeinate` fails before anything is saved, even with no agent working. */
@@ -192,16 +198,13 @@ export type Button = "home" | "lock" | "shake";
 
 /**  Opaque sRGB bytes, as the web paints them over the canvas. */
 export type ButtonColors = {
-	ink: [number, number, number],
 	icon: [number, number, number],
 	line: [number, number, number],
 	hover: [number, number, number],
 	pressed: [number, number, number],
 };
 
-export type ButtonFace = ButtonFace_Serialize | ButtonFace_Deserialize;
-
-export type ButtonFace_Deserialize = {
+export type ButtonFace = {
 	icon: FaceIcon,
 	x: number | null,
 	y: number | null,
@@ -210,22 +213,6 @@ export type ButtonFace_Deserialize = {
 	/**  The 16px icon's top left. */
 	iconX: number | null,
 	iconY: number | null,
-	/**  None in a narrow view, which shows the icons only. */
-	label?: FaceLabel | null,
-	look: FaceLook,
-};
-
-export type ButtonFace_Serialize = {
-	icon: FaceIcon,
-	x: number | null,
-	y: number | null,
-	width: number | null,
-	height: number | null,
-	/**  The 16px icon's top left. */
-	iconX: number | null,
-	iconY: number | null,
-	/**  None in a narrow view, which shows the icons only. */
-	label: FaceLabel | null,
 	look: FaceLook,
 };
 
@@ -287,15 +274,7 @@ export type Direction =
 "column";
 
 /**  The icons of src/ui/icons.tsx the buttons show. */
-export type FaceIcon = "home" | "lock" | "unlock" | "shake";
-
-export type FaceLabel = {
-	text: string,
-	x: number | null,
-	y: number | null,
-	width: number | null,
-	height: number | null,
-};
+export type FaceIcon = "home" | "lock" | "unlock" | "shake" | "camera";
 
 export type FaceLook = "rest" | "hover" | "pressed";
 
@@ -472,6 +451,13 @@ export type LineChanges = {
 	removed: number,
 };
 
+export type Outline = {
+	x: number | null,
+	y: number | null,
+	width: number | null,
+	height: number | null,
+};
+
 export type PaneAgent = PaneAgent_Serialize | PaneAgent_Deserialize;
 
 export type PaneAgent_Deserialize = {
@@ -539,31 +525,16 @@ export type RunningSimulator = {
 	open: boolean,
 };
 
-/**  The capsule under the screen, measured by the web: CSS pixels, from the capsule's top left. */
-export type ScreenButtons = ScreenButtons_Serialize | ScreenButtons_Deserialize;
-
-/**  The capsule under the screen, measured by the web: CSS pixels, from the capsule's top left. */
-export type ScreenButtons_Deserialize = {
+/**  The button row under the screen, measured by the web: CSS pixels, from the row's top left. */
+export type ScreenButtons = {
 	width: number | null,
 	height: number | null,
-	/**  From the screen's bottom edge to the capsule's top; the capsule centers under the screen. */
+	/**  From the screen's bottom edge to the row's top; the row centers under the screen. */
 	gap: number | null,
-	radius: number | null,
-	fontSize: number | null,
 	colors: ButtonColors,
-	faces: ButtonFace_Deserialize[],
-};
-
-/**  The capsule under the screen, measured by the web: CSS pixels, from the capsule's top left. */
-export type ScreenButtons_Serialize = {
-	width: number | null,
-	height: number | null,
-	/**  From the screen's bottom edge to the capsule's top; the capsule centers under the screen. */
-	gap: number | null,
-	radius: number | null,
-	fontSize: number | null,
-	colors: ButtonColors,
-	faces: ButtonFace_Serialize[],
+	/**  The hairline pills the faces sit in: the capsule and the circle. */
+	outlines: Outline[],
+	faces: ButtonFace[],
 };
 
 /**  Where the screen goes, in the webview's CSS pixels from its top left; the bezel goes around it. */
@@ -591,6 +562,13 @@ export type ScreenState_Serialize =
 { state: "off"; message: string | null } | 
 /**  The private API did not load; `app` names the simulator app to open instead. */
 { state: "unavailable"; message: string; app: string };
+
+export type Screenshot = {
+	/**  The PNG, a file other apps take by a drag. */
+	file: string,
+	/**  A small PNG of it, in the temporary folder. */
+	preview: string,
+};
 
 /**  One row of Settings' Simulators section: a group with the state of its switch. */
 export type ServiceRow = ServiceRow_Serialize | ServiceRow_Deserialize;
@@ -707,52 +685,52 @@ export type State = State_Serialize | State_Deserialize;
 export type StateChange = StateChange_Serialize | StateChange_Deserialize;
 
 /**  One change the frontend saves. */
-export type StateChange_Deserialize = ({ selectedWorktree?: string | null }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ sidebarHidden: boolean }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ theme: Theme }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never } | ({ textPercent: number }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; theme?: never } | ({ terminalFontSize: number }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ shortcuts: { [key in string]: Shortcut_Deserialize | null } }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; selectedWorktree?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
+export type StateChange_Deserialize = ({ selectedWorktree?: string | null }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; screenshotFolder?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ sidebarHidden: boolean }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ theme: Theme }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never } | ({ textPercent: number }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; theme?: never } | ({ terminalFontSize: number }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ shortcuts: { [key in string]: Shortcut_Deserialize | null } }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
 /**  `None` forgets the worktree's layouts. */
 ({ panes: {
 	worktree: string,
 	panes?: WorktreePanes | null,
-} }) & { bottomPanel?: never; keptServices?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ sidePanel: {
+} }) & { bottomPanel?: never; keptServices?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ sidePanel: {
 	worktree: string,
 	panel: SidePanel_Deserialize,
-} }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ bottomPanel: {
+} }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ bottomPanel: {
 	worktree: string,
 	panel: BottomPanel_Deserialize,
-} }) & { keptServices?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
+} }) & { keptServices?: never; panes?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
 /**  `ids` are subgroup ids, or a group id for a group without subgroups; all are set in one save. */
 ({ keptServices: {
 	ids: string[],
 	kept: boolean,
-} }) & { bottomPanel?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
+} }) & { bottomPanel?: never; panes?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ screenshotFolder?: string | null }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
 /**  `None` returns the project to the default. */
 ({ runDestination: {
 	project: string,
 	destination?: RunDestination | null,
-} }) & { bottomPanel?: never; keptServices?: never; panes?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never };
+} }) & { bottomPanel?: never; keptServices?: never; panes?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never };
 
 /**  One change the frontend saves. */
-export type StateChange_Serialize = ({ selectedWorktree: string | null }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ sidebarHidden: boolean }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ theme: Theme }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never } | ({ textPercent: number }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; theme?: never } | ({ terminalFontSize: number }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ shortcuts: { [key in string]: Shortcut_Serialize | null } }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; selectedWorktree?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
+export type StateChange_Serialize = ({ selectedWorktree: string | null }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; screenshotFolder?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ sidebarHidden: boolean }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ theme: Theme }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never } | ({ textPercent: number }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; theme?: never } | ({ terminalFontSize: number }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; textPercent?: never; theme?: never } | ({ shortcuts: { [key in string]: Shortcut_Serialize | null } }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
 /**  `None` forgets the worktree's layouts. */
 ({ panes: {
 	worktree: string,
 	panes: WorktreePanes | null,
-} }) & { bottomPanel?: never; keptServices?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ sidePanel: {
+} }) & { bottomPanel?: never; keptServices?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ sidePanel: {
 	worktree: string,
 	panel: SidePanel_Serialize,
-} }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ bottomPanel: {
+} }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ bottomPanel: {
 	worktree: string,
 	panel: BottomPanel_Serialize,
-} }) & { keptServices?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
+} }) & { keptServices?: never; panes?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
 /**  `ids` are subgroup ids, or a group id for a group without subgroups; all are set in one save. */
 ({ keptServices: {
 	ids: string[],
 	kept: boolean,
-} }) & { bottomPanel?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
+} }) & { bottomPanel?: never; panes?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ screenshotFolder: string | null }) & { bottomPanel?: never; keptServices?: never; panes?: never; runDestination?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
 /**  `None` returns the project to the default. */
 ({ runDestination: {
 	project: string,
 	destination: RunDestination | null,
-} }) & { bottomPanel?: never; keptServices?: never; panes?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never };
+} }) & { bottomPanel?: never; keptServices?: never; panes?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never };
 
 export type State_Deserialize = {
 	projects?: Project[],
@@ -778,6 +756,8 @@ export type State_Deserialize = {
 	keptServices?: { [key in string]: boolean },
 	/**  Each project's run destination; a project without one runs on the newest iPhone simulator. */
 	runDestinations?: { [key in string]: RunDestination },
+	/**  Where the Simulator view's screenshots are kept; none keeps them in a temporary folder. */
+	screenshotFolder?: string | null,
 };
 
 export type State_Serialize = {
@@ -804,6 +784,8 @@ export type State_Serialize = {
 	keptServices: { [key in string]: boolean },
 	/**  Each project's run destination; a project without one runs on the newest iPhone simulator. */
 	runDestinations: { [key in string]: RunDestination },
+	/**  Where the Simulator view's screenshots are kept; none keeps them in a temporary folder. */
+	screenshotFolder: string | null,
 };
 
 export type Status = Status_Serialize | Status_Deserialize;
