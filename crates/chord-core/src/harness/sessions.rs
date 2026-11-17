@@ -10,7 +10,7 @@ use super::{
     status_for,
 };
 use crate::awake::Awake;
-use crate::{Error, State, Store, WorktreePanes, xcode_bundles};
+use crate::{Error, Store, WorktreePanes, xcode_bundles};
 
 /// Each pane's agent and the worktree it runs in.
 type Running = HashMap<String, (PathBuf, Box<dyn Agent>)>;
@@ -142,7 +142,7 @@ impl Sessions {
         let session = self.sessions().remove(pane);
         drop(session);
         self.awake.set_working(pane, false);
-        self.store.update(|state| drop_pane(state, pane))
+        self.store.update(|state| state.forget_pane(pane))
     }
 
     /// Returns once every agent has ended, so none outlives the app. The panes stay saved as running.
@@ -180,19 +180,7 @@ impl Sessions {
     /// The worktree is gone: its layouts, panels and running flags go with it. Its sessions stay for `/resume`.
     pub fn forget(&self, worktree: &Path) -> Result<(), Error> {
         self.stop(worktree);
-        self.store.update(|state| {
-            let panes = state
-                .panes
-                .remove(worktree)
-                .map(|saved| saved.pane_ids())
-                .unwrap_or_default();
-            for pane in &panes {
-                drop_pane(state, pane);
-            }
-            state.side_panels.remove(worktree);
-            state.bottom_panels.remove(worktree);
-            state.preview_picks.remove(worktree);
-        })
+        self.store.update(|state| state.forget_worktree(worktree))
     }
 }
 
@@ -203,12 +191,6 @@ fn end_at_once(agents: impl Iterator<Item = Box<dyn Agent>>, end: fn(Box<dyn Age
             scope.spawn(move || end(agent));
         }
     });
-}
-
-// A pane that is gone no longer starts on launch, and its next start opens a new session.
-fn drop_pane(state: &mut State, pane: &str) {
-    state.running_panes.remove(pane);
-    state.agents.remove(pane);
 }
 
 /// What one pane's agent events change: the saved facts, keep-awake and the status.

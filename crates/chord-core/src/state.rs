@@ -4,7 +4,7 @@ use crate::lock;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::{ErrorKind, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use serde::{Deserialize, Deserializer, Serialize};
@@ -223,6 +223,27 @@ impl State {
                 }
             },
         }
+    }
+
+    /// The worktree is gone: everything saved under it and its panes goes. Project-keyed picks stay.
+    pub fn forget_worktree(&mut self, worktree: &Path) {
+        let panes = self
+            .panes
+            .remove(worktree)
+            .map(|saved| saved.pane_ids())
+            .unwrap_or_default();
+        for pane in &panes {
+            self.forget_pane(pane);
+        }
+        self.side_panels.remove(worktree);
+        self.bottom_panels.remove(worktree);
+        self.preview_picks.remove(worktree);
+    }
+
+    /// A pane that is gone no longer starts on launch, and its next start opens a new session.
+    pub fn forget_pane(&mut self, pane: &str) {
+        self.running_panes.remove(pane);
+        self.agents.remove(pane);
     }
 }
 

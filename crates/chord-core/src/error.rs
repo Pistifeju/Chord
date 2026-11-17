@@ -19,6 +19,19 @@ impl fmt::Display for Error {
     }
 }
 
+impl Error {
+    /// A tool that did not start: missing from the PATH, with its install step, or failed for another reason.
+    pub fn start_failed(tool: &str, install: &str, error: std::io::Error) -> Error {
+        match error.kind() {
+            std::io::ErrorKind::NotFound => Error::MissingTool {
+                tool: tool.into(),
+                install: install.into(),
+            },
+            _ => Error::Message(format!("{tool} failed to start: {error}")),
+        }
+    }
+}
+
 impl std::error::Error for Error {}
 
 impl From<std::io::Error> for Error {

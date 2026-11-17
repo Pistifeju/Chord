@@ -100,13 +100,9 @@ impl Terminals {
                 Ok(())
             });
         }
-        let mut child = command.spawn().map_err(|error| match error.kind() {
-            ErrorKind::NotFound => Error::MissingTool {
-                tool: shell.clone(),
-                install: "chsh -s /bin/zsh".into(),
-            },
-            _ => Error::Message(format!("{shell} failed to start: {error}")),
-        })?;
+        let mut child = command
+            .spawn()
+            .map_err(|error| Error::start_failed(&shell, "chsh -s /bin/zsh", error))?;
         drop(slave);
         let mut reader = master.try_clone()?;
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);

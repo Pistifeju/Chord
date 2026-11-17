@@ -7,7 +7,6 @@ mod records;
 mod tests;
 
 use crate::lock;
-use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
@@ -317,10 +316,7 @@ fn launch(
 }
 
 fn spawn_error(error: std::io::Error) -> Error {
-    match error.kind() {
-        ErrorKind::NotFound => missing_pi(),
-        _ => Error::Message(format!("pi failed to start: {error}")),
-    }
+    Error::start_failed(BINARY, INSTALL, error)
 }
 
 fn missing_pi() -> Error {
