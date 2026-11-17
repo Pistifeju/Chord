@@ -1,16 +1,17 @@
-//! The Simulator view's Home, Lock and Shake capsule and its screenshot, record and Appearance circles, drawn natively under the screen so they move with it on a resize, with the lock's shackle turning and the phone shaking. The web lays them out and keeps clear buttons over them for clicks, focus and tooltips.
+//! The Simulator view's Home, Lock and Shake capsule and its screenshot, record and Appearance circles, the record circle grown into a pill with the recording's time, drawn natively under the screen so they move with it on a resize, with the lock's shackle turning and the phone shaking. The web lays them out and keeps clear buttons over them for clicks, focus and tooltips.
 
 use std::f64::consts::PI;
 
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
-use objc2_core_foundation::{CFRetained, CGPoint, CGRect, CGSize};
+use objc2_app_kit::{NSFont, NSFontWeightMedium};
+use objc2_core_foundation::{CFRetained, CFType, CGPoint, CGRect, CGSize};
 use objc2_core_graphics::{CGColor, CGMutablePath};
 use objc2_foundation::{NSArray, NSNumber, NSString};
 use objc2_quartz_core::{
     CAAnimation, CABasicAnimation, CAKeyframeAnimation, CALayer, CAMediaTiming,
-    CAMediaTimingFunction, CAShapeLayer, CATransform3D, kCALineCapRound, kCALineJoinRound,
-    kCAMediaTimingFunctionEaseOut,
+    CAMediaTimingFunction, CAShapeLayer, CATextLayer, CATransform3D, kCAAlignmentLeft,
+    kCALineCapRound, kCALineJoinRound, kCAMediaTimingFunctionEaseOut,
 };
 use serde::Deserialize;
 use specta::Type;
@@ -27,6 +28,19 @@ pub struct ScreenButtons {
     /// The hairline pills the faces sit in: the capsule and the circle.
     pub outlines: Vec<Outline>,
     pub faces: Vec<ButtonFace>,
+    /// The recording's time, while the record pill shows.
+    pub timer: Option<Timer>,
+}
+
+/// `text` at its box, cut to `clip`, the part of the pill it shows in.
+#[derive(Deserialize, Type, Clone, Debug, PartialEq)]
+pub struct Timer {
+    pub text: String,
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+    pub clip: Outline,
 }
 
 #[derive(Deserialize, Type, Clone, Copy, Debug, PartialEq)]
@@ -41,6 +55,8 @@ pub struct Outline {
 #[derive(Deserialize, Type, Clone, Copy, Debug, PartialEq)]
 pub struct ButtonColors {
     pub icon: [u8; 3],
+    pub text: [u8; 3],
+    pub danger: [u8; 3],
     pub line: [u8; 3],
     pub hover: [u8; 3],
     pub pressed: [u8; 3],
@@ -103,6 +119,11 @@ pub(crate) fn lock_icon(spec: &ScreenButtons) -> Option<FaceIcon> {
 pub(crate) fn srgb([red, green, blue]: [u8; 3]) -> CFRetained<CGColor> {
     let [red, green, blue] = [red, green, blue].map(|part| f64::from(part) / 255.0);
     CGColor::new_srgb(red, green, blue, 1.0)
+}
+
+fn srgb_alpha([red, green, blue]: [u8; 3], alpha: f64) -> CFRetained<CGColor> {
+    let [red, green, blue] = [red, green, blue].map(|part| f64::from(part) / 255.0);
+    CGColor::new_srgb(red, green, blue, alpha)
 }
 
 /// A box measured from the top left, in a layer whose origin is its bottom left.
@@ -286,11 +307,23 @@ pub(crate) fn draw(row: &CALayer, spec: &ScreenButtons, scale: f64, motion: Moti
         edge.setBorderColor(Some(&srgb(colors.line)));
         row.addSublayer(&edge);
     }
+    if let Some(timer) = &spec.timer {
+        row.addSublayer(&timer_layer(timer, height, colors.text, scale));
+    }
     for face in &spec.faces {
-        let fill = match face.look {
-            FaceLook::Rest => None,
-            FaceLook::Hover => Some(colors.hover),
-            FaceLook::Pressed => Some(colors.pressed),
+        // The stop button sits on a red wash that deepens on hover and press.
+        let fill = match (face.icon, face.look) {
+            (FaceIcon::Stop, look) => Some(srgb_alpha(
+                colors.danger,
+                match look {
+                    FaceLook::Rest => 0.18,
+                    FaceLook::Hover => 0.26,
+                    FaceLook::Pressed => 0.34,
+                },
+            )),
+            (_, FaceLook::Rest) => None,
+            (_, FaceLook::Hover) => Some(srgb(colors.hover)),
+            (_, FaceLook::Pressed) => Some(srgb(colors.pressed)),
         };
         if let Some(fill) = fill {
             let back = CALayer::new();
@@ -298,10 +331,13 @@ pub(crate) fn draw(row: &CALayer, spec: &ScreenButtons, scale: f64, motion: Moti
                 &back,
                 from_top(height, face.x, face.y, face.width, face.height),
             );
-            back.setBackgroundColor(Some(&srgb(fill)));
+            back.setBackgroundColor(Some(&fill));
             row.addSublayer(&back);
         }
-        let color = srgb(colors.icon);
+        let color = srgb(match face.icon {
+            FaceIcon::Stop => colors.danger,
+            _ => colors.icon,
+        });
         let icon = stroke(&icon_path(face.icon), &color, scale);
         icon.setFrame(from_top(height, face.icon_x, face.icon_y, ICON, ICON));
         // A pressed icon shrinks to 90%, as the web's icon buttons do.
@@ -345,6 +381,46 @@ pub(crate) fn draw(row: &CALayer, spec: &ScreenButtons, scale: f64, motion: Moti
         }
         row.addSublayer(&icon);
     }
+}
+
+/// The timer's text in a layer cut to its box, so the text shows as the pill grows.
+fn timer_layer(timer: &Timer, height: f64, color: [u8; 3], scale: f64) -> Retained<CALayer> {
+    let clip = CALayer::new();
+    let Outline {
+        x,
+        y,
+        width,
+        height: clip_height,
+    } = timer.clip;
+    clip.setFrame(from_top(height, x, y, width, clip_height));
+    clip.setMasksToBounds(true);
+    let text = CATextLayer::new();
+    let size = 13.0;
+    // Centered on the web's text box: Core Text puts the line's top at the frame's top.
+    let line = (size * 1.25_f64).ceil();
+    text.setFrame(from_top(
+        clip_height,
+        timer.x - x,
+        timer.y - y + (timer.height - line) / 2.0,
+        timer.width.max(1.0) + 8.0,
+        line,
+    ));
+    // SAFETY: the system font always exists and its weight constant is AppKit's own.
+    let font = NSFont::monospacedDigitSystemFontOfSize_weight(size, unsafe { NSFontWeightMedium });
+    let string = NSString::from_str(&timer.text);
+    let string: &AnyObject = &string;
+    // SAFETY: NSFont is toll-free bridged with CTFont, a font CATextLayer takes; a string as `string` takes.
+    unsafe {
+        text.setFont(Some(&*(Retained::as_ptr(&font) as *const CFType)));
+        text.setString(Some(string));
+    }
+    text.setFontSize(size);
+    text.setForegroundColor(Some(&srgb(color)));
+    // SAFETY: Core Animation's own constant.
+    text.setAlignmentMode(unsafe { kCAAlignmentLeft });
+    text.setContentsScale(scale);
+    clip.addSublayer(&text);
+    clip
 }
 
 /// The row's frame in a view of `view_height`, under a screen whose top left sits at `screen` in it.

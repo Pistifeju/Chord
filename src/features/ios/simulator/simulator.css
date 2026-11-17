@@ -24,7 +24,7 @@
   outline: none;
 }
 
-/* Home, Lock and Shake in one hairline pill under the screen, the screenshot and Appearance buttons each in a hairline circle 8px after it, icons only. Each fill sits 1px inside the hairline, its radius concentric with the pill's. The native view draws them (screen_buttons.rs) so they move with the screen; these clear buttons lay them out and take clicks, focus and tooltips. */
+/* Home, Lock and Shake in one hairline pill under the screen, the screenshot, record and Appearance buttons each in a hairline circle 8px after it, icons only. Each fill sits 1px inside the hairline, its radius concentric with the pill's. The native view draws them (screen_buttons.rs) so they move with the screen; these clear buttons lay them out and take clicks, focus and tooltips. */
 .simulator-buttons {
   position: fixed;
   display: flex;
@@ -34,28 +34,50 @@
 
 .simulator-capsule {
   display: flex;
-  height: 28px;
+  height: 32px;
   padding: 1px;
   border: 1px solid transparent;
-  border-radius: 14px;
+  border-radius: 16px;
 }
 
 .simulator-button {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 24px;
+  width: 40px;
+  height: 28px;
   padding: 0;
   border: none;
-  border-radius: 12px;
+  border-radius: 14px;
   background: transparent;
   color: transparent;
 }
 
-/* The screenshot circle: 28px round. */
+/* The circles' buttons: 28px round. */
 .simulator-capsule-round .simulator-button {
-  width: 24px;
+  width: 28px;
+}
+
+/* The recording's time, which the native view draws; the record circle grows into a pill to hold it. Fixed 13px, as the native row does not follow the text size. */
+.simulator-timer {
+  display: flex;
+  align-items: center;
+  width: 0;
+  overflow: hidden;
+  color: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transition: width var(--t-med) var(--ease-out);
+}
+
+.simulator-timer[data-shown="true"] {
+  width: calc(var(--timer-width) + 18px);
+}
+
+.simulator-timer span {
+  margin-left: 12px;
 }
 
 .simulator-button svg {
@@ -141,5 +163,9 @@
 @media (prefers-reduced-motion: reduce) {
   .simulator-thumbnail {
     --thumbnail-rise: 0;
+  }
+
+  .simulator-timer {
+    transition: none;
   }
 }

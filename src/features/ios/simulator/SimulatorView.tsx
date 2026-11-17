@@ -1,4 +1,4 @@
-// The Simulator view in the side panel: Home, Lock, Shake, Screenshot, Record and the Appearance menu under the worktree's simulator screen, which the native view draws through the see-through hole; the screen takes clicks, drags, trackpad pinches and typing. The Preview view shows its preview simulator here with only Screenshot, Record and Appearance. Also its tab bar button.
+// The Simulator view in the side panel: Home, Lock, Shake, Screenshot, Record (a pill with the recording's time while it records) and the Appearance menu under the worktree's simulator screen, which the native view draws through the see-through hole; the screen takes clicks, drags, trackpad pinches and typing. The Preview view shows its preview simulator here with only Screenshot, Record and Appearance. Also its tab bar button.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { shortcutLabel, tooltip } from "../../../app/commands";
 import type { Bezel, Button, ButtonFace, FaceIcon, ScreenButtons } from "../../../ipc/bindings";
@@ -50,9 +50,11 @@ type GestureEvent = Event & { scale: number; rotation: number };
 
 type Touch = { fingers: Fingers; fromBottom: boolean };
 
-/** The native bezel's 8px frame and 1px edge (screen_view.rs), the 16px gap and the 28px button row under the screen. */
+/** The native bezel's 8px frame and 1px edge (screen_view.rs), the 16px gap and the button row under the screen. */
 const BEZEL = 9;
-const BELOW_SCREEN = BEZEL + 16 + 28;
+/** The button row's height (simulator.css). */
+const ROW = 32;
+const BELOW_SCREEN = BEZEL + 16 + ROW;
 /** How far the hole reaches past the bezel, onto the native view's canvas margin (`CANVAS_MARGIN`, screen_view.rs): the native view can run this far ahead on a resize before the web's canvas covers its bezel. */
 const HOLE_MARGIN = 32;
 /** The area's margin in the view (simulator.css). */
@@ -62,7 +64,7 @@ const tokenRgb = (name: string) => opaqueRgb(tokenValue(name));
 
 const themeColors = () => ({
   bezel: { canvas: tokenRgb("canvas"), frame: tokenRgb("bezel"), edge: tokenRgb("line-strong") },
-  buttons: { icon: tokenRgb("ink-secondary"), line: tokenRgb("line-strong"), hover: tokenRgb("raised"), pressed: tokenRgb("selected") },
+  buttons: { icon: tokenRgb("ink-secondary"), text: tokenRgb("ink"), danger: tokenRgb("danger"), line: tokenRgb("line-strong"), hover: tokenRgb("raised"), pressed: tokenRgb("selected") },
 });
 
 /** The theme's colors for the native bezel and buttons, read again when the theme changes. */
@@ -75,6 +77,9 @@ function useThemeColors() {
   }, []);
   return useMemo(themeColors, [theme]);
 }
+
+/** m:ss */
+const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 
 /** The clear buttons' layout and looks, for the native view to draw under the screen. */
 function measureButtons(row: HTMLElement, screen: Rect, colors: ScreenButtons["colors"], faces: { face: FaceIcon; look: ButtonFace["look"] }[]): ScreenButtons {
@@ -93,6 +98,7 @@ function measureButtons(row: HTMLElement, screen: Rect, colors: ScreenButtons["c
       const icon = from(element.querySelector("svg") ?? element);
       return { icon: faces[i].face, look: faces[i].look, ...from(element), iconX: icon.x, iconY: icon.y };
     }),
+    timer: ((pill) => (pill && pill.getBoundingClientRect().width > 0 ? { text: pill.textContent ?? "", ...from(pill.firstElementChild ?? pill), clip: from(pill) } : null))(row.querySelector(".simulator-timer")),
   };
 }
 
@@ -118,7 +124,33 @@ export function SimulatorView({ worktree, preview }: { worktree: string; preview
   const [hovered, setHovered] = useState<Key | null>(null);
   const [pressed, setPressed] = useState<Key | null>(null);
   const sentButtons = useRef("");
-  const recording = recordings.usePart((all) => all[recordingKey(worktree, previewing)] === "recording");
+  const recording = recordings.usePart((all) => all[recordingKey(worktree, previewing)] ?? null);
+  const [now, setNow] = useState(Date.now);
+  const animating = useRef(false);
+  const timer = useRef<HTMLSpanElement>(null);
+  const shownTime = useRef("0:00");
+
+  // Ticks on the recording's whole seconds; a stop freezes the time shown.
+  useEffect(() => {
+    const since = recording?.phase === "recording" ? recording.since : null;
+    if (since === null) return;
+    let timeout: number;
+    const tick = () => {
+      setNow(Date.now());
+      timeout = window.setTimeout(tick, 1000 - ((Date.now() - since) % 1000));
+    };
+    tick();
+    return () => clearTimeout(timeout);
+  }, [recording?.phase, recording?.since]);
+  // The pill keeps the last time while it shrinks after the recording ends.
+  if (recording) shownTime.current = recording.since ? clock(Math.max(0, Math.floor((now - recording.since) / 1000))) : "0:00";
+  const elapsed = shownTime.current;
+
+  // The pill fits the time's own width: a colon is narrower than a digit.
+  useLayoutEffect(() => {
+    const text = timer.current?.firstElementChild;
+    if (text instanceof HTMLElement) timer.current?.style.setProperty("--timer-width", `${text.offsetWidth}px`);
+  }, [elapsed, recording !== null]);
 
   useLayoutEffect(() => {
     const element = area.current;
@@ -168,8 +200,8 @@ export function SimulatorView({ worktree, preview }: { worktree: string; preview
     if (rect) moveScreen(rect, bezelOf(rect));
   }, [rectKey, colors]);
 
-  // Every render: the lock, hover and press all change the buttons' look. Sent only when it changed.
-  useLayoutEffect(() => {
+  const sendButtons = useRef(() => {});
+  sendButtons.current = () => {
     if (!live || !rect || !row.current) return;
     const keys: { key: Key; face: FaceIcon }[] = [...(previewing ? [] : buttons(live.locked).map(({ button, face }) => ({ key: button, face }))), { key: "screenshot", face: "camera" }, { key: "record", face: recording ? "stop" : "record" }, { key: "appearance", face: "appearance" }];
     const faces = keys.map(({ key, face }) => ({ face, look: pressed === key ? ("pressed" as const) : hovered === key ? ("hover" as const) : ("rest" as const) }));
@@ -179,7 +211,24 @@ export function SimulatorView({ worktree, preview }: { worktree: string; preview
       sentButtons.current = key;
       setButtons(next);
     }
-  });
+  };
+  // Every render: the lock, hover and press all change the buttons' look. Sent only when it changed.
+  useLayoutEffect(() => sendButtons.current());
+
+  // The native row has no CSS: while the record pill grows or shrinks, it takes the row's layout every frame.
+  const followPill = () => {
+    if (animating.current) return;
+    animating.current = true;
+    const frame = () => {
+      sendButtons.current();
+      if (animating.current) requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  };
+  const endPill = () => {
+    animating.current = false;
+    sendButtons.current();
+  };
 
   const faceButton = (key: Key, label: string, icon: ReactNode, press: (button: HTMLButtonElement) => void, title = tooltip(`simulator.${key}`)) => (
     <button
@@ -312,10 +361,21 @@ export function SimulatorView({ worktree, preview }: { worktree: string; preview
     <div className="simulator">
       <div className="simulator-area" ref={area}>
         {live && rect && rect.width > 0 && (
-          <div ref={row} className="simulator-buttons" role="group" aria-label="Simulator Buttons" style={{ left: rect.x + rect.width / 2, top: rect.y + rect.height + BELOW_SCREEN - 28 }}>
+          <div ref={row} className="simulator-buttons" role="group" aria-label="Simulator Buttons" style={{ left: rect.x + rect.width / 2, top: rect.y + rect.height + BELOW_SCREEN - ROW }}>
             {!previewing && <div className="simulator-capsule">{buttons(live.locked).map(({ button, label, icon }) => faceButton(button, label, icon, () => pressButton(worktree, button)))}</div>}
             <div className="simulator-capsule simulator-capsule-round">{faceButton("screenshot", "Take Screenshot", <CameraIcon />, () => takeScreenshot(worktree, previewing))}</div>
             <div className="simulator-capsule simulator-capsule-round">
+              <span
+                ref={timer}
+                className="simulator-timer"
+                data-shown={recording !== null}
+                aria-hidden
+                onTransitionRun={followPill}
+                onTransitionEnd={endPill}
+                onTransitionCancel={endPill}
+              >
+                <span>{elapsed}</span>
+              </span>
               {faceButton("record", recording ? "Stop Recording" : "Record Screen", recording ? <StopIcon /> : <RecordIcon />, () => toggleRecording(worktree, previewing), recording ? "Stop Recording" : "Record Screen")}
             </div>
             <div className="simulator-capsule simulator-capsule-round">
@@ -363,7 +423,7 @@ export function SimulatorView({ worktree, preview }: { worktree: string; preview
           </div>
         )}
       </div>
-      {live && box && rect && <ScreenshotThumbnail worktree={worktree} bottom={box.y + box.height + AREA_MARGIN - (rect.y + rect.height + BELOW_SCREEN - 28) - 28} />}
+      {live && box && rect && <ScreenshotThumbnail worktree={worktree} bottom={box.y + box.height + AREA_MARGIN - (rect.y + rect.height + BELOW_SCREEN - ROW) - ROW} />}
     </div>
   );
 }

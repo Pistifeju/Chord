@@ -46,7 +46,9 @@ pub use issues::BuildIssue;
 pub use preview::{PreviewState, set_cache_folder};
 pub use preview_list::list as list_previews;
 pub use recording::{record, stop_recording};
-pub use screen_buttons::{ButtonColors, ButtonFace, FaceIcon, FaceLook, Outline, ScreenButtons};
+pub use screen_buttons::{
+    ButtonColors, ButtonFace, FaceIcon, FaceLook, Outline, ScreenButtons, Timer,
+};
 pub use screen_view::{
     Bezel, ScreenRect, ScreenState, ShowTurn, begin_show, hide_screen, move_screen, prepare_screen,
     send_input, set_buttons, show_screen,

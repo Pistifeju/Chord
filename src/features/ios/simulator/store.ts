@@ -76,7 +76,8 @@ export async function takeScreenshot(worktree: string, preview = false) {
   }
 }
 
-export type Recording = "starting" | "recording" | "stopping";
+/** `since`: when the simulator began recording, in ms since the epoch; null until it does. */
+export type Recording = { phase: "starting" | "recording" | "stopping"; since: number | null };
 
 /** The simulators that record, by `recordingKey`. */
 export const recordings = externalStore<Record<string, Recording>>({});
@@ -92,15 +93,15 @@ function setRecording(key: string, state: Recording | null) {
 export async function toggleRecording(worktree: string, preview = false) {
   const key = recordingKey(worktree, preview);
   const state = recordings.get()[key];
-  if (state === "starting" || state === "stopping") return;
-  if (state === "recording") {
-    setRecording(key, "stopping");
+  if (state && state.phase !== "recording") return;
+  if (state) {
+    setRecording(key, { ...state, phase: "stopping" });
     return void commands.stopSimulatorRecording(worktree, preview).catch(fail);
   }
-  setRecording(key, "starting");
+  setRecording(key, { phase: "starting", since: null });
   const started = new Channel<null>();
   // The channel and the reply arrive apart: a late start must not undo the end.
-  started.onmessage = () => recordings.get()[key] === "starting" && setRecording(key, "recording");
+  started.onmessage = () => recordings.get()[key]?.phase === "starting" && setRecording(key, { phase: "recording", since: Date.now() });
   try {
     const screenshot = await commands.recordSimulator(worktree, preview, started);
     setRecording(key, null);

@@ -71,7 +71,7 @@ export const commands = {
 	showSimulatorScreen: (worktree: string, preview: boolean, rect: ScreenRect, bezel: Bezel, onState: Channel<ScreenState_Deserialize>) => __TAURI_INVOKE<null>("show_simulator_screen", { worktree, preview, rect, bezel, onState }),
 	moveSimulatorScreen: (rect: ScreenRect, bezel: Bezel) => __TAURI_INVOKE<null>("move_simulator_screen", { rect, bezel }),
 	/**  Draws Home, Lock and Shake natively under the screen, as the view laid them out. */
-	setSimulatorButtons: (buttons: ScreenButtons) => __TAURI_INVOKE<null>("set_simulator_buttons", { buttons }),
+	setSimulatorButtons: (buttons: ScreenButtons_Deserialize) => __TAURI_INVOKE<null>("set_simulator_buttons", { buttons }),
 	hideSimulatorScreen: () => __TAURI_INVOKE<null>("hide_simulator_screen"),
 	/**  Sends a touch or key of the Simulator view to the worktree's simulator, in order: the main thread runs them one by one. Buttons go through `press_simulator_button`. */
 	sendSimulatorInput: (worktree: string, input: Input_Deserialize) => __TAURI_INVOKE<null>("send_simulator_input", { worktree, input }),
@@ -224,6 +224,8 @@ export type Button = "home" | "lock" | "shake";
 /**  Opaque sRGB bytes, as the web paints them over the canvas. */
 export type ButtonColors = {
 	icon: [number, number, number],
+	text: [number, number, number],
+	danger: [number, number, number],
 	line: [number, number, number],
 	hover: [number, number, number],
 	pressed: [number, number, number],
@@ -646,7 +648,10 @@ export type Schemes = {
 };
 
 /**  The button row under the screen, measured by the web: CSS pixels, from the row's top left. */
-export type ScreenButtons = {
+export type ScreenButtons = ScreenButtons_Serialize | ScreenButtons_Deserialize;
+
+/**  The button row under the screen, measured by the web: CSS pixels, from the row's top left. */
+export type ScreenButtons_Deserialize = {
 	width: number | null,
 	height: number | null,
 	/**  From the screen's bottom edge to the row's top; the row centers under the screen. */
@@ -655,6 +660,22 @@ export type ScreenButtons = {
 	/**  The hairline pills the faces sit in: the capsule and the circle. */
 	outlines: Outline[],
 	faces: ButtonFace[],
+	/**  The recording's time, while the record pill shows. */
+	timer?: Timer | null,
+};
+
+/**  The button row under the screen, measured by the web: CSS pixels, from the row's top left. */
+export type ScreenButtons_Serialize = {
+	width: number | null,
+	height: number | null,
+	/**  From the screen's bottom edge to the row's top; the row centers under the screen. */
+	gap: number | null,
+	colors: ButtonColors,
+	/**  The hairline pills the faces sit in: the capsule and the circle. */
+	outlines: Outline[],
+	faces: ButtonFace[],
+	/**  The recording's time, while the record pill shows. */
+	timer: Timer | null,
 };
 
 /**  Where the screen goes, in the webview's CSS pixels from its top left; the bezel goes around it. */
@@ -1052,6 +1073,16 @@ export type TerminalEvent = { kind: "output"; text: string } |
 { kind: "exited" };
 
 export type Theme = "system" | "light" | "dark";
+
+/**  `text` at its box, cut to `clip`, the part of the pill it shows in. */
+export type Timer = {
+	text: string,
+	x: number | null,
+	y: number | null,
+	width: number | null,
+	height: number | null,
+	clip: Outline,
+};
 
 export type ToolOutcome = "done" | "failed" | "stopped";
 
