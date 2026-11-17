@@ -219,7 +219,6 @@ Edge cases:
 - [x] K1 shortcut editor in Settings: every command's shortcut; the recorder says which command lost its key; bad saved shortcuts load as defaults.
 - [x] K4 A question mark button at the right end of the sidebar footer opens a Help sheet: what a project, a worktree and a session are, what each status means, the shortcuts used most, and a button to all shortcuts.
 - [ ] K2 onboarding: find the harness, show its install step when it is missing, check its version, add the first project. A missing `git` shows its install step.
-- [ ] K3 Copy diagnostics (versions of Chord, macOS, Xcode, harness) and a log file.
 
 ## 12. Simulator tools (iOS)
 
