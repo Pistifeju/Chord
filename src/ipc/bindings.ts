@@ -41,6 +41,8 @@ export const commands = {
 	/**  Builds the worktree's Xcode project in the scheme and configuration of `pick`, and with `run` runs the app on the destination. The channel carries the build's phases, log and end. `agent_request` is the agent's tool call the build answers. */
 	startBuild: (worktree: string, run: boolean, destination: RunDestination | null, pick: SchemePick_Deserialize, agentRequest: number | null, onEvent: Channel<BuildEvent_Deserialize>) => __TAURI_INVOKE<null>("start_build", { worktree, run, destination, pick, agentRequest, onEvent }),
 	stopBuild: (worktree: string) => __TAURI_INVOKE<null>("stop_build", { worktree }),
+	/**  Clean Build Folder: stops the worktree's build and removes its build products. */
+	cleanBuild: (worktree: string) => __TAURI_INVOKE<null>("clean_build", { worktree }),
 	/**  The user opened the worktree in the window; the oldest opened worktree's simulator is the first one shut down for room. */
 	worktreeOpened: (worktree: string) => __TAURI_INVOKE<null>("worktree_opened", { worktree }),
 	/**  The connected devices and the simulator models to run on. */

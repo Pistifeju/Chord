@@ -1,4 +1,4 @@
-// The build's commands for the commands table: run, build, stop, show or hide the Build or Console view, and find in it.
+// The build's commands for the commands table: run, build, clean, stop, show or hide the Build or Console view, and find in it.
 import type { AppCommand } from "../../../app/commands";
 import { onTarget } from "../../../app/commandTarget";
 import type { BottomViewSlot } from "../../bottompanel/BottomPanel";
@@ -6,7 +6,7 @@ import { openWorktree, projects } from "../../worktrees/store";
 import { worktreeAt } from "../../worktrees/projects";
 import { findsOf } from "./find";
 import { isStarting, isRunning } from "./run";
-import { builds, runApp, startBuild, stopBuild, toggleLogView } from "./store";
+import { builds, cleanBuild, runApp, startBuild, stopBuild, toggleLogView } from "./store";
 
 // The open worktree while it has an Xcode project.
 export const xcodeWorktree = (): string | null => {
@@ -38,6 +38,7 @@ const findingLogView = (): LogFocus | null => {
 export const buildCommands: AppCommand[] = [
   { id: "build.run", title: "Run", shortcut: { key: "r", cmd: true }, ...onTarget(xcodeWorktree, runApp) },
   { id: "build.start", title: "Build", shortcut: { key: "b", cmd: true }, ...onTarget(xcodeWorktree, (worktree) => startBuild(worktree, false)) },
+  { id: "build.clean", title: "Clean Build Folder", shortcut: { key: "k", cmd: true, shift: true }, ...onTarget(xcodeWorktree, cleanBuild) },
   { id: "build.stop", title: "Stop", shortcut: { key: ".", cmd: true }, ...onTarget(busyWorktree, stopBuild) },
   { id: "build.toggleLogView", title: "Show or Hide Build Log or Console", shortcut: { key: "y", cmd: true, shift: true }, ...onTarget(xcodeWorktree, toggleLogView) },
   { id: "build.find", title: "Find in Build Log or Console", shortcut: { key: "f", cmd: true }, ...onTarget(focusedLogView, ({ worktree, view }) => findsOf[view].open(worktree)) },

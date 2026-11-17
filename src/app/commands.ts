@@ -76,6 +76,8 @@ export function tooltip(id: string): string {
 
 const accelerator = (s: Shortcut) => keyParts(s, 2).join("+");
 
+export const commandEnabled = (id: string): boolean => table.find((c) => c.id === id)?.when?.() ?? true;
+
 // A native menu item that runs a command on the item it was opened for.
 export function menuItem(id: string, target: string) {
   const command = table.find((c) => c.id === id);

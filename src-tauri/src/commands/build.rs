@@ -1,4 +1,4 @@
-//! Commands for a worktree's build: start it with its event channel, stop it, note it opened, and list the run destinations and the project's schemes.
+//! Commands for a worktree's build: start it with its event channel, stop it, clean its build folder, note it opened, and list the run destinations and the project's schemes.
 
 use std::path::PathBuf;
 
@@ -66,6 +66,13 @@ pub async fn stop_build(app: AppHandle, worktree: PathBuf) -> Result<(), String>
         Ok(())
     })
     .await
+}
+
+/// Clean Build Folder: stops the worktree's build and removes its build products.
+#[tauri::command]
+#[specta::specta]
+pub async fn clean_build(app: AppHandle, worktree: PathBuf) -> Result<(), String> {
+    blocking(app, move |app, _| app.state::<Builds>().clean(&worktree)).await
 }
 
 /// The connected devices and the simulator models to run on.

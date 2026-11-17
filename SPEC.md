@@ -161,6 +161,10 @@ Edge cases:
 - [x] H9 harness(tools): `build` builds the worktree like ⌘B, in the same slot. The agent gets no log; the Build view shows it. The tool returns the error lines as `file:line: message`, 30 at most; a failed build with no such line returns the log's last 20 lines. A build that ⌘R or ⌘B takes over returns "Stopped".
 - [x] H10 harness(tools): `run` builds and runs like ⌘R on the worktree's simulator and returns "Launched", "Stopped" or what `build` returns. Both tools exist only in a worktree with an `.xcodeproj` or `.xcworkspace`.
 - [x] H11 Slim simulators: before a boot, Chord writes launchd disable overrides into its own simulators, so the background services a run does not need (Siri, Spotlight, widgets, iCloud and more) never start. A Rust port of simslim's service list, with its MIT notice. Settings section Simulators: one row per service group with its name, what stops working and its memory, and a switch to keep it on.
+- [x] H12 Product menu in the menu bar after View, as Xcode's: Run (⌘R), Build (⌘B), Clean Build Folder (⌘⇧K) and Stop (⌘.), each disabled while it cannot run. Clean Build Folder stops the worktree's build and run, then removes the `Build` folder of its DerivedData and its hot reload folder; the build log says Clean Finished. Take Screenshot moves to ⌘S.
+- [ ] H13 ⌘U runs the scheme's tests on the worktree's own simulator, in the same slot as ⌘R and ⌘B. The H12 Product menu gets a Test item after Build, with ⌘U; the build log shows the run.
+- [ ] H14 harness(tools): `test` runs the tests like ⌘U and returns "Passed", "Stopped" or the failed tests as `file:line: message`, 30 at most, with a build error returned like `build`. It exists only in a worktree with an `.xcodeproj` or `.xcworkspace`.
+- [ ] H15 **hard** Project view: opens the worktree's `.xcodeproj` as a tab, lists its targets, and shows each target's build settings per configuration and its Info.plist keys. A value edits in place and writes back to `project.pbxproj`.
 
 Edge cases:
 - ⌘R opens the Simulator view in the side panel; when the private API fails to load, the selected Xcode's simulator app (DeviceHub from Xcode 27, Simulator.app before).
@@ -183,6 +187,10 @@ Edge cases:
 - H11: Chord reads the overrides back after the boot; a lost override leaves the simulator stock and the run goes on.
 - H9 and H10: each tool's description tells the agent to build and run through the tools and never to use `simctl … booted`; a call that runs long reports every 30 s that it still runs.
 - H4: ⌘B while the app runs builds beside the run that holds the app, as Xcode does: the app, its console and the Running marker stay (the marker says Building while it builds), ⌘. stops the app and the build, and a ⌘R takeover ends both and launches with `--terminate-running-process`.
+- H13: ⌘U and `test` share H4's slot: a test run takes over a running build, and ⌘R or ⌘B takes over a test run. ⌘. stops it.
+- H13: the Test item is disabled while the worktree has no scheme with a test target.
+- H15: a write keeps the file's order, quoting and untouched entries as they were; a change an agent or Xcode made on disk since the view opened stops the write, as F3 does.
+- H15: a setting inherited from an xcconfig file shows read only with the file's name.
 - H4: only a stop (⌘. or quit) ends the app, through the run that launched it; a takeover never runs `simctl terminate`, so a stale run never ends an app a newer ⌘R launched.
 
 ## 9. Simulator (iOS, private API)
@@ -247,7 +255,7 @@ A tag with a capability is a `Capability` variant: the UI hides the feature when
 | context | E10 | capability `context` | RPC |
 | usage | E11 | event: `usage` | a pi extension that reports it |
 | subagents | E13 | capability `subagents` | a pi subagent extension |
-| tools | H9, H10 | the adapter starts the agent with the tools in a worktree with an Xcode project | the extension Chord ships registers them and sends each call to Chord's socket; ACP agents will get an MCP server in `session/new` that does the same (`docs/ios.md`, 3.6) |
+| tools | H9, H10, H14 | the adapter starts the agent with the tools in a worktree with an Xcode project | the extension Chord ships registers them and sends each call to Chord's socket; ACP agents will get an MCP server in `session/new` that does the same (`docs/ios.md`, 3.6) |
 
 Steering while a run goes (E1) waits for capability `steer`.
 
@@ -260,7 +268,6 @@ Steering while a run goes (E1) waits for capability `steer`.
 | Side chat | A read-only chat about the focused chat |
 | Dictation | On-device speech to text in the composer |
 | Swift check for agents | A type-check command agents can call |
-| Tests | ⌘U, and a test tool for agents on the worktree's simulator |
 | Setup script | A per-project script that runs in each new worktree |
 | Next waiting agent | A shortcut that jumps to the next pane waiting for input |
 | Command palette | Worktrees and actions with fuzzy search |

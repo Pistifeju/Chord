@@ -13,6 +13,9 @@ import { hideScreen, moveScreen, openSimulatorApp, pressButton, recordingKey, re
 import { loadAppearance, openAppearanceMenu } from "./appearanceMenu";
 import { fail } from "../../../ui/alert";
 import { ScreenshotThumbnail } from "./Screenshot";
+import { useRunDestination } from "../build/destinationStore";
+import { isStarting } from "../build/run";
+import { builds, runApp } from "../build/store";
 import "./simulator.css";
 
 export function SimulatorToggle({ worktree }: { worktree: string }) {
@@ -129,6 +132,9 @@ export function SimulatorView({ worktree, preview }: { worktree: string; preview
   const animating = useRef(false);
   const timer = useRef<HTMLSpanElement>(null);
   const shownTime = useRef("0:00");
+  const destination = useRunDestination(worktree);
+  const building = builds.usePart((all) => isStarting(all[worktree]));
+  const offLine = destination?.kind === "device" ? `Runs go to ${destination.name}. Pick a simulator in Run Destination to run here.` : "The simulator is off.";
 
   // Ticks on the recording's whole seconds; a stop freezes the time shown.
   useEffect(() => {
@@ -413,8 +419,13 @@ export function SimulatorView({ worktree, preview }: { worktree: string; preview
                   ? `${state.message} Run (${shortcutLabel("build.run") ?? "⌘R"}) opens ${state.app} instead.`
                   : state?.state === "off" && state.message
                     ? state.message
-                    : `The simulator is off. Run (${shortcutLabel("build.run") ?? "⌘R"}) boots it.`}
+                    : offLine}
             </p>
+            {!previewing && state?.state !== "unavailable" && !(state?.state === "off" && state.message) && destination?.kind !== "device" && (
+              <button type="button" className="button-secondary" title={tooltip("build.run")} disabled={building} onClick={() => runApp(worktree)}>
+                Run
+              </button>
+            )}
             {state?.state === "unavailable" && !previewing && (
               <button type="button" className="button-secondary" onClick={openSimulatorApp}>
                 Open in {state.app}

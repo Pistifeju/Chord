@@ -25,5 +25,5 @@ export const simulatorCommands: AppCommand[] = [
   { id: "simulator.home", title: "Home", shortcut: { key: "h", cmd: true, shift: true }, ...press("home") },
   { id: "simulator.lock", title: "Lock or Unlock", shortcut: { key: "l", cmd: true }, ...press("lock") },
   { id: "simulator.shake", title: "Shake", shortcut: { key: "z", cmd: true, ctrl: true }, ...press("shake") },
-  { id: "simulator.screenshot", title: "Take Screenshot", shortcut: { key: "k", cmd: true, shift: true }, ...onTarget(liveWorktree, (worktree) => takeScreenshot(worktree)) },
+  { id: "simulator.screenshot", title: "Take Screenshot", shortcut: { key: "s", cmd: true }, ...onTarget(liveWorktree, (worktree) => takeScreenshot(worktree)) },
 ];

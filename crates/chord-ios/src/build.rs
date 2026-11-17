@@ -2,6 +2,8 @@
 
 use chord_core::lock;
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::fs;
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::RecvTimeoutError;
@@ -20,7 +22,7 @@ use crate::derived_data;
 use crate::device;
 use crate::hot_reload;
 use crate::issues::{BuildIssue, Issues};
-use crate::preview::PreviewState;
+use crate::preview::{self, PreviewState};
 use crate::process::{self, BATCH_BYTES, BATCH_INTERVAL, GROUP_GRACE, end_group};
 use crate::simulator::{self, DeviceSet, Simulator};
 use crate::simulator_kit;
@@ -212,13 +214,7 @@ impl Builds {
     /// Stops every build and returns once the builds ended, build database released: the app is quitting.
     pub fn stop_all(&self) {
         let pids = lock(&self.0.slots).stop_all();
-        let ending: Vec<_> = pids
-            .into_iter()
-            .map(|pid| thread::spawn(move || end_group(pid)))
-            .collect();
-        for handle in ending {
-            let _ = handle.join();
-        }
+        end_groups(pids);
         let turns: Vec<_> = lock(&self.0.turns).values().cloned().collect();
         for turn in turns {
             drop(lock(&turn));
@@ -248,13 +244,7 @@ impl Builds {
             pids.extend(slots.forget_preview(worktree));
             pids
         };
-        let ending: Vec<_> = pids
-            .into_iter()
-            .map(|pid| thread::spawn(move || end_group(pid)))
-            .collect();
-        for handle in ending {
-            let _ = handle.join();
-        }
+        end_groups(pids);
         let mut turns = lock(&self.0.turns);
         let forgotten: Vec<_> = turns.extract_if(|(path, _), _| path == worktree).collect();
         drop(turns);
@@ -266,6 +256,49 @@ impl Builds {
         lock(&self.0.previews).remove(worktree);
         lock(&self.0.watchers).remove(worktree);
         hot_reload::forget(worktree);
+    }
+
+    /// Clean Build Folder, as Xcode's: stops the worktree's build and run, waits for them to end, then removes the project's `Build` folder in DerivedData and the worktree's hot reload folder, whose compile commands point into it.
+    pub fn clean(&self, worktree: &Path) -> Result<(), Error> {
+        let project = self.project_of(worktree)?;
+        let pids = lock(&self.0.slots).stop(worktree);
+        end_groups(pids);
+        let turns: Vec<_> = {
+            let turns = lock(&self.0.turns);
+            [Lane::Main, Lane::BesideApp]
+                .into_iter()
+                .filter_map(|lane| turns.get(&(worktree.to_path_buf(), lane)).cloned())
+                .collect()
+        };
+        // Holding the turns keeps a queued build from writing into the folders while they go.
+        let _held: Vec<_> = turns.iter().map(|turn| lock(turn)).collect();
+        let build = derived_data::folder_of(&project.path).map(|folder| folder.join("Build"));
+        for folder in [build, preview::hot_reload_folder(worktree)]
+            .into_iter()
+            .flatten()
+        {
+            match fs::remove_dir_all(&folder) {
+                Err(error) if error.kind() != ErrorKind::NotFound => {
+                    return Err(Error::Message(format!(
+                        "Could not remove {}: {error}",
+                        folder.display()
+                    )));
+                }
+                _ => {}
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Ends the process groups and returns once each one ended.
+fn end_groups(pids: Vec<u32>) {
+    let ending: Vec<_> = pids
+        .into_iter()
+        .map(|pid| thread::spawn(move || end_group(pid)))
+        .collect();
+    for handle in ending {
+        let _ = handle.join();
     }
 }
 

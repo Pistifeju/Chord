@@ -9,7 +9,7 @@ import { fail } from "../../../ui/alert";
 import { runDestinationOf } from "./destinationStore";
 import { schemePickOf } from "./schemeStore";
 import { emptyConsole, type ConsoleLine } from "./consoleLog";
-import { emptyLog, type Log } from "./log";
+import { appendToLog, emptyLog, type Log } from "./log";
 import { appliedEvent, appliedSideEvent, isRunning, noBuild, seenEnd, viewAfterEvent, viewToShow, type Build, type BuildAndLog } from "./run";
 
 /** How long a success or a stop shows on the card of the open worktree; another worktree's shows until the user goes to it. */
@@ -98,6 +98,18 @@ export function watchAgentBuilds(): () => void {
 }
 
 export const stopBuild = (worktree: string) => commands.stopBuild(worktree).catch(fail);
+
+/** ⌘⇧K: the stopped build's late events are ignored, so the card clears and the log shows only the clean. */
+export function cleanBuild(worktree: string) {
+  latest.set(worktree, (latest.get(worktree) ?? 0) + 1);
+  latestSide.delete(worktree);
+  apply(worktree, () => noBuild);
+  changeBottomPanel(worktree, { view: "build" });
+  commands
+    .cleanBuild(worktree)
+    .then(() => apply(worktree, (state) => ({ ...state, log: appendToLog(state.log, "Clean Finished\n") })))
+    .catch(fail);
+}
 
 export function toggleLogView(worktree: string) {
   const panel = bottomPanelOf(bottomPanels.get(), worktree);

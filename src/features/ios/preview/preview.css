@@ -26,6 +26,8 @@
   display: flex;
   flex: none;
   flex-direction: column;
+  /* A narrowed side panel still leaves the screen half the view. */
+  max-width: 50%;
   border-right: 1px solid var(--line);
 }
 
