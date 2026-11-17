@@ -367,7 +367,9 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
             setAway(fromEnd >= 72);
           }}
         >
-          {chat.items.length === 0 && chat.agent === "idle" ? (
+          {chat.items.length === 0 && chat.agent === "starting" ? (
+            <span className="spinner chat-starting" role="status" aria-label="Starting the agent" />
+          ) : chat.items.length === 0 && chat.agent === "idle" ? (
             <div className="chat-empty">
               <h1 className="chat-empty-title">No chat yet</h1>
               <p className="chat-empty-text">Start an agent in this worktree.</p>

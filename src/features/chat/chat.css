@@ -797,6 +797,11 @@
   text-wrap: balance;
 }
 
+.chat-starting {
+  border-color: var(--ink-muted);
+  border-right-color: transparent;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .chat-turn[data-fresh],
   .chat-message[data-fresh],

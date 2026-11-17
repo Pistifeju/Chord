@@ -24,7 +24,7 @@ colors:
   scrim: "rgba(0, 0, 0, 0.3)"
   bezel: "#18181b"
   danger: "#e7000b"
-  success: "#009966"
+  success: "#007a55"
   status-running: "#155dfc"
   status-waiting: "#bb4d00"
   status-done: "#007a55"
@@ -443,6 +443,7 @@ Every part shows only in a worktree with an Xcode project. A failure is `danger`
 - **Picker menu:** the model and thinking level pickers float above the composer card, which stays in place, as the slash menu does: the same card, position, size and scrolling. Neither picker has a Field; its list takes the focus. In the model picker, typing moves the highlight as a Mac menu does: to the first row with a word that starts with the typed letters, else the first that contains them. When the typed letters match nothing, the longest matching tail of them wins, so typing "fable" right after "opus" lands on Fable without deleting anything. The rows never narrow. A 1s pause starts a new name, and the highlight stays put when nothing matches. Then come the options as 36px rows in `ink` with 10px padding, the current one marked with the dialog's check. ↑ and ↓ or the pointer move the `selected` highlight, Return or a click picks. Esc or a click anywhere outside the card closes it without a pick. Replies and tool calls from the agent leave it open; only the agent's exit closes it.
 - **Jump to latest:** once the reader scrolls 72px or more above the end of the transcript, a 28px `canvas` circle with a 1px `line-strong` border, the control shadow and an `ink-secondary` down arrow sits centered 4px above the Working row's place, whether the row shows or not. It shows no status: the Working row does. Hover takes `raised` and `ink`, pressed takes `selected`. A click scrolls smoothly to the end and resumes following the reply. It fades in and rises 8px from 90% scale over 200ms with `--ease-out`, fades out the same way once the reader is back at the end, and presses to 94% scale.
 - **Empty state:** a centered title, one muted line and the primary button.
+- **Starting:** while an agent starts in an empty pane, a 14px `ink-muted` spinner sits centered in the transcript ("Starting the agent" for VoiceOver).
 
 ### Sheets
 
