@@ -42,6 +42,8 @@ pub struct State {
     pub run_destinations: BTreeMap<PathBuf, RunDestination>,
     /// Each project's preview simulator model; a project without one previews on the newest iPhone.
     pub preview_models: BTreeMap<PathBuf, RunDestination>,
+    /// Each project's scheme and build configuration for ⌘R and ⌘B; a project without one builds the default scheme in its default configuration.
+    pub scheme_picks: BTreeMap<PathBuf, SchemePick>,
     /// The `#Preview` each worktree's Preview view shows.
     pub preview_picks: BTreeMap<PathBuf, PreviewPick>,
     /// Where the Simulator view's screenshots and recordings go; none puts them on the Desktop.
@@ -74,6 +76,14 @@ impl RunDestination {
             RunDestination::Device { name, .. } | RunDestination::Simulator { name, .. } => name,
         }
     }
+}
+
+/// The scheme and build configuration ⌘R and ⌘B build; `None` keeps the default.
+#[derive(Serialize, Deserialize, Type, Clone, Debug, Default, PartialEq)]
+#[serde(default, rename_all = "camelCase")]
+pub struct SchemePick {
+    pub scheme: Option<String>,
+    pub configuration: Option<String>,
 }
 
 /// One `#Preview` of a worktree: its file and its place among the file's previews.
@@ -147,6 +157,11 @@ pub enum StateChange {
         worktree: PathBuf,
         pick: PreviewPick,
     },
+    /// A pick of all defaults returns the project to the default.
+    SchemePick {
+        project: PathBuf,
+        pick: SchemePick,
+    },
 }
 
 impl State {
@@ -191,6 +206,13 @@ impl State {
             },
             StateChange::PreviewPick { worktree, pick } => {
                 self.preview_picks.insert(worktree, pick);
+            }
+            StateChange::SchemePick { project, pick } => {
+                if pick == SchemePick::default() {
+                    self.scheme_picks.remove(&project);
+                } else {
+                    self.scheme_picks.insert(project, pick);
+                }
             }
             StateChange::Panes { worktree, panes } => match panes {
                 Some(panes) => {

@@ -54,6 +54,7 @@ pub fn ipc() -> tauri_specta::Builder<tauri::Wry> {
             commands::build::stop_build,
             commands::build::worktree_opened,
             commands::build::list_destinations,
+            commands::build::list_schemes,
             commands::preview::open_preview,
             commands::preview::close_preview,
             commands::preview::list_previews,

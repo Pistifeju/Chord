@@ -1,10 +1,13 @@
-//! The worktree's Xcode project or workspace, its schemes, and the check that `xcodebuild` and `xcrun` exist.
+//! The worktree's Xcode project or workspace, its schemes with the configuration each one runs in, its build configurations, and the check that `xcodebuild` and `xcrun` exist.
 
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
+use serde::Serialize;
 use serde_json::Value;
 use chord_core::{Error, login_shell, xcode_bundles};
+use specta::Type;
 
 use crate::derived_data::LSOF;
 use crate::process;
@@ -76,6 +79,61 @@ pub(crate) fn project_in(worktree: &Path) -> Result<Project, Error> {
     }
 }
 
+/// What the Run menu offers a project.
+#[derive(Serialize, Type, Clone, Debug, PartialEq)]
+pub struct Schemes {
+    pub schemes: Vec<Scheme>,
+    pub configurations: Vec<String>,
+    /// The scheme a build without a pick uses.
+    pub default: String,
+}
+
+#[derive(Serialize, Type, Clone, Debug, PartialEq)]
+pub struct Scheme {
+    pub name: String,
+    /// The configuration a build without a pick uses: the one the scheme's Run action names.
+    pub configuration: String,
+}
+
+/// The schemes and build configurations of the worktree's project; a workspace's configurations are its sibling projects'.
+pub fn list_schemes(worktree: &Path) -> Result<Schemes, Error> {
+    require_tools()?;
+    let project = project_in(worktree)?;
+    let register = |_| {};
+    let listed = list(project.flag, &project.path, worktree, &register)?;
+    let projects = if project.flag == "-project" {
+        vec![listed.clone()]
+    } else {
+        siblings(worktree, &register)
+    };
+    let default = pick_scheme(&listed, || {
+        projects
+            .iter()
+            .flat_map(|sibling| strings(&sibling["project"]["targets"]))
+            .collect()
+    })?;
+    let mut configurations: Vec<String> = Vec::new();
+    for configuration in projects
+        .iter()
+        .flat_map(|sibling| strings(&sibling["project"]["configurations"]))
+    {
+        if !configurations.contains(&configuration) {
+            configurations.push(configuration);
+        }
+    }
+    Ok(Schemes {
+        schemes: strings(&info(&listed)?["schemes"])
+            .into_iter()
+            .map(|name| Scheme {
+                configuration: run_configuration(worktree, &name),
+                name,
+            })
+            .collect(),
+        configurations,
+        default,
+    })
+}
+
 /// The scheme named like the project, else one named like a target, else the first. Each `xcodebuild -list` runs in its own process group, whose id goes to `register` so a stop can end it.
 pub(crate) fn scheme_of(
     project: &Project,
@@ -94,28 +152,68 @@ pub(crate) fn destination(target: Option<&str>) -> String {
     }
 }
 
+/// The configuration the scheme's Run action names, from its `.xcscheme` in a project or workspace of the worktree, shared or the user's own; Debug for a scheme Xcode creates on the fly, which has no file.
+pub(crate) fn run_configuration(worktree: &Path, scheme: &str) -> String {
+    let file = format!("{scheme}.xcscheme");
+    xcode_bundles(worktree)
+        .into_iter()
+        .flat_map(|bundle| {
+            let users = fs::read_dir(bundle.join("xcuserdata"))
+                .into_iter()
+                .flatten()
+                .flatten()
+                .map(|user| user.path().join("xcschemes"));
+            std::iter::once(bundle.join("xcshareddata/xcschemes"))
+                .chain(users)
+                .collect::<Vec<_>>()
+        })
+        .find_map(|folder| launch_configuration(&fs::read_to_string(folder.join(&file)).ok()?))
+        .unwrap_or_else(|| "Debug".into())
+}
+
+/// The `buildConfiguration` of the scheme's `<LaunchAction>` tag.
+fn launch_configuration(scheme: &str) -> Option<String> {
+    let tag = &scheme[scheme.find("<LaunchAction")?..];
+    let tag = &tag[..tag.find('>')?];
+    let value = &tag[tag.find("buildConfiguration")?..];
+    let value = &value[value.find('"')? + 1..];
+    Some(value[..value.find('"')?].to_string())
+}
+
+/// What xcodebuild builds: the project, the scheme in the configuration, and the destination's id, any simulator while it has none. No `-derivedDataPath` and no build setting, so Xcode's own folder for the project is used.
+pub(crate) fn build_args(
+    project: &Project,
+    scheme: &str,
+    configuration: &str,
+    target: Option<&str>,
+) -> Vec<String> {
+    [
+        project.flag,
+        &project.path.to_string_lossy(),
+        "-scheme",
+        scheme,
+        "-configuration",
+        configuration,
+        "-destination",
+        &destination(target),
+    ]
+    .map(String::from)
+    .into()
+}
+
 /// The `.app` the scheme builds for the destination, from `xcodebuild -showBuildSettings -json` with the arguments of the build. Runs in its own process group, whose id goes to `register`.
 pub(crate) fn built_app(
     project: &Project,
     scheme: &str,
+    configuration: &str,
     target: Option<&str>,
     worktree: &Path,
     register: &dyn Fn(u32),
 ) -> Result<PathBuf, Error> {
-    let path = project.path.to_string_lossy();
-    let mut command = login_shell(
-        "xcodebuild",
-        &[
-            project.flag,
-            &path,
-            "-scheme",
-            scheme,
-            "-destination",
-            &destination(target),
-            "-showBuildSettings",
-            "-json",
-        ],
-    );
+    let mut args = build_args(project, scheme, configuration, target);
+    args.extend(["-showBuildSettings".into(), "-json".into()]);
+    let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
+    let mut command = login_shell("xcodebuild", &arg_refs);
     command.current_dir(worktree);
     let output = process::captured(command, register)?;
     if !output.status.success() {
@@ -184,10 +282,7 @@ fn strings(value: &Value) -> Vec<String> {
 
 // Package and Pods schemes match no target, and `-list` sorts them in among the app's.
 fn pick_scheme(listed: &Value, targets: impl FnOnce() -> Vec<String>) -> Result<String, Error> {
-    let info = listed
-        .get("workspace")
-        .or_else(|| listed.get("project"))
-        .ok_or_else(|| Error::Message("xcodebuild -list returned no project".into()))?;
+    let info = info(listed)?;
     let schemes = strings(&info["schemes"]);
     let name = info["name"].as_str().unwrap_or_default();
     if schemes.iter().any(|scheme| scheme == name) {
@@ -207,6 +302,13 @@ fn pick_scheme(listed: &Value, targets: impl FnOnce() -> Vec<String>) -> Result<
         })
 }
 
+fn info(listed: &Value) -> Result<&Value, Error> {
+    listed
+        .get("workspace")
+        .or_else(|| listed.get("project"))
+        .ok_or_else(|| Error::Message("xcodebuild -list returned no project".into()))
+}
+
 // A workspace has no targets of its own: its sibling projects' targets count, and Pods.xcodeproj sits in Pods/, so its stay out.
 fn targets(
     project: &Project,
@@ -217,11 +319,18 @@ fn targets(
     if project.flag == "-project" {
         return strings(&listed["project"]["targets"]);
     }
+    siblings(worktree, register)
+        .iter()
+        .flat_map(|sibling| strings(&sibling["project"]["targets"]))
+        .collect()
+}
+
+/// The `-list` of each project beside a workspace.
+fn siblings(worktree: &Path, register: &dyn Fn(u32)) -> Vec<Value> {
     xcode_bundles(worktree)
         .into_iter()
         .filter(|path| path.extension().is_some_and(|e| e == "xcodeproj"))
         .filter_map(|path| list("-project", &path, worktree, register).ok())
-        .flat_map(|sibling| strings(&sibling["project"]["targets"]))
         .collect()
 }
 
@@ -243,6 +352,19 @@ mod tests {
             app_in_settings(text).unwrap(),
             PathBuf::from("/b/Debug-iphonesimulator/My App.app")
         );
+    }
+
+    #[test]
+    fn reads_the_run_actions_configuration() {
+        let scheme = r#"<Scheme>
+   <BuildAction buildConfiguration = "Release"></BuildAction>
+   <LaunchAction
+      buildConfiguration = "Staging"
+      launchStyle = "0">
+   </LaunchAction>
+</Scheme>"#;
+        assert_eq!(launch_configuration(scheme).as_deref(), Some("Staging"));
+        assert_eq!(launch_configuration("<Scheme></Scheme>"), None);
     }
 
     #[test]

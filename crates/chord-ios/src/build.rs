@@ -10,7 +10,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
-use chord_core::{Error, PreviewPick, RunDestination, login_shell};
+use chord_core::{Error, PreviewPick, RunDestination, SchemePick, login_shell};
 use specta::Type;
 
 use crate::capacity::{self, Booted};
@@ -137,12 +137,13 @@ struct Inner {
 }
 
 impl Builds {
-    /// Starts a build of the worktree's project, and with `run` the app's install and launch, and returns. The app runs on the `destination`: a connected device, or a simulator of that model that is the worktree's own; without one, the worktree's own simulator of the newest iPhone model. `kept_services` are the user's switches of the service groups a boot keeps on. `on_event` hears its phases, log and end from a thread of its own. A build already running there stops first. A build that cannot start, such as a missing `xcodebuild` with its install step, ends as a failed one.
+    /// Starts a build of the worktree's project in the scheme and configuration of `pick`, and with `run` the app's install and launch, and returns. The app runs on the `destination`: a connected device, or a simulator of that model that is the worktree's own; without one, the worktree's own simulator of the newest iPhone model. `kept_services` are the user's switches of the service groups a boot keeps on. `on_event` hears its phases, log and end from a thread of its own. A build already running there stops first. A build that cannot start, such as a missing `xcodebuild` with its install step, ends as a failed one.
     pub fn start(
         &self,
         worktree: PathBuf,
         run: bool,
         destination: Option<RunDestination>,
+        pick: SchemePick,
         kept_services: BTreeMap<String, bool>,
         on_event: impl Fn(BuildEvent) + Send + Sync + 'static,
     ) {
@@ -180,6 +181,7 @@ impl Builds {
                 run,
                 preview: false,
                 destination,
+                pick,
                 kept_services,
                 project,
                 sink: Box::new(on_event),
@@ -422,6 +424,8 @@ impl Builds {
                 run: false,
                 preview: true,
                 destination: None,
+                // The preview builds the default scheme in its default configuration, whose compile commands the hot reload reuses.
+                pick: SchemePick::default(),
                 kept_services: BTreeMap::new(),
                 project,
                 sink: Box::new(sink),
@@ -544,6 +548,7 @@ struct Build {
     /// Install and launch the app on the worktree's preview simulator after the build.
     preview: bool,
     destination: Option<RunDestination>,
+    pick: SchemePick,
     kept_services: BTreeMap<String, bool>,
     project: Project,
     sink: Box<dyn Fn(BuildEvent) + Send + Sync>,
@@ -676,6 +681,7 @@ impl Build {
                 xcode::built_app(
                     &self.project,
                     &scheme,
+                    &self.configuration(&scheme),
                     target.as_deref(),
                     &self.worktree,
                     register,
@@ -778,7 +784,14 @@ impl Build {
                 let _ = simulator::open_app(false);
             }
             let app = self.step(|register| {
-                xcode::built_app(&self.project, scheme, Some(udid), &self.worktree, register)
+                xcode::built_app(
+                    &self.project,
+                    scheme,
+                    &self.configuration(scheme),
+                    Some(udid),
+                    &self.worktree,
+                    register,
+                )
             })?;
             let id =
                 self.step(|register| simulator::plist_text(&app, "CFBundleIdentifier", register))?;
@@ -820,7 +833,14 @@ impl Build {
                 phase: BuildPhase::Installing,
             });
             let app = self.step(|register| {
-                xcode::built_app(&self.project, scheme, Some(udid), &self.worktree, register)
+                xcode::built_app(
+                    &self.project,
+                    scheme,
+                    &self.configuration(scheme),
+                    Some(udid),
+                    &self.worktree,
+                    register,
+                )
             })?;
             let id =
                 self.step(|register| simulator::plist_text(&app, "CFBundleIdentifier", register))?;
@@ -873,6 +893,9 @@ impl Build {
     }
 
     fn scheme(&self) -> Result<String, Error> {
+        if let Some(scheme) = &self.pick.scheme {
+            return Ok(scheme.clone());
+        }
         if let Some(scheme) = lock(&self.builds.0.schemes).get(&self.project.path) {
             return Ok(scheme.clone());
         }
@@ -880,6 +903,14 @@ impl Build {
             self.step(|register| xcode::scheme_of(&self.project, &self.worktree, register))?;
         lock(&self.builds.0.schemes).insert(self.project.path.clone(), scheme.clone());
         Ok(scheme)
+    }
+
+    /// The picked configuration, else the one the scheme runs in.
+    fn configuration(&self, scheme: &str) -> String {
+        self.pick
+            .configuration
+            .clone()
+            .unwrap_or_else(|| xcode::run_configuration(&self.worktree, scheme))
     }
 
     fn database(&self) -> Option<PathBuf> {
@@ -925,7 +956,9 @@ impl Build {
     }
 
     fn xcodebuild(&self, scheme: &str, target: Option<&str>) -> BuildEvent {
-        let args = build_args(&self.project, scheme, target);
+        let mut args =
+            xcode::build_args(&self.project, scheme, &self.configuration(scheme), target);
+        args.push("build".into());
         let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
         let mut command = login_shell("xcodebuild", &arg_refs);
         command.current_dir(&self.worktree);
@@ -962,7 +995,9 @@ impl Build {
         if !batch.is_empty() {
             self.log(batch);
         }
-        drivers.record(&self.worktree);
+        if self.pick == SchemePick::default() {
+            drivers.record(&self.worktree);
+        }
         let status = child.wait();
         lock(&self.builds.0.slots).clear_pid(&self.worktree, self.id);
         if self.stopped() {
@@ -1003,20 +1038,4 @@ fn failure(message: String) -> BuildEvent {
         }],
         more: 0,
     }
-}
-
-/// `xcodebuild` and nothing else: no `-derivedDataPath` and no build setting, so Xcode's own folder for the project is used. The destination is the target's id; any simulator while it has none.
-fn build_args(project: &Project, scheme: &str, target: Option<&str>) -> Vec<String> {
-    let destination = xcode::destination(target);
-    [
-        project.flag,
-        &project.path.to_string_lossy(),
-        "-scheme",
-        scheme,
-        "-destination",
-        &destination,
-        "build",
-    ]
-    .map(String::from)
-    .into()
 }

@@ -7,6 +7,7 @@ import { openSideView } from "../../sidepanel/store";
 import { projects } from "../../worktrees/store";
 import { fail } from "../../../ui/alert";
 import { runDestinationOf } from "./destinationStore";
+import { schemePickOf } from "./schemeStore";
 import { emptyConsole, type ConsoleLine } from "./consoleLog";
 import { emptyLog, type Log } from "./log";
 import { appliedEvent, appliedSideEvent, isRunning, noBuild, seenEnd, viewAfterEvent, viewToShow, type Build, type BuildAndLog } from "./run";
@@ -57,7 +58,7 @@ function startBuildBesideApp(worktree: string, agentRequest: number | null) {
   };
   apply(worktree, (state) => appliedSideEvent({ ...state, log: emptyLog, build: state.build && { ...state.build, side: undefined } }, { kind: "phase", phase: "preparing" }, Date.now()));
   changeBottomPanel(worktree, { view: "build" });
-  commands.startBuild(worktree, false, runDestinationOf(worktree), agentRequest, channel).catch(fail);
+  commands.startBuild(worktree, false, runDestinationOf(worktree), schemePickOf(worktree), agentRequest, channel).catch(fail);
 }
 
 /** `agentRequest` is the agent's tool call the build answers. */
@@ -82,7 +83,7 @@ export function startBuild(worktree: string, run: boolean, agentRequest: number 
   const destination = runDestinationOf(worktree);
   // An agent's run goes to the worktree's simulator, never to the user's device.
   const target = agentRequest !== null && run && destination?.kind === "device" ? null : destination;
-  commands.startBuild(worktree, run, target, agentRequest, channel).catch(fail);
+  commands.startBuild(worktree, run, target, schemePickOf(worktree), agentRequest, channel).catch(fail);
 }
 
 /** ⌘R and the play button: a run on a simulator shows it in the Simulator view. An agent's run calls `startBuild` and moves nothing. */

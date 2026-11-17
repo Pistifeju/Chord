@@ -1,10 +1,10 @@
-//! Commands for a worktree's build: start it with its event channel, stop it, note it opened, and list the run destinations.
+//! Commands for a worktree's build: start it with its event channel, stop it, note it opened, and list the run destinations and the project's schemes.
 
 use std::path::PathBuf;
 
 use serde::Serialize;
-use chord_core::RunDestination;
-use chord_ios::{AgentBuild, AgentTools, BuildEvent, Builds, Destinations};
+use chord_core::{RunDestination, SchemePick};
+use chord_ios::{AgentBuild, AgentTools, BuildEvent, Builds, Destinations, Schemes};
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager};
 
@@ -14,7 +14,7 @@ use super::blocking;
 #[derive(Serialize, specta::Type, tauri_specta::Event, Clone)]
 pub struct AgentBuildRequested(pub AgentBuild);
 
-/// Builds the worktree's Xcode project, and with `run` runs the app on the destination. The channel carries the build's phases, log and end. `agent_request` is the agent's tool call the build answers.
+/// Builds the worktree's Xcode project in the scheme and configuration of `pick`, and with `run` runs the app on the destination. The channel carries the build's phases, log and end. `agent_request` is the agent's tool call the build answers.
 #[tauri::command]
 #[specta::specta]
 pub async fn start_build(
@@ -22,19 +22,26 @@ pub async fn start_build(
     worktree: PathBuf,
     run: bool,
     destination: Option<RunDestination>,
+    pick: SchemePick,
     agent_request: Option<u32>,
     on_event: Channel<BuildEvent>,
 ) -> Result<(), String> {
     blocking(app, move |app, store| {
         let agent = agent_request.and_then(|request| app.state::<AgentTools>().take(request));
         let kept_services = store.get().kept_services;
-        app.state::<Builds>()
-            .start(worktree, run, destination, kept_services, move |event| {
+        app.state::<Builds>().start(
+            worktree,
+            run,
+            destination,
+            pick,
+            kept_services,
+            move |event| {
                 if let Some(agent) = &agent {
                     let _ = agent.send(event.clone());
                 }
                 let _ = on_event.send(event);
-            });
+            },
+        );
         Ok(())
     })
     .await
@@ -66,4 +73,11 @@ pub async fn stop_build(app: AppHandle, worktree: PathBuf) -> Result<(), String>
 #[specta::specta]
 pub async fn list_destinations(app: AppHandle) -> Result<Destinations, String> {
     blocking(app, |_, _| chord_ios::list_destinations()).await
+}
+
+/// The schemes and build configurations of the worktree's project.
+#[tauri::command]
+#[specta::specta]
+pub async fn list_schemes(app: AppHandle, worktree: PathBuf) -> Result<Schemes, String> {
+    blocking(app, move |_, _| chord_ios::list_schemes(&worktree)).await
 }

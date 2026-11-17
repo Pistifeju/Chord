@@ -1,5 +1,5 @@
-// The run control at the tab bar's right end: the run destination, which opens the run menu, and a play button that builds and runs, a stop square from the start of a build until the app launches.
-import { CheckMenuItem, Menu, MenuItem, PredefinedMenuItem } from "@tauri-apps/api/menu";
+// The run control at the tab bar's right end: the run destination, which opens the run menu with the project's scheme and build configuration, and a play button that builds and runs, a stop square from the start of a build until the app launches.
+import { CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu } from "@tauri-apps/api/menu";
 import { LogicalPosition } from "@tauri-apps/api/dpi";
 import type { MouseEvent } from "react";
 import type { RunDestination } from "../../../ipc/bindings";
@@ -11,6 +11,8 @@ import { ChevronDownIcon, PhoneIcon, PlayIcon, StopIcon } from "../../../ui/icon
 import { sameDestination } from "./destination";
 import { chooseRunDestination, destinations, refreshDestinations, runDestinationOf, useRunDestination } from "./destinationStore";
 import { isRunning, isStarting } from "./run";
+import { shownPick } from "./scheme";
+import { chooseSchemePick, refreshSchemes, schemeListings, schemePickOf } from "./schemeStore";
 import { builds, runApp, stopBuild } from "./store";
 
 const disabledLine = (text: string) => MenuItem.new({ text, enabled: false });
@@ -30,7 +32,20 @@ export async function simulatorItems(pick: RunDestination | null, choose: (desti
   return items;
 }
 
-// The commands, then the devices under their line and the simulator models under a line per iOS version; the project's pick is checked.
+// The Scheme and Build Configuration submenus, the project's picks checked; none before the first listing.
+async function schemeItems(worktree: string) {
+  const listing = schemeListings.get()[worktree];
+  if (!listing) return [];
+  const shown = shownPick(schemePickOf(worktree), listing);
+  const submenu = async (text: string, names: string[], checked: string | null, choose: (name: string) => void) =>
+    Submenu.new({ text, items: await Promise.all(names.map((name) => CheckMenuItem.new({ text: name, checked: name === checked, action: () => choose(name) }))) });
+  const items = [await PredefinedMenuItem.new({ item: "Separator" }), await submenu("Scheme", listing.schemes.map((listed) => listed.name), shown.scheme, (scheme) => chooseSchemePick(worktree, { scheme }))];
+  if (listing.configurations.length)
+    items.push(await submenu("Build Configuration", listing.configurations, shown.configuration, (configuration) => chooseSchemePick(worktree, { configuration })));
+  return items;
+}
+
+// The commands, then the devices under their line and the simulator models under a line per iOS version, then the scheme submenus; the project's picks are checked.
 async function runMenu(worktree: string) {
   const listing = destinations.get();
   const pick = runDestinationOf(worktree);
@@ -42,7 +57,7 @@ async function runMenu(worktree: string) {
     items.push(await disabledLine("Devices"));
     for (const device of listing.devices) items.push(await choiceItem(pick, device, choose));
   }
-  items.push(...(await simulatorItems(pick, choose)));
+  items.push(...(await simulatorItems(pick, choose)), ...(await schemeItems(worktree)));
   return Menu.new({ items });
 }
 
@@ -70,7 +85,14 @@ export function RunControl({ worktree }: { worktree: string }) {
         className="run-destination"
         title="Run Destination"
         aria-label={`Run Destination: ${os ? `${name}, ${os}` : name}`}
-        onClick={(e: MouseEvent<HTMLButtonElement>) => popUpUnder(worktree, e.currentTarget, () => runMenu(worktree)).catch(fail)}
+        onClick={(e: MouseEvent<HTMLButtonElement>) => {
+          // Listed beside the destinations; like them, the last listing shows while the new one loads.
+          const listing = refreshSchemes(worktree).catch(fail);
+          popUpUnder(worktree, e.currentTarget, async () => {
+            if (!schemeListings.get()[worktree]) await listing;
+            return runMenu(worktree);
+          }).catch(fail);
+        }}
       >
         <PhoneIcon />
         <span className="run-destination-name">{name}</span>

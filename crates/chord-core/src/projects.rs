@@ -28,6 +28,7 @@ pub fn remove(store: &Store, path: &Path) -> Result<(), Error> {
         state.projects.retain(|p| p.path != path);
         state.run_destinations.remove(path);
         state.preview_models.remove(path);
+        state.scheme_picks.remove(path);
     })
 }
 
