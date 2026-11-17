@@ -234,6 +234,21 @@ function FileView({ worktree, path, autoFocus, onGone, onEdit }: { worktree: str
 function GroupView({ group, place, edges }: { group: Group; place: Place; edges: Edges }) {
   const { worktree } = place;
   const tab = group.tabs.find((t) => t.id === group.active) ?? group.tabs[0];
+  if (!tab)
+    return (
+      <div className="group" data-group={group.id}>
+        <GroupTabs group={group} place={place} edges={edges} />
+        <div className="pane">
+          <div className="chat-empty">
+            <h1 className="chat-empty-title">No tabs open</h1>
+            <p className="chat-empty-text">Open a session in this worktree.</p>
+            <button type="button" className="button-primary" onClick={() => newSession(worktree, group.id)}>
+              New Session
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   const focused = tab.id === place.focused;
   const focus = () => focusPane(worktree, tab.id);
   return (

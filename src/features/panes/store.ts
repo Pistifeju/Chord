@@ -70,16 +70,16 @@ type CloseAgents = Extract<Sheet, { kind: "closeAgents" }>;
 // A close that would stop a working agent asks first.
 export function closePane(worktree: string, tab: string) {
   const current = panesOf(worktree);
-  const { gone } = paneChanges(current, withTabClosed(current, tab, newId()));
+  const { gone } = paneChanges(current, withTabClosed(current, tab));
   if (anyRunning(chats.get(), gone)) openSheet({ kind: "closeAgents", worktree, id: tab });
-  else change(worktree, (p) => withTabClosed(p, tab, newId()));
+  else change(worktree, (p) => withTabClosed(p, tab));
 }
 
 export const cancelClose = () => closeSheet("closeAgents");
 
 export function confirmClose(sheet: CloseAgents) {
   closeSheet("closeAgents");
-  change(sheet.worktree, (p) => withTabClosed(p, sheet.id, newId()));
+  change(sheet.worktree, (p) => withTabClosed(p, sheet.id));
 }
 
 export const moveTab = (worktree: string, tab: string, drop: TabDrop) => change(worktree, (p) => withTabMoved(p, tab, drop, newId()));

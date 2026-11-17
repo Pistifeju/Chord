@@ -1,7 +1,7 @@
 // Rules for a worktree's tabs and tab groups: new, open, split, move, close, and which tab has the focus.
 import type { Direction, Tab, WorktreePanes } from "../../ipc/bindings";
 import type { Item } from "../chat/transcript.ts";
-import { edgeDirection, groupOf, groups, paneIds, withBeside, withGroup, withoutGroup, type Edge, type FilePane, type Group } from "./layout.ts";
+import { edgeDirection, groupOf, groups, withBeside, withGroup, withoutGroup, type Edge, type FilePane, type Group } from "./layout.ts";
 import { fileName } from "../files/paths.ts";
 
 const chatTab = (id: string, name: string): Tab => ({ kind: "chat", id, name });
@@ -59,8 +59,6 @@ export function withSplitFocused(panes: WorktreePanes, group: string, chat: stri
   return { layout: withBeside(panes.layout, focusedGroup(panes).id, lone(group, chatTab(chat, nextName(panes))), direction, false), focused: chat };
 }
 
-export const paneCount = (panes: WorktreePanes): number => paneIds(panes.layout).length;
-
 /** The name of each pane's agent session, by pane id; a pane whose session has no user message yet is left out. */
 export type PaneNames = Record<string, string | undefined>;
 
@@ -86,7 +84,7 @@ export const paneNames = (chats: Record<string, { items: Item[] } | undefined>, 
 // A chat tab shows the name of its agent session once that has one; a file tab its file name.
 export const tabName = (tab: Tab, names: PaneNames): string => (tab.kind === "chat" ? names[tab.id] ?? tab.name : fileName(tab.path));
 
-// The tab leaves its group, whose tab beside it opens; a group left empty goes.
+// The tab leaves its group, whose tab beside it opens; a group left empty goes, unless it is the last group.
 function withoutTab(panes: WorktreePanes, tab: string): WorktreePanes {
   const owner = groupOf(panes.layout, tab);
   if (!owner) return panes;
@@ -98,18 +96,13 @@ function withoutTab(panes: WorktreePanes, tab: string): WorktreePanes {
     return { layout, focused: panes.focused === tab ? active : panes.focused };
   }
   const layout = withoutGroup(panes.layout, owner.id);
-  if (!layout) return panes;
+  if (!layout) return { layout: { ...owner, tabs: [], active: "" }, focused: "" };
   const left = groups(layout);
   const beside = left[Math.min(groups(panes.layout).indexOf(owner), left.length - 1)];
   return { layout, focused: panes.focused === tab ? beside.active : panes.focused };
 }
 
-// Closes a tab; the last tab of all gives its place to a new chat `replacement`.
-export function withTabClosed(panes: WorktreePanes, tab: string, replacement: string): WorktreePanes {
-  const owner = groupOf(panes.layout, tab);
-  if (!owner) return panes;
-  return withoutTab(paneCount(panes) === 1 ? withNewSession(panes, replacement, owner.id) : panes, tab);
-}
+export const withTabClosed = withoutTab;
 
 /** Where a dragged tab lands: a group's tab bar (`edge` null), or a group's edge, where it opens a new group. */
 export type TabDrop = { group: string; edge: Edge | null };

@@ -5,7 +5,7 @@ import type { Direction } from "../../ipc/bindings";
 import { chatOf, chats } from "../chat/store";
 import { openWorktree, shownPanes } from "../worktrees/store";
 import { filePanes, fitsSplit, groupOf } from "./layout";
-import { closeFocused, newSession, splitFocused } from "./store";
+import { closeFocused, newSession, panes, splitFocused } from "./store";
 
 // A split goes beside a focused file tab, or a chat whose agent started, when the focused group has room for two.
 const canSplit = (direction: Direction) => (): boolean => {
@@ -32,7 +32,10 @@ export const paneCommands: AppCommand[] = [
     id: "pane.close",
     title: "Close Tab",
     shortcut: { key: "w", cmd: true, shift: true },
-    when: () => openWorktree() !== null,
+    when: () => {
+      const worktree = openWorktree();
+      return worktree !== null && panes.get()[worktree]?.focused !== "";
+    },
     run: onWorktree(closeFocused),
   },
   { id: "session.new", title: "New Session", shortcut: { key: "t", cmd: true, shift: true }, ...onTarget(openWorktree, (worktree) => newSession(worktree)) },
