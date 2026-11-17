@@ -4,9 +4,12 @@ import { bracketMatching, indentOnInput, LanguageDescription, type LanguageSuppo
 import { languages } from "@codemirror/language-data";
 import { Compartment, EditorState } from "@codemirror/state";
 import { drawSelection, EditorView, keymap, lineNumbers } from "@codemirror/view";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { commands } from "../../ipc/bindings";
 import { fail } from "../../ui/alert";
+import { EditorFind } from "./EditorFind";
+import { closeEditorFind, editorFinds } from "./find";
+import { findMarks } from "./findMarks";
 import { requestedLine, lineRequests, takeLine } from "./reveal";
 import { changedOnDisk, closeFile, readFile, scheduleSave } from "./store";
 import { editorTheme } from "./theme";
@@ -22,6 +25,11 @@ export function Editor({ worktree, path, autoFocus, onGone, onEdit }: { worktree
   const focusRef = useRef(autoFocus);
   focusRef.current = autoFocus;
   const [loading, setLoading] = useState(true);
+  const id = useId();
+  const find = editorFinds.usePart((all) => all[id]);
+  const finding = useRef(false);
+  finding.current = find !== undefined;
+  const [version, setVersion] = useState(0);
   useEffect(() => {
     let view: EditorView | undefined;
     let gone = false;
@@ -42,8 +50,10 @@ export function Editor({ worktree, path, autoFocus, onGone, onEdit }: { worktree
           keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
           language.of(support ?? []),
           editorTheme,
+          findMarks,
           EditorView.updateListener.of((update) => {
             if (!update.docChanged) return;
+            if (finding.current) setVersion((v) => v + 1);
             scheduleSave(worktree, path, update.state.doc, update.state.lineBreak);
             onEdit();
           }),
@@ -85,6 +95,7 @@ export function Editor({ worktree, path, autoFocus, onGone, onEdit }: { worktree
         const clamp = (at: number) => Math.min(at, state.doc.length);
         view.setState(state);
         view.dispatch({ selection: { anchor: clamp(anchor), head: clamp(head) } });
+        setVersion((v) => v + 1);
       } catch {
         // A file gone from disk keeps its text in the editor until the tab closes.
       } finally {
@@ -96,9 +107,10 @@ export function Editor({ worktree, path, autoFocus, onGone, onEdit }: { worktree
       window.clearInterval(timer);
       view?.destroy();
       viewRef.current = undefined;
+      closeEditorFind(id);
       closeFile(worktree, path);
     };
-  }, [worktree, path]);
+  }, [worktree, path, id]);
   useEffect(() => {
     if (autoFocus) viewRef.current?.focus();
   }, [autoFocus]);
@@ -112,8 +124,9 @@ export function Editor({ worktree, path, autoFocus, onGone, onEdit }: { worktree
     takeLine(worktree, path);
   }, [line, loading, worktree, path]);
   return (
-    <div className="editor" data-selectable>
+    <div className="editor" data-selectable data-find={id}>
       <div ref={host} className="editor-host" />
+      {find && viewRef.current && <EditorFind id={id} view={viewRef.current} find={find} version={version} />}
       {loading && <span className="spinner" role="status" aria-label="Loading" />}
     </div>
   );

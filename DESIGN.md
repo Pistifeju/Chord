@@ -399,6 +399,7 @@ It uses the app's roles; `src/ui/tokens.css` overrides `selected` inside `.sideb
 ### Editor
 
 - Fills the work area left of the side panel while a file tab is open; the panes stay mounted behind it. `canvas` fill, Code text (12px monospace, Body line height), a line number gutter in `ink-disabled` (`ink-secondary` on the cursor's line), no ring on focus, `editor-selection` for the selection, `editor-match` on the matching bracket and the `syn-*` colors for keywords, strings, numbers, types and functions; comments are `ink-muted` italic. It saves 1s after the last edit and when its tab goes.
+- **Find:** ⌘F in the editor opens the chat's find bar at the editor's top right. Matches take `editor-match`; the current one adds a 2px `accent-ink` underline and scrolls to the middle. A new query starts at the first match after the caret. Esc closes the bar, selects the current match and returns the focus to the editor.
 - **Image view:** an image file (PNG, JPEG, GIF, WebP) opens in its file tab as the image, not the editor: centered on `canvas` with 24px padding, scaled down to fit and never up. It reads the file again within a second of a change on disk; a file gone from disk closes its tab.
 
 ### Status bar

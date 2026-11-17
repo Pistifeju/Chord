@@ -119,7 +119,7 @@ Edge cases:
 
 ## 6. Files and editor (core)
 
-- [x] F1 Files view in the side panel (⌘⇧E), with its tab bar button: a tree of the worktree folder on disk, without `.git`; a folder reads its children when you open it; folders first, natural sort (`file2` before `file10`); a chain of single-child folders shows as one row (`src/app/views`). Header: filter field, Collapse All, Reload. The open file's row stays selected and scrolls into view.
+- [x] F1 Files view in the side panel (⌘⇧E), with its tab bar button: a tree of the worktree folder on disk, without `.git`; a folder reads its children when you open it; folders first, natural sort (`file2` before `file10`); a chain of single-child folders shows as one row (`src/app/views`). Header: filter field (⌘F while the focus is in the view), Collapse All, Reload. The open file's row stays selected and scrolls into view.
 - [x] F2 CodeMirror editor with syntax highlighting; a file opens in a tab of the focused group; saves 1 s after you stop typing and on file switch.
 - [x] F3 Saving never overwrites an agent's change on disk; a conflict stops the save.
 - [x] F4 Image view, reloads on change.
@@ -129,6 +129,7 @@ Edge cases:
 - [x] F8 Keyboard in the tree: ↑ ↓ move, → opens a folder, ← closes it or jumps to the parent, Return opens the file.
 - [x] F9 Drag a file from the tree into the composer to put its relative path in the draft.
 - [x] F10 Preview tab: a click in the tree, ⌘⇧O and a build error open the file in the focused group's preview tab (italic name), which the next file replaces; a double click on the row or the tab, or an edit, keeps it.
+- [x] F11 ⌘F searches the open file in the editor with the chat's find bar: previous and next match, match count; Esc closes it and selects the current match.
 
 Edge cases:
 - The tree refreshes on window focus and on Reload; open folders and the selection survive a refresh.

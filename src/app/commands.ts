@@ -5,6 +5,7 @@ import { commands } from "../ipc/bindings";
 import { openContextMenu } from "./contextMenu";
 import { chatCommands } from "../features/chat/commands";
 import { buildCommands } from "../features/ios/build/commands";
+import { editorCommands } from "../features/editor/commands";
 import { filesCommands } from "../features/files/commands";
 import { paneCommands } from "../features/panes/commands";
 import { settingsCommands } from "../features/settings/commands";
@@ -21,7 +22,7 @@ export type AppCommand = { id: string; title: string; shortcut?: Shortcut; run: 
   when?: () => boolean;
 };
 
-const table: AppCommand[] = [...sidebarCommands, ...filesCommands, ...terminalCommands, ...settingsCommands, ...chatCommands, ...paneCommands, ...worktreeCommands, ...buildCommands, ...simulatorCommands, ...previewCommands];
+const table: AppCommand[] = [...sidebarCommands, ...filesCommands, ...editorCommands, ...terminalCommands, ...settingsCommands, ...chatCommands, ...paneCommands, ...worktreeCommands, ...buildCommands, ...simulatorCommands, ...previewCommands];
 
 const defaultShortcuts: ShortcutMap = Object.fromEntries(table.map((c) => [c.id, c.shortcut]));
 

@@ -13,6 +13,8 @@ const surface = EditorView.theme({
   ".cm-activeLineGutter": { backgroundColor: "transparent", color: "var(--ink-secondary)" },
   ".cm-selectionBackground, &.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground": { backgroundColor: "var(--editor-selection)" },
   ".cm-matchingBracket": { backgroundColor: "var(--editor-match)", outline: "none" },
+  ".cm-find-match": { backgroundColor: "var(--editor-match)" },
+  ".cm-find-current": { textDecoration: "underline 2px var(--accent-ink)" },
 });
 
 const colors = HighlightStyle.define([
