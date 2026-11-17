@@ -52,6 +52,7 @@ Never test copy, CSS classes, constants, third-party libraries, private state, t
 ## Done
 
 - `npm run check` passes. It prints one `step=exit` line per step and the path of its own log; read the log only for a step that is not 0. Never report a check you did not run.
+- Run `npm run check` once, at the end of a code change. Do not rerun `npm run check` before a commit.
 - Skip visual checks: no screenshots, no launching the app to look at the UI. The user checks it.
 - `SPEC.md` ticks the feature in the same commit.
 - Commit messages: `type(area): what changed`, lower case. Types: `feat`, `fix`, `perf`, `refactor`, `test`, `docs`, `chore`. The area is a feature folder (`sidebar`, `chat`, `ios`, ...) and may be left out: `docs: add the harness contract`.
