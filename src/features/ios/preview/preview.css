@@ -1,4 +1,4 @@
-/* The Preview view: its header with the model button over the `#Preview` list beside the Simulator view's screen, and the compile error's bar. Rules: DESIGN.md, Preview view. */
+/* The Preview view: the `#Preview` list beside a column of its header with the model button over the Simulator view's screen, and the compile error's bar. Rules: DESIGN.md, Preview view. */
 .preview {
   display: flex;
   flex-direction: column;
@@ -8,8 +8,9 @@
 .preview-header {
   display: flex;
   align-items: center;
-  height: 24px;
-  padding: 4px 6px 0 18px;
+  flex: none;
+  height: 30px;
+  padding: 4px 6px 4px 12px;
   gap: 8px;
   box-sizing: content-box;
 }
@@ -28,7 +29,10 @@
   border-right: 1px solid var(--line);
 }
 
-.preview-body .simulator {
+.preview-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
   min-width: 0;
 }
 

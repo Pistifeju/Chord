@@ -74,26 +74,28 @@ export function PreviewView({ worktree }: { worktree: string }) {
   const modelMenu = async () => Menu.new({ items: await simulatorItems(model, (chosen) => choosePreviewModel(worktree, chosen)) });
   return (
     <div className="preview">
-      <div className="preview-header">
-        {building && (
-          <span className="preview-rebuilding" role="status">
-            <span className="spinner" aria-hidden="true" />
-            Rebuilding
-          </span>
-        )}
-        <button
-          type="button"
-          className="preview-button preview-model"
-          title="Preview Device"
-          onClick={(e: MouseEvent<HTMLButtonElement>) => popUpUnder(worktree, e.currentTarget, modelMenu).catch(fail)}
-        >
-          <PhoneIcon />
-          <span className="preview-file">{model?.name ?? "Newest iPhone"}</span>
-        </button>
-      </div>
       <div className="preview-body">
         <PreviewList worktree={worktree} />
-        <SimulatorView worktree={worktree} preview={line} />
+        <div className="preview-main">
+          <div className="preview-header">
+            {building && (
+              <span className="preview-rebuilding" role="status">
+                <span className="spinner" aria-hidden="true" />
+                Rebuilding
+              </span>
+            )}
+            <button
+              type="button"
+              className="preview-button preview-model"
+              title="Preview Device"
+              onClick={(e: MouseEvent<HTMLButtonElement>) => popUpUnder(worktree, e.currentTarget, modelMenu).catch(fail)}
+            >
+              <PhoneIcon />
+              <span className="preview-file">{model?.name ?? "Newest iPhone"}</span>
+            </button>
+          </div>
+          <SimulatorView worktree={worktree} preview={line} />
+        </div>
       </div>
       {error && <ErrorBar worktree={worktree} issue={error} />}
     </div>
@@ -160,15 +162,22 @@ function ListRow({ row, selected, onToggle, onPick }: { row: PreviewRow; selecte
       aria-level={depth + 1}
       aria-expanded={pick ? undefined : open}
       aria-selected={selected}
-      // WebKit does not focus a clicked button, and the focus is what shows a preview.
-      onMouseDown={(event) => event.currentTarget.focus()}
+      // WebKit does not focus a clicked button and blurs it after mousedown, and the focus is what shows a preview.
+      onMouseDown={(event) => {
+        event.preventDefault();
+        event.currentTarget.focus();
+      }}
       onFocus={() => pick && !selected && onPick(pick)}
       onClick={() => !pick && onToggle(entry.path)}
     >
       <span className="turn-chevron files-chevron" data-open={open} data-hidden={pick !== null}>
         <ChevronIcon />
       </span>
-      <span className="files-icon">{pick ? <EyeIcon /> : <FileIcon />}</span>
+      {!pick && (
+        <span className="files-icon">
+          <FileIcon />
+        </span>
+      )}
       <span className="files-name">{entry.name}</span>
     </button>
   );
