@@ -3,7 +3,7 @@ import { commands } from "../ipc/bindings";
 import { loadShortcutChanges } from "./commands";
 import { installAppMenu } from "./appMenu";
 import { loadDeferredViews } from "./deferredViews";
-import { keepAwake, loadAppearance } from "../features/settings/store";
+import { keepAwake, loadAppearance, muteNotifications } from "../features/settings/store";
 import { loadPanes, resumeAgents } from "../features/panes/store";
 import { sidebar } from "../features/sidebar/store";
 import { loadSidePanels } from "../features/sidepanel/store";
@@ -29,6 +29,7 @@ export async function launch() {
     const state = await commands.loadState();
     loadAppearance(state.appearance);
     keepAwake.set(state.keepAwake);
+    muteNotifications.set(state.muteNotifications);
     screenshotFolder.set(state.screenshotFolder);
     loadShortcutChanges(state.shortcuts);
     sidebar.set(state.sidebar);

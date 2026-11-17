@@ -20,6 +20,8 @@ pub struct State {
     pub appearance: Appearance,
     /// Keep the Mac awake while an agent runs.
     pub keep_awake: bool,
+    /// No macOS notification for a done or waiting agent.
+    pub mute_notifications: bool,
     /// Shortcuts the user changed, by command id. `None` means the command lost its key.
     #[serde(deserialize_with = "valid_shortcuts")]
     #[specta(type = BTreeMap<String, Option<Shortcut>>)]
@@ -123,6 +125,7 @@ pub enum StateChange {
     Theme(Theme),
     TextPercent(u8),
     TerminalFontSize(u8),
+    MuteNotifications(bool),
     Shortcuts(BTreeMap<String, Option<Shortcut>>),
     /// `None` forgets the worktree's layouts.
     Panes {
@@ -172,6 +175,7 @@ impl State {
             StateChange::Theme(theme) => self.appearance.theme = theme,
             StateChange::TextPercent(percent) => self.appearance.text_percent = percent,
             StateChange::TerminalFontSize(size) => self.appearance.terminal_font_size = size,
+            StateChange::MuteNotifications(mute) => self.mute_notifications = mute,
             StateChange::Shortcuts(shortcuts) => self.shortcuts = shortcuts,
             StateChange::SidePanel { worktree, panel } => {
                 self.side_panels.insert(worktree, panel);

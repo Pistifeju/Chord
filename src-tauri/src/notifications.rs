@@ -64,7 +64,11 @@ pub fn announce(app: &AppHandle, worktree: PathBuf, pane: String, status: &Statu
     let body = body(headline, message);
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let (project, branch) = names(&app.state::<Arc<Store>>().get().projects, &worktree);
+        let state = app.state::<Arc<Store>>().get();
+        if state.mute_notifications {
+            return;
+        }
+        let (project, branch) = names(&state.projects, &worktree);
         let _ = app
             .notification()
             .builder()

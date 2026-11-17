@@ -8,7 +8,7 @@ import { recordedShortcut } from "../../app/shortcuts";
 import { Row } from "../../ui/Row";
 import { onOff, Segmented } from "../../ui/Segmented";
 import { AppearanceIcon, CloseIcon, KeyboardIcon, MinusIcon, PhoneIcon, PlusIcon, SlidersIcon } from "../../ui/icons";
-import { appearance, changeTerminalFontSize, changeTextSize, closeSettings, keepAwake, setKeepAwake, setTheme, settingsSection, shortcutChanges, type SettingsSection } from "./store";
+import { appearance, changeTerminalFontSize, changeTextSize, closeSettings, keepAwake, muteNotifications, setKeepAwake, setMuteNotifications, setTheme, settingsSection, shortcutChanges, type SettingsSection } from "./store";
 import "./settings.css";
 
 // A press on the blurred window closes Settings on release; moving first drags the window instead.
@@ -59,6 +59,7 @@ function Group({ heading, notice, children }: { heading: string; notice?: ReactN
 
 function General({ buildDataSize }: { buildDataSize: ReactNode }) {
   const enabled = keepAwake.use();
+  const muted = muteNotifications.use();
   const [error, setError] = useState("");
   return (
     <>
@@ -75,6 +76,9 @@ function General({ buildDataSize }: { buildDataSize: ReactNode }) {
           }
         >
           <Segmented label="Keep the Mac awake while an agent runs" options={onOff} value={enabled} onChange={(value) => setKeepAwake(value).then((failure) => setError(failure ?? ""))} />
+        </Row>
+        <Row title="Notifications" description={<p className="settings-description">A macOS notification when an agent finishes or waits for you.</p>}>
+          <Segmented label="Notify when an agent finishes or waits" options={onOff} value={!muted} onChange={(value) => setMuteNotifications(!value)} />
         </Row>
       </Group>
       {buildDataSize && (

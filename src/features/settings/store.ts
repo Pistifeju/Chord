@@ -1,4 +1,4 @@
-// The theme, the text size, the terminal font size, keep-awake, the changed shortcuts, whether the Settings page is open and the section it opens on. The first four are saved through Rust; the theme and text size are applied to the document.
+// The theme, the text size, the terminal font size, keep-awake, notifications, the changed shortcuts, whether the Settings page is open and the section it opens on. The first five are saved through Rust; the theme and text size are applied to the document.
 import { commands, type Appearance_Serialize as Appearance, type Theme } from "../../ipc/bindings";
 import type { ShortcutChanges } from "../../app/shortcuts";
 import { externalStore } from "../../ui/externalStore";
@@ -6,6 +6,7 @@ import { defaultTextPercent, shownTheme, steppedTerminalFontSize, steppedTextPer
 
 export const appearance = externalStore<Appearance>({ theme: "system", textPercent: defaultTextPercent, terminalFontSize: 12 });
 export const keepAwake = externalStore(false);
+export const muteNotifications = externalStore(false);
 export const shortcutChanges = externalStore<ShortcutChanges>({});
 export const settingsOpen = externalStore(false);
 export type SettingsSection = "general" | "appearance" | "shortcuts" | "simulators";
@@ -43,6 +44,11 @@ export function changeTerminalFontSize(step: 1 | -1) {
   const terminalFontSize = steppedTerminalFontSize(appearance.get().terminalFontSize, step);
   appearance.set({ ...appearance.get(), terminalFontSize });
   commands.changeState({ terminalFontSize }).catch(console.error);
+}
+
+export function setMuteNotifications(mute: boolean) {
+  muteNotifications.set(mute);
+  commands.changeState({ muteNotifications: mute }).catch(console.error);
 }
 
 // Rust refuses the switch when caffeinate is missing, so the row shows why instead of a setting that does nothing.

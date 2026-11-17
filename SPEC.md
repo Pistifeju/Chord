@@ -29,7 +29,7 @@ Containers. The first feature that puts something in one builds it:
 | Side panel | One panel right of the panes, one view at a time; resizable; width, open state and shown view remembered per worktree | F1 Files, I1 Simulator, J1 Preview |
 | Bottom panel | Resizable, the terminal with the run's view in a column beside it; open state and shown view remembered per worktree | G1 terminal, H3 build log and console |
 | Status bar | Strip at the bottom of the window | E11 usage, H5 running simulators |
-| Settings panel (⌘,) | A panel over the blurred window: a section list (General, Appearance, Shortcuts) and grouped rows | A5, D5, G1, H5, H11, K1 |
+| Settings panel (⌘,) | A panel over the blurred window: a section list (General, Appearance, Shortcuts) and grouped rows | A5, D4, D5, G1, H5, H11, K1 |
 
 Edge cases:
 - The window opens centered on the screen under the cursor.
@@ -81,7 +81,7 @@ Edge cases:
 - [x] D1 Statuses: running, waiting for input (a dialog is open, or the last message ends with a question), done, error, exited with code. Rust decides each one.
 - [x] D2 Under its worktree card, each chat session has a sidebar row with its name, status, last message and time; a click opens its tab. A tab its group does not show carries its status dot.
 - [x] D3 A finished pane shows a marker until you open it; its session row too.
-- [x] D4 macOS notification for done and waiting, naming project and branch; a click opens the worktree and focuses the pane.
+- [x] D4 macOS notification for done and waiting, naming project and branch; a click opens the worktree and focuses the pane. Settings row: notifications on or off.
 - [x] D5 Settings row: keep the Mac awake while an agent runs (`caffeinate`).
 
 Edge cases:
