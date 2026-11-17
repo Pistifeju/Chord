@@ -1,7 +1,7 @@
-// The thumbnail a Simulator screenshot leaves at the view's bottom left: dragged out, it is a file for Finder or any app, and into a pane an attachment; a click pastes it into the focused agent.
+// The thumbnail a Simulator screenshot or recording leaves at the view's bottom left: dragged out, it is a file for Finder or any app, and a screenshot dragged into a pane an attachment; a click pastes a screenshot into the focused agent.
 import { useEffect, useState } from "react";
 import { usePointerDrag } from "../../../ui/pointerDrag";
-import { attachingPane, dismissScreenshot, dragScreenshot, pasteScreenshot, shot, type Shot } from "./store";
+import { attachable, attachingPane, dismissScreenshot, dragScreenshot, pasteScreenshot, shot, type Shot } from "./store";
 
 /** How long the thumbnail stays while the pointer is away. */
 const THUMBNAIL_MS = 4000;
@@ -24,8 +24,8 @@ function Thumbnail({ current, bottom, leaving, onGone }: { current: Shot; bottom
       data-leaving={leaving || undefined}
       inert={leaving}
       onAnimationEnd={() => leaving && onGone()}
-      title={attachingPane() ? "Drag it out, or click to attach it to the focused agent" : "Drag it out"}
-      aria-label="Screenshot"
+      title={attachable(current) && attachingPane() ? "Drag it out, or click to attach it to the focused agent" : "Drag it out"}
+      aria-label={attachable(current) ? "Screenshot" : "Recording"}
       onPointerEnter={() => setHovered(true)}
       onPointerLeave={() => setHovered(false)}
       onClick={() => drag.clicked() && pasteScreenshot(current)}

@@ -190,7 +190,7 @@ function Shortcuts() {
 function Simulators({ screenshots, services }: { screenshots: ReactNode; services: ReactNode }) {
   return (
     <>
-      <Group heading="Screenshots">{screenshots}</Group>
+      <Group heading="Screenshots and recordings">{screenshots}</Group>
       <Group heading="Background services" notice={<p className="settings-description">Applies at the next boot · iOS 18.5 and newer</p>}>
         {services}
       </Group>

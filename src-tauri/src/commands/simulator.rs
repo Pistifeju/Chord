@@ -183,7 +183,7 @@ pub async fn open_simulator_app(app: AppHandle) -> Result<(), String> {
     blocking(app, |_, _| chord_ios::open_app(true)).await
 }
 
-/// Takes a screenshot of the worktree's simulator, or with `preview` its preview simulator, into the screenshot folder of Settings, else a temporary one.
+/// Takes a screenshot of the worktree's simulator, or with `preview` its preview simulator, into the folder of Settings, else the Desktop.
 #[tauri::command]
 #[specta::specta]
 pub async fn take_simulator_screenshot(
@@ -194,6 +194,39 @@ pub async fn take_simulator_screenshot(
     blocking(app, move |_, store| {
         let folder = store.get().screenshot_folder;
         chord_ios::take_screenshot(&worktree, preview, folder.as_deref())
+    })
+    .await
+}
+
+/// Records the worktree's simulator, or with `preview` its preview simulator, into the folder of Settings, else the Desktop: `on_started` once it records, then the video and its preview when the recording ends.
+#[tauri::command]
+#[specta::specta]
+pub async fn record_simulator(
+    app: AppHandle,
+    worktree: PathBuf,
+    preview: bool,
+    on_started: Channel<()>,
+) -> Result<Screenshot, String> {
+    blocking(app, move |_, store| {
+        let folder = store.get().screenshot_folder;
+        chord_ios::record(&worktree, preview, folder.as_deref(), &|| {
+            let _ = on_started.send(());
+        })
+    })
+    .await
+}
+
+/// Stops the recording of the worktree's simulator, or with `preview` its preview simulator; `record_simulator` returns the video.
+#[tauri::command]
+#[specta::specta]
+pub async fn stop_simulator_recording(
+    app: AppHandle,
+    worktree: PathBuf,
+    preview: bool,
+) -> Result<(), String> {
+    blocking(app, move |_, _| {
+        chord_ios::stop_recording(&worktree, preview);
+        Ok(())
     })
     .await
 }
@@ -227,7 +260,7 @@ pub async fn set_simulator_appearance(
     .await
 }
 
-/// Asks for the screenshot folder and saves the pick; no pick keeps the setting and returns `None`.
+/// Asks for the folder of screenshots and recordings and saves the pick; no pick keeps the setting and returns `None`.
 #[tauri::command]
 #[specta::specta]
 pub async fn pick_screenshot_folder(app: AppHandle) -> Result<Option<PathBuf>, String> {
@@ -235,7 +268,7 @@ pub async fn pick_screenshot_folder(app: AppHandle) -> Result<Option<PathBuf>, S
         let Some(folder) = app
             .dialog()
             .file()
-            .set_title("Screenshot Folder")
+            .set_title("Screenshots and Recordings Folder")
             .blocking_pick_folder()
         else {
             return Ok(None);

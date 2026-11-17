@@ -189,7 +189,7 @@ Edge cases:
 
 - [x] I1 **hard** Simulator view in the side panel (⌘⇧S), with its tab bar button: live frames from the IOSurface, touch, pinch and rotate, Home, Lock, Shake, keyboard.
 - [x] I2 Fallback message and "Open in Simulator / DeviceHub" when the private API fails to load.
-- [x] I3 Screenshot: thumbnail at the bottom left of the simulator; drag it into Finder or any app. With harness(attachments): drag it into a pane, or click to paste it into the focused agent. Settings row, off by default: a folder to save screenshots in.
+- [x] I3 Screenshot: thumbnail at the bottom left of the simulator; drag it into Finder or any app. With harness(attachments): drag it into a pane, or click to paste it into the focused agent. Settings row: the folder screenshots and recordings go in, the Desktop by default.
 - [x] I4 No frame callbacks while the window is hidden.
 
 Edge cases:
@@ -225,7 +225,7 @@ Edge cases:
 
 - [x] L1 Appearance menu on the Simulator view: light / dark, Dynamic Type size, language and region of the worktree's simulator.
 - [ ] L4 Scheme and build configuration (Debug / Release), per project, as submenus of the play button's menu under the destinations; ⌘R and ⌘B use them.
-- [ ] L5 Screen recording: record / stop button next to the I3 screenshot button (`simctl io recordVideo`); the video gets the I3 thumbnail and drag.
+- [x] L5 Screen recording: record / stop button next to the I3 screenshot button (`simctl io recordVideo`); the video gets the I3 thumbnail and drag.
 
 Edge cases:
 - L1 acts on the worktree's own simulator and is disabled while it is not booted. Light / dark and the text size apply at once; a language or region is written to the simulator's preferences and reaches an app the next time it launches (⌘R). The languages and regions are the ones the Mac's locales list.

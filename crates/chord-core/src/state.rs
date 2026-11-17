@@ -44,7 +44,7 @@ pub struct State {
     pub preview_models: BTreeMap<PathBuf, RunDestination>,
     /// The `#Preview` each worktree's Preview view shows.
     pub preview_picks: BTreeMap<PathBuf, PreviewPick>,
-    /// Where the Simulator view's screenshots are kept; none keeps them in a temporary folder.
+    /// Where the Simulator view's screenshots and recordings go; none puts them on the Desktop.
     pub screenshot_folder: Option<PathBuf>,
 }
 

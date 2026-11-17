@@ -84,6 +84,11 @@ pub(crate) fn signal_group(pid: u32, signal: i32) -> bool {
 /// Asks the group to end, waits, then kills what is left, so no compiler keeps the build database locked.
 pub(crate) fn end_group(pid: u32) {
     signal_group(pid, libc::SIGTERM);
+    kill_after_grace(pid);
+}
+
+/// Waits for the group to end, and kills what is left after `GROUP_GRACE`.
+pub(crate) fn kill_after_grace(pid: u32) {
     let until = Instant::now() + GROUP_GRACE;
     while signal_group(pid, 0) {
         if Instant::now() > until {

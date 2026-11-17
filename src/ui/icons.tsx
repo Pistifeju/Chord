@@ -245,6 +245,12 @@ export const StopIcon = () => (
   </Icon>
 );
 
+export const RecordIcon = () => (
+  <Icon>
+    <circle cx="8" cy="8" r="4.5" fill="currentColor" />
+  </Icon>
+);
+
 export const HomeIcon = () => (
   <Icon>
     <path d="M2.5 7.25 8 2.75l5.5 4.5" />

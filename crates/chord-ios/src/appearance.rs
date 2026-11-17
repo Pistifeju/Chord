@@ -11,8 +11,7 @@ use serde_json::Value;
 use chord_core::Error;
 use specta::Type;
 
-use crate::simulator::{self, DeviceSet, Simulator};
-use crate::xcode;
+use crate::simulator::{self, DeviceSet};
 
 const LOCALE: &str = "/usr/bin/locale";
 
@@ -183,19 +182,8 @@ struct Device {
 impl Device {
     /// The worktree's booted run simulator, or with `preview` its preview simulator.
     fn booted(worktree: &Path, preview: bool) -> Result<Device, Error> {
-        xcode::require_tools()?;
-        let set = if preview {
-            DeviceSet::Preview
-        } else {
-            DeviceSet::Run
-        };
-        let device: Simulator = simulator::find(set, worktree)?
-            .filter(|device| device.booted)
-            .ok_or_else(|| Error::Message("The simulator is off. Run boots it.".into()))?;
-        Ok(Device {
-            set,
-            udid: device.udid,
-        })
+        let (set, udid) = simulator::booted(worktree, preview)?;
+        Ok(Device { set, udid })
     }
 
     fn simctl(&self, args: &[&str]) -> Result<String, Error> {

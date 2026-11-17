@@ -1,4 +1,4 @@
-//! The Simulator view's Home, Lock and Shake capsule and its screenshot and Appearance circles, drawn natively under the screen so they move with it on a resize, with the lock's shackle turning and the phone shaking. The web lays them out and keeps clear buttons over them for clicks, focus and tooltips.
+//! The Simulator view's Home, Lock and Shake capsule and its screenshot, record and Appearance circles, drawn natively under the screen so they move with it on a resize, with the lock's shackle turning and the phone shaking. The web lays them out and keeps clear buttons over them for clicks, focus and tooltips.
 
 use std::f64::consts::PI;
 
@@ -69,6 +69,8 @@ pub enum FaceIcon {
     Unlock,
     Shake,
     Camera,
+    Record,
+    Stop,
     Appearance,
 }
 
@@ -161,6 +163,11 @@ fn icon_path(icon: FaceIcon) -> CFRetained<CGMutablePath> {
             // SAFETY: as above.
             unsafe { CGMutablePath::add_arc(at, none, 8.0, up(8.75), 2.25, 0.0, 2.0 * PI, false) };
         }
+        FaceIcon::Record => {
+            // SAFETY: as above.
+            unsafe { CGMutablePath::add_arc(at, none, 8.0, 8.0, 4.5, 0.0, 2.0 * PI, false) };
+        }
+        FaceIcon::Stop => rounded(4.0, 4.0, 8.0, 8.0, 1.5),
         // The ring; the filled half is its own layer (`left_half_path`).
         FaceIcon::Appearance => {
             // SAFETY: as above.
@@ -333,6 +340,7 @@ pub(crate) fn draw(row: &CALayer, spec: &ScreenButtons, scale: f64, motion: Moti
                 half.setFrame(CGRect::new(CGPoint::new(0.0, 0.0), CGSize::new(ICON, ICON)));
                 icon.addSublayer(&half);
             }
+            FaceIcon::Record | FaceIcon::Stop => icon.setFillColor(Some(&color)),
             FaceIcon::Home | FaceIcon::Camera => {}
         }
         row.addSublayer(&icon);

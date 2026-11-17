@@ -72,6 +72,8 @@ pub fn ipc() -> tauri_specta::Builder<tauri::Wry> {
             commands::simulator::press_simulator_button,
             commands::simulator::open_simulator_app,
             commands::simulator::take_simulator_screenshot,
+            commands::simulator::record_simulator,
+            commands::simulator::stop_simulator_recording,
             commands::simulator::simulator_appearance,
             commands::simulator::set_simulator_appearance,
             commands::simulator::pick_screenshot_folder,

@@ -41,6 +41,20 @@ fn simctl_args(set: DeviceSet, args: &[&str]) -> Result<Vec<String>, Error> {
     Ok(all)
 }
 
+/// The set and UDID of the worktree's booted run simulator, or with `preview` its preview simulator.
+pub(crate) fn booted(worktree: &Path, preview: bool) -> Result<(DeviceSet, String), Error> {
+    xcode::require_tools()?;
+    let set = if preview {
+        DeviceSet::Preview
+    } else {
+        DeviceSet::Run
+    };
+    let device = find(set, worktree)?
+        .filter(|device| device.booted)
+        .ok_or_else(|| Error::Message("The simulator is off. Run boots it.".into()))?;
+    Ok((set, device.udid))
+}
+
 /// `simctl` with `args` in the set, through `xcrun`, run to its end.
 pub(crate) fn simctl(
     set: DeviceSet,

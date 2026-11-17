@@ -77,13 +77,17 @@ export const commands = {
 	pressSimulatorButton: (worktree: string, button: Button) => __TAURI_INVOKE<null>("press_simulator_button", { worktree, button }),
 	/**  The Simulator view's fallback when the private API did not load. */
 	openSimulatorApp: () => __TAURI_INVOKE<null>("open_simulator_app"),
-	/**  Takes a screenshot of the worktree's simulator, or with `preview` its preview simulator, into the screenshot folder of Settings, else a temporary one. */
+	/**  Takes a screenshot of the worktree's simulator, or with `preview` its preview simulator, into the folder of Settings, else the Desktop. */
 	takeSimulatorScreenshot: (worktree: string, preview: boolean) => __TAURI_INVOKE<Screenshot>("take_simulator_screenshot", { worktree, preview }),
+	/**  Records the worktree's simulator, or with `preview` its preview simulator, into the folder of Settings, else the Desktop: `on_started` once it records, then the video and its preview when the recording ends. */
+	recordSimulator: (worktree: string, preview: boolean, onStarted: Channel<null>) => __TAURI_INVOKE<Screenshot>("record_simulator", { worktree, preview, onStarted }),
+	/**  Stops the recording of the worktree's simulator, or with `preview` its preview simulator; `record_simulator` returns the video. */
+	stopSimulatorRecording: (worktree: string, preview: boolean) => __TAURI_INVOKE<null>("stop_simulator_recording", { worktree, preview }),
 	/**  The worktree's booted simulator's appearance settings, or with `preview` its preview simulator's, and the choices the Mac offers. */
 	simulatorAppearance: (worktree: string, preview: boolean) => __TAURI_INVOKE<SimulatorAppearance_Serialize>("simulator_appearance", { worktree, preview }),
 	/**  Changes one appearance setting of the worktree's booted simulator, or with `preview` its preview simulator. */
 	setSimulatorAppearance: (worktree: string, preview: boolean, change: SimulatorAppearanceChange) => __TAURI_INVOKE<null>("set_simulator_appearance", { worktree, preview, change }),
-	/**  Asks for the screenshot folder and saves the pick; no pick keeps the setting and returns `None`. */
+	/**  Asks for the folder of screenshots and recordings and saves the pick; no pick keeps the setting and returns `None`. */
 	pickScreenshotFolder: () => __TAURI_INVOKE<string | null>("pick_screenshot_folder"),
 	/**  Starts a native drag of a file, shown as `preview`, out of the window: Finder and other apps take it, and so does a chat pane. */
 	dragFileOut: (file: string, preview: string) => __TAURI_INVOKE<null>("drag_file_out", { file, preview }),
@@ -296,7 +300,7 @@ export type Direction =
 "column";
 
 /**  The icons of src/ui/icons.tsx the buttons show. */
-export type FaceIcon = "home" | "lock" | "unlock" | "shake" | "camera" | "appearance";
+export type FaceIcon = "home" | "lock" | "unlock" | "shake" | "camera" | "record" | "stop" | "appearance";
 
 export type FaceLook = "rest" | "hover" | "pressed";
 
@@ -895,7 +899,7 @@ export type State_Deserialize = {
 	previewModels?: { [key in string]: RunDestination },
 	/**  The `#Preview` each worktree's Preview view shows. */
 	previewPicks?: { [key in string]: PreviewPick_Deserialize },
-	/**  Where the Simulator view's screenshots are kept; none keeps them in a temporary folder. */
+	/**  Where the Simulator view's screenshots and recordings go; none puts them on the Desktop. */
 	screenshotFolder?: string | null,
 };
 
@@ -927,7 +931,7 @@ export type State_Serialize = {
 	previewModels: { [key in string]: RunDestination },
 	/**  The `#Preview` each worktree's Preview view shows. */
 	previewPicks: { [key in string]: PreviewPick_Serialize },
-	/**  Where the Simulator view's screenshots are kept; none keeps them in a temporary folder. */
+	/**  Where the Simulator view's screenshots and recordings go; none puts them on the Desktop. */
 	screenshotFolder: string | null,
 };
 

@@ -1,7 +1,8 @@
-// Connects the Simulator view to IPC: the shown worktree's screen state from its channel, the screen shown, moved and hidden, the view's touches, keys and buttons sent in order, and its screenshots: taken, dragged out, pasted into the focused agent, and the folder they are saved in.
+// Connects the Simulator view to IPC: the shown worktree's screen state from its channel, the screen shown, moved and hidden, the view's touches, keys and buttons sent in order, its screenshots and recordings: taken, dragged out, a screenshot pasted into the focused agent, and the folder they are saved in.
 import { Channel } from "@tauri-apps/api/core";
 import { commands, type Bezel, type Button, type ScreenButtons, type ScreenRect, type Screenshot, type ScreenState_Deserialize, type TouchPhase } from "../../../ipc/bindings";
 import { externalStore } from "../../../ui/externalStore";
+import { imageMime } from "../../chat/attachments";
 import { attachFiles, chatOf, chats, focusComposer, takesAttachments } from "../../chat/store";
 import { chatPaneIds } from "../../panes/layout";
 import { shownPanes } from "../../worktrees/store";
@@ -55,20 +56,57 @@ export function pressButton(worktree: string, button: Button) {
 
 export const openSimulatorApp = () => void commands.openSimulatorApp().catch(fail);
 
-/** The screenshot taken last, with its preview as a data URL. */
+/** The screenshot or recording taken last, with its preview as a data URL. */
 export type Shot = { worktree: string; screenshot: Screenshot; preview: string };
 
 export const shot = externalStore<Shot | null>(null);
 
-/** The folder Settings saves screenshots in; null keeps them in a temporary one. */
+/** The folder Settings saves screenshots and recordings in; null saves them on the Desktop. */
 export const screenshotFolder = externalStore<string | null>(null);
+
+const showShot = async (worktree: string, screenshot: Screenshot) =>
+  shot.set({ worktree, screenshot, preview: `data:image/png;base64,${await commands.readImageFile(screenshot.preview)}` });
 
 /** `preview`: the worktree's preview simulator. */
 export async function takeScreenshot(worktree: string, preview = false) {
   try {
-    const screenshot = await commands.takeSimulatorScreenshot(worktree, preview);
-    shot.set({ worktree, screenshot, preview: `data:image/png;base64,${await commands.readImageFile(screenshot.preview)}` });
+    await showShot(worktree, await commands.takeSimulatorScreenshot(worktree, preview));
   } catch (error) {
+    fail(error);
+  }
+}
+
+export type Recording = "starting" | "recording" | "stopping";
+
+/** The simulators that record, by `recordingKey`. */
+export const recordings = externalStore<Record<string, Recording>>({});
+
+export const recordingKey = (worktree: string, preview: boolean) => `${preview ? "preview" : "run"}:${worktree}`;
+
+function setRecording(key: string, state: Recording | null) {
+  const { [key]: _, ...rest } = recordings.get();
+  recordings.set(state ? { ...rest, [key]: state } : rest);
+}
+
+/** Starts a recording, or stops it. Its thumbnail shows when it ends, by a stop or by itself. A click while one starts or stops does nothing. */
+export async function toggleRecording(worktree: string, preview = false) {
+  const key = recordingKey(worktree, preview);
+  const state = recordings.get()[key];
+  if (state === "starting" || state === "stopping") return;
+  if (state === "recording") {
+    setRecording(key, "stopping");
+    return void commands.stopSimulatorRecording(worktree, preview).catch(fail);
+  }
+  setRecording(key, "starting");
+  const started = new Channel<null>();
+  // The channel and the reply arrive apart: a late start must not undo the end.
+  started.onmessage = () => recordings.get()[key] === "starting" && setRecording(key, "recording");
+  try {
+    const screenshot = await commands.recordSimulator(worktree, preview, started);
+    setRecording(key, null);
+    await showShot(worktree, screenshot);
+  } catch (error) {
+    setRecording(key, null);
     fail(error);
   }
 }
@@ -76,6 +114,9 @@ export async function takeScreenshot(worktree: string, preview = false) {
 export const dismissScreenshot = () => shot.set(null);
 
 export const dragScreenshot = ({ screenshot }: Shot) => void commands.dragFileOut(screenshot.file, screenshot.preview).then(dismissScreenshot, fail);
+
+/** A recording is a video, which no agent takes. */
+export const attachable = ({ screenshot }: Shot) => imageMime(screenshot.file) !== null;
 
 /** The focused chat pane, unless its agent takes no attachments: the rule a drop into a pane follows. */
 export const attachingPane = (): string | null => {
@@ -85,9 +126,10 @@ export const attachingPane = (): string | null => {
 };
 
 /** Attaches the screenshot to the focused agent's next message and puts the focus in its composer. */
-export function pasteScreenshot({ screenshot }: Shot) {
+export function pasteScreenshot(current: Shot) {
+  const { screenshot } = current;
   const pane = attachingPane();
-  if (!pane) return;
+  if (!pane || !attachable(current)) return;
   void attachFiles(pane, [screenshot.file]);
   dismissScreenshot();
   focusComposer(pane);
@@ -99,9 +141,4 @@ export async function chooseScreenshotFolder() {
   } catch (error) {
     fail(error);
   }
-}
-
-export function stopSavingScreenshots() {
-  screenshotFolder.set(null);
-  commands.changeState({ screenshotFolder: null }).catch(console.error);
 }

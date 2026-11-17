@@ -1,4 +1,4 @@
-//! A screenshot of the worktree's simulator: the PNG `simctl` writes, into the user's screenshot folder or a temporary one, and a small preview of it for the thumbnail and the drag image.
+//! A screenshot of the worktree's simulator: the PNG `simctl` writes, into the folder of Settings or the Desktop, and a small preview of it for the thumbnail and the drag image.
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -9,8 +9,7 @@ use serde::Serialize;
 use chord_core::Error;
 use specta::Type;
 
-use crate::simulator::{self, DeviceSet};
-use crate::xcode;
+use crate::simulator;
 
 const SIPS: &str = "/usr/bin/sips";
 /// The longest side of the preview, in pixels.
@@ -42,77 +41,87 @@ fn local_stamp() -> String {
     String::from_utf8_lossy(&text[..written]).into_owned()
 }
 
-/// A name in `folder` that no file has: "Simulator Screenshot <stamp>.png", then "<stamp> 2.png" and on.
-fn free_file(folder: &Path) -> PathBuf {
+/// A name in `folder` that no file has: "Simulator <kind> <stamp>.<extension>", then "<stamp> 2.<extension>" and on.
+pub(crate) fn free_file(folder: &Path, kind: &str, extension: &str) -> PathBuf {
     let stamp = local_stamp();
-    let mut file = folder.join(format!("Simulator Screenshot {stamp}.png"));
+    let mut file = folder.join(format!("Simulator {kind} {stamp}.{extension}"));
     let mut count = 1;
     while file.exists() {
         count += 1;
-        file = folder.join(format!("Simulator Screenshot {stamp} {count}.png"));
+        file = folder.join(format!("Simulator {kind} {stamp} {count}.{extension}"));
     }
     file
 }
 
-/// Takes the screenshot of the worktree's booted simulator, or with `preview` its preview simulator, into `folder`, else the temporary folder.
-pub fn take_screenshot(
-    worktree: &Path,
-    preview: bool,
-    folder: Option<&Path>,
-) -> Result<Screenshot, Error> {
-    xcode::require_tools()?;
-    let set = if preview {
-        DeviceSet::Preview
-    } else {
-        DeviceSet::Run
-    };
-    let device = simulator::find(set, worktree)?
-        .filter(|device| device.booted)
-        .ok_or_else(|| Error::Message("The simulator is off. Run boots it.".into()))?;
-    let temporary = std::env::temp_dir().join("chord-screenshots");
+/// The folder of Settings, else the Desktop.
+pub(crate) fn save_folder(folder: Option<&Path>) -> Result<PathBuf, Error> {
     let folder = match folder {
-        Some(folder) if folder.is_dir() => folder,
-        Some(folder) => {
-            return Err(Error::Message(format!(
-                "The screenshot folder {} is gone. Choose another one in Settings.",
-                folder.display()
-            )));
-        }
-        None => &temporary,
+        Some(folder) => folder.to_path_buf(),
+        None => std::env::var_os("HOME")
+            .map(|home| Path::new(&home).join("Desktop"))
+            .ok_or_else(|| {
+                Error::Message("HOME is not set, so Chord cannot find the Desktop.".into())
+            })?,
     };
+    if !folder.is_dir() {
+        return Err(Error::Message(format!(
+            "The folder {} is gone. Choose another one in Settings.",
+            folder.display()
+        )));
+    }
+    Ok(folder)
+}
+
+/// The temporary folder that holds the previews.
+pub(crate) fn previews_folder() -> Result<PathBuf, Error> {
+    let temporary = std::env::temp_dir().join("chord-screenshots");
     std::fs::create_dir_all(&temporary)?;
-    let file = free_file(folder);
-    simulator::simctl(
-        set,
-        &[
-            "io",
-            &device.udid,
-            "screenshot",
-            "--type=png",
-            &file.to_string_lossy(),
-        ],
-        &|_| {},
-    )?;
+    Ok(temporary)
+}
+
+/// Shrinks `image` into `<stem of file>.preview.png` in the temporary folder, and deletes old previews.
+pub(crate) fn preview_of(file: PathBuf, image: &Path) -> Result<Screenshot, Error> {
+    let temporary = previews_folder()?;
     let preview = temporary.join(format!(
         "{}.preview.png",
         file.file_stem().unwrap_or_default().to_string_lossy()
     ));
     let resized = Command::new(SIPS)
         .args(["-Z", PREVIEW_SIDE])
-        .arg(&file)
+        .arg(image)
         .arg("--out")
         .arg(&preview)
         .output()?;
     if !resized.status.success() {
-        return Err(Error::Message(
-            "The screenshot's preview could not be made.".into(),
-        ));
+        return Err(Error::Message("The preview could not be made.".into()));
     }
     delete_old_shots(&temporary);
     Ok(Screenshot { file, preview })
 }
 
-/// A shot is a PNG and its preview; the temporary folder keeps this many.
+/// Takes the screenshot of the worktree's booted simulator, or with `preview` its preview simulator, into `folder`, else the Desktop.
+pub fn take_screenshot(
+    worktree: &Path,
+    preview: bool,
+    folder: Option<&Path>,
+) -> Result<Screenshot, Error> {
+    let (set, udid) = simulator::booted(worktree, preview)?;
+    let file = free_file(&save_folder(folder)?, "Screenshot", "png");
+    simulator::simctl(
+        set,
+        &[
+            "io",
+            &udid,
+            "screenshot",
+            "--type=png",
+            &file.to_string_lossy(),
+        ],
+        &|_| {},
+    )?;
+    preview_of(file.clone(), &file)
+}
+
+/// A shot is a file and its preview; the temporary folder keeps this many.
 const KEPT_SHOTS: usize = 10;
 
 /// The files of every shot but the `KEPT_SHOTS` newest, a shot being as new as its newest file.
