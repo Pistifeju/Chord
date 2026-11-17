@@ -4,7 +4,7 @@ import type { ServiceRow } from "../../../ipc/bindings";
 import { ChevronIcon } from "../../../ui/icons";
 import { onOff, Segmented } from "../../../ui/Segmented";
 import { Row } from "../../../ui/Row";
-import { fail } from "../../worktrees/store";
+import { fail } from "../../../ui/alert";
 import { groupSwitchIds, serviceDescription } from "./simulators";
 import { loadServiceGroups, serviceGroups, setServiceKept } from "./store";
 

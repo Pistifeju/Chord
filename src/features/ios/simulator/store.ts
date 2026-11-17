@@ -4,7 +4,8 @@ import { commands, type Bezel, type Button, type ScreenButtons, type ScreenRect,
 import { externalStore } from "../../../ui/externalStore";
 import { attachFiles, chatOf, chats, focusComposer, takesAttachments } from "../../chat/store";
 import { chatPaneIds } from "../../panes/layout";
-import { fail, shownPanes } from "../../worktrees/store";
+import { shownPanes } from "../../worktrees/store";
+import { fail } from "../../../ui/alert";
 import type { Point } from "./screen";
 
 export type Screen = { worktree: string; state: ScreenState_Deserialize };

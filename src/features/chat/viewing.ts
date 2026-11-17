@@ -2,7 +2,7 @@
 import type { Image } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
 
-export type Viewing = { images: Image[]; index: number };
+type Viewing = { images: Image[]; index: number };
 
 export const lightboxes = externalStore<Record<string, Viewing>>({});
 

@@ -6,7 +6,7 @@ mod records;
 #[cfg(test)]
 mod tests;
 
-use std::collections::BTreeSet;
+use crate::lock;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -25,8 +25,8 @@ use reader::{Read, Reader};
 
 /// The harness name a pane saves.
 pub const NAME: &str = "pi";
-/// The binary to run when the user chose none.
-pub const DEFAULT_BINARY: &str = "pi";
+/// The binary Chord runs, found on the login shell's PATH.
+const BINARY: &str = "pi";
 const INSTALL: &str = "npm install -g @earendil-works/pi-coding-agent";
 const OLDEST_TESTED: (u32, u32, u32) = (1, 5, 0);
 
@@ -118,9 +118,7 @@ static EXTENSION_WRITE: Mutex<()> = Mutex::new(());
 
 // Written only when it differs, and one start at a time, so no pi reads a half-written file.
 fn installed_extension(dir: &Path) -> Result<PathBuf, Error> {
-    let _writing = EXTENSION_WRITE
-        .lock()
-        .unwrap_or_else(PoisonError::into_inner);
+    let _writing = lock(&EXTENSION_WRITE);
     std::fs::create_dir_all(dir)?;
     let file = dir.join(EXTENSION_FILE);
     if std::fs::read_to_string(&file).ok().as_deref() != Some(EXTENSION) {
@@ -132,28 +130,22 @@ fn installed_extension(dir: &Path) -> Result<PathBuf, Error> {
 impl Session {
     /// `extension_dir` is where the extension Chord ships is written for pi to load. `session` is a pi session file; without an existing one pi starts a new session in its own session folder. With `tools`, the socket Chord's tools listen on, the agent gets the build and run tools.
     pub fn start(
-        binary: &str,
         dir: &Path,
         session: Option<&str>,
         extension_dir: &Path,
         tools: Option<&Path>,
         on_event: impl Fn(HarnessEvent) + Send + 'static,
     ) -> Result<Session, Error> {
-        check_version(binary)?;
+        check_version()?;
         let extension = installed_extension(extension_dir)?;
         let extension = extension.to_string_lossy().into_owned();
         let running = Arc::new(AtomicBool::new(false));
         let on_event = Arc::new(Mutex::new(on_event));
         let launch = {
-            let (binary, dir, tools) = (
-                binary.to_string(),
-                dir.to_path_buf(),
-                tools.map(Path::to_path_buf),
-            );
+            let (dir, tools) = (dir.to_path_buf(), tools.map(Path::to_path_buf));
             let (running, on_event) = (Arc::clone(&running), Arc::clone(&on_event));
             move |session: Option<&str>| {
                 launch(
-                    &binary,
                     &dir,
                     &extension,
                     session,
@@ -177,15 +169,10 @@ impl Session {
     // pi's own `/new` first waits for the run to settle, which a hung tool never does; a new pi starts at once and the old one is killed.
     fn restart(&self) -> Result<(), Error> {
         let new = (self.launch_new)()?;
-        let old = std::mem::replace(
-            &mut *self.process.lock().unwrap_or_else(PoisonError::into_inner),
-            new,
-        );
+        let old = std::mem::replace(&mut *lock(&self.process), new);
         drop(old);
         self.running.store(false, Ordering::SeqCst);
-        (self.on_event.lock().unwrap_or_else(PoisonError::into_inner))(HarnessEvent::State {
-            running: false,
-        });
+        (lock(&self.on_event))(HarnessEvent::State { running: false });
         self.read_session();
         Ok(())
     }
@@ -204,10 +191,7 @@ impl Session {
     }
 
     fn write(&self, command: &Value) -> Result<(), Error> {
-        self.process
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .write(command)
+        lock(&self.process).write(command)
     }
 }
 
@@ -279,7 +263,6 @@ impl Agent for Session {
 
 // One pi process on `session`, or on a new session without one; its reader keeps `running` and hands each event to `on_event`.
 fn launch(
-    binary: &str,
     dir: &Path,
     extension: &str,
     session: Option<&str>,
@@ -294,9 +277,9 @@ fn launch(
     }
     let reader_running = Arc::clone(running);
     let on_event = Arc::clone(on_event);
-    let emit = move |event| (on_event.lock().unwrap_or_else(PoisonError::into_inner))(event);
+    let emit = move |event| (lock(&on_event))(event);
     let mut records = Reader::default();
-    let mut command = login_shell(binary, &args);
+    let mut command = login_shell(BINARY, &args);
     command.current_dir(dir);
     if let Some(socket) = tools {
         command.env(TOOLS_SOCKET_ENV, socket).env(WORKTREE_ENV, dir);
@@ -330,36 +313,36 @@ fn launch(
             }
         }
     })
-    .map_err(|e| spawn_error(binary, e))
+    .map_err(spawn_error)
 }
 
-fn spawn_error(binary: &str, error: std::io::Error) -> Error {
+fn spawn_error(error: std::io::Error) -> Error {
     match error.kind() {
-        ErrorKind::NotFound => missing_pi(binary),
+        ErrorKind::NotFound => missing_pi(),
         _ => Error::Message(format!("pi failed to start: {error}")),
     }
 }
 
-fn missing_pi(binary: &str) -> Error {
+fn missing_pi() -> Error {
     Error::MissingTool {
-        tool: binary.into(),
+        tool: BINARY.into(),
         install: INSTALL.into(),
     }
 }
 
-static CHECKED: Mutex<BTreeSet<String>> = Mutex::new(BTreeSet::new());
+static CHECKED: Mutex<bool> = Mutex::new(false);
 
-// A binary that passed is not asked again while the app runs: each ask costs a login shell and a pi start.
-fn check_version(binary: &str) -> Result<(), Error> {
-    let mut checked = CHECKED.lock().unwrap_or_else(PoisonError::into_inner);
-    if checked.contains(binary) {
+// A pi that passed is not asked again while the app runs: each ask costs a login shell and a pi start.
+fn check_version() -> Result<(), Error> {
+    let mut checked = lock(&CHECKED);
+    if *checked {
         return Ok(());
     }
-    let output = login_shell(binary, &["--version"])
+    let output = login_shell(BINARY, &["--version"])
         .output()
-        .map_err(|e| spawn_error(binary, e))?;
+        .map_err(spawn_error)?;
     if output.status.code() == Some(127) {
-        return Err(missing_pi(binary));
+        return Err(missing_pi());
     }
     let text = String::from_utf8_lossy(&output.stdout);
     let version = text.lines().rev().find_map(parse_version);
@@ -369,7 +352,7 @@ fn check_version(binary: &str) -> Result<(), Error> {
             found.0, found.1, found.2, OLDEST_TESTED.0, OLDEST_TESTED.1, OLDEST_TESTED.2
         ))),
         _ => {
-            checked.insert(binary.to_string());
+            *checked = true;
             Ok(())
         }
     }

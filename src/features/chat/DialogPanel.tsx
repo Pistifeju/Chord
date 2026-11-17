@@ -3,7 +3,8 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { DialogAnswer } from "../../ipc/bindings";
 import { CheckIcon } from "../../ui/icons";
 import { useOutsidePointer } from "../../ui/outsidePointer";
-import { matchingOptions, startIndex, steppedIndex, typedIndex } from "./dialog";
+import { steppedIndex } from "../../ui/listStep";
+import { matchingOptions, startIndex, typedIndex } from "./dialog";
 import { answerDialog } from "./store";
 import type { OpenDialog } from "./transcript";
 

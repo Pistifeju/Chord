@@ -1,11 +1,12 @@
 //! The worktree's preview simulator in Chord's own device set, at most two booted at once, and the app launched on it with the preview helper (ChordPreview.swift), which shows the picked `#Preview` full screen and answers on a socket for a new pick and the hot reload.
 
+use chord_core::lock;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, OnceLock, PoisonError};
+use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
@@ -91,7 +92,7 @@ pub(crate) fn boot(
     wanted: Option<(&str, &str)>,
     starting: impl FnOnce(),
 ) -> Result<Booted, Error> {
-    let _booting = BOOTING.lock().unwrap_or_else(PoisonError::into_inner);
+    let _booting = lock(&BOOTING);
     let device = simulator::find_or_create(DeviceSet::Preview, worktree, wanted, &|_| {})?;
     if device.booted {
         return Ok(Booted::Ready {
@@ -219,7 +220,7 @@ pub(crate) fn load(worktree: &Path, dylib: &Path) -> Result<(), String> {
 /// The helper dylib, built on first use for each Xcode build and helper source.
 fn helper() -> Result<PathBuf, Error> {
     static BUILDING: Mutex<()> = Mutex::new(());
-    let _building = BUILDING.lock().unwrap_or_else(PoisonError::into_inner);
+    let _building = lock(&BUILDING);
     let cache = CACHE_FOLDER
         .get()
         .ok_or_else(|| Error::Message("Chord has no cache folder.".into()))?;

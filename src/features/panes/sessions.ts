@@ -2,6 +2,7 @@
 import type { Direction, Tab, WorktreePanes } from "../../ipc/bindings";
 import type { Item } from "../chat/transcript.ts";
 import { edgeDirection, groupOf, groups, paneIds, withBeside, withGroup, withoutGroup, type Edge, type FilePane, type Group } from "./layout.ts";
+import { fileName } from "../files/paths.ts";
 
 const chatTab = (id: string, name: string): Tab => ({ kind: "chat", id, name });
 
@@ -19,7 +20,7 @@ const nextName = (panes: WorktreePanes): string => {
   return `Session ${Math.max(0, ...numbers) + 1}`;
 };
 
-export const focusedGroup = (panes: WorktreePanes): Group => groupOf(panes.layout, panes.focused) ?? groups(panes.layout)[0];
+const focusedGroup = (panes: WorktreePanes): Group => groupOf(panes.layout, panes.focused) ?? groups(panes.layout)[0];
 
 // The tab joins the end of the group, opens there and takes the focus.
 function withTabAdded(panes: WorktreePanes, group: string, tab: Tab): WorktreePanes {
@@ -85,7 +86,7 @@ export const paneNames = (chats: Record<string, { items: Item[] } | undefined>, 
   }));
 
 // A chat tab shows the name of its agent session once that has one; a file tab its file name.
-export const tabName = (tab: Tab, names: PaneNames): string => (tab.kind === "chat" ? names[tab.id] ?? tab.name : tab.path.split("/").pop() ?? tab.path);
+export const tabName = (tab: Tab, names: PaneNames): string => (tab.kind === "chat" ? names[tab.id] ?? tab.name : fileName(tab.path));
 
 // The tab leaves its group, whose tab beside it opens; a group left empty goes.
 function withoutTab(panes: WorktreePanes, tab: string): WorktreePanes {

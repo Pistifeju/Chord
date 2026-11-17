@@ -39,12 +39,7 @@ pub fn start(
 ) -> Result<Box<dyn Agent>, Error> {
     match harness {
         pi::NAME => Ok(Box::new(pi::Session::start(
-            pi::DEFAULT_BINARY,
-            dir,
-            session,
-            data_dir,
-            tools,
-            on_event,
+            dir, session, data_dir, tools, on_event,
         )?)),
         other => Err(Error::Message(format!(
             "Chord cannot run the harness \"{other}\""

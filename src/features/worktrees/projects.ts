@@ -1,16 +1,14 @@
 // Rules for the project list, its worktrees and the selected worktree.
 import type { Project, Worktree_Serialize as Worktree } from "../../ipc/bindings";
+import { fileName } from "../files/paths.ts";
 
 export type Projects = {
   list: Project[];
   worktrees: Record<string, Worktree[]>;
   selected: string | null;
-  error: string | null;
-  /** The toast text is information, not a failure: shown without the warning icon. */
-  errorIsNotice: boolean;
 };
 
-export const noProjects: Projects = { list: [], worktrees: {}, selected: null, error: null, errorIsNotice: false };
+export const noProjects: Projects = { list: [], worktrees: {}, selected: null };
 
 export function withProject(projects: Projects, project: Project): Projects {
   if (projects.list.some((p) => p.path === project.path)) return projects;
@@ -45,7 +43,7 @@ export const worktreeAt = (projects: Projects, path: string | null): Worktree | 
 
 export const hasXcodeProject = (projects: Projects): boolean => allWorktrees(projects).some((worktree) => worktree.xcode);
 
-export const worktreeName = (worktree: Worktree): string => worktree.branch ?? worktree.path.split("/").pop() ?? worktree.path;
+export const worktreeName = (worktree: Worktree): string => worktree.branch ?? fileName(worktree.path);
 
 // Whitespace in a typed branch name becomes a dash; this is the name git sees.
 export function branchName(typed: string): string {

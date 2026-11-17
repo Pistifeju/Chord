@@ -38,7 +38,7 @@ export function SidebarToggle() {
 }
 
 /** A short mark on a worktree's meta line; its tone picks the color. */
-export type CardMarker = { text: string; tone: "busy" | "done" | "stopped" | "failed" };
+type CardMarker = { text: string; tone: "busy" | "done" | "stopped" | "failed" };
 
 // `markers` are the iOS part of the cards, passed in by App by worktree path.
 export function Sidebar({ markers }: { markers: Record<string, CardMarker> }) {

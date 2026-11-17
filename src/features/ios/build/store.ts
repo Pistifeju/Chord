@@ -4,7 +4,8 @@ import { commands, events, type BuildEvent_Deserialize } from "../../../ipc/bind
 import { externalStore } from "../../../ui/externalStore";
 import { bottomPanelOf, bottomPanels, changeBottomPanel } from "../../bottompanel/store";
 import { openSideView } from "../../sidepanel/store";
-import { fail, projects } from "../../worktrees/store";
+import { projects } from "../../worktrees/store";
+import { fail } from "../../../ui/alert";
 import { runDestinationOf } from "./destinationStore";
 import { emptyConsole, type ConsoleLine } from "./consoleLog";
 import { emptyLog, type Log } from "./log";

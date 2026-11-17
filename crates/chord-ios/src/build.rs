@@ -1,10 +1,11 @@
 //! One build per worktree: its xcodebuild with its arguments, its own process group and its log in batches, the wait while a build Chord did not start holds the build database, the run of the app on the run destination after it with its console, the preview build that follows it onto the preview simulator, the hot reload or preview build a save starts, and the stop that signals the whole group.
 
+use chord_core::lock;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::RecvTimeoutError;
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -133,10 +134,6 @@ struct Inner {
     opened: Mutex<HashMap<String, Instant>>,
     /// The tools were found once; later builds skip the login shells that check them.
     tools_found: AtomicBool,
-}
-
-fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
-    mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
 impl Builds {

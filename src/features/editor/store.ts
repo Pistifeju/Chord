@@ -1,7 +1,7 @@
 // Connects the editor to IPC: a file read when its tab shows and again when it changes on disk, saved 1 s after the last edit and when the tab goes, unless the file changed on disk; its text let go once its editor closed.
 import type { Text } from "@codemirror/state";
 import { commands } from "../../ipc/bindings";
-import { fail } from "../worktrees/store";
+import { fail } from "../../ui/alert";
 
 /** Milliseconds after the last edit before the file saves. */
 const SAVE_DELAY = 1000;
@@ -22,7 +22,7 @@ export function scheduleSave(worktree: string, path: string, text: Text, lineBre
   edits.set(key, { worktree, path, text, lineBreak, timer: window.setTimeout(() => flushSave(worktree, path), SAVE_DELAY) });
 }
 
-export function flushSave(worktree: string, path: string) {
+function flushSave(worktree: string, path: string) {
   const key = keyOf(worktree, path);
   const edit = edits.get(key);
   if (!edit) return;

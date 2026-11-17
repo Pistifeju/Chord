@@ -4,8 +4,9 @@ import { commands, type DialogAnswer, type HarnessEvent, type Image } from "../.
 import { externalStore } from "../../ui/externalStore";
 import { paneNames, type PaneNames } from "../panes/sessions";
 import { usage } from "../usage/store";
-import { notify } from "../worktrees/store";
-import { fileName, imageExtensions, imageMime, type Attachment } from "./attachments";
+import { notify } from "../../ui/alert";
+import { fileName } from "../files/paths";
+import { imageExtensions, imageMime, type Attachment } from "./attachments";
 import { intakes } from "./intake";
 import { emptyChat, withSteerImages, type Chat } from "./transcript";
 

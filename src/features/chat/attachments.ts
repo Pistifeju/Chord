@@ -16,8 +16,6 @@ export function imageMime(path: string): string | null {
   return dot < 0 ? null : (mimeByExtension[path.slice(dot + 1).toLowerCase()] ?? null);
 }
 
-export const fileName = (path: string) => path.slice(path.lastIndexOf("/") + 1);
-
 // One string per image, so a re-render compares the src by identity instead of megabytes of base64.
 const urls = new WeakMap<Image, string>();
 

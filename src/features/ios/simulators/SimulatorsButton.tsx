@@ -3,7 +3,7 @@ import { LogicalPosition } from "@tauri-apps/api/dpi";
 import { Menu, MenuItem, PredefinedMenuItem } from "@tauri-apps/api/menu";
 import { useEffect, type MouseEvent } from "react";
 import { openContextMenu } from "../../../app/contextMenu";
-import { fail } from "../../worktrees/store";
+import { fail } from "../../../ui/alert";
 import { PhoneIcon } from "../../../ui/icons";
 import { hasOtherSimulators, simulatorLine, simulatorsTitle } from "./simulators";
 import { runningSimulators, shutDownOthers, watchRunningSimulators } from "./store";

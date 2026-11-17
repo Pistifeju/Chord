@@ -1,0 +1,59 @@
+/* The picker sheet: a search field over a list of rows, one of them highlighted. */
+.picker-sheet {
+  width: min(560px, calc(100vw - 40px));
+  padding: 12px;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.picker-sheet-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 312px;
+  overflow-y: auto;
+}
+
+.picker-sheet-row {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: var(--radius-control);
+  color: var(--ink-secondary);
+  white-space: nowrap;
+  cursor: default;
+}
+
+.picker-sheet-row svg {
+  flex: none;
+  color: var(--ink-muted);
+}
+
+.picker-sheet-row[data-active] {
+  background: var(--selected);
+  color: var(--ink);
+}
+
+.picker-sheet-name {
+  flex: none;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.picker-sheet-folder {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: calc(12px * var(--text-scale));
+  color: var(--ink-muted);
+}
+
+.picker-sheet-empty {
+  margin: 0;
+  padding: 5px 8px;
+  font-size: calc(12px * var(--text-scale));
+  color: var(--ink-muted);
+}

@@ -1,11 +1,12 @@
 //! Each Swift module's compile commands for the preview hot reload, without a build setting: the driver line a Chord build of the worktree printed for an arm64 simulator, kept in the worktree's hot reload folder, and the one `swift-frontend` command per file the driver lists for it with `-###`.
 
+use chord_core::lock;
 use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::{Mutex, PoisonError};
+use std::sync::Mutex;
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -83,7 +84,7 @@ impl DriverLines {
         }
         // Two builds of a worktree can end at once; a reload reads the file meanwhile.
         static WRITING: Mutex<()> = Mutex::new(());
-        let _writing = WRITING.lock().unwrap_or_else(PoisonError::into_inner);
+        let _writing = lock(&WRITING);
         let mut drivers: BTreeMap<String, Driver> = read(&folder.join(DRIVERS)).unwrap_or_default();
         for driver in self.found {
             if let Some(module) = driver.module() {

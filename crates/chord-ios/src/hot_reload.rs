@@ -1,11 +1,12 @@
 //! Preview hot reload: the shown preview's file, the view files saved since the preview launched that it uses and the view files between them (view_graph.rs) recompile in parallel with their module's commands (compile_commands.rs) and link into one dylib, which the preview helper loads to show the preview from the new image. The new image carries its own copy of every type from the preview to the saved files, so nothing rebinds. A saved model file, a new file, one of another module or a changed stored property rebuilds instead.
 
+use chord_core::lock;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Mutex, MutexGuard, OnceLock, PoisonError};
+use std::sync::{Mutex, MutexGuard, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::compile_commands::{self, Job, value_of};
@@ -18,7 +19,7 @@ use crate::view_graph::{Graph, find, past_literal};
 static SAVED: Mutex<BTreeMap<PathBuf, BTreeSet<String>>> = Mutex::new(BTreeMap::new());
 
 fn saved_files() -> MutexGuard<'static, BTreeMap<PathBuf, BTreeSet<String>>> {
-    SAVED.lock().unwrap_or_else(PoisonError::into_inner)
+    lock(&SAVED)
 }
 
 pub(crate) fn saved(worktree: &Path, files: impl IntoIterator<Item = String>) {
@@ -549,15 +550,8 @@ fn tools() -> &'static Tools {
     static TOOLS: OnceLock<Tools> = OnceLock::new();
     TOOLS.get_or_init(|| {
         let find = |name: &str| {
-            Command::new("xcrun")
-                .args(["-f", name])
-                .output()
-                .ok()
-                .filter(|output| output.status.success())
-                .map_or_else(
-                    || name.into(),
-                    |output| String::from_utf8_lossy(&output.stdout).trim().to_string(),
-                )
+            crate::process::xcrun(&["-f", name], &|_| {})
+                .map_or_else(|_| name.into(), |path| path.trim().to_string())
         };
         Tools {
             clang: find("clang"),

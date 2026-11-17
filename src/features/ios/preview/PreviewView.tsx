@@ -5,7 +5,7 @@ import { tooltip } from "../../../app/commands";
 import type { BuildIssue_Deserialize } from "../../../ipc/bindings";
 import { ChevronDownIcon, EyeIcon, PhoneIcon, WarningIcon } from "../../../ui/icons";
 import { showFileAt } from "../../editor/showing";
-import { fail } from "../../worktrees/store";
+import { fail } from "../../../ui/alert";
 import { popUpUnder, simulatorItems } from "../build/RunControl";
 import { issuePlace, pathInWorktree } from "../build/run";
 import { shortcutChanges } from "../../settings/store";

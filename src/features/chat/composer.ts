@@ -1,6 +1,6 @@
 // Rules for the composer: whether it shows and steers, whether a send goes through, and what a key does in it.
 import type { SlashCommand } from "../../ipc/bindings";
-import { steppedIndex } from "./dialog.ts";
+import { steppedIndex } from "../../ui/listStep.ts";
 import type { Chat } from "./transcript.ts";
 
 /** What the composer is for the chat: shown under a dialog only for its menu, and a steer while the agent runs and takes steers. */
@@ -20,8 +20,8 @@ export function composerState(chat: Chat) {
 /** Whether a send goes through: the composer takes sends and holds text or an attachment. */
 export const sendable = (canSend: boolean, draft: string, attachments: number): boolean => canSend && (draft.trim() !== "" || attachments > 0);
 
-export type ComposerKey = { key: string; shift: boolean; composing: boolean };
-export type KeyAction = { kind: "step"; to: number } | { kind: "complete"; command: SlashCommand } | { kind: "send" } | null;
+type ComposerKey = { key: string; shift: boolean; composing: boolean };
+type KeyAction = { kind: "step"; to: number } | { kind: "complete"; command: SlashCommand } | { kind: "send" } | null;
 
 /** What a key does with the slash menu's rows open at `at`: arrows step the rows, Tab completes, Return completes unless the draft holds the command in full, then Return sends. */
 export function composerKey({ key, shift, composing }: ComposerKey, draft: string, rows: SlashCommand[], at: number): KeyAction {

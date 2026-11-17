@@ -2,7 +2,7 @@
 import { closeSheet, openSheet, sheet, sheetOf } from "../../app/sheet";
 import { commands } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
-import { fail } from "../worktrees/store";
+import { fail } from "../../ui/alert";
 import { emptyTree, withTreeMoved, type Tree } from "./tree";
 
 export const trees = externalStore<Record<string, Tree>>({});
@@ -63,7 +63,7 @@ export async function reloadFiles(worktree: string) {
 }
 
 /** The entry whose name the tree shows as a field: a rename, or a new file or folder inside `folder`. */
-export type NameEdit = { worktree: string } & ({ kind: "rename"; path: string } | { kind: "newFile" | "newFolder"; folder: string });
+type NameEdit = { worktree: string } & ({ kind: "rename"; path: string } | { kind: "newFile" | "newFolder"; folder: string });
 
 export const nameEdit = externalStore<NameEdit | null>(null);
 

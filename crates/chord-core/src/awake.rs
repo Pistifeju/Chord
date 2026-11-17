@@ -1,9 +1,10 @@
 //! Keeps the Mac awake while an agent runs: one `caffeinate` process, alive only while the setting is on and some pane's agent works.
 
+use crate::lock;
 use std::collections::BTreeSet;
 use std::io::ErrorKind;
 use std::process::{Child, Command};
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::sync::{Mutex, MutexGuard};
 
 use crate::Error;
 
@@ -29,7 +30,7 @@ impl Awake {
     }
 
     fn inner(&self) -> MutexGuard<'_, Inner> {
-        self.inner.lock().unwrap_or_else(PoisonError::into_inner)
+        lock(&self.inner)
     }
 
     /// Turning it on fails with `MissingTool` when `caffeinate` is not on the PATH, even with no agent working, so the user hears of it now; the setting then stays as it was.

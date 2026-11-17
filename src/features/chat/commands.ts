@@ -1,5 +1,6 @@
 // The chat's commands for the commands table.
 import type { AppCommand } from "../../app/commands";
+import { onTarget } from "../../app/commandTarget";
 import { chatPaneIds } from "../panes/layout";
 import { shownPanes } from "../worktrees/store";
 import { sheet } from "../../app/sheet";
@@ -49,95 +50,21 @@ const attachingPane = (): string | null => {
 };
 
 export const chatCommands: AppCommand[] = [
-  {
-    id: "chat.lightboxClose",
-    title: "Close Image",
-    shortcut: { key: "escape" },
-    when: () => lightboxPane() !== null,
-    run: () => {
-      const pane = lightboxPane();
-      if (pane) closeLightbox(pane);
-    },
-  },
-  {
-    id: "chat.lightboxPrevious",
-    title: "Previous Image",
-    shortcut: { key: "arrowleft" },
-    when: () => lightboxPane() !== null,
-    run: () => {
-      const pane = lightboxPane();
-      if (pane) stepLightbox(pane, -1);
-    },
-  },
-  {
-    id: "chat.lightboxNext",
-    title: "Next Image",
-    shortcut: { key: "arrowright" },
-    when: () => lightboxPane() !== null,
-    run: () => {
-      const pane = lightboxPane();
-      if (pane) stepLightbox(pane, 1);
-    },
-  },
-  {
-    id: "chat.attach",
-    title: "Attach Images",
-    shortcut: { key: "u", cmd: true },
-    when: () => attachingPane() !== null,
-    run: () => {
-      const pane = attachingPane();
-      if (pane) pickAttachments(pane);
-    },
-  },
-  {
-    id: "chat.find",
-    title: "Find in Chat",
-    shortcut: { key: "f", cmd: true },
-    when: () => focusedPane() !== null,
-    run: () => {
-      const pane = focusedPane();
-      if (pane) openFind(pane);
-    },
-  },
-  {
-    id: "chat.findClose",
-    title: "Close Find",
-    shortcut: { key: "escape" },
-    when: () => findingPane() !== null,
-    run: () => {
-      const pane = findingPane();
-      if (pane) closeFind(pane);
-    },
-  },
+  { id: "chat.lightboxClose", title: "Close Image", shortcut: { key: "escape" }, ...onTarget(lightboxPane, closeLightbox) },
+  { id: "chat.lightboxPrevious", title: "Previous Image", shortcut: { key: "arrowleft" }, ...onTarget(lightboxPane, (pane) => stepLightbox(pane, -1)) },
+  { id: "chat.lightboxNext", title: "Next Image", shortcut: { key: "arrowright" }, ...onTarget(lightboxPane, (pane) => stepLightbox(pane, 1)) },
+  { id: "chat.attach", title: "Attach Images", shortcut: { key: "u", cmd: true }, ...onTarget(attachingPane, pickAttachments) },
+  { id: "chat.find", title: "Find in Chat", shortcut: { key: "f", cmd: true }, ...onTarget(focusedPane, openFind) },
+  { id: "chat.findClose", title: "Close Find", shortcut: { key: "escape" }, ...onTarget(findingPane, closeFind) },
   {
     id: "chat.dialogCancel",
     title: "Cancel Dialog",
     shortcut: { key: "escape" },
-    when: () => dialogPane() !== null,
-    run: () => {
-      const pane = dialogPane();
-      const dialog = pane && chatOf(chats.get(), pane).dialog;
-      if (pane && dialog) answerDialog(pane, dialog.id, { kind: "cancelled" });
-    },
+    ...onTarget(dialogPane, (pane) => {
+      const dialog = chatOf(chats.get(), pane).dialog;
+      if (dialog) answerDialog(pane, dialog.id, { kind: "cancelled" });
+    }),
   },
-  {
-    id: "chat.slashClose",
-    title: "Close Command Menu",
-    shortcut: { key: "escape" },
-    when: () => slashPane() !== null,
-    run: () => {
-      const pane = slashPane();
-      if (pane) closeSlash(pane, drafts.get()[pane] ?? "");
-    },
-  },
-  {
-    id: "chat.stop",
-    title: "Stop Agent",
-    shortcut: { key: "escape" },
-    when: () => runningPane() !== null,
-    run: () => {
-      const pane = runningPane();
-      if (pane) abortRun(pane);
-    },
-  },
+  { id: "chat.slashClose", title: "Close Command Menu", shortcut: { key: "escape" }, ...onTarget(slashPane, (pane) => closeSlash(pane, drafts.get()[pane] ?? "")) },
+  { id: "chat.stop", title: "Stop Agent", shortcut: { key: "escape" }, ...onTarget(runningPane, abortRun) },
 ];

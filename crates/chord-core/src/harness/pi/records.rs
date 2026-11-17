@@ -139,10 +139,6 @@ pub(super) fn events_from(record: &Value) -> Vec<HarnessEvent> {
         Some("compaction_end") if record["reason"] == "manual" => {
             vec![HarnessEvent::State { running: false }]
         }
-        Some("message_update") => {
-            let update = &record["assistantMessageEvent"];
-            message_update(update["type"].as_str(), update["delta"].as_str())
-        }
         Some("tool_execution_start") => {
             vec![tool_start(
                 record["toolCallId"].as_str(),

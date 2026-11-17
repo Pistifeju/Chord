@@ -1,8 +1,9 @@
 //! The running agents, one per pane: start, send, abort, stop, and the saved facts that follow them: the running flag, the harness and the session.
 
+use crate::lock;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use super::{
     Agent, Capability, DialogAnswer, HarnessEvent, Image, Status, StatusReport, StatusTracker,
@@ -44,7 +45,7 @@ impl Sessions {
     }
 
     fn sessions(&self) -> MutexGuard<'_, Running> {
-        self.running.lock().unwrap_or_else(PoisonError::into_inner)
+        lock(&self.running)
     }
 
     fn with(
@@ -87,7 +88,7 @@ impl Sessions {
             &self.dir,
             tools,
             move |event| {
-                let mut watch = watch.lock().unwrap_or_else(PoisonError::into_inner);
+                let mut watch = lock(&watch);
                 let dialog_was_open = watch.tracker.dialog_open();
                 let report = watch.observe(&event);
                 on_event(event);

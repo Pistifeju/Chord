@@ -4,6 +4,7 @@ import { tooltip } from "../../../app/commands";
 import type { BottomViewSlot } from "../../bottompanel/BottomPanel";
 import type { ConsoleTone } from "../../../ipc/bindings";
 import { FindBar } from "../../../ui/FindBar";
+import { steppedIndex } from "../../../ui/listStep";
 import type { Find } from "../../../ui/find";
 import { appearance } from "../../settings/store";
 import { matchesIn, segmentsOf } from "./log";
@@ -129,7 +130,7 @@ export function LogView({ view, label, lines, toneAt, restartKey, head, atStart,
           closeTitle={tooltip("build.findClose")}
           onQuery={onFindQuery}
           onStep={(by) => {
-            const next = (at + by + matches.length) % matches.length;
+            const next = steppedIndex(at, by, matches.length);
             setCurrent(next);
             showMatch(next);
           }}

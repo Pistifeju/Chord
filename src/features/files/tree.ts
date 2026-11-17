@@ -35,7 +35,7 @@ export function visibleRows(tree: Tree): Row[] {
 }
 
 /** What an arrow key on the row at `path` does: move the focus to a row, open or close a folder, or nothing. */
-export type TreeKeyAction = { focus: string } | { toggle: string } | null;
+type TreeKeyAction = { focus: string } | { toggle: string } | null;
 
 export function treeKeyAction(rows: Row[], path: string, key: string): TreeKeyAction {
   const at = rows.findIndex((row) => row.entry.path === path);

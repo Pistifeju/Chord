@@ -6,7 +6,7 @@ const DRAG_THRESHOLD = 5;
 
 type Drag<T> = { item: T; startX: number; startY: number; started: boolean };
 
-export type PointerDragCallbacks<T> = {
+type PointerDragCallbacks<T> = {
   onStart: (item: T) => void;
   onMove: (e: PointerEvent, item: T) => void;
   /** `dropped` is false for a cancelled drag, and for one whose element went away before the pointer came up. */

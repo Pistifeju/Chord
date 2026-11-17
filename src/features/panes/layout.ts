@@ -15,7 +15,7 @@ const tabs = (layout: Layout): Tab[] => groups(layout).flatMap((group) => group.
 
 export const paneIds = (layout: Layout): string[] => tabs(layout).map((tab) => tab.id);
 
-export type ChatTab = Extract<Tab, { kind: "chat" }>;
+type ChatTab = Extract<Tab, { kind: "chat" }>;
 
 export const chatTabs = (layout: Layout): ChatTab[] => tabs(layout).flatMap((tab) => (tab.kind === "chat" ? [tab] : []));
 

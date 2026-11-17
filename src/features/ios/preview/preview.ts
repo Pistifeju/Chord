@@ -1,6 +1,7 @@
 // Rules for the Preview view: whether the preview simulator's screen shows, the centered line in its place, whether its header says a rebuild runs, the compile error its bar shows, how a `#Preview` reads and which ones the picker's search matches.
 import type { BuildIssue_Deserialize, PreviewPick, PreviewState } from "../../../ipc/bindings";
 import { issuePlace } from "../build/run.ts";
+import { fileName } from "../../files/paths.ts";
 
 /** A worktree's preview state, and whether its preview app ran since the preview simulator booted. */
 export type Preview = { state: PreviewState; shown: boolean };
@@ -53,9 +54,7 @@ export function previewLine(preview: Preview | undefined): string | null {
 export const previewName = (pick: PreviewPick): string => pick.name ?? `Preview ${pick.index + 1}`;
 
 /** "ContentView" for `Views/ContentView.swift`. */
-export const previewFileName = (pick: PreviewPick): string => pick.file.slice(pick.file.lastIndexOf("/") + 1).replace(/\.swift$/, "");
-
-export const samePick = (a: PreviewPick | null, b: PreviewPick): boolean => a?.file === b.file && a.index === b.index;
+export const previewFileName = (pick: PreviewPick): string => fileName(pick.file).replace(/\.swift$/, "");
 
 /** The previews whose name or file holds the query, ignoring case, in their file order. */
 export function matchingPreviews(all: PreviewPick[], query: string): PreviewPick[] {

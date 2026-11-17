@@ -1,8 +1,10 @@
 // The Files view's commands for the commands table: show or hide the view, open a file by name, and the tree's right-click actions on an entry's relative path.
 import type { AppCommand } from "../../app/commands";
+import { onTarget } from "../../app/commandTarget";
 import { settingsOpen } from "../settings/store";
 import { toggleSideView } from "../sidepanel/store";
-import { fail, projects } from "../worktrees/store";
+import { openWorktree, projects } from "../worktrees/store";
+import { fail } from "../../ui/alert";
 import { openFileByName, requestTrash, revealFile, startNew, startRename } from "./store";
 import { joinPath } from "./paths";
 
@@ -20,20 +22,8 @@ const onEntry = (act: (worktree: string, path: string) => void, key: "path" | "f
 const copy = (text: string) => void navigator.clipboard.writeText(text).catch(fail);
 
 export const filesCommands: AppCommand[] = [
-  {
-    id: "files.toggle",
-    title: "Show or Hide Files",
-    shortcut: { key: "e", cmd: true, shift: true },
-    when: () => !settingsOpen.get() && projects.get().selected !== null,
-    run: () => toggleSideView(projects.get().selected!, "files"),
-  },
-  {
-    id: "files.openByName",
-    title: "Open File by Name",
-    shortcut: { key: "o", cmd: true, shift: true },
-    when: () => !settingsOpen.get() && projects.get().selected !== null,
-    run: () => void openFileByName(projects.get().selected!),
-  },
+  { id: "files.toggle", title: "Show or Hide Files", shortcut: { key: "e", cmd: true, shift: true }, ...onTarget(openWorktree, (worktree) => toggleSideView(worktree, "files")) },
+  { id: "files.openByName", title: "Open File by Name", shortcut: { key: "o", cmd: true, shift: true }, ...onTarget(openWorktree, (worktree) => void openFileByName(worktree)) },
   { id: "files.newFile", title: "New File", run: onEntry((worktree, folder) => startNew(worktree, folder, "newFile"), "folder") },
   { id: "files.newFolder", title: "New Folder", run: onEntry((worktree, folder) => startNew(worktree, folder, "newFolder"), "folder") },
   { id: "files.rename", title: "Rename", run: onEntry(startRename) },

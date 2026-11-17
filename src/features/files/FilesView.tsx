@@ -6,7 +6,7 @@ import { usePointerDrag } from "../../ui/pointerDrag";
 import { ChevronIcon, CollapseAllIcon, FileIcon, FilterIcon, FolderIcon, ReloadIcon } from "../../ui/icons";
 import { showFile } from "../editor/showing";
 import { finishNameEdit } from "./entries";
-import { parentFolder } from "./paths";
+import { fileName, parentFolder } from "./paths";
 import { collapseAll, loadRoot, nameEdit, reloadFiles, setFilter, toggleFolder, trees } from "./store";
 import { emptyTree, stemLength, treeKeyAction, visibleRows, type Row } from "./tree";
 import type { FileEntry } from "../../ipc/bindings";
@@ -36,7 +36,7 @@ export const FilesView = memo(function FilesView({ worktree }: { worktree: strin
     <div className="files">
       <div className="files-header">
         <span className="files-title" title={worktree}>
-          {worktree.split("/").pop()}
+          {fileName(worktree)}
         </span>
         <button type="button" className="icon-button collapse-all" title="Collapse All" aria-label="Collapse All" disabled={tree.open.length === 0} onClick={() => collapseAll(worktree)}>
           <CollapseAllIcon />
@@ -164,7 +164,7 @@ const NewEntryField = ({ isDir, depth }: { isDir: boolean; depth: number }) => <
 
 // The row's name as a field, its name without the extension selected: Return or leaving it keeps the name, Esc drops it.
 function NameField({ row: { entry, depth, open } }: { row: Row }) {
-  const name = entry.path.split("/").pop() ?? "";
+  const name = fileName(entry.path);
   const field = useRef<HTMLInputElement>(null);
   useEffect(() => {
     field.current?.focus();

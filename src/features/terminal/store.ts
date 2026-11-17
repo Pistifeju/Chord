@@ -8,11 +8,12 @@ import { Terminal, type ITheme } from "@xterm/xterm";
 import { commands, type TerminalEvent } from "../../ipc/bindings";
 import { showBottomPanel } from "../bottompanel/store";
 import { appearance } from "../settings/store";
-import { fail } from "../worktrees/store";
+import { fail } from "../../ui/alert";
 import { closeTerminalFind } from "./find";
 import { isOverTerminal } from "./drop";
 import { takesFocusOnShow } from "./focus";
 import { droppedPathsText } from "./paths";
+import { opaqueRgb, tokenValue } from "../../ui/tokenColor";
 import { webUrlsIn } from "../../ui/webUrls";
 
 type Shell = { term: Terminal; fit: FitAddon; search: SearchAddon; host: HTMLDivElement };
@@ -21,18 +22,16 @@ const shells = new Map<string, Shell>();
 
 const ansiColors = ["black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"].flatMap((name) => [name, `bright${name[0].toUpperCase()}${name.slice(1)}`]);
 
-const token = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(`--${name}`).trim();
-
 const theme = (): ITheme => ({
-  background: token("canvas"),
-  foreground: token("ink"),
-  cursor: token("ink"),
-  cursorAccent: token("canvas"),
-  selectionBackground: token("editor-selection"),
-  scrollbarSliderBackground: token("ink-disabled"),
-  scrollbarSliderHoverBackground: token("ink-muted"),
-  scrollbarSliderActiveBackground: token("ink-muted"),
-  ...Object.fromEntries(ansiColors.map((name) => [name, token(`term-${name.replace("bright", "bright-").toLowerCase()}`)])),
+  background: tokenValue("canvas"),
+  foreground: tokenValue("ink"),
+  cursor: tokenValue("ink"),
+  cursorAccent: tokenValue("canvas"),
+  selectionBackground: tokenValue("editor-selection"),
+  scrollbarSliderBackground: tokenValue("ink-disabled"),
+  scrollbarSliderHoverBackground: tokenValue("ink-muted"),
+  scrollbarSliderActiveBackground: tokenValue("ink-muted"),
+  ...Object.fromEntries(ansiColors.map((name) => [name, tokenValue(`term-${name.replace("bright", "bright-").toLowerCase()}`)])),
 });
 
 // Resizing the WebGL canvas clears it and xterm repaints a frame later, so a live resize flashes a blank terminal; this paints in the same frame.
@@ -40,18 +39,11 @@ const theme = (): ITheme => ({
 const paintNow = (term: Terminal) => (term as any)._core?._renderService?._renderDebouncer?._innerRefresh?.();
 
 // xterm takes a match background only as #RRGGBB, so the translucent match color is laid over the canvas first.
-function opaque(color: string): string {
-  const paint = document.createElement("canvas").getContext("2d")!;
-  for (const layer of [token("canvas"), color]) {
-    paint.fillStyle = layer;
-    paint.fillRect(0, 0, 1, 1);
-  }
-  return `#${[...paint.getImageData(0, 0, 1, 1).data.slice(0, 3)].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
-}
+const opaque = (color: string): string => `#${opaqueRgb(color).map((v) => v.toString(16).padStart(2, "0")).join("")}`;
 
 const matchColors = () => {
-  const match = opaque(token("editor-match"));
-  const current = token("accent-ink");
+  const match = opaque(tokenValue("editor-match"));
+  const current = tokenValue("accent-ink");
   return { matchBackground: match, matchOverviewRuler: match, activeMatchBackground: match, activeMatchBorder: current, activeMatchColorOverviewRuler: current };
 };
 
@@ -106,7 +98,7 @@ function wrappedLine(term: Terminal, row: number) {
 }
 
 function start(worktree: string, host: HTMLDivElement): Shell {
-  const term = new Terminal({ fontFamily: token("font-code"), fontSize: appearance.get().terminalFontSize, scrollback: 10000, theme: theme(), allowProposedApi: true });
+  const term = new Terminal({ fontFamily: tokenValue("font-code"), fontSize: appearance.get().terminalFontSize, scrollback: 10000, theme: theme(), allowProposedApi: true });
   const fit = new FitAddon();
   term.loadAddon(fit);
   const search = new SearchAddon();

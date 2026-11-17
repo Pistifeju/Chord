@@ -116,7 +116,7 @@ export type Appearance = Appearance_Serialize | Appearance_Deserialize;
 
 export type Appearance_Deserialize = {
 	theme?: Theme,
-	/**  Text size as a percent of the default. */
+	/**  Text size as a percent of the default. The frontend's steps (`settings/appearance.ts`) keep both sizes in range. */
 	textPercent?: number,
 	/**  In pixels. */
 	terminalFontSize?: number,
@@ -124,7 +124,7 @@ export type Appearance_Deserialize = {
 
 export type Appearance_Serialize = {
 	theme: Theme,
-	/**  Text size as a percent of the default. */
+	/**  Text size as a percent of the default. The frontend's steps (`settings/appearance.ts`) keep both sizes in range. */
 	textPercent: number,
 	/**  In pixels. */
 	terminalFontSize: number,
@@ -877,7 +877,7 @@ export type State_Deserialize = {
 	shortcuts?: { [key in string]: Shortcut_Deserialize | null },
 	/**  The worktree open when the app last ran. */
 	selected?: string | null,
-	/**  Each worktree's session tabs and split layouts. */
+	/**  Each worktree's tab groups and their split layout. */
 	panes?: { [key in string]: WorktreePanes_Deserialize },
 	/**  Each worktree's side panel: open or not, and its width. */
 	sidePanels?: { [key in string]: SidePanel_Deserialize },
@@ -909,7 +909,7 @@ export type State_Serialize = {
 	shortcuts: { [key in string]: Shortcut_Serialize | null },
 	/**  The worktree open when the app last ran. */
 	selected: string | null,
-	/**  Each worktree's session tabs and split layouts. */
+	/**  Each worktree's tab groups and their split layout. */
 	panes: { [key in string]: WorktreePanes_Serialize },
 	/**  Each worktree's side panel: open or not, and its width. */
 	sidePanels: { [key in string]: SidePanel_Serialize },

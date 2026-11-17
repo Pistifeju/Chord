@@ -1,4 +1,4 @@
-// Rules for a select dialog: which options match, and how the highlighted one moves.
+// Rules for a select dialog: which options match, where the highlight starts and where typing moves it.
 
 /** The options that contain the query, ignoring case, in their order. */
 export function matchingOptions(options: string[], query: string): string[] {
@@ -8,11 +8,6 @@ export function matchingOptions(options: string[], query: string): string[] {
 
 /** Where the highlight starts: on the current option, else the first. */
 export const startIndex = (options: string[], current: string | null): number => Math.max(0, current === null ? 0 : options.indexOf(current));
-
-/** The highlighted index after a step of `by`, wrapping at both ends; -1 when the list is empty. */
-export function steppedIndex(at: number, by: 1 | -1, count: number): number {
-  return count === 0 ? -1 : (at + by + count) % count;
-}
 
 function matchIndex(options: string[], needle: string): number {
   const startsWord = options.findIndex((option) => option.toLowerCase().split(/[\s\-_/.:]+/).some((word) => word.startsWith(needle)));

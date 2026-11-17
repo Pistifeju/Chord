@@ -1,5 +1,6 @@
 //! The agents' build and run tools: the socket their calls arrive on, each call handed to whoever starts its build like ⌘B or ⌘R, and the reply its events add up to.
 
+use chord_core::lock;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::fs::PermissionsExt;
@@ -7,7 +8,7 @@ use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::mpsc::{self, Sender};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
@@ -115,8 +116,4 @@ impl AgentTools {
         });
         agent_reply(events, run)
     }
-}
-
-fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
-    mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }

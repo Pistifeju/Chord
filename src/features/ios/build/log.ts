@@ -34,7 +34,7 @@ export function matchesIn(lines: string[], query: string): Match[] {
   return found;
 }
 
-export type Segment = { text: string; match: boolean; start: number };
+type Segment = { text: string; match: boolean; start: number };
 
 // The line cut at its matches: `match` parts are the query's text.
 export function segmentsOf(text: string, query: string): Segment[] {

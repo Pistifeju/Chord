@@ -1,7 +1,7 @@
 // Connects the running simulators, the build data size and the service groups to IPC: the list kept fresh while the button shows, Shut Down Others, the size and the groups read when Settings shows them, and the switches saved through Rust and the groups read back with each one's resolved state.
 import { commands, events, type RunningSimulator, type ServiceRow } from "../../../ipc/bindings";
 import { externalStore } from "../../../ui/externalStore";
-import { fail } from "../../worktrees/store";
+import { fail } from "../../../ui/alert";
 
 /** How often the list is read when the simulator frameworks did not load and no change event comes. */
 const REFRESH_MS = 5000;

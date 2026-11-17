@@ -6,7 +6,7 @@ import { Compartment, EditorState } from "@codemirror/state";
 import { drawSelection, EditorView, keymap, lineNumbers } from "@codemirror/view";
 import { useEffect, useRef, useState } from "react";
 import { commands } from "../../ipc/bindings";
-import { fail } from "../worktrees/store";
+import { fail } from "../../ui/alert";
 import { requestedLine, lineRequests, takeLine } from "./reveal";
 import { changedOnDisk, closeFile, readFile, scheduleSave } from "./store";
 import { editorTheme } from "./theme";

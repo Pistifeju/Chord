@@ -3,7 +3,7 @@ import { LogicalPosition } from "@tauri-apps/api/dpi";
 import { Menu, type CheckMenuItemOptions } from "@tauri-apps/api/menu";
 import { commands, type SimulatorAppearance, type SimulatorAppearanceChange, type InterfaceStyle } from "../../../ipc/bindings";
 import { openContextMenu } from "../../../app/contextMenu";
-import { fail } from "../../worktrees/store";
+import { fail } from "../../../ui/alert";
 import { namedCodes, sizeLabel, withChange } from "./appearance";
 
 const known = new Map<string, SimulatorAppearance>();

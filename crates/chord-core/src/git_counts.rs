@@ -1,8 +1,9 @@
 //! A worktree's git counts: commits ahead of and behind its upstream, and changed files.
 
+use crate::lock;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, PoisonError};
+use std::sync::Mutex;
 
 use serde::Serialize;
 use specta::Type;
@@ -106,7 +107,7 @@ fn count_against(dir: &Path, base: &str) -> Result<Option<(u32, u32)>, Error> {
 
 // One list serves every worktree of its repository; the lock keeps a second thread from listing it again.
 fn main_checkout_branch(dir: &Path, bases: &Bases) -> Result<Option<String>, Error> {
-    let mut bases = bases.lock().unwrap_or_else(PoisonError::into_inner);
+    let mut bases = lock(bases);
     if let Some(base) = bases.get(dir) {
         return Ok(base.clone());
     }

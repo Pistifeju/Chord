@@ -3,7 +3,8 @@ import { commands, type GitCounts_Serialize as GitCounts } from "../../ipc/bindi
 import { externalStore } from "../../ui/externalStore";
 import { gainsPath, nextCounts } from "./gitCounts";
 import { worktreeOrder } from "./projects";
-import { fail, projects } from "./store";
+import { projects } from "./store";
+import { fail } from "../../ui/alert";
 
 const REFRESH_MS = 10_000;
 

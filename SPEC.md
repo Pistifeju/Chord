@@ -65,7 +65,7 @@ Edge cases:
 
 - [x] C1 Split right (⌘D), split down (⌘⇧D): a new tab group with a new session beside the focused one; close tab (⌘⇧W); every chat tab runs its own agent in the worktree.
 - [x] C2 Drag dividers to resize, double-click evens out, sizes persist.
-- [x] C3 Tab groups: each pane of the split is a group with its own tab bar over it, one tab per chat session or file; a + after a group's tabs opens a new session there (⌘⇧T in the focused group). A saved layout from before tab groups keeps its open session's split and adds the other sessions as tabs of the focused group.
+- [x] C3 Tab groups: each pane of the split is a group with its own tab bar over it, one tab per chat session or file; a + after a group's tabs opens a new session there (⌘⇧T in the focused group).
 - [x] C4 Drag a tab onto another group's tab bar to move it there, or onto a pane edge to open a new group there.
 - [x] C5 harness(sessions): agents that ran at quit come back on launch in their exact session.
 - [x] C6 Quit asks while agents run.

@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { commands } from "../../ipc/bindings";
 import { imageUrl } from "../chat/attachments";
-import { fail } from "../worktrees/store";
+import { fail } from "../../ui/alert";
 import "./editor.css";
 
 /** Milliseconds between two looks at the file's change time. */

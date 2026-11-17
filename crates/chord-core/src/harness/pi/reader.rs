@@ -27,14 +27,13 @@ struct Update {
     delta: Option<String>,
 }
 
-const READ_KINDS: [&str; 12] = [
+const READ_KINDS: [&str; 11] = [
     "extension_ui_request",
     "compaction_start",
     "compaction_end",
     "extension_error",
     "agent_start",
     "agent_settled",
-    "message_update",
     "message_end",
     "tool_execution_start",
     "tool_execution_end",

@@ -1,5 +1,6 @@
 // The tab and split commands for the commands table.
 import type { AppCommand } from "../../app/commands";
+import { onTarget } from "../../app/commandTarget";
 import type { Direction } from "../../ipc/bindings";
 import { chatOf, chats } from "../chat/store";
 import { openWorktree, shownPanes } from "../worktrees/store";
@@ -38,5 +39,5 @@ export const paneCommands: AppCommand[] = [
     },
     run: onWorktree(closeFocused),
   },
-  { id: "session.new", title: "New Session", shortcut: { key: "t", cmd: true, shift: true }, when: () => openWorktree() !== null, run: onWorktree(newSession) },
+  { id: "session.new", title: "New Session", shortcut: { key: "t", cmd: true, shift: true }, ...onTarget(openWorktree, (worktree) => newSession(worktree)) },
 ];

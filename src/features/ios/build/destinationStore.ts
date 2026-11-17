@@ -2,7 +2,8 @@
 import { commands, type Destinations, type RunDestination } from "../../../ipc/bindings";
 import { externalStore } from "../../../ui/externalStore";
 import { ownerOf } from "../../worktrees/projects";
-import { fail, notify, projects } from "../../worktrees/store";
+import { projects } from "../../worktrees/store";
+import { fail, notify } from "../../../ui/alert";
 import { pickAfterListing } from "./destination";
 
 /** Each project's pick; a project without one runs on the newest iPhone simulator. */

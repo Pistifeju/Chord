@@ -1,11 +1,12 @@
 //! The Simulator and Preview views' native part: one NSView under the webview shows the shown worktree's run or preview simulator in its bezel (its framebuffer IOSurface as CALayer contents, no copies), follows it booting and shutting down, restarts a wedged boot once, and passes the view's input to the device.
 
+use chord_core::lock;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::c_void;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Mutex, PoisonError};
 use std::thread;
 use std::time::Duration;
 
@@ -361,7 +362,7 @@ static TURN: AtomicU64 = AtomicU64::new(0);
 static PLACE: Mutex<Option<(ScreenRect, Bezel)>> = Mutex::new(None);
 
 fn set_place(rect: ScreenRect, bezel: Bezel) {
-    *PLACE.lock().unwrap_or_else(PoisonError::into_inner) = Some((rect, bezel));
+    *lock(&PLACE) = Some((rect, bezel));
 }
 
 /// A show's place in line: a later show or hide makes it stale.
@@ -875,10 +876,7 @@ pub unsafe fn show_screen(
     if TURN.load(Ordering::SeqCst) != turn.0 {
         return;
     }
-    let (rect, bezel) = PLACE
-        .lock()
-        .unwrap_or_else(PoisonError::into_inner)
-        .unwrap_or_default();
+    let (rect, bezel) = lock(&PLACE).unwrap_or_default();
     let Some(mtm) = MainThreadMarker::new() else {
         return;
     };

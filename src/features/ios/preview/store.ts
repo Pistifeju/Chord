@@ -4,7 +4,8 @@ import { commands, type PreviewPick, type PreviewState, type RunDestination } fr
 import { closeSheet, openSheet } from "../../../app/sheet";
 import { externalStore } from "../../../ui/externalStore";
 import { ownerOf } from "../../worktrees/projects";
-import { fail, projects } from "../../worktrees/store";
+import { projects } from "../../worktrees/store";
+import { fail } from "../../../ui/alert";
 import { appliedState, type Preview } from "./preview";
 
 export const previews = externalStore<Record<string, Preview>>({});

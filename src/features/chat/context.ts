@@ -2,7 +2,7 @@
 import type { Chat } from "./transcript.ts";
 
 /** What the composer bar shows of the context window. */
-export type ContextMeter = { percent: number | null; level: FillLevel; title: string };
+type ContextMeter = { percent: number | null; level: FillLevel; title: string };
 
 /** How alarming a meter's fill is: it picks the fill's color. */
 export type FillLevel = "calm" | "warning" | "critical";

@@ -4,7 +4,7 @@ import { commands } from "../../ipc/bindings";
 import { showFile } from "../editor/showing";
 import { flushAllSaves } from "../editor/store";
 import { closeFilePanesAt, moveFilePanes } from "../panes/store";
-import { fail } from "../worktrees/store";
+import { fail } from "../../ui/alert";
 import { joinPath, parentFolder } from "./paths";
 import { moveTreeEntries, nameEdit, reloadFiles } from "./store";
 

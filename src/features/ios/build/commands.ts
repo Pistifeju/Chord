@@ -1,62 +1,45 @@
 // The build's commands for the commands table: run, build, stop, show or hide the Build or Console view, and find in it.
 import type { AppCommand } from "../../../app/commands";
+import { onTarget } from "../../../app/commandTarget";
 import type { BottomViewSlot } from "../../bottompanel/BottomPanel";
-import { settingsOpen } from "../../settings/store";
-import { projects } from "../../worktrees/store";
+import { openWorktree, projects } from "../../worktrees/store";
 import { worktreeAt } from "../../worktrees/projects";
 import { findsOf } from "./find";
 import { isStarting, isRunning } from "./run";
 import { builds, runApp, startBuild, stopBuild, toggleLogView } from "./store";
 
-// The selected worktree while it has an Xcode project and no sheet-like page covers it.
+// The open worktree while it has an Xcode project.
 export const xcodeWorktree = (): string | null => {
-  const { selected } = projects.get();
-  return !settingsOpen.get() && worktreeAt(projects.get(), selected)?.xcode ? selected : null;
+  const worktree = openWorktree();
+  return worktree && worktreeAt(projects.get(), worktree)?.xcode ? worktree : null;
 };
 
+// The worktree whose build or app runs.
+const busyWorktree = (): string | null => {
+  const worktree = xcodeWorktree();
+  const build = worktree ? builds.get()[worktree] : undefined;
+  return isStarting(build) || isRunning(build) ? worktree : null;
+};
+
+type LogFocus = { worktree: string; view: BottomViewSlot["id"] };
+
 // The worktree whose Build or Console view has the focus, and which of the two.
-const focusedLogView = (): { worktree: string; view: BottomViewSlot["id"] } | null => {
+const focusedLogView = (): LogFocus | null => {
   const worktree = xcodeWorktree();
   const view = document.activeElement?.closest<HTMLElement>(".log-part")?.dataset.view;
   return worktree && (view === "build" || view === "console") ? { worktree, view } : null;
 };
 
+const findingLogView = (): LogFocus | null => {
+  const focused = focusedLogView();
+  return focused && findsOf[focused.view].finds.get()[focused.worktree] ? focused : null;
+};
+
 export const buildCommands: AppCommand[] = [
-  { id: "build.run", title: "Run", shortcut: { key: "r", cmd: true }, when: () => xcodeWorktree() !== null, run: () => runApp(xcodeWorktree()!) },
-  { id: "build.start", title: "Build", shortcut: { key: "b", cmd: true }, when: () => xcodeWorktree() !== null, run: () => startBuild(xcodeWorktree()!, false) },
-  {
-    id: "build.stop",
-    title: "Stop",
-    shortcut: { key: ".", cmd: true },
-    when: () => {
-      const worktree = xcodeWorktree();
-      const build = worktree ? builds.get()[worktree] : undefined;
-      return isStarting(build) || isRunning(build);
-    },
-    run: () => stopBuild(xcodeWorktree()!),
-  },
-  { id: "build.toggleLogView", title: "Show or Hide Build Log or Console", shortcut: { key: "y", cmd: true, shift: true }, when: () => xcodeWorktree() !== null, run: () => toggleLogView(xcodeWorktree()!) },
-  {
-    id: "build.find",
-    title: "Find in Build Log or Console",
-    shortcut: { key: "f", cmd: true },
-    when: () => focusedLogView() !== null,
-    run: () => {
-      const focused = focusedLogView();
-      if (focused) findsOf[focused.view].open(focused.worktree);
-    },
-  },
-  {
-    id: "build.findClose",
-    title: "Close Find in Build Log or Console",
-    shortcut: { key: "escape" },
-    when: () => {
-      const focused = focusedLogView();
-      return focused !== null && findsOf[focused.view].finds.get()[focused.worktree] !== undefined;
-    },
-    run: () => {
-      const focused = focusedLogView();
-      if (focused) findsOf[focused.view].close(focused.worktree);
-    },
-  },
+  { id: "build.run", title: "Run", shortcut: { key: "r", cmd: true }, ...onTarget(xcodeWorktree, runApp) },
+  { id: "build.start", title: "Build", shortcut: { key: "b", cmd: true }, ...onTarget(xcodeWorktree, (worktree) => startBuild(worktree, false)) },
+  { id: "build.stop", title: "Stop", shortcut: { key: ".", cmd: true }, ...onTarget(busyWorktree, stopBuild) },
+  { id: "build.toggleLogView", title: "Show or Hide Build Log or Console", shortcut: { key: "y", cmd: true, shift: true }, ...onTarget(xcodeWorktree, toggleLogView) },
+  { id: "build.find", title: "Find in Build Log or Console", shortcut: { key: "f", cmd: true }, ...onTarget(focusedLogView, ({ worktree, view }) => findsOf[view].open(worktree)) },
+  { id: "build.findClose", title: "Close Find in Build Log or Console", shortcut: { key: "escape" }, ...onTarget(findingLogView, ({ worktree, view }) => findsOf[view].close(worktree)) },
 ];

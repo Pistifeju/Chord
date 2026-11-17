@@ -1,7 +1,7 @@
 // Tests for the build state rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { appliedEvent, appliedSideEvent, errorCount, markerText, noBuild, pathInWorktree, seenEnd } from "./run.ts";
+import { appliedEvent, appliedSideEvent, markerText, noBuild, pathInWorktree, seenEnd } from "./run.ts";
 
 test("a failed build keeps its errors and the count of the ones it did not list", () => {
   let state = appliedEvent(noBuild, { kind: "phase", phase: "preparing" }, 1000);
@@ -10,7 +10,7 @@ test("a failed build keeps its errors and the count of the ones it did not list"
   state = appliedEvent(state, { kind: "failed", issues: [{ file: "/w/A.swift", line: 4, message: "bad" }], more: 2 }, 3000);
   assert.equal(state.build?.phase, "failed");
   assert.deepEqual(state.log, { lines: ["one"], partial: "two" });
-  assert.equal(errorCount(state.build!), 3);
+  assert.equal(state.build?.more, 2);
   assert.deepEqual(markerText(state.build!), { text: "Build failed", tone: "failed" });
 });
 

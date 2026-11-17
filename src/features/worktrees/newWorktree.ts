@@ -4,9 +4,10 @@ import { closeSheet, openSheet } from "../../app/sheet";
 import { externalStore } from "../../ui/externalStore";
 import { startFocused } from "../panes/store";
 import { branchName, canCreate, defaultProject } from "./projects";
-import { fail, projects, refreshWorktrees, selectWorktree } from "./store";
+import { projects, refreshWorktrees, selectWorktree } from "./store";
+import { fail } from "../../ui/alert";
 
-export type NewWorktree = {
+type NewWorktree = {
   project: string | null;
   branch: string;
   // null while the name is empty, being checked, or valid

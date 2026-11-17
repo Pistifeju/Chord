@@ -7,6 +7,7 @@ mod git;
 pub mod git_counts;
 pub mod harness;
 pub mod images;
+mod lock;
 mod panes;
 pub mod projects;
 mod state;
@@ -19,6 +20,7 @@ pub use git_counts::GitCounts;
 pub use harness::{
     Capability, DialogAnswer, DialogAsk, HarnessEvent, Image, SlashCommand, Status, login_shell,
 };
+pub use lock::lock;
 pub use panes::{Direction, Layout, Tab, WorktreePanes};
 pub use projects::Project;
 pub use state::{

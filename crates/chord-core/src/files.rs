@@ -319,7 +319,7 @@ mod tests {
 
     #[test]
     fn create_and_rename_never_replace_an_entry() {
-        let root = std::env::temp_dir().join(format!("chord-create-{}", std::process::id()));
+        let root = std::env::temp_dir().join(format!("chord-new-entry-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(&root).unwrap();
         create(&root, "a.txt", false).unwrap();

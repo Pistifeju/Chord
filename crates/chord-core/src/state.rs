@@ -1,10 +1,11 @@
 //! The saved app state and the store that writes it to `state.json`.
 
+use crate::lock;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::{ErrorKind, Write};
 use std::path::PathBuf;
-use std::sync::{Mutex, PoisonError};
+use std::sync::Mutex;
 
 use serde::{Deserialize, Deserializer, Serialize};
 use specta::Type;
@@ -25,7 +26,7 @@ pub struct State {
     pub shortcuts: BTreeMap<String, Option<Shortcut>>,
     /// The worktree open when the app last ran.
     pub selected: Option<PathBuf>,
-    /// Each worktree's session tabs and split layouts.
+    /// Each worktree's tab groups and their split layout.
     pub panes: BTreeMap<PathBuf, WorktreePanes>,
     /// Each worktree's side panel: open or not, and its width.
     pub side_panels: BTreeMap<PathBuf, SidePanel>,
@@ -154,8 +155,8 @@ impl State {
             StateChange::SelectedWorktree(worktree) => self.selected = worktree,
             StateChange::SidebarHidden(hidden) => self.sidebar.hidden = hidden,
             StateChange::Theme(theme) => self.appearance.theme = theme,
-            StateChange::TextPercent(percent) => self.appearance.set_text_percent(percent),
-            StateChange::TerminalFontSize(size) => self.appearance.set_terminal_font_size(size),
+            StateChange::TextPercent(percent) => self.appearance.text_percent = percent,
+            StateChange::TerminalFontSize(size) => self.appearance.terminal_font_size = size,
             StateChange::Shortcuts(shortcuts) => self.shortcuts = shortcuts,
             StateChange::SidePanel { worktree, panel } => {
                 self.side_panels.insert(worktree, panel);
@@ -284,27 +285,10 @@ pub enum Theme {
 #[serde(default, rename_all = "camelCase")]
 pub struct Appearance {
     pub theme: Theme,
-    /// Text size as a percent of the default.
+    /// Text size as a percent of the default. The frontend's steps (`settings/appearance.ts`) keep both sizes in range.
     pub text_percent: u8,
     /// In pixels.
     pub terminal_font_size: u8,
-}
-
-impl Appearance {
-    pub const MIN_TEXT_PERCENT: u8 = 80;
-    pub const MAX_TEXT_PERCENT: u8 = 150;
-
-    pub const MIN_TERMINAL_FONT_SIZE: u8 = 9;
-    pub const MAX_TERMINAL_FONT_SIZE: u8 = 24;
-
-    fn set_text_percent(&mut self, percent: u8) {
-        self.text_percent = percent.clamp(Self::MIN_TEXT_PERCENT, Self::MAX_TEXT_PERCENT);
-    }
-
-    fn set_terminal_font_size(&mut self, size: u8) {
-        self.terminal_font_size =
-            size.clamp(Self::MIN_TERMINAL_FONT_SIZE, Self::MAX_TERMINAL_FONT_SIZE);
-    }
 }
 
 impl Default for Appearance {
@@ -381,14 +365,11 @@ impl Store {
     }
 
     pub fn get(&self) -> State {
-        self.state
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .clone()
+        lock(&self.state).clone()
     }
 
     pub fn update<T>(&self, change: impl FnOnce(&mut State) -> T) -> Result<T, Error> {
-        let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+        let mut state = lock(&self.state);
         let mut next = state.clone();
         let result = change(&mut next);
         if next == *state {

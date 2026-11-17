@@ -22,7 +22,7 @@ pi --mode rpc                  one process per pane
 ```
 Cargo.toml                     workspace: src-tauri, crates/*
 crates/chord-core/src/
-  projects.rs  worktrees.rs  git.rs  state.rs  paths.rs  error.rs  terminal.rs
+  projects.rs  worktrees.rs  git.rs  state.rs  files.rs  error.rs  terminal.rs
   harness/mod.rs               Agent trait, start, HarnessEvent, Capability, status_for
   harness/process.rs           a harness binary on pipes, for every adapter
   harness/pi/                  the only module that knows pi's records
@@ -54,8 +54,8 @@ The trait, events, commands and capabilities: `docs/harness-contract.md`, sectio
 2. **Records stop at the adapter.** `harness/pi/` turns each pi record into Chord events. The frontend's chat reducer handles every `HarnessEvent` and never sees a pi record.
 3. **One path for history.** On resume the adapter reads the saved messages and sends them as the same events a live reply produces.
 4. **Status without a socket.** pi's stdout carries what the status needs: `agent_start`, `agent_settled`, `message_end`, `extension_ui_request` for dialogs, and `get_state` for the session file. `status_for` in `harness/mod.rs` folds the events into a status; the app crate emits it to the sidebar and to notifications. No socket and no reporting extension.
-5. **The extension Chord ships adds two commands**: `/chord-resume`, `/chord-tree`. RPC has no session list or tree navigation. In a worktree with an Xcode project it also adds the `build` and `run` tools, which send each call to Chord's socket (`docs/ios.md`, 3.6).
-6. **Process.** One `pi --mode rpc` per pane, on pipes, started through the user's login shell so PATH and API keys match their terminal; `harness/process.rs` holds that part for every adapter. The binary name is a parameter with the default `pi`. The adapter runs `pi --version` first and returns `MissingTool` or the upgrade step.
+5. **The extension Chord ships adds three commands**: `/chord-resume`, `/chord-tree`, `/chord-reload`. RPC has no session list, tree navigation or reload. It also reports the subscription usage windows as a status text. In a worktree with an Xcode project it also adds the `build` and `run` tools, which send each call to Chord's socket (`docs/ios.md`, 3.6).
+6. **Process.** One `pi --mode rpc` per pane, on pipes, started through the user's login shell so PATH and API keys match their terminal; `harness/process.rs` holds that part for every adapter. The adapter runs `pi --version` first and returns `MissingTool` or the upgrade step.
 7. **Capabilities.** The adapter returns its list when a session starts. A view checks the list before it shows a control.
 
 ## 5. IPC
@@ -75,13 +75,13 @@ The trait, events, commands and capabilities: `docs/harness-contract.md`, sectio
 ## 7. State file
 
 1. One file, `state.json`, in the app data folder. Rust reads it at launch and writes it with a rename, so a crash leaves the old file whole.
-2. One Rust struct, `State`, with `version` and `#[serde(default)]` on every field. A feature adds its fields; an older file still loads. A breaking change bumps `version` and adds one migration function.
-3. The frontend gets the state at launch and sends changes back; Rust debounces the write. Nothing goes to `localStorage`.
+2. One Rust struct, `State`, with `#[serde(default)]` on every field. A feature adds its fields; an older file still loads. A file that does not parse stays beside the new one as `state.json.bad`. A breaking change adds a `version` field and one migration function.
+3. The frontend gets the state at launch and sends changes back; Rust writes the file on each change that alters the state. Nothing goes to `localStorage`.
 
 ## 8. Security
 
 1. **CSP on.** Scripts from the bundle only; styles from the bundle and inline, since xterm.js writes its renderer's `<style>` elements at run time (Tauri's style hashes stay off, or they would void `'unsafe-inline'`); images from the bundle, the asset protocol and `data:`; connections to Tauri IPC only.
-2. **Path check in one place.** A command that takes a path gets a worktree and a relative path. `paths.rs` accepts it when the worktree is one Chord knows and the resolved path stays inside it.
+2. **Path check in one place.** A command that takes a path gets a worktree and a relative path. `files.rs` (`inside`) refuses a relative path that is absolute or climbs out with `..`. The worktree itself is not checked against the ones Chord knows.
 3. **No shell strings from the UI.** Arguments travel as process arguments or env vars.
 
 ## 9. iOS

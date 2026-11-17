@@ -1,9 +1,10 @@
 //! A harness's process: started through the user's login shell on pipes, its stdout read line by line on a thread of its own, JSON lines written to its stdin, killed when dropped.
 
+use crate::lock;
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -25,7 +26,7 @@ pub struct Stdin(Arc<Mutex<ChildStdin>>);
 
 impl Stdin {
     pub fn write(&self, line: &Value) -> Result<(), Error> {
-        let mut stdin = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        let mut stdin = lock(&self.0);
         writeln!(stdin, "{line}")?;
         stdin.flush()?;
         Ok(())
@@ -94,28 +95,20 @@ impl Drop for Process {
         if !self.reports_end {
             self.stopped.store(true, Ordering::SeqCst);
         }
-        let pid = self
-            .child
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .id();
+        let pid = lock(&self.child).id();
         // SIGTERM lets pi end the commands it started in their own process groups; SIGKILL would leave them running.
         if let Ok(pid) = i32::try_from(pid) {
             unsafe { libc::kill(pid, libc::SIGTERM) };
         }
         let deadline = Instant::now() + TERM_GRACE;
         while Instant::now() < deadline {
-            let waited = self
-                .child
-                .lock()
-                .unwrap_or_else(PoisonError::into_inner)
-                .try_wait();
+            let waited = lock(&self.child).try_wait();
             if !matches!(waited, Ok(None)) {
                 return;
             }
             thread::sleep(Duration::from_millis(20));
         }
-        let mut child = self.child.lock().unwrap_or_else(PoisonError::into_inner);
+        let mut child = lock(&self.child);
         let _ = child.kill();
         let _ = child.wait();
     }
@@ -127,10 +120,7 @@ const TERM_GRACE: Duration = Duration::from_secs(2);
 // Stdout closed, so the process is ending; it gets a moment to report its code.
 fn exit_code(child: &Mutex<Child>) -> Option<i32> {
     for _ in 0..50 {
-        let waited = child
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .try_wait();
+        let waited = lock(child).try_wait();
         match waited {
             Ok(Some(status)) => return status.code(),
             Ok(None) => thread::sleep(Duration::from_millis(20)),

@@ -1,12 +1,14 @@
 // Connects the project rules to IPC: load, add by dialog or drop, remove, select, delete a worktree.
 import { commands, type Project } from "../../ipc/bindings";
 import { closeSheet, openSheet, sheet, sheetOf } from "../../app/sheet";
+import { fail, notify } from "../../ui/alert";
 import { externalStore } from "../../ui/externalStore";
 import { shownSession } from "../panes/sessions";
 import { vanishedWorktrees } from "../panes/agents";
 import { agentsWorkIn, forgetPanes, panes } from "../panes/store";
 import { settingsOpen } from "../settings/store";
-import { goneWorktrees, noProjects, withProject, withoutProject, withoutWorktree, withSavedSelection, withSelectionRestored, withWorktrees, worktreeOrder, type Projects } from "./projects";
+import { goneWorktrees, noProjects, withProject, withoutProject, withoutWorktree, withSavedSelection, withSelectionRestored, withWorktrees, worktreeName, worktreeOrder, type Projects } from "./projects";
+import { fileName } from "../files/paths";
 
 export const projects = externalStore(noProjects);
 
@@ -27,8 +29,6 @@ const update = (change: (p: Projects) => Projects) => {
     if (selected) commands.worktreeOpened(selected).catch(console.error);
   }
 };
-export const fail = (error: unknown) => update((p) => ({ ...p, error: String(error), errorIsNotice: false }));
-export const notify = (text: string) => update((p) => ({ ...p, error: text, errorIsNotice: true }));
 
 // Every worktree that goes, by a delete, a removed project or outside Chord, goes through here.
 const worktreesGone = (paths: string[]) => paths.forEach(forgetPanes);
@@ -103,11 +103,10 @@ export function selectWorktree(path: string) {
   settingsOpen.set(false);
   update((p) => ({ ...p, selected: path }));
 }
-export const dismissError = () => update((p) => ({ ...p, error: null }));
 
 export function requestDelete(project: string, path: string) {
   const worktree = projects.get().worktrees[project]?.find((w) => w.path === path);
-  openSheet({ kind: "deleteWorktree", project, path, name: worktree?.branch ?? path.split("/").pop() ?? path });
+  openSheet({ kind: "deleteWorktree", project, path, name: worktree ? worktreeName(worktree) : fileName(path) });
 }
 
 export function confirmDeletion() {

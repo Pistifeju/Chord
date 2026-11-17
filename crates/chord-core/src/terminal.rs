@@ -1,5 +1,6 @@
 //! The worktrees' terminals: one login shell per worktree on a pseudo-terminal, its output handed out as text, its input and size taken in.
 
+use crate::lock;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{ErrorKind, Read, Write};
@@ -8,7 +9,7 @@ use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use std::{io, thread};
 
@@ -61,10 +62,6 @@ fn end(shells: impl IntoIterator<Item = Shell>) {
 pub struct Terminals {
     shells: Arc<Mutex<HashMap<PathBuf, Shell>>>,
     next_id: AtomicU64,
-}
-
-fn lock(shells: &Mutex<HashMap<PathBuf, Shell>>) -> MutexGuard<'_, HashMap<PathBuf, Shell>> {
-    shells.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
 impl Terminals {

@@ -2,7 +2,9 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { tooltip } from "../../app/commands";
 import { FindBar } from "../../ui/FindBar";
-import { closeFind, setFindQuery, type Find } from "./find";
+import { steppedIndex } from "../../ui/listStep";
+import type { Find } from "../../ui/find";
+import { closeFind, setFindQuery } from "./find";
 import { clearFind, matchesIn, paintFind } from "./findMatches";
 import type { Item } from "./transcript";
 
@@ -35,7 +37,7 @@ export function TranscriptFind({ pane, find, transcript, items }: { pane: string
   useEffect(() => () => clearFind(pane), [pane]);
 
   const step = (by: 1 | -1) => {
-    const next = (current + by + count) % count;
+    const next = steppedIndex(current, by, count);
     setCurrent(next);
     reveal(matches[next]);
   };

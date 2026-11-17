@@ -6,7 +6,7 @@ import type { RunDestination } from "../../../ipc/bindings";
 import { menuItem, tooltip } from "../../../app/commands";
 import { openContextMenu } from "../../../app/contextMenu";
 import { shortcutChanges } from "../../settings/store";
-import { fail } from "../../worktrees/store";
+import { fail } from "../../../ui/alert";
 import { ChevronDownIcon, PhoneIcon, PlayIcon, StopIcon } from "../../../ui/icons";
 import { sameDestination } from "./destination";
 import { chooseRunDestination, destinations, refreshDestinations, runDestinationOf, useRunDestination } from "./destinationStore";

@@ -23,9 +23,10 @@
 //! OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //! SOFTWARE.
 
+use chord_core::lock;
 use std::ffi::{CStr, c_char, c_void};
 use std::sync::mpsc;
-use std::sync::{Arc, Mutex, PoisonError, Weak};
+use std::sync::{Arc, Mutex, Weak};
 use std::thread;
 use std::time::Duration;
 
@@ -246,7 +247,7 @@ impl Link {
             let device = device;
             let connected = connect(device.0, &queue, &state);
             if let Some(state) = state.upgrade() {
-                *state.lock().unwrap_or_else(PoisonError::into_inner) = match connected {
+                *lock(&state) = match connected {
                     Ok(connection) => State::Ready(Arc::new(connection)),
                     Err(_) => State::Broken,
                 };
@@ -255,7 +256,7 @@ impl Link {
     }
 
     fn lock(&self) -> std::sync::MutexGuard<'_, State> {
-        self.state.lock().unwrap_or_else(PoisonError::into_inner)
+        lock(&self.state)
     }
 
     pub fn send(&self, input: Input) {
@@ -379,7 +380,7 @@ fn connect_once(
             &raw const _xpc_error_connection_invalid,
         );
         if let (true, Some(state)) = (invalid, state.upgrade()) {
-            let mut state = state.lock().unwrap_or_else(PoisonError::into_inner);
+            let mut state = lock(&state);
             if matches!(*state, State::Ready(_)) {
                 *state = State::Broken;
             }

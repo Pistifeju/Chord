@@ -110,7 +110,7 @@ export function closeFilePanesAt(worktree: string, path: string) {
   for (const file of saved ? filePanes(saved.layout) : []) if (isAtOrInside(file.path, path)) closeFilePane(worktree, file.id);
 }
 
-export const filePaneOf = (worktree: string, path: string): FilePane | undefined => {
+const filePaneOf = (worktree: string, path: string): FilePane | undefined => {
   const saved = panes.get()[worktree];
   return saved && filePanes(saved.layout).find((f) => f.path === path);
 };

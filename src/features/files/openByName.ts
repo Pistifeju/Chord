@@ -1,4 +1,5 @@
 // Rules for Open File by Name: which of the worktree's files match the typed name, best first.
+import { fileName } from "./paths.ts";
 
 // shortcut: only the first rows render, so a huge repo stays quick; upgrade to a virtual list if someone misses a file past them.
 const SHOWN_FILES = 100;
@@ -6,7 +7,7 @@ const SHOWN_FILES = 100;
 // 0: the name starts with the query, 1: the name contains it, 2: only the path does; -1: no match.
 function rank(path: string, needle: string): number {
   const lower = path.toLowerCase();
-  const name = lower.slice(lower.lastIndexOf("/") + 1);
+  const name = fileName(lower);
   if (name.startsWith(needle)) return 0;
   if (name.includes(needle)) return 1;
   return lower.includes(needle) ? 2 : -1;

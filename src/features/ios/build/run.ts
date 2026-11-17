@@ -4,6 +4,7 @@ import type { BottomViewSlot } from "../../bottompanel/BottomPanel";
 import type { BottomView } from "../../../ipc/bindings";
 import { appendToConsole, emptyConsole, type ConsoleLine } from "./consoleLog.ts";
 import { appendToLog, emptyLog, type Log } from "./log.ts";
+import { fileName } from "../../files/paths.ts";
 
 export type Build = {
   phase: "preparing" | "waiting" | "building" | "installing" | "launching" | "running" | "exited" | "succeeded" | "failed" | "stopped";
@@ -75,9 +76,7 @@ export const viewToShow = (build: Build | undefined): BottomViewSlot["id"] => (b
 export const viewAfterEvent = (view: BottomView, event: BuildEvent_Deserialize): BottomView =>
   view === "build" && event.kind === "phase" && event.phase === "running" ? "console" : view;
 
-export const errorCount = (build: Build): number => build.issues.length + build.more;
-
-export type Marker = { text: string; tone: "busy" | "done" | "stopped" | "failed" };
+type Marker = { text: string; tone: "busy" | "done" | "stopped" | "failed" };
 
 // Marks a success, a run past its build, or a stop as seen, so it leaves the card; any other build stays as it is.
 export const seenEnd = (build: Build): Build =>
@@ -109,7 +108,7 @@ export function markerText(build: Build): Marker | null {
 
 /** "LoginView.swift:42", or the file's name alone without a line; null without a file. */
 export function issuePlace(issue: BuildIssue_Deserialize): string | null {
-  const name = issue.file?.split("/").pop();
+  const name = issue.file && fileName(issue.file);
   if (!name) return null;
   return issue.line ? `${name}:${issue.line}` : name;
 }

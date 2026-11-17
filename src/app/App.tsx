@@ -32,7 +32,8 @@ import { NewWorktreePopup } from "../features/worktrees/NewWorktreePopup";
 import { ProjectDrop } from "../features/worktrees/ProjectDrop";
 import { watchGitCounts } from "../features/worktrees/gitCountsRefresh";
 import { hasXcodeProject, worktreeAt } from "../features/worktrees/projects";
-import { dismissError, projects } from "../features/worktrees/store";
+import { projects } from "../features/worktrees/store";
+import { alert, dismissAlert } from "../ui/alert";
 import { seeThrough } from "../ui/seeThrough";
 import { WarningToast } from "../ui/Toast";
 import { StatusBar } from "./StatusBar";
@@ -51,7 +52,8 @@ function SeeThroughHole() {
 
 export default function App() {
   const state = projects.use();
-  const { list, selected, error, errorIsNotice } = state;
+  const { list, selected } = state;
+  const shownAlert = alert.use();
   const { hidden } = sidebar.use();
   const settings = settingsOpen.use();
   const sheetOpen = sheet.use() !== null;
@@ -166,7 +168,7 @@ export default function App() {
       <HelpSheet />
       <CloseAgentsPopup />
       <RemoveProjectPopup />
-      {error && <WarningToast text={error} notice={errorIsNotice} onDismiss={dismissError} />}
+      {shownAlert && <WarningToast text={shownAlert.text} notice={shownAlert.notice} onDismiss={dismissAlert} />}
     </div>
   );
 }

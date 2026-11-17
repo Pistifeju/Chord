@@ -4,13 +4,14 @@ import { shortcutLabel, tooltip } from "../../../app/commands";
 import type { Bezel, Button, ButtonFace, FaceIcon, ScreenButtons } from "../../../ipc/bindings";
 import { AppearanceIcon, CameraIcon, HomeIcon, LockIcon, PhoneIcon, ShakeIcon, UnlockIcon } from "../../../ui/icons";
 import { seeThrough } from "../../../ui/seeThrough";
+import { opaqueRgb, tokenValue } from "../../../ui/tokenColor";
 import { shortcutChanges } from "../../settings/store";
 import { showsSideView, sidePanels, toggleSideView } from "../../sidepanel/store";
 import { hidUsage } from "./keys";
 import { clampToScreen, cornerRadius, fingersFor, fit, fromBottom, gestureFingers, secondFinger, toScreen, type Fingers, type Point, type Rect } from "./screen";
 import { hideScreen, moveScreen, openSimulatorApp, pressButton, screen, sendKey, sendTouch, setButtons, showScreen, takeScreenshot } from "./store";
 import { loadAppearance, openAppearanceMenu } from "./appearanceMenu";
-import { fail } from "../../worktrees/store";
+import { fail } from "../../../ui/alert";
 import { ScreenshotThumbnail } from "./Screenshot";
 import "./simulator.css";
 
@@ -57,19 +58,7 @@ const HOLE_MARGIN = 32;
 /** The area's margin in the view (simulator.css). */
 const AREA_MARGIN = 21;
 
-const paint = Object.assign(document.createElement("canvas"), { width: 1, height: 1 }).getContext("2d", { willReadFrequently: true });
-
-/** A color token as opaque sRGB bytes, laid over the canvas as the web paints it. */
-function tokenRgb(name: string): [number, number, number] {
-  if (!paint) return [0, 0, 0];
-  const style = getComputedStyle(document.documentElement);
-  for (const token of ["canvas", name]) {
-    paint.fillStyle = style.getPropertyValue(`--${token}`).trim();
-    paint.fillRect(0, 0, 1, 1);
-  }
-  const [red, green, blue] = paint.getImageData(0, 0, 1, 1).data;
-  return [red, green, blue];
-}
+const tokenRgb = (name: string) => opaqueRgb(tokenValue(name));
 
 const themeColors = () => ({
   bezel: { canvas: tokenRgb("canvas"), frame: tokenRgb("bezel"), edge: tokenRgb("line-strong") },
