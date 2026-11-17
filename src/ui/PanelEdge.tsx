@@ -1,11 +1,11 @@
-// The draggable edge of a panel that sits against the window's right or bottom side: dragging it toward the middle grows the panel.
+// The draggable edge of a panel: dragging it away from the panel grows it.
 import { useRef, type PointerEvent } from "react";
 import "./panelEdge.css";
 
 type Drag = { panel: HTMLElement; start: number; startSize: number; size: number | null; frame: number };
 
 type Props = {
-  side: "left" | "top";
+  side: "left" | "right" | "top";
   onResize: (size: number) => void;
   /** Runs once when a drag ends, so the size saves once. */
   onEnd: () => void;
@@ -13,8 +13,9 @@ type Props = {
 
 export function PanelEdge({ side, onResize, onEnd }: Props) {
   const drag = useRef<Drag | null>(null);
-  const along = (e: PointerEvent) => (side === "left" ? e.clientX : e.clientY);
-  const shownSize = (panel: HTMLElement) => (side === "left" ? panel.offsetWidth : panel.offsetHeight);
+  const across = side !== "top";
+  const along = (e: PointerEvent) => (side === "right" ? -e.clientX : across ? e.clientX : e.clientY);
+  const shownSize = (panel: HTMLElement) => (across ? panel.offsetWidth : panel.offsetHeight);
 
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
     const panel = e.currentTarget.parentElement!;
@@ -50,7 +51,7 @@ export function PanelEdge({ side, onResize, onEnd }: Props) {
       className="panel-edge"
       data-side={side}
       role="separator"
-      aria-orientation={side === "left" ? "vertical" : "horizontal"}
+      aria-orientation={across ? "vertical" : "horizontal"}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerEnd}

@@ -1,7 +1,6 @@
-// Connects the Preview view to IPC: each worktree's preview opened on its preview simulator with its pick, the states its channel brings, the picks per worktree and the models per project saved through Rust, and the `#Preview` list the picker shows.
+// Connects the Preview view to IPC: each worktree's preview opened on its preview simulator with its pick, the states its channel brings, the picks per worktree and the models per project saved through Rust, and each worktree's `#Preview` list.
 import { Channel } from "@tauri-apps/api/core";
 import { commands, type PreviewPick, type PreviewState, type RunDestination } from "../../../ipc/bindings";
-import { closeSheet, openSheet } from "../../../app/sheet";
 import { externalStore } from "../../../ui/externalStore";
 import { ownerOf } from "../../worktrees/projects";
 import { projects } from "../../worktrees/store";
@@ -16,8 +15,8 @@ export const previewPicks = externalStore<Record<string, PreviewPick>>({});
 /** Each project's preview model; a project without one previews on the newest iPhone. */
 const previewModels = externalStore<Record<string, RunDestination>>({});
 
-/** The previews the open picker lists; null while they load. */
-export const previewList = externalStore<PreviewPick[] | null>(null);
+/** Each worktree's previews; a worktree is missing while its first list loads. */
+export const previewLists = externalStore<Record<string, PreviewPick[]>>({});
 
 export function loadPreviewChoices(picks: Record<string, PreviewPick>, models: Record<string, RunDestination>) {
   previewPicks.set(picks);
@@ -53,22 +52,34 @@ export function closePreview(worktree: string, number: number) {
   if (latest.get(worktree) === number) commands.closePreview(worktree).catch(fail);
 }
 
-export function openPreviewPicker(worktree: string) {
-  previewList.set(null);
-  openSheet({ kind: "previewPicker", worktree });
+export function loadPreviewList(worktree: string) {
   commands
     .listPreviews(worktree)
-    .then((list) => previewList.set(list))
+    .then((list) => previewLists.set({ ...previewLists.get(), [worktree]: list }))
     .catch(fail);
 }
 
+/** The list column's width; it lasts until the app quits. */
+export const previewListWidth = externalStore(200);
+
+export const resizePreviewList = (width: number) => previewListWidth.set(Math.round(Math.min(320, Math.max(140, width))));
+
+const pendingPicks = new Map<string, ReturnType<typeof setTimeout>>();
+
+/** The list shows the pick at once; the preview switches once ↑ or ↓ rest for 150 ms. */
 export function choosePreview(worktree: string, pick: PreviewPick) {
-  closeSheet("previewPicker");
   // The view opens again on the first pick, which boots and builds it.
   const first = !previewPicks.get()[worktree];
   previewPicks.set({ ...previewPicks.get(), [worktree]: pick });
-  commands.changeState({ previewPick: { worktree, pick } }).catch(fail);
-  if (!first) commands.pickPreview(worktree, pick).catch(fail);
+  clearTimeout(pendingPicks.get(worktree));
+  pendingPicks.set(
+    worktree,
+    setTimeout(() => {
+      pendingPicks.delete(worktree);
+      commands.changeState({ previewPick: { worktree, pick } }).catch(fail);
+      if (!first) commands.pickPreview(worktree, pick).catch(fail);
+    }, 150),
+  );
 }
 
 /** The view reopens the preview on the new model's simulator. */

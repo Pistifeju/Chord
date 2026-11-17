@@ -7,7 +7,6 @@ export type Sheet =
   | { kind: "forceRemoval"; project: string; path: string; branch: string | null; reason: string }
   | { kind: "trashFile"; worktree: string; path: string }
   | { kind: "openFileByName"; worktree: string }
-  | { kind: "previewPicker"; worktree: string }
   | { kind: "quit" }
   | { kind: "help" }
   | { kind: "closeAgents"; worktree: string; id: string }

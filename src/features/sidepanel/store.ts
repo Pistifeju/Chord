@@ -21,7 +21,25 @@ export const showsSideView = (all: Record<string, SidePanel>, worktree: string, 
 /** Shows `view` the next time the panel opens, without opening it. */
 export const keepSideView = (worktree: string, view: SideView) => store.change(worktree, { view });
 
-export const openSideView = (worktree: string, view: SideView) => store.change(worktree, { open: true, view });
+// The Preview view's list sits beside its screen and needs the room.
+const minWidths: Partial<Record<SideView, number>> = { preview: 560 };
+
+/** The width a view with a minimum widened the panel from, which the next view without one gets back. */
+const widthsBefore = new Map<string, number>();
+
+export function openSideView(worktree: string, view: SideView) {
+  const min = minWidths[view] ?? 0;
+  let { width } = sidePanelOf(sidePanels.get(), worktree);
+  const before = widthsBefore.get(worktree);
+  if (width < min) {
+    widthsBefore.set(worktree, width);
+    width = min;
+  } else if (!min && before !== undefined) {
+    widthsBefore.delete(worktree);
+    width = before;
+  }
+  store.change(worktree, { open: true, view, width });
+}
 
 /** Hides the panel while it shows `view`, else opens it on `view`. */
 export const toggleSideView = (worktree: string, view: SideView) =>

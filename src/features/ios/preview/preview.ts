@@ -1,7 +1,7 @@
-// Rules for the Preview view: whether the preview simulator's screen shows, the centered line in its place, whether its header says a rebuild runs, the compile error its bar shows, how a `#Preview` reads and which ones the picker's search matches.
+// Rules for the Preview view: whether the preview simulator's screen shows, the centered line in its place, whether its header says a rebuild runs, the compile error its bar shows, how a `#Preview` reads, which ones the list's filter matches and the list's rows.
 import type { BuildIssue_Deserialize, PreviewPick, PreviewState } from "../../../ipc/bindings";
 import { issuePlace } from "../build/run.ts";
-import { fileName } from "../../files/paths.ts";
+import type { Row } from "../../files/tree.ts";
 
 /** A worktree's preview state, and whether its preview app ran since the preview simulator booted. */
 export type Preview = { state: PreviewState; shown: boolean };
@@ -53,11 +53,30 @@ export function previewLine(preview: Preview | undefined): string | null {
 /** The macro's name, an unnamed one by its place in its file. */
 export const previewName = (pick: PreviewPick): string => pick.name ?? `Preview ${pick.index + 1}`;
 
-/** "ContentView" for `Views/ContentView.swift`. */
-export const previewFileName = (pick: PreviewPick): string => fileName(pick.file).replace(/\.swift$/, "");
+/** `Views/ContentView.swift#1`: the list row's path. */
+export const previewKey = (pick: PreviewPick): string => `${pick.file}#${pick.index}`;
+
+/** A row of the list: a file, as a Files tree folder, or one of its previews under it. */
+export type PreviewRow = Row & { pick: PreviewPick | null };
 
 /** The previews whose name or file holds the query, ignoring case, in their file order. */
 export function matchingPreviews(all: PreviewPick[], query: string): PreviewPick[] {
   const needle = query.trim().toLowerCase();
   return all.filter((pick) => `${previewName(pick)} ${pick.file}`.toLowerCase().includes(needle));
+}
+
+/** Each file with a matching preview, then its previews unless the file is closed; a filter opens every file. */
+export function previewRows(all: PreviewPick[], query: string, closed: string[]): PreviewRow[] {
+  const rows: PreviewRow[] = [];
+  let file: string | null = null;
+  let open = true;
+  for (const pick of matchingPreviews(all, query)) {
+    if (pick.file !== file) {
+      file = pick.file;
+      open = query.trim() !== "" || !closed.includes(file);
+      rows.push({ entry: { name: file, path: file, isDir: true }, depth: 0, open, pick: null });
+    }
+    if (open) rows.push({ entry: { name: previewName(pick), path: previewKey(pick), isDir: false }, depth: 1, open: false, pick });
+  }
+  return rows;
 }

@@ -10,6 +10,12 @@
   cursor: col-resize;
 }
 
+.panel-edge[data-side="right"] {
+  inset: 0 -5px 0 auto;
+  width: 9px;
+  cursor: col-resize;
+}
+
 .panel-edge[data-side="top"] {
   inset: -5px 0 auto 0;
   height: 9px;
@@ -21,7 +27,8 @@
   position: absolute;
 }
 
-.panel-edge[data-side="left"]::after {
+.panel-edge[data-side="left"]::after,
+.panel-edge[data-side="right"]::after {
   inset: 0 4px;
 }
 
