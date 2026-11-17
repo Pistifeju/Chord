@@ -1,12 +1,15 @@
 //! The worktree's Xcode project or workspace, its schemes with the configuration each one runs in, its build configurations, and the check that `xcodebuild` and `xcrun` exist.
 
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
+use std::sync::Mutex;
+use std::time::SystemTime;
 
 use serde::Serialize;
 use serde_json::Value;
-use chord_core::{Error, login_shell, xcode_bundles};
+use chord_core::{Error, lock, login_shell, xcode_bundles};
 use specta::Type;
 
 use crate::derived_data::LSOF;
@@ -201,7 +204,30 @@ pub(crate) fn build_args(
     .into()
 }
 
-/// The `.app` the scheme builds for the destination, from `xcodebuild -showBuildSettings -json` with the arguments of the build. Runs in its own process group, whose id goes to `register`.
+/// The modification times of the files that decide which app a scheme builds where: each project's `project.pbxproj`, each workspace's contents and the shared schemes in the worktree's folder.
+// shortcut: a product name set in an `.xcconfig`, a user scheme or a project below the folder is not watched; add their times if a stale app path shows.
+fn project_stamp(worktree: &Path) -> Vec<Option<SystemTime>> {
+    xcode_bundles(worktree)
+        .into_iter()
+        .flat_map(|bundle| {
+            let schemes = fs::read_dir(bundle.join("xcshareddata/xcschemes"))
+                .into_iter()
+                .flatten()
+                .flatten()
+                .map(|entry| entry.path());
+            [
+                bundle.join("project.pbxproj"),
+                bundle.join("contents.xcworkspacedata"),
+            ]
+            .into_iter()
+            .chain(schemes)
+            .collect::<Vec<_>>()
+        })
+        .map(|file| file.metadata().and_then(|meta| meta.modified()).ok())
+        .collect()
+}
+
+/// The `.app` the scheme builds for the destination, from `xcodebuild -showBuildSettings -json` with the arguments of the build, kept until a project or shared scheme changes. Runs in its own process group, whose id goes to `register`.
 pub(crate) fn built_app(
     project: &Project,
     scheme: &str,
@@ -210,7 +236,19 @@ pub(crate) fn built_app(
     worktree: &Path,
     register: &dyn Fn(u32),
 ) -> Result<PathBuf, Error> {
+    type Found = HashMap<Vec<String>, (Vec<Option<SystemTime>>, PathBuf)>;
+    static FOUND: Mutex<Option<Found>> = Mutex::new(None);
     let mut args = build_args(project, scheme, configuration, target);
+    let stamp = project_stamp(worktree);
+    let known = lock(&FOUND)
+        .as_ref()
+        .and_then(|found| found.get(&args))
+        .filter(|(known, app)| *known == stamp && app.exists())
+        .map(|(_, app)| app.clone());
+    if let Some(app) = known {
+        return Ok(app);
+    }
+    let key = args.clone();
     args.extend(["-showBuildSettings".into(), "-json".into()]);
     let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
     let mut command = login_shell("xcodebuild", &arg_refs);
@@ -223,6 +261,9 @@ pub(crate) fn built_app(
     }
     let app = app_in_settings(&String::from_utf8_lossy(&output.stdout))?;
     if app.exists() {
+        lock(&FOUND)
+            .get_or_insert_default()
+            .insert(key, (stamp, app.clone()));
         Ok(app)
     } else {
         Err(Error::Message(format!(

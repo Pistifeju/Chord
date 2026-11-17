@@ -3,11 +3,12 @@
 use chord_core::lock;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
+use std::thread;
 
 use chord_core::{Error, PreviewPick, RunDestination, SchemePick};
 
-use super::{Build, BuildEvent, BuildPhase, Builds, Lane};
+use super::{Build, BuildEvent, BuildPhase, Builds, Lane, POLL};
 use crate::hot_reload;
 use crate::preview::{self, PreviewState};
 use crate::preview_list;
@@ -39,6 +40,8 @@ fn on_open(launched: bool, picked: bool, waits: bool, runs: bool) -> OnOpen {
 /// A worktree whose Preview view opened, with its preview simulator.
 pub(super) struct Preview {
     udid: String,
+    /// The simulator's boot; a preview build launches once it ended.
+    boot: preview::Boot,
     /// The preview app launched on the simulator since its boot.
     launched: bool,
     /// The view shows: saves reload or rebuild the preview.
@@ -51,7 +54,7 @@ pub(super) struct Preview {
 }
 
 impl Builds {
-    /// The Preview view opened: boots the worktree's preview simulator of the destination's model, unless two others run, and starts a preview build of `pick` unless the preview app already runs there. `on_state` hears the preview's states from then on, from any thread. Blocks during the boot.
+    /// The Preview view opened: boots the worktree's preview simulator of the destination's model, unless two others run, and starts a preview build of `pick` beside the boot unless the preview app already runs there. `on_state` hears the preview's states from then on, from any thread. Blocks while another worktree's preview simulator boots.
     pub fn open_preview(
         &self,
         worktree: PathBuf,
@@ -75,19 +78,20 @@ impl Builds {
             }
             _ => None,
         };
-        let (udid, fresh) =
-            match preview::boot(&worktree, wanted, || on_state(PreviewState::Starting)) {
-                Ok(preview::Booted::Ready { udid, fresh }) => (udid, fresh),
-                Ok(preview::Booted::Full(worktrees)) => {
-                    lock(&self.0.previews).remove(&worktree);
-                    return on_state(PreviewState::Full { worktrees });
-                }
-                Err(error) => {
-                    return on_state(PreviewState::Failed {
-                        message: error.to_string(),
-                    });
-                }
-            };
+        let (udid, boot, fresh) = match preview::boot(&worktree, wanted, Arc::clone(&on_state)) {
+            Ok(preview::Booted::Ready { udid }) => (udid, Arc::new(OnceLock::from(Ok(()))), false),
+            Ok(preview::Booted::Booting { udid, boot }) => (udid, boot, true),
+            Ok(preview::Booted::Full(worktrees)) => {
+                lock(&self.0.previews).remove(&worktree);
+                return on_state(PreviewState::Full { worktrees });
+            }
+            Err(error) => {
+                return on_state(PreviewState::Failed {
+                    message: error.to_string(),
+                });
+            }
+        };
+        let boot_outcome = Arc::clone(&boot);
         let (launched, picked) = {
             let mut previews = lock(&self.0.previews);
             let before = previews.get(&worktree);
@@ -100,6 +104,7 @@ impl Builds {
                 worktree.clone(),
                 Preview {
                     udid,
+                    boot,
                     launched,
                     open: true,
                     missed: false,
@@ -123,6 +128,12 @@ impl Builds {
             OnOpen::Waiting => on_state(PreviewState::Waiting),
             OnOpen::Building => on_state(PreviewState::Building),
             OnOpen::StartBuild => self.start_preview(&worktree),
+        }
+        // A boot that failed meanwhile told Failed before the state above.
+        if let Some(Err(message)) = boot_outcome.get() {
+            on_state(PreviewState::Failed {
+                message: message.clone(),
+            });
         }
     }
 
@@ -284,12 +295,15 @@ impl Builds {
 }
 
 impl Build {
-    /// A preview build: builds like ⌘B for a simulator, then launches the app on the preview simulator. One whose preview simulator was shut down meanwhile builds nothing.
+    /// A preview build: builds like ⌘B for a simulator while the preview simulator boots, then launches the app on it. One whose preview simulator was shut down meanwhile builds nothing.
     pub(super) fn preview_outcome(&self) -> BuildEvent {
-        let udid = lock(&self.builds.0.previews)
+        let found = lock(&self.builds.0.previews)
             .get(&self.worktree)
-            .map(|preview| preview.udid.clone());
-        let Some(udid) = udid.filter(|udid| simulator::is_booted(DeviceSet::Preview, udid)) else {
+            .map(|preview| (preview.udid.clone(), Arc::clone(&preview.boot)));
+        let Some((udid, boot)) = found.filter(|(udid, boot)| match boot.get() {
+            Some(Ok(())) => simulator::is_booted(DeviceSet::Preview, udid),
+            None | Some(Err(_)) => true,
+        }) else {
             self.set_launched(false);
             return BuildEvent::Stopped;
         };
@@ -300,6 +314,13 @@ impl Build {
         self.say(BuildEvent::Phase {
             phase: BuildPhase::Building,
         });
+        // After Building: a boot that failed before it still has the last word.
+        if let Some(Err(message)) = boot.get() {
+            let message = message.clone();
+            self.builds
+                .tell_preview(&self.worktree, PreviewState::Failed { message });
+            return BuildEvent::Stopped;
+        }
         let scheme = match self.scheme() {
             Ok(scheme) => scheme,
             Err(_) if self.stopped() => return BuildEvent::Stopped,
@@ -316,6 +337,20 @@ impl Build {
         match self.xcodebuild(&scheme, target.as_deref()) {
             BuildEvent::Succeeded => {}
             end => return end,
+        }
+        let booted = loop {
+            if self.stopped() {
+                return BuildEvent::Stopped;
+            }
+            match boot.get() {
+                Some(booted) => break booted.clone(),
+                None => thread::sleep(POLL),
+            }
+        };
+        if let Err(message) = booted {
+            self.builds
+                .tell_preview(&self.worktree, PreviewState::Failed { message });
+            return BuildEvent::Stopped;
         }
         let launched = self
             .step(|register| {

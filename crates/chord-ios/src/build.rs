@@ -371,7 +371,11 @@ impl Build {
                 let kept_services = self.kept_services.clone();
                 Some(thread::spawn(move || {
                     make_room(&device.udid, &opened, &busy);
-                    simulator::boot_slim(&device, &kept_services)
+                    let booted = simulator::boot_slim(&device, &kept_services);
+                    if booted.is_ok() && !device.booted {
+                        simulator::warm_up(DeviceSet::Run, &device.udid);
+                    }
+                    booted
                 }))
             }
             _ => None,

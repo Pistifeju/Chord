@@ -281,6 +281,11 @@ pub(crate) fn boot(set: DeviceSet, udid: &str) -> Result<(), Error> {
     }
 }
 
+/// After a boot, the first install or uninstall waits about 30 s while the device registers its system apps again; uninstalling an app that does not exist pays that wait early, during the build.
+pub(crate) fn warm_up(set: DeviceSet, udid: &str) {
+    let _ = simctl(set, &["uninstall", udid, "chord.warm-up"], &|_| {});
+}
+
 /// Boots the simulator, slim when it is one of Chord's own, shut down and on iOS 18.5 or newer: the overrides of the services the user does not keep go in before the boot and are read back after it. Returns a note when slimming was skipped or did not fully hold; the run goes on either way.
 pub(crate) fn boot_slim(
     device: &Simulator,

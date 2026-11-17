@@ -6,7 +6,7 @@ use std::hash::{Hash, Hasher};
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock, mpsc};
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
@@ -73,11 +73,18 @@ pub enum PreviewState {
     },
 }
 
+/// A preview simulator's boot: empty while it runs, then its outcome.
+pub(crate) type Boot = Arc<OnceLock<Result<(), String>>>;
+
 pub(crate) enum Booted {
-    /// `fresh`: this call booted it, so no app runs on it yet.
+    /// It was booted already.
     Ready {
         udid: String,
-        fresh: bool,
+    },
+    /// It boots on a thread of its own, so no app runs on it yet.
+    Booting {
+        udid: String,
+        boot: Boot,
     },
     Full(Vec<String>),
 }
@@ -86,34 +93,64 @@ pub(crate) enum Booted {
 // shortcut: a second worktree's Preview view waits for the first one's boot, up to 30 s; count booting devices instead if that shows.
 static BOOTING: Mutex<()> = Mutex::new(());
 
-/// The worktree's preview simulator of the `wanted` model, booted unless two other preview simulators run. `starting` hears that a boot begins.
+/// The worktree's preview simulator of the `wanted` model, booting unless two other preview simulators run. Returns once the boot started; the build needs no booted preview simulator. `on_state` hears Starting before this returns and Failed as soon as the boot fails.
 pub(crate) fn boot(
     worktree: &Path,
     wanted: Option<(&str, &str)>,
-    starting: impl FnOnce(),
+    on_state: Arc<dyn Fn(PreviewState) + Send + Sync>,
 ) -> Result<Booted, Error> {
-    let _booting = lock(&BOOTING);
-    let device = simulator::find_or_create(DeviceSet::Preview, worktree, wanted, &|_| {})?;
-    if device.booted {
-        return Ok(Booted::Ready {
-            udid: device.udid,
-            fresh: false,
-        });
-    }
-    let mut others: Vec<String> = simulator::owned(DeviceSet::Preview)?
-        .into_iter()
-        .filter(|other| other.booted && other.name != device.name)
-        .filter_map(|other| simulator::worktree_folder(&other.name).map(String::from))
-        .collect();
-    if others.len() >= MAX_BOOTED {
-        others.sort();
-        return Ok(Booted::Full(others));
-    }
-    starting();
-    simulator::boot(DeviceSet::Preview, &device.udid)?;
-    Ok(Booted::Ready {
-        udid: device.udid,
-        fresh: true,
+    let worktree = worktree.to_path_buf();
+    let wanted = wanted.map(|(model, runtime)| (model.to_string(), runtime.to_string()));
+    let (verdict, heard) = mpsc::channel();
+    std::thread::spawn(move || {
+        let _booting = lock(&BOOTING);
+        let wanted = wanted
+            .as_ref()
+            .map(|(model, runtime)| (model.as_str(), runtime.as_str()));
+        let found = (|| {
+            let device = simulator::find_or_create(DeviceSet::Preview, &worktree, wanted, &|_| {})?;
+            if device.booted {
+                return Ok(Booted::Ready { udid: device.udid });
+            }
+            let mut others: Vec<String> = simulator::owned(DeviceSet::Preview)?
+                .into_iter()
+                .filter(|other| other.booted && other.name != device.name)
+                .filter_map(|other| simulator::worktree_folder(&other.name).map(String::from))
+                .collect();
+            if others.len() >= MAX_BOOTED {
+                others.sort();
+                return Ok(Booted::Full(others));
+            }
+            Ok(Booted::Booting {
+                udid: device.udid,
+                boot: Boot::default(),
+            })
+        })();
+        let booting = match &found {
+            Ok(Booted::Booting { udid, boot }) => Some((udid.clone(), Arc::clone(boot))),
+            _ => None,
+        };
+        // Before the verdict, so it never lands after the Failed below.
+        if booting.is_some() {
+            on_state(PreviewState::Starting);
+        }
+        let _ = verdict.send(found);
+        if let Some((udid, boot)) = booting {
+            let booted =
+                simulator::boot(DeviceSet::Preview, &udid).map_err(|error| error.to_string());
+            let _ = boot.set(booted.clone());
+            match booted {
+                Ok(()) => {
+                    std::thread::spawn(move || simulator::warm_up(DeviceSet::Preview, &udid));
+                }
+                Err(message) => on_state(PreviewState::Failed { message }),
+            }
+        }
+    });
+    heard.recv().unwrap_or_else(|_| {
+        Err(Error::Message(
+            "The preview simulator's boot crashed.".into(),
+        ))
     })
 }
 
