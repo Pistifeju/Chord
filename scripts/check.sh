@@ -10,7 +10,7 @@ step() {
   echo "=== $name" >> "$log"
   "$@" >> "$log" 2>&1
   code=$?
-  echo "$name=$code"
+  echo "step=$name exit=$code"
   [ "$code" -ne 0 ] && status=1
 }
 
