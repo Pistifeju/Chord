@@ -2,6 +2,7 @@
 import type { BuildIssue_Deserialize, PreviewPick, PreviewState } from "../../../ipc/bindings";
 import { issuePlace } from "../build/run.ts";
 import type { Row } from "../../files/tree.ts";
+import { fileName } from "../../files/paths.ts";
 
 /** A worktree's preview state, and whether its preview app ran since the preview simulator booted. */
 export type Preview = { state: PreviewState; shown: boolean };
@@ -74,7 +75,7 @@ export function previewRows(all: PreviewPick[], query: string, closed: string[])
     if (pick.file !== file) {
       file = pick.file;
       open = query.trim() !== "" || !closed.includes(file);
-      rows.push({ entry: { name: file, path: file, isDir: true }, depth: 0, open, pick: null });
+      rows.push({ entry: { name: fileName(file), path: file, isDir: true }, depth: 0, open, pick: null });
     }
     if (open) rows.push({ entry: { name: previewName(pick), path: previewKey(pick), isDir: false }, depth: 1, open: false, pick });
   }
