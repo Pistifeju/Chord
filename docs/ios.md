@@ -157,6 +157,7 @@ crates/chord-ios/src/
   derived_data.rs   the folder Xcode gives a project path, its app, its app                      step 1
   slot.rs           which build holds a worktree's slot (pure)                                  step 1
   build.rs          one xcodebuild: arguments, process group, log batches, the lock wait        step 1
+  build/preview_session.rs  the Preview view's session: open, pick, saves, the preview build   step 8
   issues.rs         the error lines of a build log (pure)                                       step 1
   simulator.rs      the worktree's simulator: find, create, boot, shut down, delete, the cap    step 2
   preview.rs        the preview simulator in Chord's own device set, the two-booted limit,
