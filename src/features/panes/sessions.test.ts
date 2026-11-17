@@ -39,18 +39,17 @@ test("focusing a tab opens it in its group", () => {
 });
 
 test("closing a group's only tab closes the group and focuses the group beside it", () => {
-  assert.deepEqual(withTabClosed(sideBySide, "p3"), { layout: group("g1", [chat("p1", "Session 1"), chat("p2", "Session 2")], "p2"), focused: "p2" });
+  assert.deepEqual(withTabClosed(sideBySide, "p3", "new"), { layout: group("g1", [chat("p1", "Session 1"), chat("p2", "Session 2")], "p2"), focused: "p2" });
 });
 
 test("closing the open tab opens the tab beside it and keeps the focus elsewhere", () => {
-  const closed = withTabClosed(sideBySide, "p2");
+  const closed = withTabClosed(sideBySide, "p2", "new");
   assert.equal(closed.focused, "p3");
   assert.deepEqual((closed.layout as Extract<Layout, { kind: "split" }>).children[0], group("g1", [chat("p1", "Session 1")], "p1"));
 });
 
-test("the last tab of all cannot be closed", () => {
-  const panes = firstPanes("g1", "p1");
-  assert.equal(withTabClosed(panes, "p1"), panes);
+test("closing the last tab of all puts a new chat in its place", () => {
+  assert.deepEqual(withTabClosed(firstPanes("g1", "p1"), "p1", "p2"), { layout: group("g1", [chat("p2", "Session 2")], "p2"), focused: "p2" });
 });
 
 test("a tab dropped on another group's bar joins it, and a group left empty goes", () => {

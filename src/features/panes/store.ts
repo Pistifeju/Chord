@@ -6,8 +6,8 @@ import { chats, forgetChat, startChat } from "../chat/store";
 import { anyRunning } from "../chat/transcript";
 import { allPaneIds, paneChanges, resumedPanes } from "./agents";
 import { isAtOrInside } from "../files/paths";
-import { filePanes, groupOf, withEvenSizes, withFilePanesMoved, withSizes, type FilePane } from "./layout";
-import { firstPanes, paneCount, withFileKept, withFileOpened, withFocus, withNewSession, withSplitFocused, withTabClosed, withTabMoved, type TabDrop } from "./sessions";
+import { filePanes, withEvenSizes, withFilePanesMoved, withSizes, type FilePane } from "./layout";
+import { firstPanes, withFileKept, withFileOpened, withFocus, withNewSession, withSplitFocused, withTabClosed, withTabMoved, type TabDrop } from "./sessions";
 
 export const panes = externalStore<Record<string, WorktreePanes>>({});
 
@@ -70,16 +70,16 @@ type CloseAgents = Extract<Sheet, { kind: "closeAgents" }>;
 // A close that would stop a working agent asks first.
 export function closePane(worktree: string, tab: string) {
   const current = panesOf(worktree);
-  const { gone } = paneChanges(current, withTabClosed(current, tab));
+  const { gone } = paneChanges(current, withTabClosed(current, tab, newId()));
   if (anyRunning(chats.get(), gone)) openSheet({ kind: "closeAgents", worktree, id: tab });
-  else change(worktree, (p) => withTabClosed(p, tab));
+  else change(worktree, (p) => withTabClosed(p, tab, newId()));
 }
 
 export const cancelClose = () => closeSheet("closeAgents");
 
 export function confirmClose(sheet: CloseAgents) {
   closeSheet("closeAgents");
-  change(sheet.worktree, (p) => withTabClosed(p, sheet.id));
+  change(sheet.worktree, (p) => withTabClosed(p, sheet.id, newId()));
 }
 
 export const moveTab = (worktree: string, tab: string, drop: TabDrop) => change(worktree, (p) => withTabMoved(p, tab, drop, newId()));
@@ -98,16 +98,10 @@ export function moveFilePanes(worktree: string, from: string, to: string) {
   change(worktree, (p) => ({ ...p, layout: withFilePanesMoved(p.layout, from, to) }));
 }
 
-// A file tab that is the last tab of all gives its place to a new chat, since the last tab stays.
-export function closeFilePane(worktree: string, tab: string) {
-  const ensureAnother = (p: WorktreePanes) => (paneCount(p) === 1 ? withNewSession(p, newId(), groupOf(p.layout, tab)?.id) : p);
-  change(worktree, (p) => withTabClosed(ensureAnother(p), tab));
-}
-
 // Closes the file tabs of `path` and of everything inside it.
 export function closeFilePanesAt(worktree: string, path: string) {
   const saved = panes.get()[worktree];
-  for (const file of saved ? filePanes(saved.layout) : []) if (isAtOrInside(file.path, path)) closeFilePane(worktree, file.id);
+  for (const file of saved ? filePanes(saved.layout) : []) if (isAtOrInside(file.path, path)) closePane(worktree, file.id);
 }
 
 const filePaneOf = (worktree: string, path: string): FilePane | undefined => {

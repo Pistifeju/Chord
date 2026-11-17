@@ -19,8 +19,8 @@ import { selectFile } from "../files/store";
 import { CloseIcon, FileIcon, PiIcon, PlusIcon, SidePanelIcon } from "../../ui/icons";
 import { usePointerDrag } from "../../ui/pointerDrag";
 import { chatPaneIds, dropEdge, dropPreview, edgeDirection, fitsSplit, groupOf, minExtent, paneIds, resizedSizes, type Box, type Group } from "./layout";
-import { canClosePane, movesTab, tabName, type PaneNames, type TabDrop } from "./sessions";
-import { closeFilePane, closePane, endResize, ensurePanes, evenOutSplit, focusPane, keepFilePane, moveTab, newSession, panes, resizeSplit } from "./store";
+import { movesTab, tabName, type PaneNames, type TabDrop } from "./sessions";
+import { closePane, endResize, ensurePanes, evenOutSplit, focusPane, keepFilePane, moveTab, newSession, panes, resizeSplit } from "./store";
 import "./panes.css";
 
 type Drop = TabDrop & { box: Box };
@@ -97,7 +97,7 @@ function FilesToggle({ worktree }: { worktree: string }) {
   );
 }
 
-function TabView({ tab, group, place, status, closable }: { tab: Tab; group: Group; place: Place; status: Status | null; closable: boolean }) {
+function TabView({ tab, group, place, status }: { tab: Tab; group: Group; place: Place; status: Status | null }) {
   const { worktree, drag } = place;
   const open = tab.id === group.active;
   const file = tab.kind === "file";
@@ -125,18 +125,16 @@ function TabView({ tab, group, place, status, closable }: { tab: Tab; group: Gro
         </span>
         <span className="tab-label">{tabName(tab, place.names)}</span>
       </button>
-      {(file || closable) && (
-        <button
-          type="button"
-          className="tab-close"
-          data-always={file || undefined}
-          title={file ? "Close File" : "Close Session"}
-          aria-label={file ? "Close File" : "Close Session"}
-          onClick={() => (file ? closeFilePane(worktree, tab.id) : closePane(worktree, tab.id))}
-        >
-          <CloseIcon />
-        </button>
-      )}
+      <button
+        type="button"
+        className="tab-close"
+        data-always={file || undefined}
+        title={file ? "Close File" : "Close Session"}
+        aria-label={file ? "Close File" : "Close Session"}
+        onClick={() => closePane(worktree, tab.id)}
+      >
+        <CloseIcon />
+      </button>
     </div>
   );
 }
@@ -146,7 +144,6 @@ function GroupTabs({ group, place, edges }: { group: Group; place: Place; edges:
   const { hidden } = sidebar.use();
   const { worktree } = place;
   const sidePanelOpen = sidePanels.usePart((all) => sidePanelOf(all, worktree).open);
-  const closable = canClosePane(panes.use()[worktree]);
   const chatIds = chatPaneIds(group);
   const statusesJson = chats.usePart((all) => JSON.stringify(chatIds.map((tab) => all[tab]?.report?.status ?? null)));
   const statuses: (Status | null)[] = JSON.parse(statusesJson);
@@ -159,7 +156,7 @@ function GroupTabs({ group, place, edges }: { group: Group; place: Place; edges:
   return (
     <div className="tabbar" role="tablist" data-group-bar data-tauri-drag-region={edges.top || undefined} data-sidebar-hidden={(edges.top && edges.left && hidden) || undefined}>
       {group.tabs.map((tab) => (
-        <TabView key={tab.id} tab={tab} group={group} place={place} status={statusOf(tab)} closable={closable} />
+        <TabView key={tab.id} tab={tab} group={group} place={place} status={statusOf(tab)} />
       ))}
       <button type="button" className="icon-button" title={tooltip("session.new")} aria-label="New Session" onClick={() => newSession(worktree, group.id)}>
         <PlusIcon />
@@ -244,7 +241,7 @@ function GroupView({ group, place, edges }: { group: Group; place: Place; edges:
       <GroupTabs group={group} place={place} edges={edges} />
       <div className="pane" data-pane={tab.id} data-split={place.split || undefined} data-focused={focused || undefined} onPointerDownCapture={focus} onFocusCapture={focus}>
         {tab.kind === "file" ? (
-          <FileView key={tab.id} worktree={worktree} path={tab.path} autoFocus={focused} onGone={() => closeFilePane(worktree, tab.id)} onEdit={() => keepFilePane(worktree, tab.id)} />
+          <FileView key={tab.id} worktree={worktree} path={tab.path} autoFocus={focused} onGone={() => closePane(worktree, tab.id)} onEdit={() => keepFilePane(worktree, tab.id)} />
         ) : (
           <ChatPane key={tab.id} worktree={worktree} pane={tab.id} focused={focused} />
         )}

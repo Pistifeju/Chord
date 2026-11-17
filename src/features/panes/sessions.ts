@@ -61,8 +61,6 @@ export function withSplitFocused(panes: WorktreePanes, group: string, chat: stri
 
 export const paneCount = (panes: WorktreePanes): number => paneIds(panes.layout).length;
 
-export const canClosePane = (panes: WorktreePanes | undefined): boolean => !!panes && paneCount(panes) > 1;
-
 /** The name of each pane's agent session, by pane id; a pane whose session has no user message yet is left out. */
 export type PaneNames = Record<string, string | undefined>;
 
@@ -106,8 +104,12 @@ function withoutTab(panes: WorktreePanes, tab: string): WorktreePanes {
   return { layout, focused: panes.focused === tab ? beside.active : panes.focused };
 }
 
-// Closes a tab; the last tab of all stays.
-export const withTabClosed = (panes: WorktreePanes, tab: string): WorktreePanes => (paneCount(panes) > 1 ? withoutTab(panes, tab) : panes);
+// Closes a tab; the last tab of all gives its place to a new chat `replacement`.
+export function withTabClosed(panes: WorktreePanes, tab: string, replacement: string): WorktreePanes {
+  const owner = groupOf(panes.layout, tab);
+  if (!owner) return panes;
+  return withoutTab(paneCount(panes) === 1 ? withNewSession(panes, replacement, owner.id) : panes, tab);
+}
 
 /** Where a dragged tab lands: a group's tab bar (`edge` null), or a group's edge, where it opens a new group. */
 export type TabDrop = { group: string; edge: Edge | null };
