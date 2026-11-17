@@ -18,16 +18,15 @@ const sideBySide: WorktreePanes = {
   focused: "p3",
 };
 
-test("a new session is named after the highest number and opens in the focused group", () => {
+test("a new session opens in the focused group", () => {
   const two = withNewSession(firstPanes("g1", "p1"), "p2");
-  const three = withNewSession(two, "p3");
-  assert.deepEqual(three, { layout: group("g1", [chat("p1", "Session 1"), chat("p2", "Session 2"), chat("p3", "Session 3")], "p3"), focused: "p3" });
+  assert.deepEqual(two, { layout: group("g1", [chat("p1", "New session"), chat("p2", "New session")], "p2"), focused: "p2" });
 });
 
 test("a split puts a new group with a new session beside the focused group", () => {
   const split = withSplitFocused(firstPanes("g1", "p1"), "g2", "p2", "row");
   assert.deepEqual(split, {
-    layout: { kind: "split", direction: "row", sizes: [0.5, 0.5], children: [group("g1", [chat("p1", "Session 1")], "p1"), group("g2", [chat("p2", "Session 2")], "p2")] },
+    layout: { kind: "split", direction: "row", sizes: [0.5, 0.5], children: [group("g1", [chat("p1", "New session")], "p1"), group("g2", [chat("p2", "New session")], "p2")] },
     focused: "p2",
   });
 });
@@ -85,10 +84,10 @@ test("a file opens in a tab of the focused group", () => {
 test("a preview file takes the place of the focused group's preview tab until that tab is kept", () => {
   const first = withFileOpened(firstPanes("g1", "p1"), { kind: "file", id: "f1", path: "a.ts", preview: true });
   const second = withFileOpened(first, { kind: "file", id: "f2", path: "b.ts", preview: true });
-  assert.deepEqual(second, { layout: group("g1", [chat("p1", "Session 1"), { kind: "file", id: "f1", path: "b.ts", preview: true }], "f1"), focused: "f1" });
+  assert.deepEqual(second, { layout: group("g1", [chat("p1", "New session"), { kind: "file", id: "f1", path: "b.ts", preview: true }], "f1"), focused: "f1" });
   const third = withFileOpened(withFileKept(second, "f1"), { kind: "file", id: "f3", path: "c.ts", preview: true });
   assert.deepEqual(third, {
-    layout: group("g1", [chat("p1", "Session 1"), { kind: "file", id: "f1", path: "b.ts", preview: false }, { kind: "file", id: "f3", path: "c.ts", preview: true }], "f3"),
+    layout: group("g1", [chat("p1", "New session"), { kind: "file", id: "f1", path: "b.ts", preview: false }, { kind: "file", id: "f3", path: "c.ts", preview: true }], "f3"),
     focused: "f3",
   });
 });

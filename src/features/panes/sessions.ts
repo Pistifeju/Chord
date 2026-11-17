@@ -4,21 +4,19 @@ import type { Item } from "../chat/transcript.ts";
 import { edgeDirection, groupOf, groups, withBeside, withGroup, withoutGroup, type Edge, type FilePane, type Group } from "./layout.ts";
 import { fileName } from "../files/paths.ts";
 
+// A chat tab keeps this name until its session has a first user message.
+const NEW_SESSION = "New session";
+
 const chatTab = (id: string, name: string): Tab => ({ kind: "chat", id, name });
 
 const lone = (group: string, tab: Tab): Group => ({ kind: "group", id: group, tabs: [tab], active: tab.id });
 
-export const firstPanes = (group: string, chat: string): WorktreePanes => ({ layout: lone(group, chatTab(chat, "Session 1")), focused: chat });
+export const firstPanes = (group: string, chat: string): WorktreePanes => ({ layout: lone(group, chatTab(chat, NEW_SESSION)), focused: chat });
 
 // The panes the window shows: the selected worktree's, none while Settings covers the window.
 export function shownSession(all: Record<string, WorktreePanes>, selected: string | null, settingsOpen: boolean): WorktreePanes | null {
   return (selected && !settingsOpen && all[selected]) || null;
 }
-
-const nextName = (panes: WorktreePanes): string => {
-  const numbers = groups(panes.layout).flatMap((g) => g.tabs).map((t) => Number(t.kind === "chat" ? /^Session (\d+)$/.exec(t.name)?.[1] ?? 0 : 0));
-  return `Session ${Math.max(0, ...numbers) + 1}`;
-};
 
 const focusedGroup = (panes: WorktreePanes): Group => groupOf(panes.layout, panes.focused) ?? groups(panes.layout)[0];
 
@@ -29,7 +27,7 @@ function withTabAdded(panes: WorktreePanes, group: string, tab: Tab): WorktreePa
 
 // A new chat opens in `group`, by default the focused one.
 export const withNewSession = (panes: WorktreePanes, chat: string, group = focusedGroup(panes).id): WorktreePanes =>
-  withTabAdded(panes, group, chatTab(chat, nextName(panes)));
+  withTabAdded(panes, group, chatTab(chat, NEW_SESSION));
 
 // A file opens in a tab of the focused group; a preview takes the place of the group's preview tab, keeping its id.
 export function withFileOpened(panes: WorktreePanes, file: FilePane): WorktreePanes {
@@ -56,7 +54,7 @@ export function withFocus(panes: WorktreePanes, tab: string): WorktreePanes {
 
 // A new group with a new chat goes beside the focused group and takes the focus.
 export function withSplitFocused(panes: WorktreePanes, group: string, chat: string, direction: Direction): WorktreePanes {
-  return { layout: withBeside(panes.layout, focusedGroup(panes).id, lone(group, chatTab(chat, nextName(panes))), direction, false), focused: chat };
+  return { layout: withBeside(panes.layout, focusedGroup(panes).id, lone(group, chatTab(chat, NEW_SESSION)), direction, false), focused: chat };
 }
 
 /** The name of each pane's agent session, by pane id; a pane whose session has no user message yet is left out. */
