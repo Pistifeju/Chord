@@ -23,7 +23,7 @@ import { composerKey, composerState, sendable } from "./composer";
 import { isTicking, subagentLine, subagentSummary } from "./subagents";
 import { completion, slashMenu, slashQuery } from "./slash";
 import { closeLightbox, lightboxes, openLightbox, stepLightbox } from "./viewing";
-import { answerDialog, attachFiles, attachments, attachPasted, chatOf, chats, closeSlash, drafts, openPicker, pathDropPane, pickAttachments, removeAttachment, sendMessage, setDraft, slashClosed, startChat, takesAttachments } from "./store";
+import { addPathToDraft, answerDialog, attachFiles, attachments, attachPasted, chatOf, chats, closeSlash, drafts, openPicker, pathDropPane, pickAttachments, removeAttachment, sendMessage, setDraft, slashClosed, startChat, takesAttachments } from "./store";
 import { callTime, isStreaming, queuedImages, shownSteps, stepImages, stepsChanges, stepsSummary, stepsTime, type CompactionMark, type Item, type Message, type SteerImages, type StepGroup } from "./transcript";
 import "./chat.css";
 
@@ -253,16 +253,19 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
   const textPercent = appearance.usePart((a) => a.textPercent);
   const dialogOpen = chat.dialog !== null;
 
-  // The pane under the pointer takes the dropped images.
+  // The pane under the pointer takes the dropped images; any other file, such as a video, goes into the draft as its path.
   useEffect(() => {
-    if (!canAttach) return;
     let carriesImages = false;
     const unlisten = getCurrentWebview().onDragDropEvent(({ payload }) => {
       if (payload.type === "leave") return setDropping(false);
-      if (payload.type === "enter") carriesImages = payload.paths.some((path) => imageMime(path));
+      if (payload.type === "enter") carriesImages = canAttach && payload.paths.some((path) => imageMime(path));
       const inside = !!root.current?.contains(elementAtDrop(payload.position));
       setDropping(carriesImages && inside && payload.type !== "drop");
-      if (payload.type === "drop" && inside) attachFiles(pane, payload.paths);
+      if (payload.type !== "drop" || !inside) return;
+      if (canAttach) attachFiles(pane, payload.paths);
+      const others = payload.paths.filter((path) => !canAttach || !imageMime(path));
+      for (const path of others) addPathToDraft(pane, /\s/.test(path) ? `"${path}"` : path);
+      if (others.length > 0) composer.current?.focus();
     });
     return () => void unlisten.then((stop) => stop());
   }, [canAttach, pane]);
