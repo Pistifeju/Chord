@@ -1,7 +1,7 @@
-// Tests for the composer's send and key rules.
+// Tests for the composer's send, key, drop and picker rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { composerKey, sendable } from "./composer.ts";
+import { composerKey, droppedFiles, pickerClick, sendable } from "./composer.ts";
 
 const rows = [
   { name: "model", description: "", kind: "session" as const, origin: null },
@@ -28,4 +28,15 @@ test("a send needs text or an attachment", () => {
   assert.equal(sendable(true, "  ", 0), false);
   assert.equal(sendable(true, "  ", 1), true);
   assert.equal(sendable(false, "hi", 0), false);
+});
+
+test("a drop attaches images while the chat takes them and writes other paths, quoted when spaced", () => {
+  assert.deepEqual(droppedFiles(["/a/shot.png", "/a/my clip.mov"], true), { attach: ["/a/shot.png"], draft: ['"/a/my clip.mov"'] });
+  assert.deepEqual(droppedFiles(["/a/shot.png"], false), { attach: [], draft: ["/a/shot.png"] });
+});
+
+test("a picker button closes its own picker and swaps from the other one", () => {
+  assert.deepEqual(pickerClick("Model", "Model"), { cancel: true, open: false });
+  assert.deepEqual(pickerClick("Thinking", "Model"), { cancel: true, open: true });
+  assert.deepEqual(pickerClick(null, "Model"), { cancel: false, open: true });
 });

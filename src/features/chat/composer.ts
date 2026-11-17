@@ -1,6 +1,7 @@
-// Rules for the composer: whether it shows and steers, whether a send goes through, and what a key does in it.
+// Rules for the composer: whether it shows and steers, whether a send goes through, what a key does in it, where dropped files go and what a picker button does.
 import type { SlashCommand } from "../../ipc/bindings";
 import { steppedIndex } from "../../ui/listStep.ts";
+import { imageMime } from "./attachments.ts";
 import type { Chat } from "./transcript.ts";
 
 /** What the composer is for the chat: shown under a dialog only for its menu, and a steer while the agent runs and takes steers. */
@@ -32,3 +33,15 @@ export function composerKey({ key, shift, composing }: ComposerKey, draft: strin
   }
   return key === "Enter" && !shift && !composing ? { kind: "send" } : null;
 }
+
+/** Where dropped files go: the images into the attachments while the chat takes them, any other path into the draft, quoted when it holds whitespace. */
+export function droppedFiles(paths: string[], canAttach: boolean): { attach: string[]; draft: string[] } {
+  const isAttached = (path: string) => canAttach && imageMime(path) !== null;
+  return {
+    attach: paths.filter(isAttached),
+    draft: paths.filter((path) => !isAttached(path)).map((path) => (/\s/.test(path) ? `"${path}"` : path)),
+  };
+}
+
+/** What a picker button does: the open picker's button closes it, the other picker's button swaps to its own. A picker's dialog title is its button's title. */
+export const pickerClick = (openTitle: string | null, title: string) => ({ cancel: openTitle !== null, open: openTitle !== title });

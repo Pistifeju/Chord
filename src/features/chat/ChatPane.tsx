@@ -5,7 +5,7 @@ import { tooltip } from "../../app/commands";
 import type { Image, SlashCommand, SubagentNode } from "../../ipc/bindings";
 import { elementAtDrop } from "../../ui/dropPoint";
 import { ArrowDownIcon, ArrowUpIcon, ChevronIcon, CloseIcon, ImageIcon, PaperclipIcon } from "../../ui/icons";
-import { imageMime, imageUrl, isImageType, type Attachment } from "./attachments";
+import { imageUrl, isImageType, type Attachment } from "./attachments";
 import { DialogMenu, DialogPanel } from "./DialogPanel";
 import { compactionLabel, contextMeter } from "./context";
 import { useClock } from "./clock";
@@ -19,7 +19,7 @@ import { CopyButton, Markdown } from "./MarkdownView";
 import { messageTime } from "./messageTime";
 import { Lightbox } from "./Lightbox";
 import { SlashMenu } from "./SlashMenu";
-import { composerKey, composerState, sendable } from "./composer";
+import { composerKey, composerState, droppedFiles, pickerClick, sendable } from "./composer";
 import { isTicking, subagentLine, subagentSummary } from "./subagents";
 import { completion, slashMenu, slashQuery } from "./slash";
 import { closeLightbox, lightboxes, openLightbox, stepLightbox } from "./viewing";
@@ -258,14 +258,14 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
     let carriesImages = false;
     const unlisten = getCurrentWebview().onDragDropEvent(({ payload }) => {
       if (payload.type === "leave") return setDropping(false);
-      if (payload.type === "enter") carriesImages = canAttach && payload.paths.some((path) => imageMime(path));
+      if (payload.type === "enter") carriesImages = droppedFiles(payload.paths, canAttach).attach.length > 0;
       const inside = !!root.current?.contains(elementAtDrop(payload.position));
       setDropping(carriesImages && inside && payload.type !== "drop");
       if (payload.type !== "drop" || !inside) return;
-      if (canAttach) attachFiles(pane, payload.paths);
-      const others = payload.paths.filter((path) => !canAttach || !imageMime(path));
-      for (const path of others) addPathToDraft(pane, /\s/.test(path) ? `"${path}"` : path);
-      if (others.length > 0) composer.current?.focus();
+      const dropped = droppedFiles(payload.paths, canAttach);
+      attachFiles(pane, dropped.attach);
+      for (const path of dropped.draft) addPathToDraft(pane, path);
+      if (dropped.draft.length > 0) composer.current?.focus();
     });
     return () => void unlisten.then((stop) => stop());
   }, [canAttach, pane]);
@@ -292,10 +292,10 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
   useEffect(() => {
     if (ready && focused && !dialogOpen) composer.current?.focus();
   }, [ready, focused, dialogOpen]);
-  // The open picker's button closes it; the other picker's button swaps to its own. The dialog's title is the button's title.
   const togglePicker = (command: "/model" | "/thinking", title: string) => {
-    if (menu) answerDialog(pane, menu.dialog.id, { kind: "cancelled" });
-    if (menu?.dialog.title !== title) openPicker(pane, command);
+    const click = pickerClick(menu?.dialog.title ?? null, title);
+    if (menu && click.cancel) answerDialog(pane, menu.dialog.id, { kind: "cancelled" });
+    if (click.open) openPicker(pane, command);
   };
 
   // Follow the reply while the reader sits at the bottom; reading further up pauses it. A session that opens starts the transcript over and shows its end.
