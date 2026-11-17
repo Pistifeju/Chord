@@ -74,6 +74,7 @@ function registerBuildTools(pi: ExtensionAPI, socket: string, worktree: string) 
       promptSnippet: "Build this worktree's Xcode project and get its errors",
       promptGuidelines: [
         "Use build and run for this worktree's Xcode project instead of calling xcodebuild or xcrun simctl yourself; `simctl ... booted` can reach another worktree's simulator.",
+        "Call build or run only when the user asks for it, not to check your own edits.",
       ],
     },
     {
