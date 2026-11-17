@@ -457,13 +457,14 @@
   color: var(--ink-secondary);
 }
 
+/* Dark --raised and --selected are translucent: tint over the opaque canvas or the image shows through. */
 .chat-attachment-remove:hover {
-  background: var(--raised);
+  background: linear-gradient(var(--raised), var(--raised)), var(--canvas);
   color: var(--ink);
 }
 
 .chat-attachment-remove:active {
-  background: var(--selected);
+  background: linear-gradient(var(--selected), var(--selected)), var(--canvas);
 }
 
 /* Inside the pane, not the window: the transcript shows faintly through the wash. */
