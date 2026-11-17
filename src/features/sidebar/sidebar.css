@@ -10,17 +10,29 @@
   background: var(--panel);
 }
 
+/* The title lines up with the project names, the plus glyph with the shortcut hints. */
 .sidebar-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 var(--sidebar-inset) 4px 18px;
+  height: 32px;
+  margin-bottom: 4px;
+  padding: 0 9px 0 18px;
 }
 
 .sidebar-title {
   font-size: calc(12px * var(--text-scale));
-  font-weight: 500;
+  font-weight: 600;
+  line-height: 16px;
+  color: var(--ink-secondary);
+}
+
+.sidebar-header .icon-button {
   color: var(--ink-muted);
+}
+
+.sidebar-header .icon-button:hover {
+  color: var(--ink);
 }
 
 .sidebar-scroll {

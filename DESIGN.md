@@ -339,7 +339,7 @@ No pills, except the Simulator view's button row, which copies the simulator's o
 
 It uses the app's roles; `src/ui/tokens.css` overrides `selected` inside `.sidebar`: white with a 1px `selected-ring` (zinc-200 at 70%) in light, white at 6% with no ring in dark, and adds `card-hover`: `raised` in light, white at 3% in dark.
 
-- 264px, full window height, `panel` fill with a 1px `line` right edge. The header holds the "Workspaces" title (12px/500 `ink-muted`) and the add button.
+- 264px, full window height, `panel` fill with a 1px `line` right edge. The header is a 32px row, 4px above the list: the "Workspaces" title (12px/600 `ink-secondary`) 18px in, on the project names' edge, and the 28px add icon button with its 16px plus in `ink-muted` (`ink` on hover), its glyph on the shortcut hints' right edge.
 - **List:** one group per project, in project order, scrolling inside. From the second group on, a 1px `line` rule sits 12px under the previous group and 8px above the next. A group is the project name (11px/600 `ink-muted`, uppercase, 0.06em letter spacing, 16px line, 6px above and below, 10px left padding so it aligns with the card text, truncates; right-click opens New Worktree and Remove Project), then its worktree cards 2px apart. No folding.
 - **Shortcuts:** ⌘1 to ⌘9 follow the cards top to bottom.
 - **Worktree card:** one Inset-radius card holds the worktree's head and its session rows. Only the head and the rows take clicks. The head has 8px 10px padding, 2px between its lines, `ink-muted` meta text, one or two lines:
