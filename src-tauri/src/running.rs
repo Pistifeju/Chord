@@ -22,19 +22,26 @@ impl<'a> Running<'a> {
         }
     }
 
-    /// Stops the worktree's agents and shell and removes it; its build data goes only once git removed it.
+    /// Stops the worktree's agents and shell, removes it, forgets its panes and deletes its branch when it is merged; its build data goes only once git removed it.
     pub fn remove_worktree(
         &self,
         project: &Project,
         worktree: &Path,
         force: bool,
     ) -> Result<Removal, Error> {
-        let removal = worktrees::remove(self.sessions, self.terminals, project, worktree, force)?;
-        if matches!(removal, Removal::Removed { .. }) {
-            self.builds.forget(worktree);
-            chord_ios::forget(worktree);
+        if let Some(refusal) = worktrees::refusal(worktree, force)? {
+            return Ok(refusal);
         }
-        Ok(removal)
+        self.terminals.stop(worktree);
+        self.sessions.stop(worktree);
+        let branch = match worktrees::remove_folder(project, worktree, force)? {
+            Ok(branch) => branch,
+            Err(refusal) => return Ok(refusal),
+        };
+        self.sessions.forget(worktree)?;
+        let kept_branch = branch.and_then(|name| worktrees::delete_branch(project, name));
+        self.builds.forget(worktree);
+        Ok(Removal::Removed { kept_branch })
     }
 
     /// The frontend stops the agents; the shells and builds are Rust's to end.

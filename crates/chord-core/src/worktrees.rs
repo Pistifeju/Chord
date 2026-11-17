@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 use specta::Type;
 
-use crate::{Error, Terminals, git, harness::sessions::Sessions, projects::Project};
+use crate::{Error, git, projects::Project};
 
 #[derive(Serialize, Type, Clone, Debug, PartialEq)]
 pub struct Worktree {
@@ -237,33 +237,31 @@ pub struct KeptBranch {
     pub reason: String,
 }
 
-/// Stops the worktree's agents, removes the worktree, forgets its panes and deletes its branch when it is merged.
-pub fn remove(
-    sessions: &Sessions,
-    terminals: &Terminals,
+/// Git's own check for a dirty worktree, asked before the agents stop, so a refusal the user cancels leaves them running.
+pub fn refusal(path: &Path, force: bool) -> Result<Option<Removal>, Error> {
+    if force {
+        return Ok(None);
+    }
+    let status = git::run(
+        path,
+        &[
+            "--no-optional-locks",
+            "status",
+            "--porcelain",
+            "--ignore-submodules=none",
+        ],
+    )?;
+    Ok((!status.trim().is_empty()).then(|| Removal::NeedsForce {
+        reason: format!("{} contains modified or untracked files", path.display()),
+    }))
+}
+
+/// Removes the worktree's folder once nothing runs in it: its branch, or the refusal `--force` overrides.
+pub fn remove_folder(
     project: &Project,
     path: &Path,
     force: bool,
-) -> Result<Removal, Error> {
-    // Git's own check for a dirty worktree, asked before the agents stop, so a refusal the user cancels leaves them running.
-    if !force {
-        let status = git::run(
-            path,
-            &[
-                "--no-optional-locks",
-                "status",
-                "--porcelain",
-                "--ignore-submodules=none",
-            ],
-        )?;
-        if !status.trim().is_empty() {
-            return Ok(Removal::NeedsForce {
-                reason: format!("{} contains modified or untracked files", path.display()),
-            });
-        }
-    }
-    terminals.stop(path);
-    sessions.stop(path);
+) -> Result<Result<Option<String>, Removal>, Error> {
     // git lists real paths, so a path through a symlink must resolve before it is compared.
     let real = path.canonicalize()?;
     let branch = entries(&project.path)?
@@ -278,25 +276,25 @@ pub fn remove(
     }
     args.push(&path_arg);
     match git::run(&project.path, &args) {
-        Ok(_) => {}
+        Ok(_) => Ok(Ok(branch)),
         Err(Error::Message(reason)) if !force && force_helps(&reason) => {
-            return Ok(Removal::NeedsForce { reason });
+            Ok(Err(Removal::NeedsForce { reason }))
         }
-        Err(other) => return Err(other),
+        Err(other) => Err(other),
     }
-    sessions.forget(path)?;
-    let kept_branch = branch.and_then(|name| {
-        let Err(Error::Message(message)) = git::run(&project.path, &["branch", "-d", &name]) else {
-            return None;
-        };
-        let reason = if message.contains("not fully merged") {
-            "it is not merged".to_string()
-        } else {
-            message
-        };
-        Some(KeptBranch { name, reason })
-    });
-    Ok(Removal::Removed { kept_branch })
+}
+
+/// Deletes a removed worktree's branch when it is merged; the branch and why it stays otherwise.
+pub fn delete_branch(project: &Project, name: String) -> Option<KeptBranch> {
+    let Err(Error::Message(message)) = git::run(&project.path, &["branch", "-d", &name]) else {
+        return None;
+    };
+    let reason = if message.contains("not fully merged") {
+        "it is not merged".to_string()
+    } else {
+        message
+    };
+    Some(KeptBranch { name, reason })
 }
 
 fn force_helps(refusal: &str) -> bool {
@@ -416,24 +414,8 @@ mod tests {
                 "more",
             ],
         )?;
-        let sessions = Sessions::new(
-            std::sync::Arc::new(crate::Store::open(root.join("state.json"))?),
-            root.join("sessions"),
-        );
-        let merged_removal = remove(
-            &sessions,
-            &Terminals::default(),
-            &project,
-            &made.path,
-            false,
-        )?;
-        let unmerged_removal = remove(
-            &sessions,
-            &Terminals::default(),
-            &project,
-            &unmerged.path,
-            false,
-        )?;
+        let merged_removal = remove(&project, &made.path)?;
+        let unmerged_removal = remove(&project, &unmerged.path)?;
 
         assert_eq!(merged_removal, Removal::Removed { kept_branch: None });
         assert_eq!(
@@ -446,10 +428,7 @@ mod tests {
             }
         );
         assert!(!made.path.exists());
-        assert!(matches!(
-            remove(&sessions, &Terminals::default(), &project, &repo, false),
-            Err(Error::Message(_))
-        ));
+        assert!(matches!(remove(&project, &repo), Err(Error::Message(_))));
         assert!(
             git::run(
                 &repo,
@@ -467,6 +446,18 @@ mod tests {
                 .any(|w| w.branch.as_deref() == Some("feature/x"))
         );
         Ok(())
+    }
+
+    fn remove(project: &Project, path: &Path) -> Result<Removal, Error> {
+        if let Some(refusal) = refusal(path, false)? {
+            return Ok(refusal);
+        }
+        Ok(match remove_folder(project, path, false)? {
+            Ok(branch) => Removal::Removed {
+                kept_branch: branch.and_then(|name| delete_branch(project, name)),
+            },
+            Err(refusal) => refusal,
+        })
     }
 
     #[test]

@@ -236,7 +236,7 @@ impl Builds {
         (lock(&self.0.opened).clone(), busy)
     }
 
-    /// For a worktree that was deleted: stops its build, waits for the build database to be released, forgets its schemes.
+    /// For a worktree that was deleted: stops its build, waits for the build database to be released, forgets its schemes, then removes its build data.
     pub fn forget(&self, worktree: &Path) {
         let pids = {
             let mut slots = lock(&self.0.slots);
@@ -256,6 +256,7 @@ impl Builds {
         lock(&self.0.previews).remove(worktree);
         lock(&self.0.watchers).remove(worktree);
         hot_reload::forget(worktree);
+        crate::caches::forget(worktree);
     }
 
     /// Clean Build Folder, as Xcode's: stops the worktree's build and run, waits for them to end, then removes the project's `Build` folder in DerivedData and the worktree's hot reload folder, whose compile commands point into it.

@@ -36,7 +36,7 @@ pub use appearance::{
 };
 pub use build::{BuildEvent, BuildPhase, Builds};
 pub use caches::{
-    RunningSimulator, build_data_size, forget, prune, running_simulators, shut_down_others,
+    RunningSimulator, build_data_size, prune, running_simulators, shut_down_others,
     watch_simulators,
 };
 pub use console::ConsoleTone;
