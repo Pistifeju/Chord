@@ -430,10 +430,17 @@ pub(super) fn subagent_nodes(snapshot: &str) -> Vec<SubagentNode> {
         }
     }
     fn row(node: &Value, depth: u32) -> Option<SubagentNode> {
+        let id = node["id"].as_str()?;
+        let label = node["label"].as_str()?;
+        // A workflow step without a label of its own carries its key ("task-1") as label and id; the agent names it better.
+        let name = match node["agent"].as_str() {
+            Some(agent) if label == id => agent,
+            _ => label,
+        };
         Some(SubagentNode {
-            id: node["id"].as_str()?.into(),
+            id: id.into(),
             depth,
-            name: node["label"].as_str()?.into(),
+            name: name.into(),
             state: state_of(node["state"].as_str()?),
             tool: node["activity"]["currentTool"].as_str().map(String::from),
             started_at: node["startedAt"].as_f64(),
@@ -466,9 +473,25 @@ pub(super) fn subagent_nodes(snapshot: &str) -> Vec<SubagentNode> {
         if merged.state == SubagentState::Running {
             merged.ended_at = None;
         }
-        nodes.push(merged);
-        for child in last["children"].as_array().into_iter().flatten() {
-            walk(child, depth + 1, nodes);
+        let children = last["children"].as_array().map_or(&[][..], Vec::as_slice);
+        // A parallel run is named after its agents ("scout, scout"); its children already show them, so the row goes.
+        let agents: Vec<&str> = children
+            .iter()
+            .filter_map(|child| child["agent"].as_str().or(child["label"].as_str()))
+            .collect();
+        let shown = agents[..agents.len().min(3)].join(", ");
+        let more = if agents.len() > 3 {
+            format!(", +{} more", agents.len() - 3)
+        } else {
+            String::new()
+        };
+        let repeats_children = agents.len() > 1 && merged.name == format!("{shown}{more}");
+        let child_depth = if repeats_children { depth } else { depth + 1 };
+        if !repeats_children {
+            nodes.push(merged);
+        }
+        for child in children {
+            walk(child, child_depth, nodes);
         }
     }
     let snapshot: Value = serde_json::from_str(snapshot).unwrap_or_default();

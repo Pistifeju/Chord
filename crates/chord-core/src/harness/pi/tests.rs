@@ -552,6 +552,34 @@ fn node(
 }
 
 #[test]
+fn a_parallel_run_shows_its_agents_without_its_own_row() {
+    let snapshot = r#"{"runs":[{"id":"p1","kind":"workflow","label":"scout, scout","state":"running","startedAt":1000,"children":[{"id":"task-1","kind":"step","label":"task-1","agent":"scout","state":"running","startedAt":2000},{"id":"task-2","kind":"step","label":"lint","agent":"scout","state":"complete","startedAt":2000,"endedAt":5000}]}]}"#;
+    assert_eq!(
+        super::records::subagent_nodes(snapshot),
+        vec![
+            node(
+                "task-1",
+                0,
+                "scout",
+                SubagentState::Running,
+                None,
+                Some(2000.0),
+                None
+            ),
+            node(
+                "task-2",
+                0,
+                "lint",
+                SubagentState::Done,
+                None,
+                Some(2000.0),
+                Some(5000.0)
+            ),
+        ]
+    );
+}
+
+#[test]
 fn a_subagents_widget_becomes_the_lineage() {
     let widget = r#"{"type":"extension_ui_request","id":"w1","method":"setWidget","widgetKey":"jobs","widgetLines":["PI_SUBAGENT_ASYNC_JSON:{\"runs\":[{\"id\":\"r1\",\"kind\":\"workflow\",\"label\":\"chain\",\"state\":\"running\",\"startedAt\":1000,\"children\":[{\"id\":\"r1:0\",\"kind\":\"step\",\"label\":\"scout\",\"state\":\"complete\",\"startedAt\":1000,\"endedAt\":4000},{\"id\":\"r1:1\",\"kind\":\"step\",\"label\":\"build\",\"state\":\"running\",\"startedAt\":4000,\"activity\":{\"currentTool\":\"bash\"},\"children\":[{\"id\":\"r1:1:0\",\"kind\":\"step\",\"label\":\"lint\",\"state\":\"stopped\"}]}]},{\"id\":\"r2\",\"kind\":\"subagent\",\"label\":\"worker\",\"state\":\"running\",\"startedAt\":2000,\"activity\":{\"currentTool\":\"read\"},\"children\":[{\"id\":\"r2:0\",\"kind\":\"step\",\"label\":\"worker\",\"state\":\"running\",\"activity\":{\"currentTool\":\"read\"}}]},{\"id\":\"r3\",\"kind\":\"subagent\",\"label\":\"worker\",\"state\":\"running\",\"children\":[{\"id\":\"r3:0\",\"kind\":\"step\",\"label\":\"worker\",\"state\":\"running\",\"activity\":{\"currentTool\":\"bash\"}}]},{\"id\":\"r4\",\"kind\":\"subagent\",\"label\":\"worker\",\"state\":\"running\",\"children\":[{\"id\":\"r4:0\",\"kind\":\"step\",\"label\":\"worker\",\"state\":\"failed\"}]}]}"]}"#;
     let mut shown = Reader::default();
