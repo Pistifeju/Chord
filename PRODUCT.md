@@ -28,7 +28,7 @@ Chord is a macOS workspace for coding agents. Each task gets its own git worktre
 ## Capabilities and Constraints
 
 - Native macOS app (macOS 14+), built with Tauri 2, Rust and React/TS. The UI renders in a webview and follows macOS conventions: transparent title bar, traffic lights, the bundled Inter font, light and dark appearance.
-- `SPEC.md` lists every feature and ticks the ones that work. Section 13 lists what Chord leaves out (source control view, command palette, profiles, and more).
+- `SPEC.md` lists every feature and ticks the ones that work. Section 15 lists what Chord leaves out (pull requests, command palette, profiles, and more).
 - Features build only what they need: no empty containers, no options nobody asked for.
 - iOS UI shows only in a worktree with an Xcode project.
 

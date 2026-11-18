@@ -200,7 +200,7 @@ Every control shows only in a worktree with `xcode: true`.
 | 8 | J1, J3, J2, J4 | Previews with hot reload | Section 3.2's settings rule holds |
 
 
-This plan added H8, H9 and H10 to `SPEC.md`, the `tools` capability to its section 13 and Tests to its section 14, and moved the preview half of H4 to J1.
+This plan added H8, H9 and H10 to `SPEC.md`, the `tools` capability to its section 14 and Tests to its section 15, and moved the preview half of H4 to J1.
 
 ## 8. Not verified
 

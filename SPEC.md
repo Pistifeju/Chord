@@ -1,13 +1,13 @@
 co# Chord: features
 
-One line per feature. A ticked box means the feature works. Section 14 lists what Chord leaves out.
+One line per feature. A ticked box means the feature works. Section 15 lists what Chord leaves out.
 
 Rule: build nothing before a feature needs it. A feature brings its own buttons, panel views, status bar items, menu items, shortcuts, card details and Settings rows. Each line below lists those with the feature that owns them.
 
 Tags:
 
 - **core**: needs no harness and no Xcode.
-- **harness(x)**: needs capability `x` from the harness adapter. Section 13 lists the capabilities.
+- **harness(x)**: needs capability `x` from the harness adapter. Section 14 lists the capabilities.
 - **hard**: the riskiest tickets; give them the strongest agent.
 - **iOS**: goes into the `chord-ios` crate; its UI shows only in a worktree with an Xcode project.
 
@@ -25,8 +25,8 @@ Containers. The first feature that puts something in one builds it:
 
 | Container | What it is | Features that fill it |
 |-----------|------------|-----------------------|
-| Tab bar | One strip over each tab group; the ones along the top are the window drag region; shows the project name or "Settings" as a title when it has no tabs | Tabs: C3, F2. Buttons: F1, H1 (its menu holds H2 and L4), I1 |
-| Side panel | One panel right of the panes, one view at a time; resizable; width, open state and shown view remembered per worktree | F1 Files, I1 Simulator, J1 Preview |
+| Tab bar | One strip over each tab group; the ones along the top are the window drag region; shows the project name or "Settings" as a title when it has no tabs | Tabs: C3, F2, M1. Buttons: F1, H1 (its menu holds H2 and L4), I1, M1 |
+| Side panel | One panel right of the panes, one view at a time; resizable; width, open state and shown view remembered per worktree | F1 Files, I1 Simulator, J1 Preview, M1 Changes |
 | Bottom panel | Resizable, the terminal with the run's view in a column beside it; open state and shown view remembered per worktree | G1 terminal, H3 build log and console |
 | Status bar | Strip at the bottom of the window | E11 usage, H5 running simulators |
 | Settings panel (⌘,) | A panel over the blurred window: a section list (General, Appearance, Shortcuts) and grouped rows | A5, D4, D5, G1, H5, H11, K1 |
@@ -246,7 +246,30 @@ Edge cases:
 - L1 acts on the worktree's own simulator and is disabled while it is not booted. Light / dark and the text size apply at once; a language or region is written to the simulator's preferences and reaches an app the next time it launches (⌘R). The languages and regions are the ones the Mac's locales list.
 - A window close or stop of the simulator ends a recording and keeps the file.
 
-## 13. Harness capabilities these features need
+## 13. Source control (core)
+
+- [ ] M1 Changes view in the side panel (⌘⇧G), with its tab bar button: the worktree's changed files from `git status`, the staged ones under Staged and the others under Changes, each row with the file's name, its folder, its status (modified, added, deleted, renamed, untracked, conflicted) and the lines it added and removed. A click opens the file's diff in the focused group's preview tab (F10): a read-only unified diff with the editor's syntax highlighting, of the index against HEAD for a row under Staged and of the file on disk against the index for a row under Changes.
+- [ ] M2 Needs M1. Stage, unstage and discard at three levels. Group: Stage All and Discard All on Changes, Unstage All on Staged. Row, on hover and in its right-click menu: Stage and Discard under Changes, Unstage under Staged. Hunk of an open diff: Stage and Discard in a Changes diff, Unstage in a Staged diff. Discard asks with a confirm sheet first, then restores the file or the hunk from the index; an untracked file moves to the Trash as in F5.
+- [ ] M3 Needs M2. Commit and push: a message field over the groups and a Commit button (⌘Return in the field), enabled while the field has text and a file is staged; it commits the staged files and empties the field. A Push button shows while the branch has commits its upstream lacks or has no upstream; it runs `git push` and sets the upstream on the first push. The card's git counts (B6) refresh after both.
+- [ ] M4 Needs M1. Scope control in the view's header: Uncommitted (M1's groups) or Branch. Branch lists the files that differ between HEAD and its merge base with the main checkout's branch, with their statuses and line counts, and over them the branch's commits since that merge base, newest first: subject, short hash and age. A commit opens like a folder to the files it changed. A click on a file opens its diff for the branch or for that commit.
+- [ ] M5 Needs M1. Stashes: Stash Changes on the Changes group stashes the worktree's changes with its untracked files. A Stashes group under the others lists the repository's stashes, newest first: message, the branch it came from and age; a stash opens like a folder to the files it holds, and a click on one opens its diff. Right-click: Apply, Pop, Drop; Drop asks first.
+
+Edge cases:
+- The view reads git when it shows, on window focus, after each of its own actions and on B6's refresh while it shows; an open diff tab reads again with it. No file watcher.
+- A read takes no index lock (`--no-optional-locks`), so an agent's own git command never meets it.
+- A git failure (an agent's index lock, a hook that rejects the commit, a rejected push, a stash that does not apply) shows git's own message in a failure toast and leaves the view as it was.
+- An untracked file counts every line as added; a binary file shows no counts and its diff tab says "Binary file".
+- A renamed file is one row with the old and the new name.
+- A file with staged and unstaged changes has a row in both groups.
+- A diff tab whose file has no change left in its scope closes.
+- M2: Stage on a conflicted file marks it resolved; its diff has no hunk buttons.
+- M3: Commit and Push show a busy state and take no second click while they run.
+- M3: Push never asks in a terminal (`GIT_TERMINAL_PROMPT=0`); missing credentials fail with git's reason. The remote is `origin`, else the repository's only remote; without a remote Push does not show.
+- M4: on the main checkout Branch compares against the branch's upstream; without an upstream, and on a detached HEAD, the control shows Uncommitted only.
+- M5: stashes belong to the repository, so every worktree lists the same ones.
+- M5: an Apply or Pop that conflicts leaves the stash in the list.
+
+## 14. Harness capabilities these features need
 
 A tag with a capability is a `Capability` variant: the UI hides the feature when the adapter's list lacks it. A tag with an event shows its feature once the adapter sends that `HarnessEvent`; an adapter that never sends it hides the feature.
 
@@ -267,12 +290,12 @@ A tag with a capability is a `Capability` variant: the UI hides the feature when
 
 Steering while a run goes (E1) waits for capability `steer`.
 
-## 14. Left out
+## 15. Left out
 
 | Feature | What it would be |
 |---------|------------------|
 | Profiles | Work / Home profiles, each with its own projects, model, agents and layouts |
-| Source control | Changes view with diffs and staging, commit, sync, stash, pull requests, merge |
+| Source control beyond section 13 | Pull and fetch, pull requests with their checks, merge, a conflict resolver, the commit graph, a diff comment sent to the agent, the diff of an agent's last turn |
 | Side chat | A read-only chat about the focused chat |
 | Dictation | On-device speech to text in the composer |
 | Swift check for agents | A type-check command agents can call |
