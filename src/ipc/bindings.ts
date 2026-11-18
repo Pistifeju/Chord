@@ -101,7 +101,7 @@ export const commands = {
 	quitApp: () => __TAURI_INVOKE<null>("quit_app"),
 	/**  Saves the setting and applies it; a missing `caffeinate` fails before anything is saved, even with no agent working. */
 	setKeepAwake: (enabled: boolean) => __TAURI_INVOKE<null>("set_keep_awake", { enabled }),
-	/**  Opens a link of the chat in the default app. The text comes from agent output, so only web and mail links open. */
+	/**  Opens a link of the chat in the default app. */
 	openLink: (url: string) => __TAURI_INVOKE<null>("open_link", { url }),
 };
 

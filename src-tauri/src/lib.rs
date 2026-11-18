@@ -93,11 +93,29 @@ fn tools_socket() -> PathBuf {
     std::env::temp_dir().join(format!("chord-{}.sock", std::process::id()))
 }
 
+/// Keeps the window on the app: a link that would load another page in it, from a right-click Open Link or a dropped link, opens in the default app instead.
+fn link_guard() -> tauri::plugin::TauriPlugin<tauri::Wry> {
+    tauri::plugin::Builder::new("link-guard")
+        .on_navigation(|webview, url| {
+            let dev = webview.config().build.dev_url.as_ref();
+            let own = url.scheme() == "tauri"
+                || url.host_str() == Some("tauri.localhost")
+                || dev.is_some_and(|dev| dev.origin() == url.origin());
+            if !own {
+                let url = url.to_string();
+                std::thread::spawn(move || commands::app::open_in_default_app(&url));
+            }
+            own
+        })
+        .build()
+}
+
 pub fn run() {
     let ipc = ipc();
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(link_guard())
         .invoke_handler(ipc.invoke_handler())
         .setup(move |app| {
             ipc.mount_events(app);

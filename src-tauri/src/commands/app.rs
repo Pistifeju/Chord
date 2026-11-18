@@ -29,26 +29,28 @@ pub async fn set_keep_awake(app: AppHandle, enabled: bool) -> Result<(), String>
     .await
 }
 
-/// Opens a link of the chat in the default app. The text comes from agent output, so only web and mail links open.
+/// Opens a link of the chat in the default app.
 #[tauri::command]
 #[specta::specta]
 pub async fn open_link(app: AppHandle, url: String) -> Result<(), String> {
-    blocking(app, move |_, _| {
-        let lower = url.to_ascii_lowercase();
-        if !["http://", "https://", "mailto:"]
-            .iter()
-            .any(|scheme| lower.starts_with(scheme))
-        {
-            return Err(chord_core::Error::Message(format!("Cannot open {url}")));
-        }
-        let status = std::process::Command::new("open")
-            .arg("--")
-            .arg(&url)
-            .status()?;
-        if !status.success() {
-            return Err(chord_core::Error::Message(format!("Cannot open {url}")));
-        }
-        Ok(())
-    })
-    .await
+    blocking(app, move |_, _| open_in_default_app(&url)).await
+}
+
+/// Opens a link in the default app. The text comes from agent output, so only web and mail links open.
+pub fn open_in_default_app(url: &str) -> Result<(), chord_core::Error> {
+    let lower = url.to_ascii_lowercase();
+    if !["http://", "https://", "mailto:"]
+        .iter()
+        .any(|scheme| lower.starts_with(scheme))
+    {
+        return Err(chord_core::Error::Message(format!("Cannot open {url}")));
+    }
+    let status = std::process::Command::new("open")
+        .arg("--")
+        .arg(url)
+        .status()?;
+    if !status.success() {
+        return Err(chord_core::Error::Message(format!("Cannot open {url}")));
+    }
+    Ok(())
 }
