@@ -89,7 +89,8 @@
   transition: background-color var(--t-fast) var(--ease-out);
 }
 
-.files-row:hover {
+/* After ↑ or ↓, the row under a resting pointer keeps no hover fill until the pointer moves. */
+.files-tree:not([data-keys]) .files-row:hover {
   background: var(--raised);
 }
 

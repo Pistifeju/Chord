@@ -61,9 +61,11 @@ export const FilesView = memo(function FilesView({ worktree }: { worktree: strin
           const action = path === undefined || e.metaKey || e.altKey || e.ctrlKey || e.shiftKey ? null : treeKeyAction(rows, path, e.key);
           if (!action) return;
           e.preventDefault();
+          e.currentTarget.dataset.keys = "";
           if ("toggle" in action) toggleFolder(worktree, action.toggle);
           else list.current?.querySelector<HTMLElement>(`[data-path="${CSS.escape(action.focus)}"]`)?.focus();
         }}
+        onMouseMove={(e) => delete e.currentTarget.dataset.keys}
       >
         {folderAt < 0 && newField}
         {rows.map((row, i) => (
