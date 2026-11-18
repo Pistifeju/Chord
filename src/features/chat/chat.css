@@ -60,6 +60,36 @@
   background: var(--bubble);
 }
 
+.chat-message-text[data-folded] {
+  max-height: 12lh;
+  overflow: hidden;
+}
+
+.chat-message-text[data-folded][data-long] {
+  mask-image: linear-gradient(to bottom, black calc(100% - 2lh), transparent);
+}
+
+.chat-message-more {
+  display: block;
+  margin: 4px 0 -4px -6px;
+  padding: 2px 6px;
+  border: none;
+  border-radius: var(--radius-inset);
+  background: transparent;
+  font-size: calc(12px * var(--text-scale));
+  color: var(--ink-muted);
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.chat-message-more:hover {
+  color: var(--ink-secondary);
+}
+
+.chat-message-more:active {
+  background: var(--selected);
+}
+
 .chat-turn {
   display: flex;
   flex-direction: column;

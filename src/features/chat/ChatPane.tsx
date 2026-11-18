@@ -1,5 +1,6 @@
 // The chat of one pane: transcript, composer, and a Start button while no agent runs.
 import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { flushSync } from "react-dom";
 import { memo, useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type CSSProperties, type KeyboardEvent } from "react";
 import { tooltip } from "../../app/commands";
 import type { Image, SlashCommand, SubagentNode } from "../../ipc/bindings";
@@ -93,12 +94,46 @@ function Thumbs({ pane, images }: { pane: string; images: Image[] }) {
   );
 }
 
+// A long message folds to its first lines; an open find bar unfolds it so every match shows.
+function UserText({ pane, text }: { pane: string; text: string }) {
+  const el = useRef<HTMLDivElement>(null);
+  const [long, setLong] = useState(false);
+  const [open, setOpen] = useState(false);
+  const finding = finds.usePart((all) => pane in all);
+  const folded = !open && !finding;
+  useLayoutEffect(() => {
+    const node = el.current;
+    if (!node || !folded) return;
+    const measure = () => setLong(node.scrollHeight > node.clientHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [folded, text]);
+  const toggle = () => {
+    flushSync(() => setOpen(!open));
+    if (open) el.current?.scrollIntoView({ block: "nearest" });
+  };
+  return (
+    <>
+      <div ref={el} className="chat-message-text" data-folded={folded || undefined} data-long={long || undefined}>
+        {text}
+      </div>
+      {long && !finding && (
+        <button type="button" className="chat-message-more" aria-expanded={open} onClick={toggle}>
+          {open ? "Show less" : "Show more"}
+        </button>
+      )}
+    </>
+  );
+}
+
 const MessageRow = memo(function MessageRow({ pane, message, fresh }: { pane: string; message: Message; fresh: boolean }) {
   const images = message.images ?? [];
   return (
     <div className="chat-turn" data-role={message.role} data-fresh={fresh || undefined}>
       <div className="chat-message" data-role={message.role}>
-        {message.role === "user" ? message.text : <Markdown text={message.text} />}
+        {message.role === "user" ? message.text && <UserText pane={pane} text={message.text} /> : <Markdown text={message.text} />}
         {images.length > 0 && <Thumbs pane={pane} images={images} />}
       </div>
       <div className="chat-message-meta">
