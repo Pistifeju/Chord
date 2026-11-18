@@ -1,15 +1,18 @@
-// The editor of the open file: CodeMirror with syntax highlighting, saved as you type, read again when an agent changes the file.
+// The editor of the open file: CodeMirror with syntax highlighting, closing brackets, several cursors, folding and word completion, saved as you type, read again when an agent changes the file.
+import { autocompletion, closeBrackets, closeBracketsKeymap, completeAnyWord, completionKeymap } from "@codemirror/autocomplete";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
-import { bracketMatching, indentOnInput, LanguageDescription, type LanguageSupport } from "@codemirror/language";
+import { bracketMatching, foldGutter, foldKeymap, indentOnInput, LanguageDescription, type LanguageSupport } from "@codemirror/language";
 import { languages } from "@codemirror/language-data";
+import { highlightSelectionMatches } from "@codemirror/search";
 import { Compartment, EditorState } from "@codemirror/state";
-import { drawSelection, EditorView, keymap, lineNumbers } from "@codemirror/view";
+import { crosshairCursor, drawSelection, EditorView, highlightActiveLine, keymap, lineNumbers, rectangularSelection } from "@codemirror/view";
 import { useEffect, useId, useRef, useState } from "react";
 import { commands } from "../../ipc/bindings";
 import { fail } from "../../ui/alert";
 import { EditorFind } from "./EditorFind";
 import { closeEditorFind, editorFinds } from "./find";
 import { findMarks } from "./findMarks";
+import { keptFolds } from "./folds";
 import { requestedLine, lineRequests, takeLine } from "./reveal";
 import { changedOnDisk, closeFile, readFile, scheduleSave } from "./store";
 import { editorTheme } from "./theme";
@@ -43,11 +46,20 @@ export function Editor({ worktree, path, autoFocus, onGone, onEdit }: { worktree
         extensions: [
           lineBreak,
           lineNumbers(),
+          foldGutter({ openText: "⌄", closedText: "›" }),
           history(),
           drawSelection(),
+          EditorState.allowMultipleSelections.of(true),
+          rectangularSelection(),
+          crosshairCursor(),
+          highlightActiveLine(),
+          highlightSelectionMatches(),
           indentOnInput(),
           bracketMatching(),
-          keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
+          closeBrackets(),
+          autocompletion({ icons: false }),
+          EditorState.languageData.of(() => [{ autocomplete: completeAnyWord }]),
+          keymap.of([...closeBracketsKeymap, ...completionKeymap, ...defaultKeymap, ...historyKeymap, ...foldKeymap, indentWithTab]),
           language.of(support ?? []),
           editorTheme,
           findMarks,
@@ -93,8 +105,9 @@ export function Editor({ worktree, path, autoFocus, onGone, onEdit }: { worktree
         const { anchor, head } = view.state.selection.main;
         const state = stateOf(text);
         const clamp = (at: number) => Math.min(at, state.doc.length);
+        const folds = keptFolds(view.state, state);
         view.setState(state);
-        view.dispatch({ selection: { anchor: clamp(anchor), head: clamp(head) } });
+        view.dispatch({ selection: { anchor: clamp(anchor), head: clamp(head) }, effects: folds });
         setVersion((v) => v + 1);
       } catch {
         // A file gone from disk keeps its text in the editor until the tab closes.

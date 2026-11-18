@@ -1,4 +1,4 @@
-// The editor's look: the app's tokens for the surface, the selection and the syntax colors.
+// The editor's look: the app's tokens for the surface, the selection, the fold markers, the completion list and the syntax colors.
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { EditorView } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
@@ -9,10 +9,21 @@ const surface = EditorView.theme({
   ".cm-scroller": { fontFamily: "var(--font-code)", lineHeight: "1.45" },
   ".cm-content": { caretColor: "var(--accent-ink)", padding: "8px 0" },
   ".cm-cursor": { borderLeftColor: "var(--accent-ink)" },
-  ".cm-gutters": { backgroundColor: "var(--canvas)", color: "var(--ink-disabled)", border: "none" },
+  // Its own layer: WebKit otherwise paints the sticky gutter late on a sideways scroll and the text shows through.
+  ".cm-gutters": { backgroundColor: "var(--canvas)", color: "var(--ink-disabled)", border: "none", transform: "translateZ(0)" },
   ".cm-activeLineGutter": { backgroundColor: "transparent", color: "var(--ink-secondary)" },
   ".cm-selectionBackground, &.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground": { backgroundColor: "var(--editor-selection)" },
+  ".cm-activeLine": { backgroundColor: "var(--editor-line)" },
   ".cm-matchingBracket": { backgroundColor: "var(--editor-match)", outline: "none" },
+  ".cm-selectionMatch": { backgroundColor: "var(--editor-match)" },
+  ".cm-foldGutter .cm-gutterElement": { width: "12px", color: "var(--ink-muted)", cursor: "pointer", textAlign: "center" },
+  ".cm-foldPlaceholder": { margin: "0 2px", padding: "0 4px", border: "none", borderRadius: "var(--radius-inset)", backgroundColor: "var(--raised)", color: "var(--ink-muted)" },
+  ".cm-tooltip.cm-tooltip-autocomplete": { padding: "4px", border: "1px solid var(--line)", borderRadius: "var(--radius-control)", backgroundColor: "var(--sheet)", boxShadow: "var(--shadow-popover)" },
+  ".cm-tooltip.cm-tooltip-autocomplete > ul": { maxHeight: "240px", fontFamily: "var(--font-code)" },
+  ".cm-tooltip.cm-tooltip-autocomplete > ul > li": { padding: "0 8px", lineHeight: "24px", borderRadius: "var(--radius-inset)", color: "var(--ink-secondary)" },
+  ".cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected]": { backgroundColor: "var(--selected)", color: "var(--ink)" },
+  ".cm-completionMatchedText": { textDecoration: "none", fontWeight: "600" },
+  ".cm-completionDetail": { color: "var(--ink-muted)", fontStyle: "normal" },
   ".cm-find-match": { backgroundColor: "var(--editor-match)" },
   ".cm-find-current": { textDecoration: "underline 2px var(--accent-ink)" },
 });

@@ -137,11 +137,13 @@ Edge cases:
 - [x] F9 Drag a file from the tree into the composer to put its relative path in the draft.
 - [x] F10 Preview tab: a click in the tree, ⌘⇧O and a build error open the file in the focused group's preview tab (italic name), which the next file replaces; a double click on the row or the tab, or an edit, keeps it.
 - [x] F11 ⌘F searches the open file in the editor with the chat's find bar: previous and next match, match count; Esc closes it and selects the current match.
+- [x] F12 Editing in the editor: brackets and quotes close themselves, several cursors (⌘-click, ⌥-drag), the cursor's line and the selection's other copies marked, code folding in a gutter, and completion from the file's words and the language's keywords.
 
 Edge cases:
 - The tree refreshes on window focus and on Reload; open folders and the selection survive a refresh.
 - A file an agent deletes leaves the tree and its tab closes; a tab with unsaved edits stays open, and saving it asks first.
 - CRLF files stay CRLF.
+- A folded block stays folded when an agent changes the file outside it.
 - Switching files mid-autosave saves to the old file.
 - A draft reopens as a conflict when the disk changed; saving a deleted file asks first.
 - Closing a tab with unsaved edits asks.

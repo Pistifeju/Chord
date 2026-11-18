@@ -1,4 +1,4 @@
-// The macOS app menu: the default one with Settings under Chord, a Quit that asks while agents run, and the Product menu after View.
+// The macOS app menu: the default one with Settings under Chord, a Quit that asks while agents run, Undo and Redo that reach the editor's own history, and the Product menu after View.
 import { Menu, MenuItem, PredefinedMenuItem, type Submenu } from "@tauri-apps/api/menu";
 import { requestQuit } from "../features/quit/store";
 import { openSettings } from "../features/settings/store";
@@ -16,7 +16,25 @@ export async function installAppMenu() {
   await appMenu.append(await MenuItem.new({ id: "quit", text: "Quit Chord", accelerator: "CmdOrCtrl+Q", action: requestQuit }));
   const menus = await menu.items();
   const texts = await Promise.all(menus.map((item) => (item as Submenu).text()));
+  const edit = texts.indexOf("Edit");
+  if (edit >= 0) await replaceUndo(menus[edit] as Submenu);
   const view = texts.indexOf("View");
   await menu.insert(await productMenu(), view >= 0 ? view + 1 : texts.length);
   await menu.setAsAppMenu();
+}
+
+// WebKit's own undo knows only the edits the editor let it type, so the editor takes Undo as the `beforeinput` its history listens for; any other field keeps WebKit's.
+async function replaceUndo(edit: Submenu) {
+  const ours = { Undo: ["CmdOrCtrl+Z", "historyUndo", "undo"], Redo: ["CmdOrCtrl+Shift+Z", "historyRedo", "redo"] } as const;
+  for (const [index, item] of (await edit.items()).entries()) {
+    const text = await (item as MenuItem).text();
+    if (text !== "Undo" && text !== "Redo") continue;
+    const [accelerator, inputType, command] = ours[text];
+    const action = () => {
+      const event = new InputEvent("beforeinput", { inputType, bubbles: true, cancelable: true });
+      if (document.activeElement?.dispatchEvent(event) !== false) document.execCommand(command);
+    };
+    await edit.remove(item);
+    await edit.insert(await MenuItem.new({ text, accelerator, action }), index);
+  }
 }
