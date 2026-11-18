@@ -185,7 +185,7 @@ fn refuse_root(path: &str) -> Result<(), Error> {
 }
 
 // The path under `root`; a relative path that climbs out or is absolute is refused.
-fn inside(root: &Path, relative: &str) -> Result<PathBuf, Error> {
+pub(crate) fn inside(root: &Path, relative: &str) -> Result<PathBuf, Error> {
     let relative = Path::new(relative);
     if relative
         .components()

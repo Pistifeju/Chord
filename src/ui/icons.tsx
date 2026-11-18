@@ -213,6 +213,22 @@ export const FileIcon = () => (
   </Icon>
 );
 
+export const BranchIcon = () => (
+  <Icon>
+    <circle cx="4.75" cy="3.5" r="1.5" />
+    <circle cx="4.75" cy="12.5" r="1.5" />
+    <circle cx="11.25" cy="5" r="1.5" />
+    <path d="M4.75 5v6M11.25 6.5c0 2.5-6.5 1.5-6.5 4.5" />
+  </Icon>
+);
+
+export const DiffIcon = () => (
+  <Icon>
+    <path d="M4.5 1.75h4.75l3.25 3.25v8a1.25 1.25 0 0 1-1.25 1.25h-6.75A1.25 1.25 0 0 1 3.25 13V3A1.25 1.25 0 0 1 4.5 1.75z" />
+    <path d="M8 5.5v4M6 7.5h4M6 11.5h4" />
+  </Icon>
+);
+
 export const FilterIcon = () => (
   <Icon>
     <path d="M2.5 4.5h11M4.5 8h7M6.5 11.5h3" />

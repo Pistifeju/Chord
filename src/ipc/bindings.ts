@@ -37,6 +37,8 @@ export const commands = {
 	renameFile: (worktree: string, from: string, to: string) => __TAURI_INVOKE<null>("rename_file", { worktree, from, to }),
 	trashFile: (worktree: string, path: string) => __TAURI_INVOKE<null>("trash_file", { worktree, path }),
 	revealFile: (worktree: string, path: string) => __TAURI_INVOKE<null>("reveal_file", { worktree, path }),
+	listChanges: (worktree: string) => __TAURI_INVOKE<Change_Serialize[]>("list_changes", { worktree }),
+	readDiff: (worktree: string, file: string, side: DiffSide) => __TAURI_INVOKE<FileDiff_Serialize>("read_diff", { worktree, file, side }),
 	startTerminal: (worktree: string, cols: number, rows: number, onEvent: Channel<TerminalEvent>) => __TAURI_INVOKE<null>("start_terminal", { worktree, cols, rows, onEvent }),
 	writeTerminal: (worktree: string, text: string) => __TAURI_INVOKE<null>("write_terminal", { worktree, text }),
 	resizeTerminal: (worktree: string, cols: number, rows: number) => __TAURI_INVOKE<null>("resize_terminal", { worktree, cols, rows }),
@@ -289,6 +291,34 @@ export type Capability =
 /**  Background subagent runs, reported as a lineage. */
 "subagents";
 
+export type Change = Change_Serialize | Change_Deserialize;
+
+export type ChangeStatus = "modified" | "added" | "deleted" | "renamed" | "untracked" | "conflicted";
+
+export type Change_Deserialize = {
+	path: string,
+	/**  The path a rename came from. */
+	oldPath?: string | null,
+	/**  Under Staged: the index against HEAD; else the file on disk against the index. */
+	staged: boolean,
+	status: ChangeStatus,
+	/**  None for a binary file. */
+	added?: number | null,
+	removed?: number | null,
+};
+
+export type Change_Serialize = {
+	path: string,
+	/**  The path a rename came from. */
+	oldPath: string | null,
+	/**  Under Staged: the index against HEAD; else the file on disk against the index. */
+	staged: boolean,
+	status: ChangeStatus,
+	/**  None for a binary file. */
+	added: number | null,
+	removed: number | null,
+};
+
 export type ConsoleTone = 
 /**  The app's stdout and stderr, and OSLog messages below error. */
 "output" | 
@@ -328,6 +358,31 @@ export type DialogAsk_Serialize =
 /**  A select the user opened from the composer bar; it floats over the composer as a menu, with a filter row only when `filter`. */
 { kind: "menu"; options: string[]; current: string | null; filter: boolean } | { kind: "confirm"; message: string } | { kind: "input"; placeholder: string };
 
+export type DiffLine = DiffLine_Serialize | DiffLine_Deserialize;
+
+export type DiffLine_Deserialize = {
+	kind: LineKind,
+	text: string,
+	/**  The line's number in the old side, the new side, or both for context. */
+	old?: number | null,
+	new?: number | null,
+};
+
+export type DiffLine_Serialize = {
+	kind: LineKind,
+	text: string,
+	/**  The line's number in the old side, the new side, or both for context. */
+	old: number | null,
+	new: number | null,
+};
+
+/**  Which diff of a file a tab shows. */
+export type DiffSide = 
+/**  The index against HEAD. */
+"staged" | 
+/**  The file on disk against the index. */
+"unstaged";
+
 export type Direction = 
 /**  Children sit side by side. */
 "row" | 
@@ -338,6 +393,18 @@ export type Direction =
 export type FaceIcon = "home" | "lock" | "unlock" | "shake" | "camera" | "record" | "stop" | "appearance";
 
 export type FaceLook = "rest" | "hover" | "pressed";
+
+export type FileDiff = FileDiff_Serialize | FileDiff_Deserialize;
+
+export type FileDiff_Deserialize = {
+	binary: boolean,
+	hunks: Hunk_Deserialize[],
+};
+
+export type FileDiff_Serialize = {
+	binary: boolean,
+	hunks: Hunk_Serialize[],
+};
 
 export type FileEntry = {
 	/**  What the row shows: a chain of single-child folders reads as one name, `src/app/views`. */
@@ -475,6 +542,20 @@ export type HarnessEvent_Serialize =
 /**  The agent went on past its open dialog. Core adds it, no adapter emits it. */
 { kind: "dialog_closed" };
 
+export type Hunk = Hunk_Serialize | Hunk_Deserialize;
+
+export type Hunk_Deserialize = {
+	/**  The line git names after the hunk's range, mostly the function it sits in; empty when git finds none. */
+	context: string,
+	lines: DiffLine_Deserialize[],
+};
+
+export type Hunk_Serialize = {
+	/**  The line git names after the hunk's range, mostly the function it sits in; empty when git finds none. */
+	context: string,
+	lines: DiffLine_Serialize[],
+};
+
 /**  An image in a message: base64 data and its MIME type. */
 export type Image = {
 	data: string,
@@ -521,6 +602,8 @@ export type LineChanges = {
 	added: number,
 	removed: number,
 };
+
+export type LineKind = "context" | "added" | "removed";
 
 /**  A link tried to load in the app's own web view; the window opens it like a chat link. */
 export type LinkRequested = string;
@@ -811,7 +894,7 @@ export type SidePanel_Serialize = {
 };
 
 /**  The view the side panel shows. */
-export type SideView = "files" | "simulator" | "preview";
+export type SideView = "files" | "simulator" | "preview" | "changes";
 
 export type Sidebar = Sidebar_Serialize | Sidebar_Deserialize;
 
@@ -1116,7 +1199,9 @@ export type Tab_Deserialize =
 /**  A chat with its agent; `name` shows until its first user message names it. */
 { kind: "chat"; id: string; name: string } | 
 /**  A file of the worktree, by its relative path; a `preview` tab gives its place to the next file opened in its group. */
-{ kind: "file"; id: string; path: string; preview?: boolean } | 
+{ kind: "file"; id: string; path: string; preview?: boolean; 
+/**  Shows the file's diff instead of the file, read-only. */
+diff?: DiffSide | null } | 
 /**  A web page in the window's own browser; `title` is the page's last title. */
 { kind: "browser"; id: string; url: string; title?: string };
 
@@ -1124,7 +1209,9 @@ export type Tab_Serialize =
 /**  A chat with its agent; `name` shows until its first user message names it. */
 { kind: "chat"; id: string; name: string } | 
 /**  A file of the worktree, by its relative path; a `preview` tab gives its place to the next file opened in its group. */
-{ kind: "file"; id: string; path: string; preview: boolean } | 
+{ kind: "file"; id: string; path: string; preview: boolean; 
+/**  Shows the file's diff instead of the file, read-only. */
+diff?: DiffSide } | 
 /**  A web page in the window's own browser; `title` is the page's last title. */
 { kind: "browser"; id: string; url: string; title: string };
 

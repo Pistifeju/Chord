@@ -1,5 +1,5 @@
 // Connects the tab and layout rules to IPC: each worktree's tab groups, their agents, saved through Rust.
-import { commands, type Direction, type WorktreePanes } from "../../ipc/bindings";
+import { commands, type DiffSide, type Direction, type WorktreePanes } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
 import { closeSheet, openSheet, type Sheet } from "../../app/sheet";
 import { chats, forgetChat, startChat } from "../chat/store";
@@ -88,10 +88,10 @@ export function confirmClose(sheet: CloseAgents) {
 
 export const moveTab = (worktree: string, tab: string, drop: TabDrop) => change(worktree, (p) => withTabMoved(p, tab, drop, newId()));
 
-// A file a tab already shows opens that tab, so a second editor never saves over it; any other opens in the focused group, as a preview when `preview`.
-export function openFileTab(worktree: string, path: string, preview: boolean) {
-  const shown = filePaneOf(worktree, path);
-  const file: FilePane = { kind: "file", id: newId(), path, preview };
+// A file a tab already shows opens that tab, so a second editor never saves over it; any other opens in the focused group, as a preview when `preview`. With `diff` the tab shows that diff of the file.
+export function openFileTab(worktree: string, path: string, preview: boolean, diff?: DiffSide) {
+  const shown = filePaneOf(worktree, path, diff);
+  const file: FilePane = { kind: "file", id: newId(), path, preview, ...(diff && { diff }) };
   change(worktree, (p) => (shown ? (preview ? withFocus(p, shown.id) : withFileKept(withFocus(p, shown.id), shown.id)) : withFileOpened(p, file)));
 }
 
@@ -121,9 +121,9 @@ export function closeFilePanesAt(worktree: string, path: string) {
   for (const file of saved ? filePanes(saved.layout) : []) if (isAtOrInside(file.path, path)) closePane(worktree, file.id);
 }
 
-const filePaneOf = (worktree: string, path: string): FilePane | undefined => {
+const filePaneOf = (worktree: string, path: string, diff: DiffSide | undefined): FilePane | undefined => {
   const saved = panes.get()[worktree];
-  return saved && filePanes(saved.layout).find((f) => f.path === path);
+  return saved && filePanes(saved.layout).find((f) => f.path === path && (f.diff ?? undefined) === diff);
 };
 
 // Focus stays in memory; the next layout save writes it.

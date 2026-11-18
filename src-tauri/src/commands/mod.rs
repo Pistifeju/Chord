@@ -3,6 +3,7 @@
 pub mod app;
 pub mod browser;
 pub mod build;
+pub mod changes;
 pub mod chat;
 pub mod files;
 pub mod preview;

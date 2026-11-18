@@ -3,6 +3,7 @@ import { Menu } from "@tauri-apps/api/menu";
 import type { MouseEvent } from "react";
 import { commands } from "../ipc/bindings";
 import { openContextMenu } from "./contextMenu";
+import { changesCommands } from "../features/changes/commands";
 import { chatCommands } from "../features/chat/commands";
 import { buildCommands } from "../features/ios/build/commands";
 import { editorCommands } from "../features/editor/commands";
@@ -22,7 +23,7 @@ export type AppCommand = { id: string; title: string; shortcut?: Shortcut; run: 
   when?: () => boolean;
 };
 
-const table: AppCommand[] = [...sidebarCommands, ...filesCommands, ...editorCommands, ...terminalCommands, ...settingsCommands, ...chatCommands, ...paneCommands, ...worktreeCommands, ...buildCommands, ...simulatorCommands, ...previewCommands];
+const table: AppCommand[] = [...sidebarCommands, ...filesCommands, ...changesCommands, ...editorCommands, ...terminalCommands, ...settingsCommands, ...chatCommands, ...paneCommands, ...worktreeCommands, ...buildCommands, ...simulatorCommands, ...previewCommands];
 
 const defaultShortcuts: ShortcutMap = Object.fromEntries(table.map((c) => [c.id, c.shortcut]));
 

@@ -1,8 +1,8 @@
 // The panes of one worktree: the split layout of its tab groups, each group's tab bar over the tab it shows, and a tab's drag between them.
 import { Fragment, useEffect, useRef, useState, type PointerEvent, type ReactNode, type RefObject } from "react";
-import type { Direction, Layout, Status, Tab } from "../../ipc/bindings";
+import type { DiffSide, Direction, Layout, Status, Tab } from "../../ipc/bindings";
 import { tooltip } from "../../app/commands";
-import { editorView } from "../../app/deferredViews";
+import { diffView, editorView } from "../../app/deferredViews";
 import { imageMime } from "../chat/attachments";
 import { ChatPane } from "../chat/ChatPane";
 import { chats, usePaneNames } from "../chat/store";
@@ -16,7 +16,8 @@ import { sidePanelOf, sidePanels, showsSideView, toggleSideView } from "../sidep
 import { sidebar } from "../sidebar/store";
 import { ImageView } from "../editor/ImageView";
 import { selectFile } from "../files/store";
-import { CloseIcon, FileIcon, GlobeIcon, PiIcon, PlusIcon, SidePanelIcon } from "../../ui/icons";
+import { ChangesToggle } from "../changes/ChangesView";
+import { CloseIcon, DiffIcon, FileIcon, GlobeIcon, PiIcon, PlusIcon, SidePanelIcon } from "../../ui/icons";
 import { BrowserView } from "../browser/BrowserView";
 import { usePointerDrag } from "../../ui/pointerDrag";
 import { chatPaneIds, dropEdge, dropPreview, edgeDirection, fitsSplit, groupOf, minExtent, paneIds, resizedSizes, type Box, type Group } from "./layout";
@@ -96,9 +97,11 @@ function FilesToggle({ worktree }: { worktree: string }) {
   );
 }
 
-const tabIcon = (tab: Tab) => (tab.kind === "file" ? <FileIcon /> : tab.kind === "browser" ? <GlobeIcon /> : <PiIcon />);
+const tabIcon = (tab: Tab) => (tab.kind === "file" ? (tab.diff ? <DiffIcon /> : <FileIcon />) : tab.kind === "browser" ? <GlobeIcon /> : <PiIcon />);
 
 const closeLabel = (tab: Tab) => (tab.kind === "file" ? "Close File" : tab.kind === "browser" ? "Close Page" : "Close Session");
+
+const diffTitles: Record<DiffSide, string> = { staged: " (Staged)", unstaged: " (Changes)" };
 
 function TabView({ tab, group, place, status }: { tab: Tab; group: Group; place: Place; status: Status | null }) {
   const { worktree, drag } = place;
@@ -120,7 +123,7 @@ function TabView({ tab, group, place, status }: { tab: Tab; group: Group; place:
         role="tab"
         className="tab-name"
         aria-selected={open}
-        title={file ? tab.path : tab.kind === "browser" ? tab.url : undefined}
+        title={file ? `${tab.path}${tab.diff ? diffTitles[tab.diff] : ""}` : tab.kind === "browser" ? tab.url : undefined}
         {...drag.handlers(tab.id)}
         onClick={show}
         onDoubleClick={() => keepFilePane(worktree, tab.id)}
@@ -230,10 +233,12 @@ function Divider({ worktree, path, index, direction, sizes, mins, container }: D
   );
 }
 
-// An open file: the image view for an image, otherwise the editor.
-function FileView({ worktree, path, autoFocus, onGone, onEdit }: { worktree: string; path: string; autoFocus: boolean; onGone: () => void; onEdit: () => void }) {
+// An open file: its diff for a diff tab, the image view for an image, otherwise the editor.
+function FileView({ worktree, path, diff, autoFocus, onGone, onEdit }: { worktree: string; path: string; diff: DiffSide | undefined; autoFocus: boolean; onGone: () => void; onEdit: () => void }) {
   const mime = imageMime(path);
   const editor = editorView.use();
+  const differ = diffView.use();
+  if (diff) return differ && <differ.DiffView worktree={worktree} path={path} side={diff} />;
   if (mime) return <ImageView worktree={worktree} path={path} mime={mime} onGone={onGone} />;
   return editor && <editor.Editor worktree={worktree} path={path} autoFocus={autoFocus} onGone={onGone} onEdit={onEdit} />;
 }
@@ -263,7 +268,7 @@ function GroupView({ group, place, edges }: { group: Group; place: Place; edges:
       <GroupTabs group={group} place={place} edges={edges} />
       <div className="pane" data-pane={tab.id} data-split={place.split || undefined} data-focused={focused || undefined} onPointerDownCapture={focus} onFocusCapture={focus}>
         {tab.kind === "file" ? (
-          <FileView key={tab.id} worktree={worktree} path={tab.path} autoFocus={focused} onGone={() => closePane(worktree, tab.id)} onEdit={() => keepFilePane(worktree, tab.id)} />
+          <FileView key={tab.id} worktree={worktree} path={tab.path} diff={tab.diff ?? undefined} autoFocus={focused} onGone={() => closePane(worktree, tab.id)} onEdit={() => keepFilePane(worktree, tab.id)} />
         ) : tab.kind === "browser" ? (
           <BrowserView key={tab.id} tab={tab.id} url={tab.url} dragging={place.drag.dragging !== null} />
         ) : (
@@ -330,6 +335,7 @@ export function PaneArea({ worktree, runControl, bottomViews, sideViews }: { wor
         {sideViews.map((view) => (
           <Fragment key={view.id}>{view.button}</Fragment>
         ))}
+        <ChangesToggle worktree={worktree} />
         <FilesToggle worktree={worktree} />
       </div>
     </>

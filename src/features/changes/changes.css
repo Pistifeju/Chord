@@ -1,0 +1,101 @@
+/* The Changes view: its groups and their rows, which take the Files tree and its row. Rules: DESIGN.md, Changes view. */
+.changes-section + .changes-section {
+  margin-top: 12px;
+}
+
+.changes-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 8px;
+  font-size: calc(12px * var(--text-scale));
+  font-weight: 500;
+  color: var(--ink-secondary);
+}
+
+.changes-count {
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Two classes, so the row's own spacing wins over the Files row whichever stylesheet loads last. */
+.files-row.changes-row {
+  gap: 6px;
+  padding-left: 8px;
+}
+
+.changes-name {
+  flex: 0 1 auto;
+  max-width: 70%;
+}
+
+.changes-name[data-status="deleted"] {
+  text-decoration: line-through;
+}
+
+.changes-folder {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: calc(12px * var(--text-scale));
+  color: var(--ink-muted);
+}
+
+.changes-row[aria-selected="true"] .changes-folder {
+  color: var(--ink-secondary);
+}
+
+.changes-lines {
+  display: flex;
+  flex: none;
+  gap: 4px;
+  margin-left: auto;
+  font-size: calc(11px * var(--text-scale));
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.changes-added {
+  color: var(--success);
+}
+
+.changes-removed {
+  color: var(--danger);
+}
+
+.changes-status {
+  flex: none;
+  width: 12px;
+  text-align: center;
+  font-size: calc(11px * var(--text-scale));
+  font-weight: 600;
+}
+
+.changes-status[data-status="modified"],
+.changes-status[data-status="renamed"] {
+  color: var(--git-changed);
+}
+
+.changes-status[data-status="added"],
+.changes-status[data-status="untracked"] {
+  color: var(--success);
+}
+
+.changes-status[data-status="deleted"],
+.changes-status[data-status="conflicted"] {
+  color: var(--danger);
+}
+
+/* The line a diff tab shows in place of a diff. */
+.diff-note {
+  position: absolute;
+  top: 40%;
+  width: 100%;
+  margin: 0;
+  text-align: center;
+  font-size: calc(12px * var(--text-scale));
+  color: var(--ink-muted);
+}

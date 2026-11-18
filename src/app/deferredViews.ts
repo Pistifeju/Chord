@@ -1,4 +1,4 @@
-// The editor and the terminal view, loaded apart from the main bundle so the window parses CodeMirror and xterm while launch waits, not before it starts.
+// The editor, the diff view and the terminal view, loaded apart from the main bundle so the window parses CodeMirror and xterm while launch waits, not before it starts.
 import { externalStore } from "../ui/externalStore";
 
 function deferred<M>(load: () => Promise<M>) {
@@ -21,6 +21,7 @@ function deferred<M>(load: () => Promise<M>) {
 }
 
 export const editorView = deferred(() => import("../features/editor/Editor"));
+export const diffView = deferred(() => import("../features/changes/DiffView"));
 export const terminalView = deferred(() => import("../features/terminal/TerminalView"));
 
 export const loadDeferredViews = () => Promise.all([editorView.start(), terminalView.start()]).catch(console.error);

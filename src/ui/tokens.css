@@ -36,6 +36,8 @@
   --editor-selection: rgba(27, 78, 216, 0.14);
   --editor-match: rgba(254, 154, 0, 0.3);
   --editor-line: rgba(0, 0, 0, 0.04);
+  --diff-added: rgba(0, 122, 85, 0.1);
+  --diff-removed: rgba(231, 0, 11, 0.08);
 
   --shadow-control: 0 1px 2px rgba(0, 0, 0, 0.08);
   --shadow-composer: 0 1px 2px rgba(0, 0, 0, 0.03), 0 4px 16px rgba(0, 0, 0, 0.04);
@@ -126,6 +128,8 @@
   --editor-selection: rgba(52, 107, 241, 0.3);
   --editor-match: rgba(254, 154, 0, 0.25);
   --editor-line: rgba(255, 255, 255, 0.05);
+  --diff-added: rgba(0, 188, 125, 0.14);
+  --diff-removed: rgba(251, 65, 74, 0.14);
 
   --shadow-control: 0 1px 2px rgba(0, 0, 0, 0.5);
   --shadow-composer: none;

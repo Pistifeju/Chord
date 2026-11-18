@@ -54,6 +54,9 @@ pub enum Tab {
         path: String,
         #[serde(default)]
         preview: bool,
+        /// Shows the file's diff instead of the file, read-only.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        diff: Option<DiffSide>,
     },
     /// A web page in the window's own browser; `title` is the page's last title.
     Browser {
@@ -70,6 +73,16 @@ impl Tab {
             Tab::Chat { id, .. } | Tab::File { id, .. } | Tab::Browser { id, .. } => id,
         }
     }
+}
+
+/// Which diff of a file a tab shows.
+#[derive(Serialize, Deserialize, Type, Clone, Copy, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum DiffSide {
+    /// The index against HEAD.
+    Staged,
+    /// The file on disk against the index.
+    Unstaged,
 }
 
 #[derive(Serialize, Deserialize, Type, Clone, Copy, Debug, PartialEq)]

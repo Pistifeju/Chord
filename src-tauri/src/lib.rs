@@ -51,6 +51,8 @@ pub fn ipc() -> tauri_specta::Builder<tauri::Wry> {
             commands::files::rename_file,
             commands::files::trash_file,
             commands::files::reveal_file,
+            commands::changes::list_changes,
+            commands::changes::read_diff,
             commands::terminal::start_terminal,
             commands::terminal::write_terminal,
             commands::terminal::resize_terminal,
