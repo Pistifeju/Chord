@@ -48,6 +48,31 @@ fn model_dialog(models: &Value) -> HarnessEvent {
     )
 }
 
+// The current model's provider leads, the others keep pi's order; inside a provider the higher version comes first. A version is the id's short number runs (`claude-opus-4-5-20251101` is 4.5), so a release date does not count.
+pub(super) fn newest_first(options: &mut [String], current: Option<&str>) {
+    fn provider(option: &str) -> &str {
+        option.split_once('/').map_or("", |(provider, _)| provider)
+    }
+    let mut providers: Vec<String> = current
+        .map(|model| provider(model).into())
+        .into_iter()
+        .collect();
+    for option in options.iter() {
+        if !providers.iter().any(|p| p == provider(option)) {
+            providers.push(provider(option).into());
+        }
+    }
+    options.sort_by_cached_key(|option| {
+        let group = providers.iter().position(|p| *p == provider(option));
+        let version: Vec<u32> = option
+            .split(|c: char| !c.is_ascii_digit())
+            .filter(|run| (1..=4).contains(&run.len()))
+            .filter_map(|run| run.parse().ok())
+            .collect();
+        (group, std::cmp::Reverse(version))
+    });
+}
+
 // pi lists only the levels the current model supports, and just "off" for one that does not think.
 fn thinking_dialog(levels: &Value) -> HarnessEvent {
     let options = levels

@@ -6,7 +6,7 @@ use super::commands::{
     dialog_response, fork_command, model_command, prompt_command, session_command, thinking_command,
 };
 use super::reader::Reader;
-use super::records::{OpenCalls, collapse_skill};
+use super::records::{OpenCalls, collapse_skill, newest_first};
 use super::*;
 use crate::harness::{
     DialogAnswer, DialogAsk, HarnessEvent, Image, LineChanges, SlashCommand, SlashKind,
@@ -529,6 +529,32 @@ fn the_state_tells_the_model_and_a_picker_marks_it() {
     };
     assert_eq!(current(models), Some("anthropic/sonnet-4".into()));
     assert_eq!(current(levels), Some("Medium".into()));
+}
+
+#[test]
+fn the_model_list_puts_the_current_provider_and_the_newest_versions_first() {
+    let mut options: Vec<String> = [
+        "anthropic/claude-haiku-4-5-20251001",
+        "openai-codex/gpt-5.1",
+        "anthropic/claude-opus-4-5",
+        "openai-codex/gpt-5.5",
+        "anthropic/claude-opus-5-5",
+        "anthropic/claude-opus-5",
+    ]
+    .map(String::from)
+    .into();
+    newest_first(&mut options, Some("openai-codex/gpt-5.1"));
+    assert_eq!(
+        options,
+        [
+            "openai-codex/gpt-5.5",
+            "openai-codex/gpt-5.1",
+            "anthropic/claude-opus-5-5",
+            "anthropic/claude-opus-5",
+            "anthropic/claude-haiku-4-5-20251001",
+            "anthropic/claude-opus-4-5",
+        ]
+    );
 }
 
 fn node(

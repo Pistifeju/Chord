@@ -6,7 +6,9 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::commands::session_requests;
-use super::records::{OpenCalls, capitalized, events_from, message_update, subagent_nodes};
+use super::records::{
+    OpenCalls, capitalized, events_from, message_update, newest_first, subagent_nodes,
+};
 use super::{Picker, SESSION_PROMPT, SUBAGENTS_PREFIX};
 use crate::harness::{DialogAsk, HarnessEvent};
 
@@ -168,12 +170,17 @@ impl ShownSession {
     fn with_current(&self, mut event: HarnessEvent) -> HarnessEvent {
         if let HarnessEvent::Dialog {
             id,
-            ask: DialogAsk::Menu { current, .. },
+            ask: DialogAsk::Menu {
+                options, current, ..
+            },
             ..
         } = &mut event
         {
             match Picker::from_id(id) {
-                Some(Picker::Model) => *current = self.model.clone(),
+                Some(Picker::Model) => {
+                    newest_first(options, self.model.as_deref());
+                    *current = self.model.clone();
+                }
                 Some(Picker::Thinking) => *current = self.thinking.clone(),
                 None => {}
             }
