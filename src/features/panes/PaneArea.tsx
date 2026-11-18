@@ -16,7 +16,8 @@ import { sidePanelOf, sidePanels, showsSideView, toggleSideView } from "../sidep
 import { sidebar } from "../sidebar/store";
 import { ImageView } from "../editor/ImageView";
 import { selectFile } from "../files/store";
-import { CloseIcon, FileIcon, PiIcon, PlusIcon, SidePanelIcon } from "../../ui/icons";
+import { CloseIcon, FileIcon, GlobeIcon, PiIcon, PlusIcon, SidePanelIcon } from "../../ui/icons";
+import { BrowserView } from "../browser/BrowserView";
 import { usePointerDrag } from "../../ui/pointerDrag";
 import { chatPaneIds, dropEdge, dropPreview, edgeDirection, fitsSplit, groupOf, minExtent, paneIds, resizedSizes, type Box, type Group } from "./layout";
 import { movesTab, tabName, type PaneNames, type TabDrop } from "./sessions";
@@ -97,10 +98,16 @@ function FilesToggle({ worktree }: { worktree: string }) {
   );
 }
 
+const tabIcon = (tab: Tab) => (tab.kind === "file" ? <FileIcon /> : tab.kind === "browser" ? <GlobeIcon /> : <PiIcon />);
+
+const closeLabel = (tab: Tab) => (tab.kind === "file" ? "Close File" : tab.kind === "browser" ? "Close Page" : "Close Session");
+
 function TabView({ tab, group, place, status }: { tab: Tab; group: Group; place: Place; status: Status | null }) {
   const { worktree, drag } = place;
   const open = tab.id === group.active;
   const file = tab.kind === "file";
+  // A file or a page tab closes on purpose, so its close button always shows.
+  const kept = tab.kind !== "chat";
   const [fresh] = useState(() => !place.seen.has(tab.id));
   useEffect(() => void place.seen.add(tab.id), [place.seen, tab.id]);
   const show = () => {
@@ -115,22 +122,22 @@ function TabView({ tab, group, place, status }: { tab: Tab; group: Group; place:
         role="tab"
         className="tab-name"
         aria-selected={open}
-        title={file ? tab.path : undefined}
+        title={file ? tab.path : tab.kind === "browser" ? tab.url : undefined}
         {...drag.handlers(tab.id)}
         onClick={show}
         onDoubleClick={() => keepFilePane(worktree, tab.id)}
       >
         <span className="tab-status" data-status={status?.kind} title={status ? statusLabel(status) : undefined}>
-          {status ? <StatusMark kind={status.kind} /> : file ? <FileIcon /> : <PiIcon />}
+          {status ? <StatusMark kind={status.kind} /> : tabIcon(tab)}
         </span>
         <span className="tab-label">{tabName(tab, place.names)}</span>
       </button>
       <button
         type="button"
         className="tab-close"
-        data-always={file || undefined}
-        title={file ? "Close File" : "Close Session"}
-        aria-label={file ? "Close File" : "Close Session"}
+        data-always={kept || undefined}
+        title={closeLabel(tab)}
+        aria-label={closeLabel(tab)}
         onClick={() => closePane(worktree, tab.id)}
       >
         <CloseIcon />
@@ -257,6 +264,8 @@ function GroupView({ group, place, edges }: { group: Group; place: Place; edges:
       <div className="pane" data-pane={tab.id} data-split={place.split || undefined} data-focused={focused || undefined} onPointerDownCapture={focus} onFocusCapture={focus}>
         {tab.kind === "file" ? (
           <FileView key={tab.id} worktree={worktree} path={tab.path} autoFocus={focused} onGone={() => closePane(worktree, tab.id)} onEdit={() => keepFilePane(worktree, tab.id)} />
+        ) : tab.kind === "browser" ? (
+          <BrowserView key={tab.id} tab={tab.id} url={tab.url} dragging={place.drag.dragging !== null} />
         ) : (
           <ChatPane key={tab.id} worktree={worktree} pane={tab.id} focused={focused} />
         )}
@@ -298,7 +307,7 @@ function LayoutView({ layout, path, place, edges }: { layout: Layout; path: numb
 function TabGhost({ tab, pointer, names }: { tab: Tab; pointer: { left: number; top: number }; names: PaneNames }) {
   return (
     <div className="drag-ghost" style={pointer}>
-      <span className="tab-status">{tab.kind === "file" ? <FileIcon /> : <PiIcon />}</span>
+      <span className="tab-status">{tabIcon(tab)}</span>
       <span className="tab-label">{tabName(tab, names)}</span>
     </div>
   );

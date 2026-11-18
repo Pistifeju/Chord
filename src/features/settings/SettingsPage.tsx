@@ -8,7 +8,7 @@ import { recordedShortcut } from "../../app/shortcuts";
 import { Row } from "../../ui/Row";
 import { onOff, Segmented } from "../../ui/Segmented";
 import { AppearanceIcon, CloseIcon, KeyboardIcon, MinusIcon, PhoneIcon, PlusIcon, SlidersIcon } from "../../ui/icons";
-import { appearance, changeTerminalFontSize, changeTextSize, closeSettings, keepAwake, muteNotifications, setKeepAwake, setMuteNotifications, setTheme, settingsSection, shortcutChanges, type SettingsSection } from "./store";
+import { appearance, changeTerminalFontSize, changeTextSize, closeSettings, keepAwake, linksInDefaultBrowser, muteNotifications, setKeepAwake, setLinksInDefaultBrowser, setMuteNotifications, setTheme, settingsSection, shortcutChanges, type SettingsSection } from "./store";
 import "./settings.css";
 
 // A press on the blurred window closes Settings on release; moving first drags the window instead.
@@ -31,6 +31,12 @@ function dragWindowOrClose(e: MouseEvent) {
   window.addEventListener("mousemove", move);
   window.addEventListener("mouseup", up);
 }
+
+// The value is whether links open in the default browser.
+const linkTargets = [
+  { value: false, label: "Chord" },
+  { value: true, label: "Default Browser" },
+];
 
 const themes: { value: Theme; label: string }[] = [
   { value: "system", label: "System" },
@@ -60,6 +66,7 @@ function Group({ heading, notice, children }: { heading: string; notice?: ReactN
 function General({ buildDataSize }: { buildDataSize: ReactNode }) {
   const enabled = keepAwake.use();
   const muted = muteNotifications.use();
+  const outside = linksInDefaultBrowser.use();
   const [error, setError] = useState("");
   return (
     <>
@@ -79,6 +86,11 @@ function General({ buildDataSize }: { buildDataSize: ReactNode }) {
         </Row>
         <Row title="Notifications" description={<p className="settings-description">A macOS notification when an agent finishes or waits for you.</p>}>
           <Segmented label="Notify when an agent finishes or waits" options={onOff} value={!muted} onChange={(value) => setMuteNotifications(!value)} />
+        </Row>
+      </Group>
+      <Group heading="Links">
+        <Row title="Open links in" description={<p className="settings-description">Web links from chats and the terminal open in a Chord tab or in your default browser.</p>}>
+          <Segmented label="Open links in" options={linkTargets} value={outside} onChange={setLinksInDefaultBrowser} />
         </Row>
       </Group>
       {buildDataSize && (

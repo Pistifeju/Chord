@@ -1,5 +1,6 @@
 //! Commands for the app itself: quit it with its agents and shells, keep the Mac awake, open a chat link.
 
+use serde::Serialize;
 use chord_core::harness::sessions::Sessions;
 use tauri::{AppHandle, Manager};
 
@@ -28,6 +29,10 @@ pub async fn set_keep_awake(app: AppHandle, enabled: bool) -> Result<(), String>
     })
     .await
 }
+
+/// A link tried to load in the app's own web view; the window opens it like a chat link.
+#[derive(Serialize, specta::Type, tauri_specta::Event, Clone)]
+pub struct LinkRequested(pub String);
 
 /// Opens a link of the chat in the default app.
 #[tauri::command]

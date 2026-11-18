@@ -6,8 +6,8 @@ import { chats, forgetChat, startChat } from "../chat/store";
 import { anyRunning } from "../chat/transcript";
 import { allPaneIds, paneChanges, resumedPanes } from "./agents";
 import { isAtOrInside } from "../files/paths";
-import { filePanes, withEvenSizes, withFilePanesMoved, withSizes, type FilePane } from "./layout";
-import { firstPanes, withFileKept, withFileOpened, withFocus, withNewSession, withSplitFocused, withTabClosed, withTabMoved, type TabDrop } from "./sessions";
+import { browserPaneIds, filePanes, groupOf, withBrowserPage, withEvenSizes, withFilePanesMoved, withSizes, type BrowserPane, type FilePane } from "./layout";
+import { firstPanes, withBrowserOpened, withFileKept, withFileOpened, withFocus, withNewSession, withSplitFocused, withTabClosed, withTabMoved, type TabDrop } from "./sessions";
 
 export const panes = externalStore<Record<string, WorktreePanes>>({});
 
@@ -25,9 +25,13 @@ const save = (worktree: string) => commands.changeState({ panes: { worktree, pan
 
 const set = (worktree: string, next: WorktreePanes) => panes.set({ ...panes.get(), [worktree]: next });
 
-// Every pane change goes through here: a pane that appears starts its agent, a pane that goes forgets its chat.
+const browsersIn = (saved: WorktreePanes | undefined): string[] => (saved ? browserPaneIds(saved.layout) : []);
+
+// Every pane change goes through here: a pane that appears starts its agent, a pane that goes forgets its chat or closes its page.
 function commit(worktree: string, next: WorktreePanes | undefined, persist: boolean) {
   const { [worktree]: before, ...rest } = panes.get();
+  const kept = browsersIn(next);
+  for (const tab of browsersIn(before)) if (!kept.includes(tab)) commands.closeBrowser(tab).catch(console.error);
   panes.set(next ? { ...panes.get(), [worktree]: next } : rest);
   if (persist) save(worktree);
   const { started, gone } = paneChanges(before, next);
@@ -89,6 +93,19 @@ export function openFileTab(worktree: string, path: string, preview: boolean) {
   const shown = filePaneOf(worktree, path);
   const file: FilePane = { kind: "file", id: newId(), path, preview };
   change(worktree, (p) => (shown ? (preview ? withFocus(p, shown.id) : withFileKept(withFocus(p, shown.id), shown.id)) : withFileOpened(p, file)));
+}
+
+export function openBrowserTab(worktree: string, url: string) {
+  const browser: BrowserPane = { kind: "browser", id: newId(), url, title: "" };
+  change(worktree, (p) => withBrowserOpened(p, browser));
+}
+
+// A page's new address or title, in whichever worktree holds the tab.
+export function setBrowserPage(tab: string, page: Partial<Pick<BrowserPane, "url" | "title">>) {
+  const worktree = Object.keys(panes.get()).find((w) => browsersIn(panes.get()[w]).includes(tab));
+  const shown = worktree ? groupOf(panes.get()[worktree].layout, tab)?.tabs.find((t) => t.id === tab) : undefined;
+  if (shown?.kind !== "browser" || Object.entries(page).every(([key, value]) => shown[key as keyof typeof page] === value)) return;
+  if (worktree) change(worktree, (p) => ({ ...p, layout: withBrowserPage(p.layout, tab, page) }));
 }
 
 export const keepFilePane = (worktree: string, tab: string) => change(worktree, (p) => withFileKept(p, tab));

@@ -1,6 +1,6 @@
 // The agent's message as Markdown: headings, lists, tasks, quotes, tables, links and code blocks with a copy button.
 import { memo, useEffect, useState, type ReactNode } from "react";
-import { commands } from "../../ipc/bindings";
+import { openLink } from "../browser/store";
 import { CheckIcon, CopyIcon } from "../../ui/icons";
 import { blocksOf, type Block, type Inline } from "./markdown";
 import "./markdown.css";
@@ -28,7 +28,7 @@ function Spans({ spans }: { spans: Inline[] }) {
             title={span.href}
             onClick={(e) => {
               e.preventDefault();
-              commands.openLink(span.href).catch(console.error);
+              openLink(span.href);
             }}
           >
             <Spans spans={span.children} />

@@ -17,7 +17,9 @@ pub fn ipc() -> tauri_specta::Builder<tauri::Wry> {
     tauri_specta::Builder::new()
         .events(collect_events![
             commands::build::AgentBuildRequested,
-            commands::simulator::SimulatorsChanged
+            commands::simulator::SimulatorsChanged,
+            commands::app::LinkRequested,
+            commands::browser::BrowserChanged
         ])
         .commands(collect_commands![
             commands::state::load_state,
@@ -85,6 +87,11 @@ pub fn ipc() -> tauri_specta::Builder<tauri::Wry> {
             commands::app::quit_app,
             commands::app::set_keep_awake,
             commands::app::open_link,
+            commands::browser::show_browser,
+            commands::browser::move_browser,
+            commands::browser::hide_browser,
+            commands::browser::close_browser,
+            commands::browser::browse,
         ])
 }
 
@@ -93,17 +100,19 @@ fn tools_socket() -> PathBuf {
     std::env::temp_dir().join(format!("chord-{}.sock", std::process::id()))
 }
 
-/// Keeps the window on the app: a link that would load another page in it, from a right-click Open Link or a dropped link, opens in the default app instead.
+/// Keeps the app's own web view on the app: a link that would load another page in it, from a right-click Open Link or a dropped link, goes to the window, which opens it like a chat link. Browser tabs navigate freely.
 fn link_guard() -> tauri::plugin::TauriPlugin<tauri::Wry> {
     tauri::plugin::Builder::new("link-guard")
         .on_navigation(|webview, url| {
+            if webview.label() != "main" {
+                return true;
+            }
             let dev = webview.config().build.dev_url.as_ref();
             let own = url.scheme() == "tauri"
                 || url.host_str() == Some("tauri.localhost")
                 || dev.is_some_and(|dev| dev.origin() == url.origin());
             if !own {
-                let url = url.to_string();
-                std::thread::spawn(move || commands::app::open_in_default_app(&url));
+                let _ = commands::app::LinkRequested(url.to_string()).emit(webview);
             }
             own
         })

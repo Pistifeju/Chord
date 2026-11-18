@@ -22,6 +22,8 @@ pub struct State {
     pub keep_awake: bool,
     /// No macOS notification for a done or waiting agent.
     pub mute_notifications: bool,
+    /// Web links open in the default browser instead of a browser tab.
+    pub links_in_default_browser: bool,
     /// Shortcuts the user changed, by command id. `None` means the command lost its key.
     #[serde(deserialize_with = "valid_shortcuts")]
     #[specta(type = BTreeMap<String, Option<Shortcut>>)]
@@ -133,6 +135,7 @@ pub enum StateChange {
     TextPercent(u8),
     TerminalFontSize(u8),
     MuteNotifications(bool),
+    LinksInDefaultBrowser(bool),
     Shortcuts(BTreeMap<String, Option<Shortcut>>),
     /// `None` forgets the worktree's layouts.
     Panes {
@@ -189,6 +192,7 @@ impl State {
             StateChange::TextPercent(percent) => self.appearance.text_percent = percent,
             StateChange::TerminalFontSize(size) => self.appearance.terminal_font_size = size,
             StateChange::MuteNotifications(mute) => self.mute_notifications = mute,
+            StateChange::LinksInDefaultBrowser(outside) => self.links_in_default_browser = outside,
             StateChange::Shortcuts(shortcuts) => self.shortcuts = shortcuts,
             StateChange::SidePanel { worktree, panel } => {
                 self.side_panels.insert(worktree, panel);

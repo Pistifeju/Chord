@@ -11,6 +11,7 @@ import { SimulatorToggle, SimulatorView } from "../features/ios/simulator/Simula
 import { PreviewToggle, PreviewView } from "../features/ios/preview/PreviewView";
 import { markerText } from "../features/ios/build/run";
 import { builds, watchAgentBuilds } from "../features/ios/build/store";
+import { watchBrowsers } from "../features/browser/store";
 import { OpenFileByNamePopup } from "../features/files/OpenFileByNamePopup";
 import { TrashFilePopup } from "../features/files/TrashFilePopup";
 import { CloseAgentsPopup } from "../features/panes/CloseAgentsPopup";
@@ -93,7 +94,9 @@ export default function App() {
     const unwatchClicks = watchNotificationClicks();
     const unwatchShown = watchShownPanes();
     const unwatchAgentBuilds = watchAgentBuilds();
+    const unwatchBrowsers = watchBrowsers();
     return () => {
+      unwatchBrowsers();
       window.removeEventListener("keydown", shortcutWhenLaunched);
       unwatch();
       unwatchQuit();

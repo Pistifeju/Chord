@@ -17,7 +17,7 @@ pub struct ShownPanes(pub Mutex<Vec<String>>);
 
 fn is_watched(app: &AppHandle, pane: &str) -> bool {
     let focused = app
-        .get_webview_window("main")
+        .get_window("main")
         .and_then(|window| window.is_focused().ok())
         .unwrap_or(false);
     focused
@@ -42,7 +42,7 @@ pub fn listen_for_clicks(app: &AppHandle) -> tauri_plugin_notification::Result<(
         let (Some(worktree), Some(pane)) = (field("worktree"), field("pane")) else {
             return;
         };
-        if let Some(window) = handle.get_webview_window("main") {
+        if let Some(window) = handle.get_window("main") {
             let _ = window.show();
             let _ = window.unminimize();
             let _ = window.set_focus();

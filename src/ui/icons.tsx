@@ -285,3 +285,16 @@ export const CameraIcon = () => (
     <circle cx="8" cy="8.75" r="2.25" />
   </Icon>
 );
+
+export const GlobeIcon = () => (
+  <Icon>
+    <circle cx="8" cy="8" r="6.25" />
+    <path d="M1.75 8h12.5M8 1.75c1.7 1.8 2.5 3.9 2.5 6.25S9.7 12.45 8 14.25C6.3 12.45 5.5 10.35 5.5 8S6.3 3.55 8 1.75z" />
+  </Icon>
+);
+
+export const OpenOutsideIcon = () => (
+  <Icon>
+    <path d="M9.5 2.75h3.75V6.5M13.25 2.75L7.5 8.5M11.25 9.5v2.75a1 1 0 0 1-1 1h-6.5a1 1 0 0 1-1-1v-6.5a1 1 0 0 1 1-1H6.5" />
+  </Icon>
+);

@@ -9,7 +9,7 @@ use chord_ios::{
     ServiceRow, SimulatorAppearance, SimulatorAppearanceChange,
 };
 use tauri::ipc::Channel;
-use tauri::{AppHandle, WebviewWindow};
+use tauri::{AppHandle, Webview, Window};
 use tauri_plugin_dialog::DialogExt;
 use tauri_specta::Event;
 
@@ -93,7 +93,7 @@ pub async fn simulator_service_groups(app: AppHandle) -> Result<Vec<ServiceRow>,
 #[tauri::command]
 #[specta::specta]
 pub async fn show_simulator_screen(
-    window: WebviewWindow,
+    window: Webview,
     worktree: PathBuf,
     preview: bool,
     rect: ScreenRect,
@@ -287,7 +287,7 @@ pub async fn pick_screenshot_folder(app: AppHandle) -> Result<Option<PathBuf>, S
 #[specta::specta]
 pub async fn drag_file_out(
     app: AppHandle,
-    window: WebviewWindow,
+    window: Window,
     file: PathBuf,
     preview: PathBuf,
 ) -> Result<(), String> {

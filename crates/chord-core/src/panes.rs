@@ -55,12 +55,19 @@ pub enum Tab {
         #[serde(default)]
         preview: bool,
     },
+    /// A web page in the window's own browser; `title` is the page's last title.
+    Browser {
+        id: String,
+        url: String,
+        #[serde(default)]
+        title: String,
+    },
 }
 
 impl Tab {
     fn id(&self) -> &str {
         match self {
-            Tab::Chat { id, .. } | Tab::File { id, .. } => id,
+            Tab::Chat { id, .. } | Tab::File { id, .. } | Tab::Browser { id, .. } => id,
         }
     }
 }

@@ -1,8 +1,9 @@
 // Rules for a worktree's tabs and tab groups: new, open, split, move, close, and which tab has the focus.
 import type { Direction, Tab, WorktreePanes } from "../../ipc/bindings";
 import type { Item } from "../chat/transcript.ts";
-import { edgeDirection, groupOf, groups, withBeside, withGroup, withoutGroup, type Edge, type FilePane, type Group } from "./layout.ts";
+import { edgeDirection, groupOf, groups, withBeside, withGroup, withoutGroup, type BrowserPane, type Edge, type FilePane, type Group } from "./layout.ts";
 import { fileName } from "../files/paths.ts";
+import { pageName } from "../browser/address.ts";
 
 // A chat tab keeps this name until its session has a first user message.
 const NEW_SESSION = "New session";
@@ -37,6 +38,9 @@ export function withFileOpened(panes: WorktreePanes, file: FilePane): WorktreePa
   const tabs = group.tabs.map((t) => (t.id === preview.id ? { ...file, id: preview.id } : t));
   return { layout: withGroup(panes.layout, group.id, (g) => ({ ...g, tabs, active: preview.id })), focused: preview.id };
 }
+
+// A web page opens in a new tab of the focused group.
+export const withBrowserOpened = (panes: WorktreePanes, browser: BrowserPane): WorktreePanes => withTabAdded(panes, focusedGroup(panes).id, browser);
 
 // A preview tab becomes a kept one.
 export function withFileKept(panes: WorktreePanes, tab: string): WorktreePanes {
@@ -79,8 +83,11 @@ export const paneNames = (chats: Record<string, { items: Item[] } | undefined>, 
     return name ? [[pane, name]] : [];
   }));
 
-// A chat tab shows the name of its agent session once that has one; a file tab its file name.
-export const tabName = (tab: Tab, names: PaneNames): string => (tab.kind === "chat" ? names[tab.id] ?? tab.name : fileName(tab.path));
+// A chat tab shows the name of its agent session once that has one; a file tab its file name; a browser tab its page.
+export function tabName(tab: Tab, names: PaneNames): string {
+  if (tab.kind === "chat") return names[tab.id] ?? tab.name;
+  return tab.kind === "file" ? fileName(tab.path) : pageName(tab.url, tab.title ?? "");
+}
 
 // The tab leaves its group, whose tab beside it opens; a group left empty goes, unless it is the last group.
 function withoutTab(panes: WorktreePanes, tab: string): WorktreePanes {

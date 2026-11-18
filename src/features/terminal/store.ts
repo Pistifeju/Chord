@@ -9,6 +9,7 @@ import { commands, type TerminalEvent } from "../../ipc/bindings";
 import { showBottomPanel } from "../bottompanel/store";
 import { appearance } from "../settings/store";
 import { fail } from "../../ui/alert";
+import { openLink } from "../browser/store";
 import { closeTerminalFind } from "./find";
 import { isOverTerminal } from "./drop";
 import { takesFocusOnShow } from "./focus";
@@ -116,7 +117,7 @@ function start(worktree: string, host: HTMLDivElement): Shell {
         range: { start: { x: cells[start].x, y: cells[start].y }, end: { x: cells[start + url.length - 1].lastX, y: cells[start + url.length - 1].y } },
         // A plain click stays free for the shell's own mouse use and text selection.
         activate: (event: MouseEvent) => {
-          if (event.metaKey) void commands.openLink(url).catch(fail);
+          if (event.metaKey) openLink(url);
         },
       }));
       callback(links.filter(({ range }) => range.start.y <= line && line <= range.end.y));

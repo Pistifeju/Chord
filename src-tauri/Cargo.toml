@@ -18,7 +18,7 @@ chord-ios = { version = "0.1.0", path = "../crates/chord-ios" }
 serde = { version = "1.0.229", features = ["derive"] }
 specta = "=2.0.0-rc.28"
 specta-typescript = "=0.0.15"
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["unstable"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-notification = "2"
 tauri-specta = { version = "=2.0.0-rc.28", features = ["derive", "typescript"] }

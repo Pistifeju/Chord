@@ -1,0 +1,31 @@
+/* A browser tab: its bar over the space the page's own web view covers. */
+.browser {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--canvas);
+}
+
+.browser-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  height: 40px;
+  padding: 0 6px;
+  border-bottom: 1px solid var(--line);
+}
+
+.browser-address {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  margin: 0 4px;
+}
+
+.browser-page {
+  flex: 1;
+  min-height: 0;
+}

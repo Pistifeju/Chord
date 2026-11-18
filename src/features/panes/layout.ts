@@ -5,6 +5,7 @@ import { isAtOrInside, movedPath } from "../files/paths.ts";
 export type Split = Extract<Layout, { kind: "split" }>;
 export type Group = Extract<Layout, { kind: "group" }>;
 export type FilePane = Extract<Tab, { kind: "file" }>;
+export type BrowserPane = Extract<Tab, { kind: "browser" }>;
 
 /** The pixels a tab group keeps at least along each direction, so its tab bar and composer stay readable. */
 const MIN_GROUP: Record<Direction, number> = { row: 280, column: 200 };
@@ -23,6 +24,8 @@ export const chatPaneIds = (layout: Layout): string[] => chatTabs(layout).map((t
 
 export const filePanes = (layout: Layout): FilePane[] => tabs(layout).flatMap((tab) => (tab.kind === "file" ? [tab] : []));
 
+export const browserPaneIds = (layout: Layout): string[] => tabs(layout).flatMap((tab) => (tab.kind === "browser" ? [tab.id] : []));
+
 /** The tabs on screen: the open tab of each group. */
 export const shownTabIds = (layout: Layout): string[] => groups(layout).map((group) => group.active);
 
@@ -32,6 +35,12 @@ export const groupOf = (layout: Layout, tab: string): Group | undefined => group
 export function withGroup(layout: Layout, id: string, change: (group: Group) => Group): Layout {
   if (layout.kind === "group") return layout.id === id ? change(layout) : layout;
   return { ...layout, children: layout.children.map((child) => withGroup(child, id, change)) };
+}
+
+// The browser tab `id` takes the page's address or title.
+export function withBrowserPage(layout: Layout, id: string, page: Partial<Pick<BrowserPane, "url" | "title">>): Layout {
+  if (layout.kind === "split") return { ...layout, children: layout.children.map((child) => withBrowserPage(child, id, page)) };
+  return { ...layout, tabs: layout.tabs.map((tab) => (tab.kind === "browser" && tab.id === id ? { ...tab, ...page } : tab)) };
 }
 
 // A rename moves the file tabs of the entry and of everything inside it to their new paths.

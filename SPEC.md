@@ -35,7 +35,7 @@ Edge cases:
 - The window opens centered on the screen under the cursor.
 - Fullscreen drops the traffic-light gap.
 - Panels never slide off screen when focus reaches a clipped child (`overflow: clip`).
-- The webview never navigates away; web links open in the default browser.
+- The app's webview never navigates away; a web link opens in a browser tab, or in the default browser when Settings says so (C7).
 - Dividers have wider hit areas than they look.
 - Selectable text shows the I-beam; buttons inside it keep the arrow.
 - Devtools and the browser context menu stay off in release builds.
@@ -74,6 +74,7 @@ Edge cases:
 - [x] C4 Drag a tab onto another group's tab bar to move it there, or onto a pane edge to open a new group there.
 - [x] C5 harness(sessions): agents that ran at quit come back on launch in their exact session.
 - [x] C6 Quit asks while agents run.
+- [x] C7 Browser tabs: a web link from a chat, the terminal or the app's own webview opens as a tab of the focused group with back, forward, reload, an address field and Open in Default Browser; the page keeps its history while hidden and its address and title persist. Settings › General › Links sends links to the default browser instead.
 
 Edge cases:
 - Holding ⌘D splits once.
