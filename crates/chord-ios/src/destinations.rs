@@ -29,7 +29,7 @@ pub struct SimulatorModels {
 pub fn list() -> Result<Destinations, Error> {
     let simulators = simctl(
         DeviceSet::Run,
-        &["list", "devices", "available", "--json"],
+        &["list", "devicetypes", "devices", "available", "--json"],
         &|_| {},
     )?;
     Ok(Destinations {
@@ -94,8 +94,16 @@ fn ios_version(runtime: &str) -> Option<(String, Vec<u32>)> {
     Some((format!("iOS {}", version.replace('-', ".")), numbers))
 }
 
-/// The models of the available simulators, once per iOS version; Chord's own per-worktree simulators do not count.
+/// The models of the available simulators, once per iOS version, each under its device type's name; Chord's own per-worktree simulators do not count.
 fn simulators_in(listed: &Value) -> Vec<SimulatorModels> {
+    let type_name = |model: &str| {
+        listed["devicetypes"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .find(|kind| kind["identifier"] == model)
+            .and_then(|kind| kind["name"].as_str())
+    };
     let mut found: Vec<(Vec<u32>, SimulatorModels)> = Vec::new();
     for (runtime, devices) in listed["devices"].as_object().into_iter().flatten() {
         let Some((os, version)) = ios_version(runtime) else {
@@ -112,7 +120,7 @@ fn simulators_in(listed: &Value) -> Vec<SimulatorModels> {
             let destination = RunDestination::Simulator {
                 model: model.into(),
                 runtime: runtime.clone(),
-                name: name.into(),
+                name: type_name(model).unwrap_or(name).into(),
                 os: os.clone(),
             };
             if !name.starts_with("Chord ") && !models.contains(&destination) {
@@ -138,7 +146,7 @@ mod tests {
     #[test]
     fn lists_models_by_ios_version_newest_first_iphones_first_without_chords_own() {
         let listed: Value = serde_json::from_str(
-            r#"{"devices":{
+            r#"{"devicetypes":[{"identifier":"p18","name":"iPhone 18"}],"devices":{
               "com.apple.CoreSimulator.SimRuntime.iOS-26-4":[
                 {"name":"iPad Pro","deviceTypeIdentifier":"ipad","isAvailable":true},
                 {"name":"iPhone 17","deviceTypeIdentifier":"p17","isAvailable":true},
@@ -147,6 +155,7 @@ mod tests {
                 {"name":"Watch","deviceTypeIdentifier":"w","isAvailable":true}],
               "com.apple.CoreSimulator.SimRuntime.iOS-27-0":[
                 {"name":"Chord feature abcdef","deviceTypeIdentifier":"p18","isAvailable":true},
+                {"name":"Other tool abcdef","deviceTypeIdentifier":"p18","isAvailable":true},
                 {"name":"iPhone 18","deviceTypeIdentifier":"p18","isAvailable":true}]}}"#,
         )
         .unwrap();
