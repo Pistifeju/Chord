@@ -1,7 +1,7 @@
 // Tests for the transcript rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { callTime, chatAfter, chatFed, emptyChat, queuedImages, shownSteps, stepImages, stepsChanges, stepsSummary, withSteerImages, type Step } from "./transcript.ts";
+import { callTime, chatAfter, chatFed, emptyChat, queuedImages, stepImages, stepsChanges, stepsSummary, withSteerImages, type Step } from "./transcript.ts";
 
 test("chunks of one reply join into one streaming message until it ends", () => {
   let chat = chatAfter(emptyChat, { kind: "message_chunk", text: "Hel" }, 0);
@@ -32,19 +32,6 @@ test("an exit stops the run and the stream", () => {
   assert.equal(chat.agent, "idle");
   assert.equal(chat.running, false);
   assert.equal(chat.items[0].streaming, false);
-});
-
-test("a running group shows its last thought and last three calls", () => {
-  const call = (id: string): Step => ({ kind: "call", id, title: "Read", detail: id, state: "done" });
-  const steps: Step[] = [{ kind: "thought", id: 0, text: "a" }, call("1"), { kind: "thought", id: 2, text: "b" }, call("2"), call("3"), call("4")];
-  assert.deepEqual(shownSteps(steps, true, false), [
-    { kind: "thought", id: 2, text: "b" },
-    call("2"),
-    call("3"),
-    call("4"),
-  ]);
-  assert.deepEqual(shownSteps(steps, false, false), []);
-  assert.deepEqual(shownSteps(steps, false, true), steps);
 });
 
 test("thoughts and calls fold into one group that the next reply closes", () => {

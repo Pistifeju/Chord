@@ -107,15 +107,6 @@ const withStep = (items: Item[], extend: (steps: Step[]) => Step[]): Item[] => {
   return [...closed(items), { role: "steps", steps: extend([]) }];
 };
 
-/** What an open group shows: all steps when expanded; while it runs, its last thought and last three calls; otherwise none. */
-export function shownSteps(steps: Step[], running: boolean, expanded: boolean): Step[] {
-  if (expanded) return steps;
-  if (!running) return [];
-  const indexes = (kind: Step["kind"]) => steps.flatMap((step, i) => (step.kind === kind ? [i] : []));
-  const shown = new Set([...indexes("thought").slice(-1), ...indexes("call").slice(-3)]);
-  return steps.filter((_, i) => shown.has(i));
-}
-
 /** Every image the group's tools returned, in call order. */
 export function stepImages(steps: Step[]): Image[] {
   return steps.flatMap((step) => (step.kind === "call" ? (step.images ?? []) : []));
