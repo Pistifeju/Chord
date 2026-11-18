@@ -82,24 +82,6 @@
   pointer-events: none;
 }
 
-.tab-ghost {
-  position: fixed;
-  z-index: 4;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 28px;
-  max-width: 220px;
-  padding: 0 10px;
-  border-radius: var(--radius-control);
-  background: var(--sheet);
-  box-shadow: var(--shadow-popover);
-  color: var(--ink);
-  white-space: nowrap;
-  pointer-events: none;
-  transform: translate(8px, 8px);
-}
-
 .tab-name {
   display: flex;
   align-items: center;

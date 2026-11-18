@@ -50,6 +50,13 @@ pub struct State {
     pub preview_picks: BTreeMap<PathBuf, PreviewPick>,
     /// Where the Simulator view's screenshots and recordings go; none puts them on the Desktop.
     pub screenshot_folder: Option<PathBuf>,
+    /// Each project's worktrees in the order the user dragged them to; the ones missing follow in git's order.
+    pub worktree_order: BTreeMap<PathBuf, Vec<PathBuf>>,
+}
+
+/// Where `path` sits in a saved order; a path the order misses goes after every saved one.
+pub fn place_in(order: &[PathBuf], path: &Path) -> usize {
+    order.iter().position(|o| o == path).unwrap_or(usize::MAX)
 }
 
 /// Where ⌘R runs the app: a connected device, or a simulator model and iOS version that exist among the user's simulators.
@@ -146,6 +153,12 @@ pub enum StateChange {
         kept: bool,
     },
     ScreenshotFolder(Option<PathBuf>),
+    /// The project paths in sidebar order; a project missing from it goes last.
+    ProjectOrder(Vec<PathBuf>),
+    WorktreeOrder {
+        project: PathBuf,
+        worktrees: Vec<PathBuf>,
+    },
     /// `None` returns the project to the default.
     RunDestination {
         project: PathBuf,
@@ -189,6 +202,12 @@ impl State {
                 }
             }
             StateChange::ScreenshotFolder(folder) => self.screenshot_folder = folder,
+            StateChange::ProjectOrder(order) => {
+                self.projects.sort_by_key(|p| place_in(&order, &p.path));
+            }
+            StateChange::WorktreeOrder { project, worktrees } => {
+                self.worktree_order.insert(project, worktrees);
+            }
             StateChange::RunDestination {
                 project,
                 destination,
@@ -242,6 +261,9 @@ impl State {
         self.side_panels.remove(worktree);
         self.bottom_panels.remove(worktree);
         self.preview_picks.remove(worktree);
+        for order in self.worktree_order.values_mut() {
+            order.retain(|path| path != worktree);
+        }
     }
 
     /// A pane that is gone no longer starts on launch, and its next start opens a new session.

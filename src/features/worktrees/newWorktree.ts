@@ -3,6 +3,7 @@ import { commands } from "../../ipc/bindings";
 import { closeSheet, openSheet } from "../../app/sheet";
 import { externalStore } from "../../ui/externalStore";
 import { startFocused } from "../panes/store";
+import { nameCheck } from "./nameCheck";
 import { branchName, canCreate, defaultProject } from "./projects";
 import { projects, refreshWorktrees, selectWorktree } from "./store";
 import { fail } from "../../ui/alert";
@@ -23,7 +24,7 @@ const closed: NewWorktree = { project: null, branch: "", problem: null, checked:
 export const newWorktree = externalStore(closed);
 
 const update = (change: Partial<NewWorktree>) => newWorktree.set({ ...newWorktree.get(), ...change });
-let latestCheck = 0;
+const branchCheck = nameCheck();
 // Bumped on every open and close, so a create that outlives its popup cannot touch the next one.
 let session = 0;
 
@@ -45,14 +46,11 @@ export function closeNewWorktree() {
 async function check() {
   const { project, branch: typed } = newWorktree.get();
   const branch = branchName(typed);
-  const id = ++latestCheck;
-  if (!project || !branch) return update({ problem: null, checked: false });
-  try {
-    const problem = await commands.checkBranchName(project, branch);
-    if (id === latestCheck) update({ problem, checked: true });
-  } catch (error) {
-    if (id === latestCheck) update({ problem: String(error), checked: true });
+  if (!project || !branch) {
+    branchCheck.drop();
+    return update({ problem: null, checked: false });
   }
+  await branchCheck.run(() => commands.checkBranchName(project, branch), (problem) => update({ problem, checked: true }));
 }
 
 export function setBranch(branch: string) {

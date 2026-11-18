@@ -29,6 +29,7 @@ pub fn remove(store: &Store, path: &Path) -> Result<(), Error> {
         state.run_destinations.remove(path);
         state.preview_models.remove(path);
         state.scheme_picks.remove(path);
+        state.worktree_order.remove(path);
     })
 }
 

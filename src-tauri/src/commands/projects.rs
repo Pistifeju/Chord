@@ -1,9 +1,9 @@
-//! Commands for projects and their worktrees: add, remove, list, create, delete, git counts.
+//! Commands for projects and their worktrees: add, remove, list, create, rename the branch, delete, git counts.
 
 use std::path::PathBuf;
 
 use chord_core::{
-    Error, GitCounts, Project, Removal, Worktree, git_counts, projects, worktrees,
+    Error, GitCounts, Project, Removal, Store, Worktree, git_counts, projects, worktrees,
 };
 use tauri::AppHandle;
 use tauri_plugin_dialog::DialogExt;
@@ -51,9 +51,18 @@ pub async fn remove_project(app: AppHandle, project: PathBuf) -> Result<(), Stri
 #[specta::specta]
 pub async fn list_worktrees(app: AppHandle, project: PathBuf) -> Result<Vec<Worktree>, String> {
     blocking(app, move |_, store| {
-        worktrees::list(&projects::find(store, &project)?.path)
+        ordered_worktrees(store, &projects::find(store, &project)?)
     })
     .await
+}
+
+fn ordered_worktrees(store: &Store, project: &Project) -> Result<Vec<Worktree>, Error> {
+    let order = store
+        .get()
+        .worktree_order
+        .remove(&project.path)
+        .unwrap_or_default();
+    Ok(worktrees::in_order(worktrees::list(&project.path)?, &order))
 }
 
 #[tauri::command]
@@ -71,13 +80,57 @@ pub async fn check_branch_name(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn check_branch_rename(
+    app: AppHandle,
+    project: PathBuf,
+    worktree: PathBuf,
+    name: String,
+) -> Result<Option<String>, String> {
+    blocking(app, move |_, store| {
+        worktrees::check_branch_rename(&projects::find(store, &project)?, &worktree, &name)
+    })
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn rename_branch(
+    app: AppHandle,
+    project: PathBuf,
+    worktree: PathBuf,
+    name: String,
+) -> Result<(), String> {
+    blocking(app, move |_, store| {
+        worktrees::rename_branch(&projects::find(store, &project)?, &worktree, &name)
+    })
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn create_worktree(
     app: AppHandle,
     project: PathBuf,
     branch: String,
 ) -> Result<Worktree, String> {
     blocking(app, move |_, store| {
-        worktrees::create(&projects::find(store, &project)?, &branch)
+        let project = projects::find(store, &project)?;
+        let mut order: Vec<PathBuf> = ordered_worktrees(store, &project)?
+            .into_iter()
+            .map(|w| w.path)
+            .collect();
+        let created = worktrees::create(&project, &branch)?;
+        // Git lists worktrees in its own order, never by creation, so only the saved order puts the new card last.
+        let new: Vec<PathBuf> = worktrees::list(&project.path)?
+            .into_iter()
+            .map(|w| w.path)
+            .filter(|path| !order.contains(path))
+            .collect();
+        order.extend(new);
+        store.update(|state| {
+            state.worktree_order.insert(project.path.clone(), order);
+        })?;
+        Ok(created)
     })
     .await
 }

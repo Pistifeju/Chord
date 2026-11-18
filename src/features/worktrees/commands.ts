@@ -2,6 +2,7 @@
 import type { AppCommand } from "../../app/commands";
 import { closeSheet, sheet } from "../../app/sheet";
 import { openNewWorktree } from "./newWorktree";
+import { startRename } from "./rename";
 import { ownerOf, worktreeOrder } from "./projects";
 import { pickProject, projects, requestDelete, requestRemoveProject, selectWorktree } from "./store";
 
@@ -28,6 +29,7 @@ export const worktreeCommands: AppCommand[] = [
   { id: "project.add", title: "Add Project", shortcut: { key: "o", cmd: true }, when: noSheet, run: pickProject },
   { id: "worktree.new", title: "New Worktree", shortcut: { key: "n", cmd: true }, when: noSheet, run: openNewWorktree },
   { id: "project.remove", title: "Remove Project", run: (path) => path && requestRemoveProject(path) },
+  { id: "worktree.rename", title: "Rename", run: startRename },
   { id: "worktree.delete", title: "Delete Worktree", run: deleteWorktreeAt },
   { id: "sheet.close", title: "Close", shortcut: { key: "escape" }, when: () => sheet.get() !== null, run: () => closeSheet() },
   ...selectCommands,

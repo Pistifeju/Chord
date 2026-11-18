@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 use specta::Type;
 
-use crate::{Error, git, projects::Project};
+use crate::{Error, git, projects::Project, state::place_in};
 
 #[derive(Serialize, Type, Clone, Debug, PartialEq)]
 pub struct Worktree {
@@ -33,6 +33,12 @@ pub fn list(project: &Path) -> Result<Vec<Worktree>, Error> {
         .collect())
 }
 
+/// The worktrees in the saved order; the ones it misses, as a new one, keep git's order after them.
+pub fn in_order(mut list: Vec<Worktree>, order: &[PathBuf]) -> Vec<Worktree> {
+    list.sort_by_key(|w| place_in(order, &w.path));
+    list
+}
+
 /// The Xcode projects and workspaces directly in the folder, sorted by path.
 pub fn xcode_bundles(folder: &Path) -> Vec<PathBuf> {
     let mut found: Vec<PathBuf> = std::fs::read_dir(folder)
@@ -53,6 +59,73 @@ pub fn xcode_bundles(folder: &Path) -> Vec<PathBuf> {
 
 /// None when `name` can become a new branch with a free worktree folder, else the reason it cannot.
 pub fn check_branch(project: &Project, name: &str) -> Result<Option<String>, Error> {
+    if let Some(reason) = branch_problem(project, name, None)? {
+        return Ok(Some(reason));
+    }
+    Ok(folder(project, name)
+        .exists()
+        .then(|| "A folder with this name exists".into()))
+}
+
+/// None when the worktree's branch can take `name`, else the reason it cannot. Its own name passes.
+pub fn check_branch_rename(
+    project: &Project,
+    worktree: &Path,
+    name: &str,
+) -> Result<Option<String>, Error> {
+    rename_problem(project, branch_of(project, worktree)?.as_deref(), name)
+}
+
+/// Renames the worktree's branch with `git branch -m`; its folder keeps its name.
+pub fn rename_branch(project: &Project, worktree: &Path, name: &str) -> Result<(), Error> {
+    let current = branch_of(project, worktree)?;
+    if let Some(reason) = rename_problem(project, current.as_deref(), name)? {
+        return Err(Error::Message(reason));
+    }
+    let Some(current) = current.filter(|current| current != name) else {
+        return Ok(());
+    };
+    // A change of letter case alone needs `-M`: a case-insensitive disk finds the old ref under the new name.
+    let flag = if current.eq_ignore_ascii_case(name) {
+        "-M"
+    } else {
+        "-m"
+    };
+    git::run(&project.path, &["branch", flag, &current, name]).map(|_| ())
+}
+
+fn rename_problem(
+    project: &Project,
+    current: Option<&str>,
+    name: &str,
+) -> Result<Option<String>, Error> {
+    match current {
+        None => Ok(Some("A detached HEAD has no branch to rename".into())),
+        Some(current) if current == name => Ok(None),
+        Some(current) => branch_problem(project, name, Some(current)),
+    }
+}
+
+fn branch_of(project: &Project, worktree: &Path) -> Result<Option<String>, Error> {
+    entries(&project.path)?
+        .into_iter()
+        .find(|entry| entry.worktree.path == worktree)
+        .map(|entry| entry.worktree.branch)
+        .ok_or_else(|| {
+            Error::Message(format!(
+                "{} is not a worktree of {}",
+                worktree.display(),
+                project.name
+            ))
+        })
+}
+
+// `renaming` is the branch the name replaces; a name that differs from it only in letter case is free.
+fn branch_problem(
+    project: &Project,
+    name: &str,
+    renaming: Option<&str>,
+) -> Result<Option<String>, Error> {
     // `git check-ref-format` exits 1 with no output for a bad ref, which `git::run` reports as an empty message.
     // `--branch` would print a fatal message instead, so check the full ref and reject a leading dash by hand.
     if name.starts_with('-') {
@@ -68,6 +141,9 @@ pub fn check_branch(project: &Project, name: &str) -> Result<Option<String>, Err
         }
         Err(other) => return Err(other),
     }
+    if renaming.is_some_and(|current| current.eq_ignore_ascii_case(name)) {
+        return Ok(None);
+    }
     let taken = git::run(
         &project.path,
         &[
@@ -78,12 +154,7 @@ pub fn check_branch(project: &Project, name: &str) -> Result<Option<String>, Err
         ],
     )
     .is_ok();
-    if taken {
-        return Ok(Some("A branch with this name exists".into()));
-    }
-    Ok(folder(project, name)
-        .exists()
-        .then(|| "A folder with this name exists".into()))
+    Ok(taken.then(|| "A branch with this name exists".into()))
 }
 
 /// Adds a worktree on a new branch in `<project>-worktrees/<branch>` beside the project.
@@ -359,6 +430,25 @@ mod tests {
     use super::*;
 
     #[test]
+    fn in_order_puts_saved_worktrees_first_and_new_ones_last() {
+        let worktree = |path: &str| Worktree {
+            path: path.into(),
+            branch: None,
+            xcode: false,
+        };
+        let git = vec![
+            worktree("/a"),
+            worktree("/b"),
+            worktree("/c"),
+            worktree("/d"),
+        ];
+        let saved: Vec<PathBuf> = vec!["/c".into(), "/gone".into(), "/a".into()];
+        let paths: Vec<PathBuf> = in_order(git, &saved).into_iter().map(|w| w.path).collect();
+        let expected: Vec<PathBuf> = vec!["/c".into(), "/a".into(), "/b".into(), "/d".into()];
+        assert_eq!(paths, expected);
+    }
+
+    #[test]
     fn create_adds_a_worktree_on_a_new_branch_and_check_rejects_unusable_names() -> Result<(), Error>
     {
         let root = std::env::temp_dir().join(format!("chord-create-{}", std::process::id()));
@@ -367,7 +457,50 @@ mod tests {
         result
     }
 
-    fn create_and_check(root: &Path) -> Result<(), Error> {
+    #[test]
+    fn rename_moves_the_branch_and_check_rejects_taken_names_but_not_a_case_change()
+    -> Result<(), Error> {
+        let root = std::env::temp_dir().join(format!("chord-rename-{}", std::process::id()));
+        let result = rename_and_check(&root);
+        let _ = std::fs::remove_dir_all(&root);
+        result
+    }
+
+    fn rename_and_check(root: &Path) -> Result<(), Error> {
+        let project = new_repo(root)?;
+        create(&project, "foo")?;
+        let path = |branch: &str| -> Result<PathBuf, Error> {
+            Ok(list(&project.path)?
+                .into_iter()
+                .find(|w| w.branch.as_deref() == Some(branch))
+                .map(|w| w.path)
+                .unwrap_or_default())
+        };
+        let worktree = path("foo")?;
+
+        let taken = check_branch_rename(&project, &worktree, "main")?;
+        let own = check_branch_rename(&project, &worktree, "foo")?;
+        let bad = check_branch_rename(&project, &worktree, "a b")?;
+        rename_branch(&project, &worktree, "Foo")?;
+        let after_case = path("Foo")?;
+        rename_branch(&project, &worktree, "bar/baz")?;
+        let after_rename = path("bar/baz")?;
+        git::run(&worktree, &["checkout", "-q", "--detach"])?;
+        let detached = check_branch_rename(&project, &worktree, "other")?;
+
+        assert_eq!(taken.as_deref(), Some("A branch with this name exists"));
+        assert_eq!(own, None);
+        assert_eq!(bad.as_deref(), Some("Not a valid branch name"));
+        assert_eq!(after_case, worktree);
+        assert_eq!(after_rename, worktree);
+        assert_eq!(
+            detached.as_deref(),
+            Some("A detached HEAD has no branch to rename")
+        );
+        Ok(())
+    }
+
+    fn new_repo(root: &Path) -> Result<Project, Error> {
         let repo = root.join("app");
         std::fs::create_dir_all(&repo)?;
         git::run(&repo, &["init", "-q", "-b", "main"])?;
@@ -387,10 +520,15 @@ mod tests {
                 "first",
             ],
         )?;
-        let project = Project {
-            path: repo.clone(),
+        Ok(Project {
+            path: repo,
             name: "app".into(),
-        };
+        })
+    }
+
+    fn create_and_check(root: &Path) -> Result<(), Error> {
+        let project = new_repo(root)?;
+        let repo = project.path.clone();
 
         let bad = check_branch(&project, "a b")?;
         let taken = check_branch(&project, "main")?;

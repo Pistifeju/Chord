@@ -107,6 +107,11 @@
   }
 }
 
+.worktree-card[data-dragging="true"],
+.project-group[data-dragging="true"] {
+  opacity: 0.6;
+}
+
 .worktree-card[aria-current="true"] {
   background: var(--selected);
   box-shadow: inset 0 0 0 1px var(--selected-ring);
@@ -123,6 +128,24 @@
   background: none;
   color: var(--ink-muted);
   text-align: left;
+}
+
+/* The field's text stays on the branch name's edge: its border and padding hang into the head's padding. */
+.worktree-name-field {
+  height: 20px;
+  margin: 0 -5px;
+  padding: 0 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  background: var(--canvas);
+  font: inherit;
+  font-size: calc(13px * var(--text-scale));
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.worktree-name-field:focus-visible {
+  outline: none;
 }
 
 .worktree-line {

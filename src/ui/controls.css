@@ -1,4 +1,4 @@
-/* Shared controls: buttons, icon button, input, sheet, toast, drop target, find bar. Rules: DESIGN.md, Components. */
+/* Shared controls: buttons, icon button, input, sheet, toast, drop target, drag ghost and drop line, find bar. Rules: DESIGN.md, Components. */
 button {
   font: inherit;
   color: inherit;
@@ -520,4 +520,40 @@ button:focus-visible {
   .find-bar {
     animation-name: scrim-in;
   }
+}
+
+/* The chip that follows the pointer while a tab, a card or a project drags. */
+.drag-ghost {
+  position: fixed;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  max-width: 220px;
+  padding: 0 10px;
+  border-radius: var(--radius-control);
+  background: var(--sheet);
+  box-shadow: var(--shadow-popover);
+  color: var(--ink);
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate(8px, 8px);
+}
+
+.drag-ghost-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Where a dragged card or project lands. */
+.drop-line {
+  position: fixed;
+  z-index: 3;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--accent-ink);
+  pointer-events: none;
+  transform: translateY(-1px);
 }

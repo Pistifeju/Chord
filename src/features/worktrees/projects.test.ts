@@ -1,7 +1,7 @@
 // Tests for the project list rules.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { branchName, goneWorktrees, noProjects, withProject, withoutProject, withoutWorktree, withSavedSelection, withSelectionRestored, withWorktrees } from "./projects.ts";
+import { branchName, goneWorktrees, moved, noProjects, withProject, withoutProject, withoutWorktree, withSavedSelection, withSelectionRestored, withWorktrees } from "./projects.ts";
 
 test("removing a project clears the selection only when it held the selected worktree", () => {
   let projects = withProject(withProject(noProjects, { path: "/a", name: "a" }), { path: "/b", name: "b" });
@@ -55,4 +55,10 @@ test("a project's worktrees missing from its new list are gone", () => {
 
   assert.deepEqual(goneWorktrees(projects, "/a", [{ path: "/a", branch: "main" }]), ["/a-one"]);
   assert.deepEqual(goneWorktrees(projects, "/a", []), ["/a", "/a-one"]);
+});
+
+test("a moved item lands before the item at its drop slot, counted in the list as it was", () => {
+  assert.deepEqual(moved(["a", "b", "c", "d"], 0, 3), ["b", "c", "a", "d"]);
+  assert.deepEqual(moved(["a", "b", "c", "d"], 3, 1), ["a", "d", "b", "c"]);
+  assert.deepEqual(moved(["a", "b", "c", "d"], 1, 4), ["a", "c", "d", "b"]);
 });

@@ -297,7 +297,7 @@ function LayoutView({ layout, path, place, edges }: { layout: Layout; path: numb
 // The chip that follows the pointer while a tab drags: the tab's icon and name.
 function TabGhost({ tab, pointer, names }: { tab: Tab; pointer: { left: number; top: number }; names: PaneNames }) {
   return (
-    <div className="tab-ghost" style={pointer}>
+    <div className="drag-ghost" style={pointer}>
       <span className="tab-status">{tab.kind === "file" ? <FileIcon /> : <PiIcon />}</span>
       <span className="tab-label">{tabName(tab, names)}</span>
     </div>

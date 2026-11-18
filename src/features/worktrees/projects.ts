@@ -88,3 +88,20 @@ export function worktreeOrder(projects: Projects): string[] {
 }
 
 
+
+// The list with the item at `from` put before the item at `slot`; `slot` counts the list as it was, and its length is the end.
+export function moved<T>(list: T[], from: number, slot: number): T[] {
+  const rest = list.filter((_, i) => i !== from);
+  const to = slot > from ? slot - 1 : slot;
+  return [...rest.slice(0, to), list[from], ...rest.slice(to)];
+}
+
+// A drop right before or after the item leaves it where it is.
+export const movesTo = (from: number, slot: number): boolean => slot !== from && slot !== from + 1;
+
+export const withProjectMoved = (projects: Projects, from: number, slot: number): Projects => ({ ...projects, list: moved(projects.list, from, slot) });
+
+export function withWorktreeMoved(projects: Projects, project: string, from: number, slot: number): Projects {
+  const list = projects.worktrees[project] ?? [];
+  return { ...projects, worktrees: { ...projects.worktrees, [project]: moved(list, from, slot) } };
+}

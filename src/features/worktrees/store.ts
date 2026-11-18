@@ -1,4 +1,4 @@
-// Connects the project rules to IPC: load, add by dialog or drop, remove, select, delete a worktree.
+// Connects the project rules to IPC: load, add by dialog or drop, remove, select, reorder, delete a worktree.
 import { commands, type Project } from "../../ipc/bindings";
 import { closeSheet, openSheet, sheet, sheetOf } from "../../app/sheet";
 import { fail, notify } from "../../ui/alert";
@@ -7,7 +7,7 @@ import { shownSession } from "../panes/sessions";
 import { vanishedWorktrees } from "../panes/agents";
 import { agentsWorkIn, forgetPanes, panes } from "../panes/store";
 import { settingsOpen } from "../settings/store";
-import { goneWorktrees, noProjects, withProject, withoutProject, withoutWorktree, withSavedSelection, withSelectionRestored, withWorktrees, worktreeName, worktreeOrder, type Projects } from "./projects";
+import { goneWorktrees, movesTo, noProjects, withProject, withProjectMoved, withWorktreeMoved, withoutProject, withoutWorktree, withSavedSelection, withSelectionRestored, withWorktrees, worktreeName, worktreeOrder, type Projects } from "./projects";
 import { fileName } from "../files/paths";
 
 export const projects = externalStore(noProjects);
@@ -102,6 +102,19 @@ async function removeProject(path: string) {
 export function selectWorktree(path: string) {
   settingsOpen.set(false);
   update((p) => ({ ...p, selected: path }));
+}
+
+export function moveProject(from: number, slot: number) {
+  if (!movesTo(from, slot)) return;
+  update((p) => withProjectMoved(p, from, slot));
+  commands.changeState({ projectOrder: projects.get().list.map((p) => p.path) }).catch(console.error);
+}
+
+export function moveWorktree(project: string, from: number, slot: number) {
+  if (!movesTo(from, slot)) return;
+  update((p) => withWorktreeMoved(p, project, from, slot));
+  const worktrees = (projects.get().worktrees[project] ?? []).map((w) => w.path);
+  commands.changeState({ worktreeOrder: { project, worktrees } }).catch(console.error);
 }
 
 export function requestDelete(project: string, path: string) {
