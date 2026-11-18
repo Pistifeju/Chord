@@ -72,6 +72,12 @@ export const CloseIcon = ({ size }: { size?: number }) => (
   </Icon>
 );
 
+export const MoreIcon = () => (
+  <Icon>
+    <path d="M3.5 8h0M8 8h0M12.5 8h0" strokeWidth="2" />
+  </Icon>
+);
+
 export const MinusIcon = () => (
   <Icon>
     <path d="M3 8h10" />
@@ -140,8 +146,8 @@ export const CopyIcon = () => (
   </Icon>
 );
 
-export const CheckIcon = () => (
-  <Icon>
+export const CheckIcon = ({ size }: { size?: number }) => (
+  <Icon size={size}>
     <path d="M3 8.5l3.5 3.5L13 4.5" />
   </Icon>
 );

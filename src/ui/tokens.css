@@ -47,6 +47,7 @@
   --radius-control: 8px;
   --radius-card: 16px;
   --radius-inset: 6px;
+  --radius-check: 4px;
 
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --t-fast: 120ms;

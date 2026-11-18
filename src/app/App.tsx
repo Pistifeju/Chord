@@ -15,6 +15,7 @@ import { builds, watchAgentBuilds } from "../features/ios/build/store";
 import { watchBrowsers } from "../features/browser/store";
 import { OpenFileByNamePopup } from "../features/files/OpenFileByNamePopup";
 import { TrashFilePopup } from "../features/files/TrashFilePopup";
+import { DiscardChangesPopup } from "../features/changes/DiscardChangesPopup";
 import { CloseAgentsPopup } from "../features/panes/CloseAgentsPopup";
 import { PaneArea } from "../features/panes/PaneArea";
 import { QuitPopup } from "../features/quit/QuitPopup";
@@ -173,6 +174,7 @@ export default function App() {
       <DeleteWorktreePopup />
       <ForceRemovalPopup />
       <TrashFilePopup />
+      <DiscardChangesPopup />
       <OpenFileByNamePopup />
       <QuitPopup />
       <HelpSheet />

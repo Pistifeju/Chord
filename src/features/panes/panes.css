@@ -270,6 +270,8 @@
 
 .divider {
   position: relative;
+  /* Above the tab bars (z-index 2) and panes beside it: at a fractional split width WebKit snaps their layers a device pixel over the 1px line. */
+  z-index: 3;
   flex: none;
   background: var(--line);
 }

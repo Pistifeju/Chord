@@ -1,5 +1,5 @@
 // A press that moves past a few pixels becomes a drag of one item; the click that ends it is swallowed.
-import { useCallback, useEffect, useRef, type PointerEvent } from "react";
+import { useCallback, useEffect, useRef, type MouseEvent, type PointerEvent } from "react";
 
 /** Pixels a press moves before it becomes a drag, so a click still clicks. */
 const DRAG_THRESHOLD = 5;
@@ -48,6 +48,12 @@ export function usePointerDrag<T>(callbacks: PointerDragCallbacks<T>) {
         if (e.button !== 0) return;
         e.currentTarget.setPointerCapture(e.pointerId);
         drag.current = { item, startX: e.clientX, startY: e.clientY, started: false };
+      },
+      // A press left to WebKit starts a text selection that the drag then stretches over the editor; the blur keeps WebKit's own focus drop.
+      onMouseDown: (e: MouseEvent<HTMLElement>) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        (document.activeElement as HTMLElement | null)?.blur();
       },
       onPointerMove: (e: PointerEvent) => {
         const d = drag.current;

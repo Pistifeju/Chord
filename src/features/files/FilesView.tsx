@@ -129,9 +129,12 @@ function EntryRow({ worktree, row: { entry, depth, open }, selected }: { worktre
       aria-selected={selected}
       data-dragging={pathDrag.dragging || undefined}
       {...(entry.isDir ? {} : pathDrag.handlers(entry.path))}
-      // WebKit does not focus a clicked button, and ⌘⌫ acts on the focused row.
-      onMouseDown={(event) => event.currentTarget.focus()}
-      onClick={() => (entry.isDir ? toggleFolder(worktree, entry.path) : pathDrag.clicked() && showFile(worktree, entry.path))}
+      onClick={(event) => {
+        // WebKit drops the focus when the mouse presses a button, so the click puts it back: ⌘⌫ and the arrows act on the focused row.
+        event.currentTarget.focus();
+        if (entry.isDir) toggleFolder(worktree, entry.path);
+        else if (pathDrag.clicked()) showFile(worktree, entry.path);
+      }}
       onDoubleClick={() => !entry.isDir && showFile(worktree, entry.path, false)}
       onContextMenu={(e) =>
         showMenu(e, [

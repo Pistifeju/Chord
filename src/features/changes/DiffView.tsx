@@ -1,13 +1,13 @@
-// A file's diff in its tab: the read-only unified diff of the index against HEAD or of the file on disk against the index, with the editor's syntax highlighting, read again with each read of the Changes view.
+// A file's diff in its tab: the read-only unified diff of the index against HEAD or of the file on disk against the index, with the editor's syntax highlighting and each hunk's Stage and Discard, or Unstage and Discard, read again with each read of the Changes view.
 import { drawSelection, EditorView, Decoration, gutter, GutterMarker, WidgetType } from "@codemirror/view";
 import { Compartment, EditorState, type Range } from "@codemirror/state";
 import { LanguageDescription, type LanguageSupport } from "@codemirror/language";
 import { languages } from "@codemirror/language-data";
 import { useEffect, useRef, useState } from "react";
-import { commands, type DiffLine, type DiffSide, type FileDiff, type Hunk } from "../../ipc/bindings";
+import { commands, type DiffLine, type DiffSide, type FileDiff, type Hunk, type HunkAction } from "../../ipc/bindings";
 import { fail } from "../../ui/alert";
 import { editorTheme } from "../editor/theme";
-import { changes } from "./store";
+import { applyHunk, changes, requestDiscard } from "./store";
 
 class GutterText extends GutterMarker {
   constructor(
@@ -24,18 +24,43 @@ class GutterText extends GutterMarker {
   }
 }
 
-// The band where git left out unchanged lines, naming what the next hunk sits in.
+type Act = (hunk: number, action: HunkAction) => void;
+
+const actionLabels: Record<HunkAction, string> = { stage: "Stage", unstage: "Unstage", discard: "Discard", discardStaged: "Discard" };
+
+// The band where git left out unchanged lines, naming what the next hunk sits in, with the hunk's buttons.
 class GapWidget extends WidgetType {
-  constructor(readonly context: string) {
+  constructor(
+    readonly context: string,
+    readonly hunk: number,
+    readonly actions: HunkAction[],
+    readonly act: Act,
+  ) {
     super();
   }
   eq(other: GapWidget) {
-    return other.context === this.context;
+    return other.context === this.context && other.hunk === this.hunk && other.actions.join() === this.actions.join();
   }
   toDOM() {
     const band = document.createElement("div");
     band.className = "cm-diff-gap";
-    band.textContent = this.context;
+    const context = band.appendChild(document.createElement("span"));
+    context.className = "cm-diff-context";
+    context.textContent = this.context;
+    if (this.actions.length === 0) return band;
+    const bar = band.appendChild(document.createElement("span"));
+    bar.className = "cm-diff-actions";
+    for (const action of this.actions) {
+      const button = bar.appendChild(document.createElement("button"));
+      button.type = "button";
+      button.className = "button-secondary cm-diff-action";
+      button.textContent = actionLabels[action];
+      button.onclick = () => {
+        // A second click would find the hunk gone; the next read rebuilds the band.
+        if (action !== "discard") button.disabled = true;
+        this.act(this.hunk, action);
+      };
+    }
     return band;
   }
 }
@@ -43,10 +68,28 @@ class GapWidget extends WidgetType {
 const gapMarker = new GutterText("", "cm-diff-gap");
 
 const diffTheme = EditorView.theme({
+  // The sideways scrollbar keeps its track from the start, so a narrower tab never shifts the lines up.
+  ".cm-scroller": { overflowX: "scroll" },
   ".cm-diff-added": { backgroundColor: "var(--diff-added)" },
   ".cm-diff-removed": { backgroundColor: "var(--diff-removed)" },
   ".cm-diff-gap": { backgroundColor: "var(--panel)", color: "var(--ink-muted)", lineHeight: "24px" },
-  ".cm-content > .cm-diff-gap": { height: "24px", padding: "0 8px", overflow: "hidden", whiteSpace: "pre", textOverflow: "ellipsis" },
+  ".cm-content > .cm-diff-gap": { display: "flex", alignItems: "center", height: "24px", paddingLeft: "8px" },
+  ".cm-diff-gap > .cm-diff-context": { flex: 1, minWidth: 0, overflow: "hidden", whiteSpace: "pre", textOverflow: "ellipsis" },
+  ".cm-diff-gap > .cm-diff-context:last-child": { paddingRight: "8px" },
+  // Sticky on the band's fill, so the buttons stay in view and cover the context while a long line scrolls the band sideways.
+  ".cm-diff-actions": { position: "sticky", right: 0, display: "flex", flex: "none", gap: "4px", padding: "0 8px", backgroundColor: "var(--panel)" },
+  // A compact secondary button: its fill, border, shadow, hover and pressed come from controls.css.
+  ".cm-diff-action": {
+    height: "20px",
+    padding: "0 8px",
+    borderRadius: "var(--radius-inset)",
+    fontFamily: "var(--font-ui)",
+    fontSize: "calc(12px * var(--text-scale))",
+    lineHeight: "20px",
+    // The band is 24px tall, so the focus ring hugs the button instead of reaching into the code.
+    outlineOffset: "0",
+  },
+  ".cm-diff-action:disabled": { color: "var(--ink-disabled)", boxShadow: "inset 0 0 0 1px var(--line-strong)" },
   ".cm-diff-number .cm-gutterElement": { padding: "0 6px 0 4px", textAlign: "right" },
   ".cm-diff-number .cm-diff-added, .cm-diff-number .cm-diff-removed": { color: "var(--ink-muted)" },
   ".cm-diff-sign .cm-gutterElement": { width: "12px", textAlign: "center" },
@@ -66,7 +109,7 @@ function skipsBefore(hunks: Hunk[], h: number): boolean {
   return h > 0;
 }
 
-function diffExtensions(diff: FileDiff) {
+function diffExtensions(diff: FileDiff, actions: HunkAction[], act: Act) {
   const lines = diff.hunks.flatMap((hunk) => hunk.lines);
   const lineAt = (view: EditorView, from: number) => lines[view.state.doc.lineAt(from).number - 1];
   const widest = String(Math.max(0, ...lines.map((line) => Math.max(line.old ?? 0, line.new ?? 0))));
@@ -86,7 +129,7 @@ function diffExtensions(diff: FileDiff) {
   const marks: Range<Decoration>[] = [];
   let from = 0;
   diff.hunks.forEach((hunk, h) => {
-    if (skipsBefore(diff.hunks, h)) marks.push(Decoration.widget({ widget: new GapWidget(hunk.context), block: true, side: -1 }).range(from));
+    if (actions.length > 0 || skipsBefore(diff.hunks, h)) marks.push(Decoration.widget({ widget: new GapWidget(hunk.context, h, actions, act), block: true, side: -1 }).range(from));
     hunk.lines.forEach((line) => {
       if (line.kind !== "context") marks.push(Decoration.line({ class: `cm-diff-${line.kind}` }).range(from));
       from += line.text.length + 1;
@@ -103,6 +146,19 @@ export function DiffView({ worktree, path, side }: { worktree: string; path: str
   const [diff, setDiff] = useState<FileDiff | null>(null);
   const [failed, setFailed] = useState(false);
   const read = changes.usePart((all) => all[worktree]);
+  const change = read?.find((c) => c.path === path && c.staged === (side === "staged"));
+  // A conflicted file stages whole, which marks it resolved.
+  const actions: HunkAction[] = !change || change.status === "conflicted" ? [] : side === "staged" ? ["discardStaged", "unstage"] : ["discard", "stage"];
+  const actionKey = actions.join();
+  const latest = useRef({ worktree, path, diff, change });
+  latest.current = { worktree, path, diff, change };
+  const act = useRef<Act>((h, action) => {
+    const { worktree, path, diff, change } = latest.current;
+    const hunk = diff?.hunks[h];
+    if (!hunk || !change) return;
+    if (action === "discard" || action === "discardStaged") requestDiscard(worktree, [change], hunk);
+    else void applyHunk(worktree, path, hunk, action);
+  });
   const shown = useRef(false);
   useEffect(() => {
     let gone = false;
@@ -143,7 +199,7 @@ export function DiffView({ worktree, path, side }: { worktree: string; path: str
   useEffect(() => {
     const view = viewRef.current;
     if (!view || !diff) return;
-    const { doc, extensions } = diffExtensions(diff);
+    const { doc, extensions } = diffExtensions(diff, actionKey ? (actionKey.split(",") as HunkAction[]) : [], act.current);
     const top = view.scrollDOM.scrollTop;
     view.setState(
       EditorState.create({
@@ -152,7 +208,7 @@ export function DiffView({ worktree, path, side }: { worktree: string; path: str
       }),
     );
     view.scrollDOM.scrollTop = top;
-  }, [diff]);
+  }, [diff, actionKey]);
   const note = diff ? (diff.binary ? "Binary file" : diff.hunks.length === 0 ? "No changes" : null) : failed ? "No diff to show" : null;
   return (
     <div className="editor" data-selectable>

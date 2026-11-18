@@ -39,6 +39,10 @@ export const commands = {
 	revealFile: (worktree: string, path: string) => __TAURI_INVOKE<null>("reveal_file", { worktree, path }),
 	listChanges: (worktree: string) => __TAURI_INVOKE<Change_Serialize[]>("list_changes", { worktree }),
 	readDiff: (worktree: string, file: string, side: DiffSide) => __TAURI_INVOKE<FileDiff_Serialize>("read_diff", { worktree, file, side }),
+	stageFiles: (worktree: string, files: string[]) => __TAURI_INVOKE<null>("stage_files", { worktree, files }),
+	unstageFiles: (worktree: string, files: string[]) => __TAURI_INVOKE<null>("unstage_files", { worktree, files }),
+	discardFiles: (worktree: string, files: string[]) => __TAURI_INVOKE<null>("discard_files", { worktree, files }),
+	applyHunk: (worktree: string, file: string, hunk: Hunk_Deserialize, action: HunkAction) => __TAURI_INVOKE<null>("apply_hunk", { worktree, file, hunk, action }),
 	startTerminal: (worktree: string, cols: number, rows: number, onEvent: Channel<TerminalEvent>) => __TAURI_INVOKE<null>("start_terminal", { worktree, cols, rows, onEvent }),
 	writeTerminal: (worktree: string, text: string) => __TAURI_INVOKE<null>("write_terminal", { worktree, text }),
 	resizeTerminal: (worktree: string, cols: number, rows: number) => __TAURI_INVOKE<null>("resize_terminal", { worktree, cols, rows }),
@@ -543,6 +547,16 @@ export type HarnessEvent_Serialize =
 { kind: "dialog_closed" };
 
 export type Hunk = Hunk_Serialize | Hunk_Deserialize;
+
+export type HunkAction = 
+/**  A hunk of the file on disk against the index, into the index. */
+"stage" | 
+/**  A hunk of the index against HEAD, out of the index. */
+"unstage" | 
+/**  A hunk of the file on disk against the index, off the disk. */
+"discard" | 
+/**  A hunk of the index against HEAD, out of the index and off the disk. */
+"discardStaged";
 
 export type Hunk_Deserialize = {
 	/**  The line git names after the hunk's range, mostly the function it sits in; empty when git finds none. */

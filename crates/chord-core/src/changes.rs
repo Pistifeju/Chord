@@ -1,11 +1,11 @@
-//! A worktree's changed files from `git status`, staged or not, with the lines each adds and removes, and one file's diff: the index against HEAD, or the file on disk against the index.
+//! A worktree's changed files from `git status`, staged or not, with the lines each adds and removes, one file's diff: the index against HEAD, or the file on disk against the index, and the stage, unstage and discard of files and of a diff's hunks.
 
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use specta::Type;
 
 use crate::{DiffSide, Error, files, git};
@@ -35,7 +35,7 @@ pub struct Change {
     pub removed: Option<u32>,
 }
 
-#[derive(Serialize, Type, Clone, Copy, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Type, Clone, Copy, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub enum LineKind {
     Context,
@@ -43,7 +43,7 @@ pub enum LineKind {
     Removed,
 }
 
-#[derive(Serialize, Type, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Type, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct DiffLine {
     pub kind: LineKind,
@@ -53,7 +53,7 @@ pub struct DiffLine {
     pub new: Option<u32>,
 }
 
-#[derive(Serialize, Type, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Type, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Hunk {
     /// The line git names after the hunk's range, mostly the function it sits in; empty when git finds none.
@@ -107,33 +107,39 @@ pub fn list(dir: &Path) -> Result<Vec<Change>, Error> {
     Ok(changes)
 }
 
-pub fn diff(dir: &Path, path: &str, side: DiffSide) -> Result<FileDiff, Error> {
-    if side == DiffSide::Staged {
-        // A rename shows against the file it came from, so git needs both paths.
-        let status = read(
-            dir,
-            &["status", "--porcelain=v2", "-z", "--untracked-files=no"],
-        )?;
-        let from = parse_status(&status)
-            .into_iter()
-            .find(|change| change.staged && change.path == path)
-            .and_then(|change| change.old_path);
-        let mut args = vec![
-            "diff",
-            "--cached",
-            "-M",
-            "--no-color",
-            "--no-ext-diff",
-            "--",
-        ];
-        args.extend(from.as_deref());
-        args.push(path);
-        return Ok(parse_diff(&read(dir, &args)?));
+/// git's diff of the file, as `git apply` takes it.
+fn raw_diff(dir: &Path, path: &str, side: DiffSide) -> Result<String, Error> {
+    let mut args = vec![
+        "diff",
+        "--no-color",
+        "--no-ext-diff",
+        "--src-prefix=a/",
+        "--dst-prefix=b/",
+    ];
+    if side == DiffSide::Unstaged {
+        args.extend(["-2", "--", path]);
+        return read(dir, &args);
     }
-    let output = read(
+    // A rename shows against the file it came from, so git needs both paths.
+    let status = read(
         dir,
-        &["diff", "-2", "--no-color", "--no-ext-diff", "--", path],
+        &["status", "--porcelain=v2", "-z", "--untracked-files=no"],
     )?;
+    let from = parse_status(&status)
+        .into_iter()
+        .find(|change| change.staged && change.path == path)
+        .and_then(|change| change.old_path);
+    args.extend(["--cached", "-M", "--"]);
+    args.extend(from.as_deref());
+    args.push(path);
+    read(dir, &args)
+}
+
+pub fn diff(dir: &Path, path: &str, side: DiffSide) -> Result<FileDiff, Error> {
+    let output = raw_diff(dir, path, side)?;
+    if side == DiffSide::Staged {
+        return Ok(parse_diff(&output));
+    }
     // An untracked file has no diff output, so only an empty one needs the tracked check.
     if !output.is_empty() || !read(dir, &["ls-files", "--", path])?.is_empty() {
         return Ok(parse_diff(&output));
@@ -171,6 +177,122 @@ pub fn diff(dir: &Path, path: &str, side: DiffSide) -> Result<FileDiff, Error> {
             }]
         },
     })
+}
+
+#[derive(Deserialize, Type, Clone, Copy, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum HunkAction {
+    /// A hunk of the file on disk against the index, into the index.
+    Stage,
+    /// A hunk of the index against HEAD, out of the index.
+    Unstage,
+    /// A hunk of the file on disk against the index, off the disk.
+    Discard,
+    /// A hunk of the index against HEAD, out of the index and off the disk.
+    DiscardStaged,
+}
+
+// Paths go on stdin, so a long list never meets the argument limit.
+fn with_paths(dir: &Path, args: &[&str], paths: &[String]) -> Result<(), Error> {
+    let args = [
+        &["--literal-pathspecs"],
+        args,
+        &["--pathspec-from-file=-", "--pathspec-file-nul"],
+    ]
+    .concat();
+    git::run_with_input(dir, &args, paths.join("\0").as_bytes()).map(drop)
+}
+
+/// Adds the files to the index, a deleted file's removal too; a conflicted file counts as resolved.
+pub fn stage(dir: &Path, paths: &[String]) -> Result<(), Error> {
+    with_paths(dir, &["add", "-A"], paths)
+}
+
+/// Puts the files' HEAD versions back in the index; a rename needs its old path too.
+pub fn unstage(dir: &Path, paths: &[String]) -> Result<(), Error> {
+    with_paths(dir, &["reset", "-q"], paths)
+}
+
+/// Restores the files on disk from the index, and moves the untracked ones to the Trash.
+pub fn discard(dir: &Path, paths: &[String]) -> Result<(), Error> {
+    let status = read(
+        dir,
+        &["status", "--porcelain=v2", "-z", "--untracked-files=all"],
+    )?;
+    let untracked: Vec<String> = parse_status(&status)
+        .into_iter()
+        .filter(|change| change.status == ChangeStatus::Untracked)
+        .map(|change| change.path)
+        .collect();
+    let (untracked, tracked): (Vec<String>, Vec<String>) = paths
+        .iter()
+        .cloned()
+        .partition(|path| untracked.contains(path));
+    if !tracked.is_empty() {
+        with_paths(dir, &["checkout"], &tracked)?;
+    }
+    untracked
+        .iter()
+        .try_for_each(|path| files::trash(dir, path))
+}
+
+/// Stages, unstages or discards the one hunk of the file's diff that reads as `hunk` now; a diff changed since it showed fails.
+pub fn apply_hunk(dir: &Path, path: &str, hunk: &Hunk, action: HunkAction) -> Result<(), Error> {
+    let side = match action {
+        HunkAction::Unstage | HunkAction::DiscardStaged => DiffSide::Staged,
+        HunkAction::Stage | HunkAction::Discard => DiffSide::Unstaged,
+    };
+    let changed = || {
+        Error::Message(
+            "The diff changed since it showed. Try again on the diff as it reads now.".into(),
+        )
+    };
+    let output = raw_diff(dir, path, side)?;
+    let Some(start) = output.find("\n@@ ").map(|at| at + 1) else {
+        // An untracked file's one hunk is the whole file.
+        if side == DiffSide::Unstaged
+            && diff(dir, path, side)?.hunks.as_slice() == std::slice::from_ref(hunk)
+        {
+            let paths = [path.to_string()];
+            return if action == HunkAction::Stage {
+                stage(dir, &paths)
+            } else {
+                discard(dir, &paths)
+            };
+        }
+        return Err(changed());
+    };
+    // A hunk of a rename applies to the new path alone, so the rename itself stays.
+    let header = if output[..start].contains("\nrename from ") {
+        format!("diff --git a/{path} b/{path}\n--- a/{path}\n+++ b/{path}\n")
+    } else {
+        output[..start].to_string()
+    };
+    let mut hunks: Vec<String> = Vec::new();
+    for line in output[start..].split_inclusive('\n') {
+        match hunks.last_mut() {
+            Some(text) if !line.starts_with("@@ ") => text.push_str(line),
+            _ => hunks.push(line.to_string()),
+        }
+    }
+    let patch = hunks
+        .into_iter()
+        .map(|text| header.clone() + &text)
+        .find(|patch| parse_diff(patch).hunks.first() == Some(hunk))
+        .ok_or_else(changed)?;
+    let apply = |args: &[&str]| git::run_with_input(dir, args, patch.as_bytes()).map(drop);
+    match action {
+        HunkAction::Stage => apply(&["apply", "--cached", "-"]),
+        HunkAction::Unstage => apply(&["apply", "--cached", "-R", "-"]),
+        HunkAction::Discard => apply(&["apply", "-R", "-"]),
+        HunkAction::DiscardStaged => {
+            apply(&["apply", "--cached", "-R", "-"])?;
+            // Edits on disk over the hunk's lines stop it there; the hunk goes back in the index.
+            apply(&["apply", "-R", "-"]).inspect_err(|_| {
+                let _ = apply(&["apply", "--cached", "-"]);
+            })
+        }
+    }
 }
 
 // git's own test: a NUL in the first 8000 bytes.
@@ -385,5 +507,54 @@ mod tests {
             ]
         );
         assert!(parse_diff("diff --git a/i b/i\nBinary files a/i and b/i differ\n").binary);
+    }
+
+    #[test]
+    fn a_hunk_stages_and_discards_alone() -> Result<(), Error> {
+        let repo = std::env::temp_dir().join(format!("chord-hunks-{}", std::process::id()));
+        let result = hunks_in(&repo);
+        let _ = std::fs::remove_dir_all(&repo);
+        result
+    }
+
+    fn hunks_in(repo: &Path) -> Result<(), Error> {
+        std::fs::create_dir_all(repo)?;
+        let file = repo.join("f");
+        let numbers = (1..=40).map(|n| format!("{n}\n")).collect::<String>();
+        std::fs::write(&file, &numbers)?;
+        git::run(repo, &["init", "-q"])?;
+        git::run(repo, &["add", "f"])?;
+        git::run(
+            repo,
+            &[
+                "-c",
+                "user.name=t",
+                "-c",
+                "user.email=t@t",
+                "commit",
+                "-qm",
+                "i",
+            ],
+        )?;
+        std::fs::write(
+            &file,
+            numbers
+                .replace("\n3\n", "\nthree\n")
+                .replace("\n30\n", "\nthirty\n"),
+        )?;
+        let hunks = diff(repo, "f", DiffSide::Unstaged)?.hunks;
+        apply_hunk(repo, "f", &hunks[1], HunkAction::Stage)?;
+        assert_eq!(read(repo, &["diff", "--cached", "--numstat"])?, "1\t1\tf\n");
+        apply_hunk(repo, "f", &hunks[0], HunkAction::Discard)?;
+        assert_eq!(
+            std::fs::read_to_string(&file)?,
+            numbers.replace("\n30\n", "\nthirty\n")
+        );
+        assert!(apply_hunk(repo, "f", &hunks[0], HunkAction::Discard).is_err());
+        let staged = diff(repo, "f", DiffSide::Staged)?.hunks;
+        apply_hunk(repo, "f", &staged[0], HunkAction::DiscardStaged)?;
+        assert_eq!(std::fs::read_to_string(&file)?, numbers);
+        assert_eq!(read(repo, &["diff", "--cached", "--numstat"])?, "");
+        Ok(())
     }
 }

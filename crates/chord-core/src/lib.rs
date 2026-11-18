@@ -15,7 +15,7 @@ mod state;
 pub mod terminal;
 pub mod worktrees;
 
-pub use changes::{Change, FileDiff};
+pub use changes::{Change, FileDiff, Hunk, HunkAction};
 pub use error::Error;
 pub use files::FileEntry;
 pub use git_counts::GitCounts;

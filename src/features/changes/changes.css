@@ -3,12 +3,19 @@
   margin-top: 12px;
 }
 
+/* Sticks while its group scrolls under it, until the next group's heading pushes it out. */
 .changes-group {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--canvas);
+  /* Covers the tree's 4px top padding, where the rows would scroll past above it. */
+  box-shadow: 0 -4px 0 var(--canvas);
   display: flex;
   align-items: center;
   gap: 6px;
   height: 26px;
-  padding: 0 8px;
+  padding: 0 4px 0 8px;
   font-size: calc(12px * var(--text-scale));
   font-weight: 500;
   color: var(--ink-secondary);
@@ -19,10 +26,83 @@
   font-variant-numeric: tabular-nums;
 }
 
+.changes-item {
+  position: relative;
+}
+
+.changes-item > .changes-check {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+}
+
+/* Each row's More button, right of the status letters. */
+.changes-more {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-inset);
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  visibility: hidden;
+}
+
+.files-tree:not([data-keys]) .changes-item:hover .changes-more,
+.changes-item:focus-within .changes-more {
+  visibility: visible;
+}
+
+/* The checkbox and the More button sit beside the row, so the row keeps its hover while the pointer is on them. */
+.files-tree:not([data-keys]) .changes-item:hover .changes-row:not([aria-selected="true"]) {
+  background: var(--raised);
+}
+
+/* The row's fill is raised on hover, so the More button steps up to selected as a tab's close button does. */
+.changes-more:hover {
+  background: var(--selected);
+}
+
+.changes-check {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-check);
+  background: var(--sheet);
+  color: var(--canvas);
+  transition: background-color var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out);
+}
+
+.changes-check:hover:not(:disabled) {
+  border-color: var(--ink-muted);
+}
+
+.changes-check:disabled {
+  border-color: var(--line);
+  background: transparent;
+}
+
+.changes-check[aria-checked="true"] {
+  border-color: var(--ink);
+  background: var(--ink);
+}
+
+/* An empty group's line starts on the rows' name edge. */
+.changes-section > .files-empty {
+  padding-left: 30px;
+}
+
+.changes-group > .changes-check {
+  margin-right: 2px;
+}
+
 /* Two classes, so the row's own spacing wins over the Files row whichever stylesheet loads last. */
 .files-row.changes-row {
   gap: 6px;
-  padding-left: 8px;
+  padding: 0 28px 0 30px;
 }
 
 .changes-name {
