@@ -48,6 +48,8 @@ Edge cases:
 - [x] B5 A new worktree gets a copy of the main checkout's gitignored files (up to 5 MB each, no ignored folders).
 - [x] B6 Git counts on the worktree card: ↑ahead and ↓behind against the branch's upstream, or against the main checkout's branch without one (nothing on a detached HEAD), and changed files from `git status --porcelain`; zeros show nothing. Refreshes on window focus, then every 10 seconds while the window is visible, only for worktrees of expanded projects and the selected one; a refresh still running skips the next. No file watcher.
 - [x] B7 Extends B5: a new worktree also gets the main checkout's gitignored folders (`node_modules`, `Pods`, `.build`) and files of any size as APFS clones (`clonefile`), which take no extra disk space until one side changes.
+- [ ] B8 Rename a worktree: Rename in the card's right-click menu, or a double click on the branch name, turns the name into a field with the live `git check-ref-format` check of B2; Return renames the branch (`git branch -m`), Esc cancels. The folder keeps its name.
+- [ ] B9 Drag a project's header to reorder the projects, and a worktree card to reorder the cards within its project. The order is saved through Rust; a new worktree goes to the end of its project.
 
 Edge cases:
 - Worktree folder names never collide across projects.
@@ -60,6 +62,9 @@ Edge cases:
 - An unchanged worktree list skips the git refresh.
 - Project switch shows cached worktrees at once.
 - `await` the confirm dialog before deleting.
+- B8: a name another branch holds, or a detached HEAD, keeps the field open with the reason; the main checkout's card has no Rename.
+- B8: a rename while the agent runs leaves the agent and its session running.
+- B9: a card never drags into another project.
 
 ## 3. Panes and tabs (core, needs E1)
 
