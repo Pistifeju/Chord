@@ -74,12 +74,10 @@ function placeOf(item: Dragged): number {
 function useSidebarDrag(scroller: RefObject<HTMLDivElement | null>) {
   const [dragged, setDragged] = useState<Dragged | null>(null);
   const [line, setLine] = useState<Box | null>(null);
-  const [pointer, setPointer] = useState<{ left: number; top: number } | null>(null);
   const slot = useRef<number | null>(null);
   const drag = usePointerDrag<Dragged>({
     onStart: setDragged,
     onMove: (e, item) => {
-      setPointer({ left: e.clientX, top: e.clientY });
       const box = scroller.current;
       if (!box) return;
       scrollNearEdge(box, e.clientY);
@@ -87,14 +85,14 @@ function useSidebarDrag(scroller: RefObject<HTMLDivElement | null>) {
       const items = card ? box.querySelectorAll<HTMLElement>(`[data-project="${CSS.escape(item.project)}"] .worktree-card`) : box.querySelectorAll<HTMLElement>(".project-group");
       const at = slotAt([...items], e.clientY, card ? 1 : 6);
       slot.current = movesTo(placeOf(item), at.slot) ? at.slot : null;
-      setLine(slot.current === null ? null : at.line);
+      const next = slot.current === null ? null : at.line;
+      setLine((prev) => (prev && next && prev.top === next.top && prev.left === next.left && prev.width === next.width ? prev : next));
     },
     onEnd: (item, dropped) => {
       const to = slot.current;
       slot.current = null;
       setDragged(null);
       setLine(null);
-      setPointer(null);
       if (!dropped || to === null) return;
       const from = placeOf(item);
       if (from < 0) return;
@@ -102,7 +100,7 @@ function useSidebarDrag(scroller: RefObject<HTMLDivElement | null>) {
       else moveProject(from, to);
     },
   });
-  return { drag: { handlers: drag.handlers, clicked: drag.clicked, dragging: dragged?.path ?? null }, dragged, line, pointer };
+  return { drag: { handlers: drag.handlers, clicked: drag.clicked, dragging: dragged?.path ?? null }, dragged, line, ghost: drag.ghost };
 }
 
 // `markers` are the iOS part of the cards, passed in by App by worktree path.
@@ -114,7 +112,7 @@ export function Sidebar({ markers }: { markers: Record<string, CardMarker> }) {
   const finishedPanes = finished.use();
   const settings = settingsOpen.use();
   const scroller = useRef<HTMLDivElement>(null);
-  const { drag, dragged, line, pointer } = useSidebarDrag(scroller);
+  const { drag, dragged, line, ghost } = useSidebarDrag(scroller);
   if (hidden) return null;
   const order = worktreeOrder(state);
   return (
@@ -156,8 +154,8 @@ export function Sidebar({ markers }: { markers: Record<string, CardMarker> }) {
         ))}
       </div>
       {line && <div className="drop-line" style={line} />}
-      {dragged && pointer && (
-        <div className="drag-ghost" style={pointer}>
+      {dragged && (
+        <div className="drag-ghost" ref={ghost}>
           <span className="drag-ghost-label">{dragged.name}</span>
         </div>
       )}

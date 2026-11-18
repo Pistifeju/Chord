@@ -53,6 +53,8 @@ export function PanelEdge({ side, onResize, onEnd }: Props) {
       role="separator"
       aria-orientation={across ? "vertical" : "horizontal"}
       onPointerDown={onPointerDown}
+      // A press here starts no text selection in the panels beside it.
+      onMouseDown={(e) => e.preventDefault()}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerEnd}
       onPointerCancel={onPointerEnd}

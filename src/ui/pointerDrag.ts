@@ -1,5 +1,5 @@
 // A press that moves past a few pixels becomes a drag of one item; the click that ends it is swallowed.
-import { useEffect, useRef, type PointerEvent } from "react";
+import { useCallback, useEffect, useRef, type PointerEvent } from "react";
 
 /** Pixels a press moves before it becomes a drag, so a click still clicks. */
 const DRAG_THRESHOLD = 5;
@@ -18,6 +18,17 @@ export function usePointerDrag<T>(callbacks: PointerDragCallbacks<T>) {
   const suppressClick = useRef(false);
   const latest = useRef(callbacks);
   latest.current = callbacks;
+  const pointer = useRef({ x: 0, y: 0 });
+  const ghostElement = useRef<HTMLElement | null>(null);
+  const place = (el: HTMLElement) => {
+    el.style.left = `${pointer.current.x}px`;
+    el.style.top = `${pointer.current.y}px`;
+  };
+  // The chip under the pointer moves without a React render, which lags a frame or more behind.
+  const ghost = useCallback((el: HTMLElement | null) => {
+    ghostElement.current = el;
+    if (el) place(el);
+  }, []);
 
   const end = (dropped: boolean) => {
     const d = drag.current;
@@ -41,6 +52,8 @@ export function usePointerDrag<T>(callbacks: PointerDragCallbacks<T>) {
       onPointerMove: (e: PointerEvent) => {
         const d = drag.current;
         if (!d) return;
+        pointer.current = { x: e.clientX, y: e.clientY };
+        if (ghostElement.current) place(ghostElement.current);
         if (!d.started) {
           if (Math.hypot(e.clientX - d.startX, e.clientY - d.startY) < DRAG_THRESHOLD) return;
           d.started = true;
@@ -51,6 +64,8 @@ export function usePointerDrag<T>(callbacks: PointerDragCallbacks<T>) {
       onPointerUp: () => end(true),
       onPointerCancel: () => end(false),
     }),
+    /** The ref for the chip that follows the pointer. */
+    ghost,
     // A press that ended a drag is no click.
     clicked: () => {
       const clicked = !suppressClick.current;

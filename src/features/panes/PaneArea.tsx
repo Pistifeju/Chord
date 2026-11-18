@@ -58,27 +58,25 @@ function dropAt(x: number, y: number, last: Drop | null): Drop | null {
 function useTabDrag(worktree: string) {
   const [dragging, setDragging] = useState<string | null>(null);
   const [drop, setDrop] = useState<Drop | null>(null);
-  const [pointer, setPointer] = useState<{ left: number; top: number } | null>(null);
   const dropRef = useRef<Drop | null>(null);
   const drag = usePointerDrag<string>({
     onStart: setDragging,
     onMove: (e, tab) => {
-      setPointer({ left: e.clientX, top: e.clientY });
       const at = dropAt(e.clientX, e.clientY, dropRef.current);
       const current = panes.get()[worktree];
       dropRef.current = at && current && movesTab(current, tab, at) ? at : null;
-      setDrop(dropRef.current);
+      const next = dropRef.current;
+      setDrop((prev) => (prev && next && prev.group === next.group && prev.edge === next.edge ? prev : next));
     },
     onEnd: (tab, dropped) => {
       const target = dropRef.current;
       dropRef.current = null;
       setDragging(null);
-      setPointer(null);
       setDrop(null);
       if (dropped && target) moveTab(worktree, tab, { group: target.group, edge: target.edge });
     },
   });
-  return { tabDrag: { handlers: drag.handlers, clicked: drag.clicked, dragging }, drop, pointer };
+  return { tabDrag: { handlers: drag.handlers, clicked: drag.clicked, dragging }, drop, ghost: drag.ghost };
 }
 
 function FilesToggle({ worktree }: { worktree: string }) {
@@ -222,6 +220,8 @@ function Divider({ worktree, path, index, direction, sizes, mins, container }: D
       role="separator"
       aria-orientation={direction === "row" ? "vertical" : "horizontal"}
       onPointerDown={onPointerDown}
+      // A press here starts no text selection in the panes beside it.
+      onMouseDown={(e) => e.preventDefault()}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerEnd}
       onPointerCancel={onPointerEnd}
@@ -304,9 +304,9 @@ function LayoutView({ layout, path, place, edges }: { layout: Layout; path: numb
 }
 
 // The chip that follows the pointer while a tab drags: the tab's icon and name.
-function TabGhost({ tab, pointer, names }: { tab: Tab; pointer: { left: number; top: number }; names: PaneNames }) {
+function TabGhost({ tab, ghost, names }: { tab: Tab; ghost: (el: HTMLElement | null) => void; names: PaneNames }) {
   return (
-    <div className="drag-ghost" style={pointer}>
+    <div className="drag-ghost" ref={ghost}>
       <span className="tab-status">{tabIcon(tab)}</span>
       <span className="tab-label">{tabName(tab, names)}</span>
     </div>
@@ -318,7 +318,7 @@ export function PaneArea({ worktree, runControl, bottomViews, sideViews }: { wor
   const current = panes.use()[worktree];
   useEffect(() => ensurePanes(worktree), [worktree]);
   const names = usePaneNames(current ? chatPaneIds(current.layout) : []);
-  const { tabDrag, drop, pointer } = useTabDrag(worktree);
+  const { tabDrag, drop, ghost } = useTabDrag(worktree);
   const seen = useRef<Set<string> | null>(null);
   if (!current) return null;
   // The tabs a worktree opens with show still.
@@ -346,7 +346,7 @@ export function PaneArea({ worktree, runControl, bottomViews, sideViews }: { wor
       </div>
       <SidePanel worktree={worktree} views={sideViews} bar={corner} />
       {drop && <div className="drop-edge" style={drop.box} />}
-      {dragged && pointer && <TabGhost tab={dragged} pointer={pointer} names={names} />}
+      {dragged && <TabGhost tab={dragged} ghost={ghost} names={names} />}
     </div>
   );
 }
