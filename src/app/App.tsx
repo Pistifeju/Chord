@@ -1,5 +1,6 @@
 // The window's layout. Each feature adds its own region.
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { BuildView } from "../features/ios/build/BuildView";
 import { ConsoleView } from "../features/ios/build/ConsoleView";
 import { RunControl } from "../features/ios/build/RunControl";
@@ -63,6 +64,14 @@ export default function App() {
   // Only open or closed here: the hole's rect moves on every resize frame and redraws just `SeeThroughHole`.
   const holeOpen = seeThrough.usePart((open) => open !== null);
   const hole = !overlay && holeOpen;
+  const [fullscreen, setFullscreen] = useState(false);
+  useEffect(() => {
+    const win = getCurrentWindow();
+    const check = () => void win.isFullscreen().then(setFullscreen);
+    check();
+    const unlisten = win.onResized(check);
+    return () => void unlisten.then((stop) => stop());
+  }, []);
   const lastFocus = useRef<HTMLElement | null>(null);
   // inert drops the focus when a sheet or Settings opens; it goes back once they close, unless their action placed it.
   useEffect(() => {
@@ -114,7 +123,7 @@ export default function App() {
     );
   }
   return (
-    <div className="app" data-see-through={hole ? true : undefined}>
+    <div className="app" data-see-through={hole ? true : undefined} data-fullscreen={fullscreen || undefined}>
       {hole && <SeeThroughHole />}
       {/* An open sheet or Settings keeps keyboard focus and clicks inside itself. */}
       <div className="app-content" inert={overlay}>

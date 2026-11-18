@@ -25,7 +25,7 @@
 }
 
 .tabbar[data-sidebar-hidden="true"] {
-  padding-left: 132px;
+  padding-left: calc(var(--titlebar-lead) + 40px);
 }
 
 .tab {

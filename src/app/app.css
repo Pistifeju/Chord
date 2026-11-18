@@ -3,6 +3,8 @@
   --sidebar-width: 264px;
   --sidebar-inset: 8px;
   --titlebar-height: 40px;
+  /* Where the sidebar toggle starts: right of the traffic lights. */
+  --titlebar-lead: 92px;
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -26,6 +28,11 @@
   background: var(--canvas);
 }
 
+/* Full screen hides the traffic lights; the toggle lines up with the sidebar title. */
+.app[data-fullscreen="true"] {
+  --titlebar-lead: 12px;
+}
+
 .titlebar {
   position: fixed;
   top: 0;
@@ -39,14 +46,14 @@
 
 .titlebar-sidebar {
   position: absolute;
-  left: 92px;
+  left: var(--titlebar-lead);
 }
 
 /* The tab bar sits above the title bar; lift only its toggle area so the toggle stays clickable. */
 .app:has(.panes) .titlebar:has([data-hidden="true"]) {
   z-index: 3;
   right: auto;
-  width: 132px;
+  width: calc(var(--titlebar-lead) + 40px);
 }
 
 .main {
