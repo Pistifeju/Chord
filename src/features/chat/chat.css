@@ -921,6 +921,16 @@
   animation: chat-in var(--t-med) var(--ease-out);
 }
 
+.chat-subagents {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chat-subagent-summary {
+  color: var(--ink-secondary);
+}
+
 .chat-subagent {
   display: flex;
   align-items: center;
@@ -936,6 +946,9 @@
 }
 
 .chat-subagent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   margin: 0;
   padding: 0;
   list-style: none;

@@ -41,9 +41,9 @@ function SubagentLines({ nodes }: { nodes: SubagentNode[] }) {
   const summary = subagentSummary(nodes, now);
   const indent = summary ? 1 : 0;
   return (
-    <section aria-label="Subagents">
+    <section aria-label="Subagents" className="chat-subagents">
       {summary && (
-        <div className="chat-subagent">
+        <div className="chat-subagent chat-subagent-summary">
           <SubagentLine mark={summary.mark} text={summary.text} />
         </div>
       )}
@@ -178,11 +178,11 @@ const CompactionRow = memo(function CompactionRow({ mark, fresh }: { mark: Compa
 });
 
 // A streaming reply renders nothing, so its chunks leave the rows as they are.
-type Rows = { items: Item[]; running: boolean; queued: string[]; steerImages: SteerImages[]; subagents: SubagentNode[]; /** How many items are the session's history. */ historyLength: number };
+type Rows = { items: Item[]; running: boolean; queued: string[]; steerImages: SteerImages[]; subagents: SubagentNode[]; subagentsAt: number | null; /** How many items are the session's history. */ historyLength: number };
 const sameItems = (a: Item[], b: Item[]) => a === b || (a.length === b.length && a.every((item, i) => item === b[i] || (isStreaming(item) && isStreaming(b[i]))));
-const sameRows = (a: Rows, b: Rows) => a.running === b.running && a.historyLength === b.historyLength && a.queued === b.queued && a.steerImages === b.steerImages && a.subagents === b.subagents && sameItems(a.items, b.items);
+const sameRows = (a: Rows, b: Rows) => a.running === b.running && a.historyLength === b.historyLength && a.queued === b.queued && a.steerImages === b.steerImages && a.subagents === b.subagents && a.subagentsAt === b.subagentsAt && sameItems(a.items, b.items);
 
-const Messages = memo(function Messages({ pane, items, running, queued, steerImages, subagents, historyLength }: { pane: string } & Rows) {
+const Messages = memo(function Messages({ pane, items, running, queued, steerImages, subagents, subagentsAt, historyLength }: { pane: string } & Rows) {
   // Only items that arrive live while the pane is open animate in; reopening a long chat and a session's history stay still.
   const loaded = useRef(items.length);
   // A session that opens with fewer items than the pane held: what arrives after its history is live.
@@ -190,21 +190,23 @@ const Messages = memo(function Messages({ pane, items, running, queued, steerIma
     loaded.current = Math.min(loaded.current, items.length);
   });
   const still = Math.max(loaded.current, historyLength);
+  const rows = items.map((item, i) =>
+    item.role === "steps" ? (
+      <StepsRow key={i} pane={pane} group={item} running={running && i === items.length - 1} fresh={i >= still} />
+    ) : item.role === "compaction" ? (
+      <CompactionRow key={i} mark={item} fresh={i >= still} />
+    ) : item.role === "stopped" ? (
+      <div key={i} className="chat-stopped" data-fresh={i >= still || undefined}>
+        Stopped
+      </div>
+    ) : item.streaming ? null : (
+      <MessageRow key={i} pane={pane} message={item} fresh={i >= still} />
+    ),
+  );
+  if (subagents.length > 0) rows.splice(Math.min(subagentsAt ?? items.length, items.length), 0, <SubagentLines key="subagents" nodes={subagents} />);
   return (
     <div className="chat-messages" data-selectable>
-      {items.map((item, i) =>
-        item.role === "steps" ? (
-          <StepsRow key={i} pane={pane} group={item} running={running && i === items.length - 1} fresh={i >= still} />
-        ) : item.role === "compaction" ? (
-          <CompactionRow key={i} mark={item} fresh={i >= still} />
-        ) : item.role === "stopped" ? (
-          <div key={i} className="chat-stopped" data-fresh={i >= still || undefined}>
-            Stopped
-          </div>
-        ) : item.streaming ? null : (
-          <MessageRow key={i} pane={pane} message={item} fresh={i >= still} />
-        ),
-      )}
+      {rows}
       {queued.map((text, i) => {
         const images = queuedImages(steerImages, text);
         return (
@@ -214,7 +216,6 @@ const Messages = memo(function Messages({ pane, items, running, queued, steerIma
           </div>
         );
       })}
-      {subagents.length > 0 && <SubagentLines nodes={subagents} />}
     </div>
   );
 }, sameRows);
@@ -379,7 +380,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
               <StartButton worktree={worktree} pane={pane} />
             </div>
           ) : (
-            <Messages pane={pane} items={shownItems.current} running={chat.running} queued={chat.queued} steerImages={chat.steerImages} subagents={subagentRows} historyLength={chat.historyLength} />
+            <Messages pane={pane} items={shownItems.current} running={chat.running} queued={chat.queued} steerImages={chat.steerImages} subagents={subagentRows} subagentsAt={chat.subagentsAt} historyLength={chat.historyLength} />
           )}
         </div>
         <button type="button" className="chat-jump" data-shown={away || undefined} title="Jump to Latest" aria-label="Jump to Latest" onClick={jumpToEnd}>

@@ -49,6 +49,8 @@ export type Chat = {
   commands: SlashCommand[];
   /** The background subagent runs and what each holds, each node before its children; none without a subagent extension. */
   subagents: SubagentNode[];
+  /** The item the subagent lines sit before, fixed when the first run shows; null puts them at the end. */
+  subagentsAt: number | null;
   /** Steering messages the agent has not taken in yet. */
   queued: string[];
   /** The images of steers sent while the agent ran, until it takes them in; its queue holds only their text. */
@@ -59,7 +61,7 @@ export type Chat = {
   historyLength: number;
 };
 
-export const emptyChat: Chat = { agent: "idle", items: [], running: false, since: null, capabilities: null, notice: null, dialog: null, model: null, context: null, commands: [], subagents: [], queued: [], steerImages: [], report: null, historyLength: 0 };
+export const emptyChat: Chat = { agent: "idle", items: [], running: false, since: null, capabilities: null, notice: null, dialog: null, model: null, context: null, commands: [], subagents: [], subagentsAt: null, queued: [], steerImages: [], report: null, historyLength: 0 };
 
 export type SteerImages = { text: string; images: Image[] };
 
@@ -226,7 +228,7 @@ export function chatAfter(chat: Chat, event: HarnessEvent, now: number): Chat {
     case "commands":
       return { ...chat, commands: event.commands };
     case "subagents":
-      return { ...chat, subagents: event.nodes };
+      return { ...chat, subagents: event.nodes, subagentsAt: event.nodes.length === 0 ? null : (chat.subagentsAt ?? chat.items.length) };
     case "queue":
       return { ...chat, queued: event.steering };
     case "message_end": {
@@ -251,9 +253,9 @@ export function chatAfter(chat: Chat, event: HarnessEvent, now: number): Chat {
       return { ...chat, notice: event.text };
     // The lineage is not cleared here: the extension empties it itself on a new session, and a snapshot it restores arrives before this event. Rust's `status_for` starts the status over here.
     case "history_start":
-      return { ...chat, items: [], queued: [], steerImages: [], report: null, historyLength: 0 };
+      return { ...chat, items: [], subagentsAt: null, queued: [], steerImages: [], report: null, historyLength: 0 };
     case "history_end":
-      return { ...chat, historyLength: chat.items.length };
+      return { ...chat, historyLength: chat.items.length, subagentsAt: chat.subagents.length > 0 ? chat.items.length : null };
     // Rust saves the session; the intake hands the draft, the export and the usage to the store; the transcript holds none of them.
     case "session_info":
     case "draft":
@@ -262,6 +264,6 @@ export function chatAfter(chat: Chat, event: HarnessEvent, now: number): Chat {
       return chat;
     case "exited":
       // Nobody is left to answer a dialog, a picker menu included.
-      return { ...chat, agent: "idle", running: false, queued: [], steerImages: [], context: null, subagents: [], dialog: null, items: closed(chat.items) };
+      return { ...chat, agent: "idle", running: false, queued: [], steerImages: [], context: null, subagents: [], subagentsAt: null, dialog: null, items: closed(chat.items) };
   }
 }
