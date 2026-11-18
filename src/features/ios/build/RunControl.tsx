@@ -20,12 +20,13 @@ const disabledLine = (text: string) => MenuItem.new({ text, enabled: false });
 const choiceItem = (pick: RunDestination | null, destination: RunDestination, choose: (destination: RunDestination) => void) =>
   CheckMenuItem.new({ text: destination.name, checked: !!pick && sameDestination(pick, destination), action: () => choose(destination) });
 
-/** The simulator models under a line per iOS version, `pick` checked; the Preview view's model menu lists them too. */
+/** The simulator models under a line per iOS version, a separator between versions, `pick` checked; the Preview view's model menu lists them too. */
 export async function simulatorItems(pick: RunDestination | null, choose: (destination: RunDestination) => void) {
   const listing = destinations.get();
   if (!listing?.simulators.length) return [await disabledLine("No Simulators")];
-  const items = [];
+  const items: (MenuItem | CheckMenuItem | PredefinedMenuItem)[] = [];
   for (const group of listing.simulators) {
+    if (items.length) items.push(await PredefinedMenuItem.new({ item: "Separator" }));
     items.push(await disabledLine(group.os));
     for (const model of group.models) items.push(await choiceItem(pick, model, choose));
   }
@@ -56,6 +57,7 @@ async function runMenu(worktree: string) {
   if (listing?.devices.length) {
     items.push(await disabledLine("Devices"));
     for (const device of listing.devices) items.push(await choiceItem(pick, device, choose));
+    items.push(await PredefinedMenuItem.new({ item: "Separator" }));
   }
   items.push(...(await simulatorItems(pick, choose)), ...(await schemeItems(worktree)));
   return Menu.new({ items });
