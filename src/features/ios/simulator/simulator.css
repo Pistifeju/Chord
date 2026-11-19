@@ -28,6 +28,10 @@
 .simulator-buttons {
   position: fixed;
   display: flex;
+  /* A view too narrow for one line wraps the circles under the pill; SimulatorView caps its width. */
+  flex-wrap: wrap;
+  justify-content: center;
+  width: max-content;
   gap: 8px;
   transform: translateX(-50%);
 }

@@ -55,13 +55,15 @@ type Touch = { fingers: Fingers; fromBottom: boolean };
 
 /** The native bezel's 8px frame and 1px edge (screen_view.rs), the 16px gap and the button row under the screen. */
 const BEZEL = 9;
-/** The button row's height (simulator.css). */
+/** One line of the button row (simulator.css); a narrow view wraps it onto more. */
 const ROW = 32;
-const BELOW_SCREEN = BEZEL + 16 + ROW;
+const ABOVE_ROW = BEZEL + 16;
 /** How far the hole reaches past the bezel, onto the native view's canvas margin (`CANVAS_MARGIN`, screen_view.rs): the native view can run this far ahead on a resize before the web's canvas covers its bezel. */
 const HOLE_MARGIN = 32;
 /** The area's margin in the view (simulator.css). */
 const AREA_MARGIN = 21;
+/** The button row reaches 12px from the view's edge, past the area's margin. */
+const ROW_OVERHANG = AREA_MARGIN - 12;
 
 const tokenRgb = (name: string) => opaqueRgb(tokenValue(name));
 
@@ -115,8 +117,10 @@ export function SimulatorView({ worktree, preview }: { worktree: string; preview
   const current = screen.use();
   const state = current?.worktree === worktree ? current.state : null;
   const live = state?.state === "live" && preview == null ? state : null;
+  const [rowHeight, setRowHeight] = useState(ROW);
+  const belowScreen = ABOVE_ROW + rowHeight;
   // The screen and its buttons fit together, centered as one group.
-  const rect = box && live ? fit({ ...box, height: box.height - BELOW_SCREEN }, live) : box;
+  const rect = box && live ? fit({ ...box, height: box.height - belowScreen }, live) : box;
   const touch = useRef<Touch | null>(null);
   const hover = useRef<Point | null>(null);
   const keysDown = useRef(new Set<string>());
@@ -209,6 +213,7 @@ export function SimulatorView({ worktree, preview }: { worktree: string; preview
   const sendButtons = useRef(() => {});
   sendButtons.current = () => {
     if (!live || !rect || !row.current) return;
+    setRowHeight(row.current.offsetHeight);
     const keys: { key: Key; face: FaceIcon }[] = [...(previewing ? [] : buttons(live.locked).map(({ button, face }) => ({ key: button, face }))), { key: "screenshot", face: "camera" }, { key: "record", face: recording ? "stop" : "record" }, { key: "appearance", face: "appearance" }];
     const faces = keys.map(({ key, face }) => ({ face, look: pressed === key ? ("pressed" as const) : hovered === key ? ("hover" as const) : ("rest" as const) }));
     const next = measureButtons(row.current, rect, colors.buttons, faces);
@@ -260,9 +265,11 @@ export function SimulatorView({ worktree, preview }: { worktree: string; preview
   useLayoutEffect(() => {
     if (!live || !rect || rect.width === 0) return;
     const outset = BEZEL + HOLE_MARGIN;
-    seeThrough.set({ x: rect.x - outset, y: rect.y - outset, width: rect.width + 2 * outset, height: rect.height + outset + BELOW_SCREEN + HOLE_MARGIN, radius: cornerRadius(rect) + outset });
+    // A row wider than the screen still sits inside the hole.
+    const width = Math.max(rect.width + 2 * outset, (row.current?.offsetWidth ?? 0) + 2 * HOLE_MARGIN);
+    seeThrough.set({ x: rect.x + rect.width / 2 - width / 2, y: rect.y - outset, width, height: rect.height + outset + belowScreen + HOLE_MARGIN, radius: cornerRadius(rect) + outset });
     return () => seeThrough.set(null);
-  }, [live !== null, rectKey]);
+  }, [live !== null, rectKey, rowHeight, box?.width]);
 
   const showCircles = (first: Point | null, fingers: Fingers) => {
     const second = first && secondFinger(fingers, first);
@@ -367,7 +374,7 @@ export function SimulatorView({ worktree, preview }: { worktree: string; preview
     <div className="simulator">
       <div className="simulator-area" ref={area}>
         {live && rect && rect.width > 0 && (
-          <div ref={row} className="simulator-buttons" role="group" aria-label="Simulator Buttons" style={{ left: rect.x + rect.width / 2, top: rect.y + rect.height + BELOW_SCREEN - ROW }}>
+          <div ref={row} className="simulator-buttons" role="group" aria-label="Simulator Buttons" style={{ left: rect.x + rect.width / 2, top: rect.y + rect.height + ABOVE_ROW, maxWidth: (box?.width ?? 0) + 2 * ROW_OVERHANG }}>
             {!previewing && <div className="simulator-capsule">{buttons(live.locked).map(({ button, label, icon }) => faceButton(button, label, icon, () => pressButton(worktree, button)))}</div>}
             <div className="simulator-capsule simulator-capsule-round">{faceButton("screenshot", "Take Screenshot", <CameraIcon />, () => takeScreenshot(worktree, previewing))}</div>
             <div className="simulator-capsule simulator-capsule-round">
@@ -434,7 +441,7 @@ export function SimulatorView({ worktree, preview }: { worktree: string; preview
           </div>
         )}
       </div>
-      {live && box && rect && <ScreenshotThumbnail worktree={worktree} bottom={box.y + box.height + AREA_MARGIN - (rect.y + rect.height + BELOW_SCREEN - ROW) - ROW} />}
+      {live && box && rect && <ScreenshotThumbnail worktree={worktree} bottom={box.y + box.height + AREA_MARGIN - (rect.y + rect.height + belowScreen)} />}
     </div>
   );
 }
