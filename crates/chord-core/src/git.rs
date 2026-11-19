@@ -8,6 +8,8 @@ use crate::Error;
 
 fn command(dir: &Path, args: &[&str]) -> Command {
     let mut command = Command::new("git");
+    // The app has no terminal to ask in: a push without credentials fails with git's reason.
+    command.env("GIT_TERMINAL_PROMPT", "0");
     command.arg("-C").arg(dir).args(args);
     command
 }

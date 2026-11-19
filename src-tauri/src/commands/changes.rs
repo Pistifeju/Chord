@@ -1,8 +1,10 @@
-//! Commands for a worktree's changes: list the changed files, read one file's diff, stage, unstage and discard files and hunks.
+//! Commands for a worktree's changes: list the changed files, read one file's diff, stage, unstage and discard files and hunks, commit the staged files or amend the last commit, read who commits and where a push goes, and push the branch.
 
 use std::path::PathBuf;
 
-use chord_core::{Change, DiffSide, FileDiff, Hunk, HunkAction, changes};
+use chord_core::{
+    Change, DiffSide, FileDiff, Hunk, HunkAction, changes, commits, commits::CommitTarget,
+};
 
 use super::blocking;
 
@@ -66,4 +68,39 @@ pub async fn apply_hunk(
         changes::apply_hunk(&worktree, &file, &hunk, action)
     })
     .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn commit_staged(
+    app: tauri::AppHandle,
+    worktree: PathBuf,
+    message: String,
+    amend: bool,
+) -> Result<(), String> {
+    blocking(app, move |_, _| commits::commit(&worktree, &message, amend)).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn last_commit_message(
+    app: tauri::AppHandle,
+    worktree: PathBuf,
+) -> Result<String, String> {
+    blocking(app, move |_, _| commits::last_message(&worktree)).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn read_commit_target(
+    app: tauri::AppHandle,
+    worktree: PathBuf,
+) -> Result<CommitTarget, String> {
+    blocking(app, move |_, _| commits::target(&worktree)).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn push_branch(app: tauri::AppHandle, worktree: PathBuf) -> Result<(), String> {
+    blocking(app, move |_, _| commits::push(&worktree)).await
 }

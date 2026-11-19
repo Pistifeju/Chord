@@ -1,4 +1,4 @@
-/* The Changes view: its groups and their rows, which take the Files tree and its row. Rules: DESIGN.md, Changes view. */
+/* The Changes view: its groups and their rows, which take the Files tree and its row, and the commit area under them. Rules: DESIGN.md, Changes view. */
 .changes-section + .changes-section {
   margin-top: 12px;
 }
@@ -30,6 +30,24 @@
   position: relative;
 }
 
+/* A row that came with a read after the first one: staged, unstaged or new on disk. */
+.changes-item[data-arrived] {
+  animation: changes-in var(--t-med) var(--ease-out);
+}
+
+@keyframes changes-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@keyframes changes-fade {
+  from {
+    opacity: 0;
+  }
+}
+
 .changes-item > .changes-check {
   position: absolute;
   top: 6px;
@@ -44,12 +62,16 @@
   position: absolute;
   top: 3px;
   right: 4px;
+  opacity: 0;
   visibility: hidden;
+  transition: opacity var(--t-fast) var(--ease-out), visibility 0s var(--t-fast);
 }
 
 .files-tree:not([data-keys]) .changes-item:hover .changes-more,
 .changes-item:focus-within .changes-more {
+  opacity: 1;
   visibility: visible;
+  transition-delay: 0s;
 }
 
 /* The checkbox and the More button sit beside the row, so the row keeps its hover while the pointer is on them. */
@@ -73,7 +95,26 @@
   border-radius: var(--radius-check);
   background: var(--sheet);
   color: var(--canvas);
-  transition: background-color var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out);
+  transition: background-color var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out), transform var(--t-fast) var(--ease-out);
+}
+
+.changes-check:active:not(:disabled),
+.changes-option:active > .changes-check {
+  transform: scale(0.9);
+  transition-duration: 60ms;
+}
+
+/* The check always renders, so it animates only when it changes, never when a row first shows. */
+.changes-check > svg {
+  opacity: 0;
+  transform: scale(0.8);
+  transition: opacity var(--t-fast) var(--ease-out), transform var(--t-fast) var(--ease-out);
+}
+
+.changes-check[aria-checked="true"] > svg,
+.changes-option[aria-checked="true"] > .changes-check > svg {
+  opacity: 1;
+  transform: none;
 }
 
 .changes-check:hover:not(:disabled) {
@@ -85,7 +126,8 @@
   background: transparent;
 }
 
-.changes-check[aria-checked="true"] {
+.changes-check[aria-checked="true"],
+.changes-option[aria-checked="true"] > .changes-check {
   border-color: var(--ink);
   background: var(--ink);
 }
@@ -178,4 +220,106 @@
   text-align: center;
   font-size: calc(12px * var(--text-scale));
   color: var(--ink-muted);
+}
+
+/* The commit area under the groups: the author, the message field, its options and its buttons. */
+.changes-commit {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.input.changes-message {
+  display: block;
+  height: 96px;
+  padding: 7px 10px;
+  resize: none;
+  line-height: 1.45;
+}
+
+/* The options on the left, the buttons on the right, both on the row under the field. */
+.changes-commit-bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.changes-commit-bar > .button-primary,
+.changes-commit-bar > .button-secondary {
+  flex: none;
+}
+
+.changes-author {
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+  margin-bottom: -4px;
+  font-size: calc(12px * var(--text-scale));
+  white-space: nowrap;
+}
+
+.changes-author-name {
+  flex: none;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+  color: var(--ink-secondary);
+}
+
+.changes-author-email {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--ink-muted);
+}
+
+.changes-options {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding-top: 7px;
+}
+
+.changes-options:empty {
+  padding: 0;
+}
+
+.changes-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  font-size: calc(12px * var(--text-scale));
+  color: var(--ink-secondary);
+}
+
+.changes-option-label {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.changes-option[aria-checked="false"]:hover > .changes-check {
+  border-color: var(--ink-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .changes-item[data-arrived] {
+    animation-name: changes-fade;
+  }
+
+  .changes-check:active:not(:disabled),
+  .changes-option:active > .changes-check,
+  .changes-check > svg {
+    transform: none;
+  }
 }

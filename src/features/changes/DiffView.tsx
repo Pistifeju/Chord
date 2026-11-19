@@ -70,6 +70,7 @@ const gapMarker = new GutterText("", "cm-diff-gap");
 const diffTheme = EditorView.theme({
   // The sideways scrollbar keeps its track from the start, so a narrower tab never shifts the lines up.
   ".cm-scroller": { overflowX: "scroll" },
+  "&.cm-diff-banded .cm-content": { paddingTop: 0 },
   ".cm-diff-added": { backgroundColor: "var(--diff-added)" },
   ".cm-diff-removed": { backgroundColor: "var(--diff-removed)" },
   ".cm-diff-gap": { backgroundColor: "var(--panel)", color: "var(--ink-muted)", lineHeight: "24px" },
@@ -135,7 +136,9 @@ function diffExtensions(diff: FileDiff, actions: HunkAction[], act: Act) {
       from += line.text.length + 1;
     });
   });
-  return { doc: lines.map((line) => line.text).join("\n"), extensions: [numbers("old"), numbers("new"), sign, EditorView.decorations.of(Decoration.set(marks, true))] };
+  // A band on the first line takes the place of the content's top padding.
+  const banded = marks[0]?.from === 0 && marks[0].value.spec.block ? EditorView.editorAttributes.of({ class: "cm-diff-banded" }) : [];
+  return { doc: lines.map((line) => line.text).join("\n"), extensions: [numbers("old"), numbers("new"), sign, EditorView.decorations.of(Decoration.set(marks, true)), banded] };
 }
 
 const sameDiff = (a: FileDiff | null, b: FileDiff) => JSON.stringify(a) === JSON.stringify(b);

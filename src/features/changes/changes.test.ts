@@ -1,8 +1,8 @@
-// Tests for the Changes view rules: where the focus lands after rows leave their group.
+// Tests for the Changes view rules: where the focus lands after rows leave their group, and which rows animate in.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Change } from "../../ipc/bindings";
-import { landingAfter, nextSelection, type ChangeGroup } from "./changes.ts";
+import { arrivals, landingAfter, nextSelection, type ChangeGroup } from "./changes.ts";
 
 const group: ChangeGroup = {
   title: "Changes",
@@ -22,4 +22,12 @@ test("a read that drops the selected row selects the next one, else the change i
   assert.equal(nextSelection(files([], ["a"]), files(["a"], []), "unstaged:a"), "staged:a");
   assert.equal(nextSelection(files([], ["a"]), files([], []), "unstaged:a"), null);
   assert.equal(nextSelection(files([], ["a", "b"]), files(["b"], ["a"]), "unstaged:a"), null);
+});
+
+test("only rows that came after the first read animate in, and keep that until they go", () => {
+  const files = (staged: string[], unstaged: string[]) => [...staged.map((path) => ({ path, staged: true })), ...unstaged.map((path) => ({ path, staged: false }))] as Change[];
+  assert.deepEqual([...arrivals(undefined, files([], ["a"]), new Set())], []);
+  const staged = arrivals(files([], ["a", "b"]), files(["a"], ["b"]), new Set());
+  assert.deepEqual([...staged], ["staged:a"]);
+  assert.deepEqual([...arrivals(files(["a"], ["b"]), files(["a"], ["b", "c"]), staged)], ["staged:a", "unstaged:c"]);
 });

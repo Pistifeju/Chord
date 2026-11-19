@@ -2,6 +2,7 @@
 
 mod awake;
 pub mod changes;
+pub mod commits;
 mod error;
 pub mod files;
 mod git;

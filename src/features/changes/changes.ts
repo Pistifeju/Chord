@@ -1,4 +1,4 @@
-// Rules for the Changes view: its Staged and Changes groups, the rows a shift-click picks, how a change's status reads, and which row the focused tab's diff selects.
+// Rules for the Changes view: its Staged and Changes groups, when Commit runs, the rows a shift-click picks, how a change's status reads, and which row the focused tab's diff selects.
 import type { Change, ChangeStatus, DiffSide, WorktreePanes } from "../../ipc/bindings";
 import { groupOf } from "../panes/layout.ts";
 
@@ -48,8 +48,19 @@ export function nextSelection(before: Change[], after: Change[], selected: strin
   return landingAfter(group, gone) ?? (keys.has(moved) ? moved : null);
 }
 
+/** The rows that arrived since the first read, so only they animate in: new in `after`, or arrived before and still there. */
+export function arrivals(before: Change[] | undefined, after: Change[] | undefined, arrived: Set<string>): Set<string> {
+  if (!before || !after) return new Set();
+  const keyOf = (c: Change) => diffKey(c.staged ? "staged" : "unstaged", c.path);
+  const had = new Set(before.map(keyOf));
+  return new Set(after.map(keyOf).filter((key) => !had.has(key) || arrived.has(key)));
+}
+
 /** The key of the diff the focused tab shows, if it shows one. */
 export function focusedDiff(panes: WorktreePanes | undefined): string | null {
   const tab = panes && groupOf(panes.layout, panes.focused)?.tabs.find((t) => t.id === panes.focused);
   return tab?.kind === "file" && tab.diff ? diffKey(tab.diff, tab.path) : null;
 }
+
+/** Whether Commit runs: a message, and a staged file or the last commit to amend. */
+export const canCommit = (message: string, amend: boolean, staged: boolean) => message.trim() !== "" && (staged || amend);

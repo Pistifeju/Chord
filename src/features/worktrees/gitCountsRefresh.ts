@@ -1,4 +1,4 @@
-// Keeps the cards' git counts fresh: on window focus, when a card appears, then every 10 seconds while the window is visible.
+// Keeps the cards' git counts fresh: on window focus, when a card appears, after a commit or a push, then every 10 seconds while the window is visible.
 import { commands, type GitCounts_Serialize as GitCounts } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
 import { gainsPath, nextCounts } from "./gitCounts";
@@ -9,6 +9,11 @@ import { fail } from "../../ui/alert";
 const REFRESH_MS = 10_000;
 
 export const gitCounts = externalStore<Record<string, GitCounts>>({});
+
+let refreshNow = () => {};
+
+/** Reads the counts again now, after a commit or a push that changed them. */
+export const refreshGitCounts = () => refreshNow();
 
 // The first counts, read once at launch so the cards show with them; a failure is left to the watch to report.
 export async function loadGitCounts() {
@@ -57,11 +62,15 @@ export function watchGitCounts(): () => void {
     timer = window.setInterval(() => void refresh(), REFRESH_MS);
   };
   const onVisibility = () => (document.visibilityState === "visible" ? start() : stop());
-  const onChange = () => {
-    if (stopped || document.visibilityState !== "visible" || !gainsPath(queried, visible())) return;
+  const refreshSoon = () => {
+    if (stopped) return;
     if (running) pending = true;
     else void refresh();
   };
+  const onChange = () => {
+    if (document.visibilityState === "visible" && gainsPath(queried, visible())) refreshSoon();
+  };
+  refreshNow = refreshSoon;
 
   if (document.visibilityState === "visible") start();
   const unsubscribe = projects.subscribe(onChange);
@@ -69,6 +78,7 @@ export function watchGitCounts(): () => void {
   document.addEventListener("visibilitychange", onVisibility);
   return () => {
     stop();
+    refreshNow = () => {};
     unsubscribe();
     window.removeEventListener("focus", start);
     document.removeEventListener("visibilitychange", onVisibility);

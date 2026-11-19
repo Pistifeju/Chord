@@ -43,6 +43,10 @@ export const commands = {
 	unstageFiles: (worktree: string, files: string[]) => __TAURI_INVOKE<null>("unstage_files", { worktree, files }),
 	discardFiles: (worktree: string, files: string[]) => __TAURI_INVOKE<null>("discard_files", { worktree, files }),
 	applyHunk: (worktree: string, file: string, hunk: Hunk_Deserialize, action: HunkAction) => __TAURI_INVOKE<null>("apply_hunk", { worktree, file, hunk, action }),
+	commitStaged: (worktree: string, message: string, amend: boolean) => __TAURI_INVOKE<null>("commit_staged", { worktree, message, amend }),
+	readCommitTarget: (worktree: string) => __TAURI_INVOKE<CommitTarget_Serialize>("read_commit_target", { worktree }),
+	lastCommitMessage: (worktree: string) => __TAURI_INVOKE<string>("last_commit_message", { worktree }),
+	pushBranch: (worktree: string) => __TAURI_INVOKE<null>("push_branch", { worktree }),
 	startTerminal: (worktree: string, cols: number, rows: number, onEvent: Channel<TerminalEvent>) => __TAURI_INVOKE<null>("start_terminal", { worktree, cols, rows, onEvent }),
 	writeTerminal: (worktree: string, text: string) => __TAURI_INVOKE<null>("write_terminal", { worktree, text }),
 	resizeTerminal: (worktree: string, cols: number, rows: number) => __TAURI_INVOKE<null>("resize_terminal", { worktree, cols, rows }),
@@ -321,6 +325,30 @@ export type Change_Serialize = {
 	/**  None for a binary file. */
 	added: number | null,
 	removed: number | null,
+};
+
+export type CommitTarget = CommitTarget_Serialize | CommitTarget_Deserialize;
+
+export type CommitTarget_Deserialize = {
+	/**  "Name <email>", as a commit records it. */
+	author?: string | null,
+	/**  The remote branch a push goes to; None on a detached HEAD, a branch with no commit yet or without a remote. */
+	pushTo?: string | null,
+	/**  Whether the branch has commits `push_to` lacks, or no upstream. */
+	pushable: boolean,
+	/**  Whether HEAD has a commit to amend. */
+	amendable: boolean,
+};
+
+export type CommitTarget_Serialize = {
+	/**  "Name <email>", as a commit records it. */
+	author: string | null,
+	/**  The remote branch a push goes to; None on a detached HEAD, a branch with no commit yet or without a remote. */
+	pushTo: string | null,
+	/**  Whether the branch has commits `push_to` lacks, or no upstream. */
+	pushable: boolean,
+	/**  Whether HEAD has a commit to amend. */
+	amendable: boolean,
 };
 
 export type ConsoleTone = 

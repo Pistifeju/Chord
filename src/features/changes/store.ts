@@ -1,13 +1,32 @@
-// Connects the Changes view to IPC: each worktree's changed files read from git, one read at a time, a failed read leaving the last list, a change's diff opened in a tab, and the stage, unstage and discard of files and hunks, each followed by a read.
-import { commands, type Change, type Hunk, type HunkAction } from "../../ipc/bindings";
+// Connects the Changes view to IPC: each worktree's changed files read from git, one read at a time, a failed read leaving the last list, a change's diff opened in a tab, the stage, unstage and discard of files and hunks, each followed by a read, and the commit message with its options, commit, amend and push, each followed by a read and the git counts.
+import { commands, type Change, type CommitTarget_Serialize as CommitTarget, type Hunk, type HunkAction } from "../../ipc/bindings";
 import { closeSheet, openSheet, sheet, sheetOf } from "../../app/sheet";
 import { externalStore } from "../../ui/externalStore";
+import { canCommit } from "./changes";
 import { fail } from "../../ui/alert";
 import { flushAllSaves } from "../editor/store";
 import { closeFilePanesAt, openFileTab } from "../panes/store";
+import { refreshGitCounts } from "../worktrees/gitCountsRefresh";
 
 /** Each worktree's changes; a new list per read, which an open diff follows. */
 export const changes = externalStore<Record<string, Change[]>>({});
+
+/** Who each worktree commits as and where its push goes, read with its changes. */
+export const commitTargets = externalStore<Record<string, CommitTarget>>({});
+
+/** Each worktree's commit message as typed. */
+export const commitMessages = externalStore<Record<string, string>>({});
+
+/** Each worktree's commit options: push right after the commit, amend the last commit with the last message it filled in. */
+export type CommitOptions = { pushAfter: boolean; amend: boolean; amendedMessage?: string };
+export const commitOptions = externalStore<Record<string, CommitOptions>>({});
+// One object for every worktree without options, since a store hook re-renders on each new object it reads.
+const noOptions: CommitOptions = { pushAfter: false, amend: false };
+export const optionsOf = (all: Record<string, CommitOptions>, worktree: string): CommitOptions => all[worktree] ?? noOptions;
+const setOptions = (worktree: string, options: CommitOptions) => commitOptions.set({ ...commitOptions.get(), [worktree]: options });
+
+/** The commit or push that runs in each worktree, which takes no second click. */
+export const running = externalStore<Record<string, "commit" | "push">>({});
 
 // Each worktree with a read in flight, and whether another read was asked for meanwhile.
 const reading = new Map<string, boolean>();
@@ -24,9 +43,10 @@ export async function readChanges(worktree: string) {
   reading.set(worktree, false);
   const afterAct = acted.delete(worktree);
   try {
-    const list = await commands.listChanges(worktree);
+    const [list, target] = await Promise.all([commands.listChanges(worktree), commands.readCommitTarget(worktree)]);
     if (afterAct) actedLists.add(list);
     changes.set({ ...changes.get(), [worktree]: list });
+    commitTargets.set({ ...commitTargets.get(), [worktree]: target });
   } catch (error) {
     fail(error);
   } finally {
@@ -83,4 +103,62 @@ export async function confirmDiscard() {
     // A file that went to the Trash loses its tabs, as in the Files tree.
     for (const change of list) if (goesToTrash(change)) closeFilePanesAt(worktree, change.path);
   });
+}
+
+export const typeCommitMessage = (worktree: string, message: string) => commitMessages.set({ ...commitMessages.get(), [worktree]: message });
+
+async function runGit(worktree: string, kind: "commit" | "push", run: () => Promise<unknown>) {
+  if (running.get()[worktree]) return;
+  running.set({ ...running.get(), [worktree]: kind });
+  try {
+    await run();
+  } catch (error) {
+    fail(error);
+  }
+  const { [worktree]: _, ...rest } = running.get();
+  running.set(rest);
+  refreshGitCounts();
+  await readChanges(worktree);
+}
+
+export function commitStaged(worktree: string) {
+  const message = commitMessages.get()[worktree] ?? "";
+  const options = optionsOf(commitOptions.get(), worktree);
+  if (!canCommit(message, options.amend, !!changes.get()[worktree]?.some((c) => c.staged))) return;
+  return runGit(worktree, "commit", async () => {
+    await commands.commitStaged(worktree, message, options.amend);
+    // Text typed while the commit ran stays.
+    if (commitMessages.get()[worktree] === message) typeCommitMessage(worktree, "");
+    setOptions(worktree, { pushAfter: options.pushAfter, amend: false });
+    if (!options.pushAfter || !commitTargets.get()[worktree]?.pushTo) return;
+    running.set({ ...running.get(), [worktree]: "push" });
+    await commands.pushBranch(worktree);
+  });
+}
+
+export const pushBranch = (worktree: string) => runGit(worktree, "push", () => commands.pushBranch(worktree));
+
+export const togglePushAfter = (worktree: string) => {
+  const options = optionsOf(commitOptions.get(), worktree);
+  setOptions(worktree, { ...options, pushAfter: !options.pushAfter });
+};
+
+/** Amend fills an empty field with the last commit's message, and taking it off empties the field while that message stands unchanged. */
+export async function toggleAmend(worktree: string) {
+  const options = optionsOf(commitOptions.get(), worktree);
+  const message = commitMessages.get()[worktree] ?? "";
+  if (options.amend) {
+    if (message === options.amendedMessage) typeCommitMessage(worktree, "");
+    return setOptions(worktree, { pushAfter: options.pushAfter, amend: false });
+  }
+  setOptions(worktree, { ...options, amend: true });
+  if (message.trim()) return;
+  try {
+    const last = await commands.lastCommitMessage(worktree);
+    if (!optionsOf(commitOptions.get(), worktree).amend || (commitMessages.get()[worktree] ?? "") !== message) return;
+    typeCommitMessage(worktree, last);
+    setOptions(worktree, { ...optionsOf(commitOptions.get(), worktree), amendedMessage: last });
+  } catch (error) {
+    fail(error);
+  }
 }

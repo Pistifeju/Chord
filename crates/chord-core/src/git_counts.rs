@@ -77,7 +77,7 @@ fn read(dir: &Path, bases: &Bases) -> Result<GitCounts, Error> {
 }
 
 /// The (behind, ahead) counts against the upstream when the branch has one, and the number of changed files.
-fn parse_status(output: &str) -> (Option<(u32, u32)>, u32) {
+pub(crate) fn parse_status(output: &str) -> (Option<(u32, u32)>, u32) {
     let mut sides = None;
     let mut changed = 0;
     for line in output.lines() {
