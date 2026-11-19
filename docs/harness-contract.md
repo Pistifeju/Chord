@@ -2,9 +2,9 @@
 
 ## Decision
 
-Chord's own adapter trait in Rust, with an event schema that borrows ACP's names. The pi adapter speaks pi RPC. A generic ACP adapter comes second and brings Claude Code, Codex and every other ACP agent at once.
+Chord's own adapter trait in Rust, with an event schema that borrows ACP's names. The pi adapter speaks pi RPC. Codex and Claude Code each get an adapter that speaks the CLI's own protocol: `codex app-server`, and `claude -p` with stream-json in and out. Chord has no ACP adapter.
 
-ACP as the only contract fails for pi: section 2 lists five features that would disappear.
+ACP as the contract fails for all three: section 2 lists five features that would disappear, and both ACP adapters need Node and an npm package on top of the CLI. The build plan: `docs/onboarding-and-harnesses.md`.
 
 ## 1. What Chord needs from pi
 
@@ -39,8 +39,8 @@ ACP v1 is the stable version; v2 is a published draft. Rust and TypeScript SDKs 
 
 The pi side of ACP:
 
-- pi's maintainer declined ACP in core (issue 175, closed 2025-12-13) and pointed to an adapter on top of RPC.
-- At least four community adapters exist. `victor-software-house/pi-acp`, the most complete one, forwards no extension dialogs, no `setStatus`, no `setWidget`, no steering and no tree. It needs Node 24.
+- pi's maintainer declined ACP in core and pointed to an adapter on top of RPC.
+- At least four community adapters exist. The most complete one forwards no extension dialogs, no `setStatus`, no `setWidget`, no steering and no tree. It needs Node 24.
 - A user of Chord would install pi and a third-party adapter, and Chord's bugs would depend on that adapter's release cycle.
 
 ## 3. Contract
@@ -48,7 +48,7 @@ The pi side of ACP:
 The `Agent` trait and `start` in `crates/chord-core/src/harness/mod.rs`, one implementation per harness in `harness/<name>/`. The doc comments on the trait and on `HarnessEvent` are the reference; this section holds what they do not say.
 
 - **Events** (adapter to UI): the `HarnessEvent` variants, named after ACP's session updates where ACP has one. The frontend gets these and never a harness record. Core adds `status`; an adapter never emits it.
-- **Sessions**: `session_info` carries the adapter's own session key as a string (a pi file path, an ACP `sessionId`); `Sessions` saves it in `PaneAgent` and hands it back to `start`. On open, the adapter replays the saved messages as live events between `history_start` and `history_end`.
+- **Sessions**: `session_info` carries the adapter's own session key as a string (a pi file path, a Codex thread id, a Claude Code session id); `Sessions` saves it in `PaneAgent` and hands it back to `start`. On open, the adapter replays the saved messages as live events between `history_start` and `history_end`.
 - **Commands** (UI to adapter): the trait's methods, and dropping the agent to end it. Session commands (`/new`, `/resume`, `/fork`, `/model`) arrive as text through `send`: the adapter lists them in `commands` with kind `session` and runs them itself. A picker it needs opens as a `dialog`, and the answer comes back through `answer_dialog`.
 - **Capabilities**: `capabilities()` returns the list at start; the UI hides a control whose capability is missing.
 - **Status**: `status_for` folds the events into the card status; an adapter only emits events. The pi adapter reads the facts from pi's stdout (`ARCHITECTURE.md`, section 4).
@@ -58,20 +58,13 @@ The `Agent` trait and `start` in `crates/chord-core/src/harness/mod.rs`, one imp
 ## 4. Adapter order
 
 1. pi over RPC. First release. Full capability list.
-2. ACP, one adapter for every ACP agent. Claude Code and Codex both have adapters in the `agentclientprotocol` GitHub organisation. Capabilities: chat, tools, dialogs, models, sessions, context. No steer, tree, subagents or status line.
-3. Terminal pane for any other CLI. Status from process exit only.
+2. Codex over `codex app-server` (`docs/onboarding-and-harnesses.md`, N2). Its protocol has a published schema, so it goes first.
+3. Claude Code over `claude -p` with stream-json (N3).
+4. Terminal pane for any other CLI. Status from process exit only.
 
 ## 5. Not verified
 
-- Claude Code's stream JSON and Codex's app-server protocol have no record-by-record mapping here. The plan reaches both through ACP, so the mapping matters only if their ACP adapters fall short.
-- The ACP column comes from the docs index and the v2 pages. Before writing the ACP adapter, read the v1 schema for each row.
+- Claude Code's stream JSON and Codex's app-server protocol have no record-by-record mapping here.
+- The ACP column comes from the docs index and the v2 pages.
 - Three of the four pi ACP adapters.
 - Status from pi's stdout: a recorded pi 1.5.0 RPC run had `agent_start` and `agent_settled`; the session file and the dialog records come from pi's docs only.
-
-## Sources
-
-- pi: `rpc.md`, `rpc-commands.md`, `rpc-extension-ui.md`, `json.md` in `$(npm root -g)/@earendil-works/pi-coding-agent/docs/`
-- https://agentclientprotocol.com/protocol/v2/overview and `/prompt-lifecycle`, `/elicitation`, `/llms.txt`
-- https://github.com/earendil-works/pi/issues/175
-- https://github.com/victor-software-house/pi-acp
-- https://github.com/agentclientprotocol/codex-acp

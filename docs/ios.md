@@ -76,7 +76,7 @@ Chord runs `xcodebuild -project|-workspace … -scheme … -destination id=… b
 - Worktrees share Xcode's module cache and SDK module folder, which sit beside the per-project folders. One run of two cold builds on an empty shared cache passed here. If a build ever fails on a module file, the fix is a module cache per worktree, set with `CLANG_MODULE_CACHE_PATH` in the environment of every build, at about 420 MB a worktree.
 - One rule keeps this true: every build in a worktree uses the same build settings. A changed setting cost 41.1 s. A feature that needs a setting must make it reach every `xcodebuild` in the worktree, for example through `XCODE_XCCONFIG_FILE` in the agent's and the terminal's environment, or do without it.
 - Hot reload does without one. It needs each file's compile command, which `EMIT_FRONTEND_COMMAND_LINES` would print. Instead Chord keeps the `builtin-SwiftDriver` line every Chord build prints for each module it compiles for an arm64 simulator, and asks that driver for its commands with `-###`, `-disable-batch-mode` and no `-incremental`: one `swift-frontend` command per file, 0.3 s on a three-file package. The driver's temporary files, the explicit module map among them, go to the worktree's hot reload folder. A module only an agent's or Xcode's build compiled has no driver line yet: the first save in it rebuilds, and that build records the line.
-- Chord starts `xcodebuild` through the user's login shell, as it starts the agent and the terminal (`login_shell` in `harness/process.rs`). Swift Build puts a task's environment into its signature, so a different `PATH` links again (source 2).
+- Chord starts `xcodebuild` through the user's login shell, as it starts the agent and the terminal (`login_shell` in `harness/process.rs`). Swift Build puts a task's environment into its signature, so a different `PATH` links again.
 
 Chord finds the folder with the path hash, a pure function. Its test hardcodes the folder name Xcode gave a project at a neutral path. The built `.app` comes from one `xcodebuild -showBuildSettings -json` call after the build, with the build's project, scheme and destination: the first target of the scheme with product type `application`, at `TARGET_BUILD_DIR/FULL_PRODUCT_NAME`. A custom DerivedData location needs no special case.
 
@@ -100,7 +100,7 @@ Chord finds the folder with the path hash, a pure function. Its test hardcodes t
 
 ### 3.5 No cache sharing between worktrees
 
-A second checkout with a shared compilation cache and prefix mapping took 49.2 s and its log holds 21 hit remarks against 600 miss remarks; with no sharing at all a cold build took 48.3 s. Chord builds nothing here. Try it again when an Xcode release notes cache hits across checkout paths for targets that use macros (source 1), and add it only if a second checkout builds in under half the cold time.
+A second checkout with a shared compilation cache and prefix mapping took 49.2 s and its log holds 21 hit remarks against 600 miss remarks; with no sharing at all a cold build took 48.3 s. Chord builds nothing here. Try it again when an Xcode release notes cache hits across checkout paths for targets that use macros, and add it only if a second checkout builds in under half the cold time.
 
 A new worktree pays one cold build. Cloning another worktree's DerivedData is no way around it: its dependency files and `build.db` hold the other worktree's absolute paths, and the build goes stale without an error.
 
@@ -119,7 +119,7 @@ An agent that calls `xcodebuild build` itself is safe: section 3.2 gives it the 
 Chord takes the tool calls on one unix socket in the temp folder, readable by the user alone. A call is one JSON line, `{"tool": "build", "worktree": "/path"}`; the answer is one JSON line, `{"text": "...", "failed": false}`, sent when the build ends or the app launches. The socket hands the call to the window, which starts the build like ⌘B or ⌘R, so the run destination, the Build view and the card follow the same code.
 
 - pi gets the tools from the extension Chord ships. Chord sets `CHORD_TOOLS` (the socket) and `CHORD_WORKTREE` only for a worktree with an Xcode project, and the extension registers the tools only when both are set.
-- An ACP agent needs an MCP server in the `mcpServers` list of `session/new`, a thin one that sends each call to the same socket. Claude Code's adapter takes stdio, HTTP and SSE servers (`src/mcp-servers.ts`); Codex's takes stdio and HTTP, no SSE (`toCodexMcpServerConfig`, sources 3 and 4). So the server speaks stdio. Codex's adapter skips a requested server whose name the user's Codex config already holds, so Chord names it `chord`. It comes with the first ACP adapter.
+- Claude Code and Codex get the tools from a stdio MCP server, a thin one that sends each call to the same socket. Chord's own binary serves it (`chord agent-tools <socket> <worktree>`), so it needs no Node. Claude Code takes it through `--mcp-config`, Codex through an `mcp_servers.chord` config override with `tool_timeout_sec` raised past a cold build.
 - An agent the user starts outside Chord's chat, in the terminal panel or in their own terminal, gets no session from Chord and so no tools.
 
 ## 4. How ⌘R runs
@@ -196,7 +196,7 @@ src/features/ios/simulator/     the Simulator view: the screen's fit, keys, inpu
 ## 7. Not verified
 
 - Section 3.2 with a different `-destination` per tool: an agent that builds for a named simulator and a ⌘R for the worktree's may rerun some tasks.
-- Section 3.2 with Xcode open on the worktree, and the relink a different `PATH` costs. Both come from source 2, not from a run here.
+- Section 3.2 with Xcode open on the worktree, and the relink a different `PATH` costs. Nobody ran either here.
 - A custom DerivedData or build location in Xcode's settings (`IDECustomDerivedDataLocation`). `-showBuildSettings` gives the app's path; the cleanup needs the same care.
 - The path hash on an Xcode other than 27.1, and on a path with a symlink: `/tmp/…` hashed as typed, not as `/private/tmp/…`.
 - The wait on a locked database: the error text is Xcode 27.1's. `lsof -t build.db` may name the holder before a build starts; nobody ran it.
@@ -204,11 +204,4 @@ src/features/ios/simulator/     the Simulator view: the screen's fit, keys, inpu
 - Every time in section 2 is one run of one project on one machine. Simulator times come from a separate device set and iOS 27.0.
 - Physical devices: nobody measured one here.
 - The previews' private API on Xcode 27.1. The Simulator view's input runs over DTUHID there: touch, keys, Home and Lock passed on Xcode 27.1 with CoreSimulator 1174.9.2, with and without DeviceHub. The Indigo path of older Xcodes nobody ran here.
-- Section 3.6's MCP server for ACP agents: both adapters pass `mcpServers` on in their code, read on 2026-11-15; nobody ran a session with it.
-
-## Sources
-
-1. https://zenn.dev/sryu/articles/worktree-compilation-cache: prefix mapping, and macros that block cache hits (swift-build PR 1836).
-2. https://sergdort.github.io/xcode-agent-incremental-builds/: one DerivedData for Xcode and an agent, and the relink a different `PATH` causes.
-3. https://github.com/agentclientprotocol/claude-agent-acp: `src/mcp-servers.ts` and `src/v1/acp-agent.ts` hand the `session/new` MCP servers to the Claude Agent SDK.
-4. https://github.com/agentclientprotocol/codex-acp: `src/McpServerConfig.ts` and `src/CodexAcpClient.ts` write the `session/new` MCP servers into Codex's `mcp_servers` config.
+- Section 3.6's MCP server for Claude Code and Codex: nobody ran a session with it, and nobody measured a tool call that runs past a minute.
