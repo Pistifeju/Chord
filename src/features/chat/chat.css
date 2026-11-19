@@ -23,6 +23,8 @@
   min-height: 0;
   /* The 10px scrollbar always takes its gutter; the matching left padding keeps the column centered over the composer. */
   overflow-y: scroll;
+  /* The pane pins to the end itself; WebKit's scroll anchoring nudged a scrolled-up transcript on each layout of any pane. */
+  overflow-anchor: none;
   padding-left: 10px;
   mask-image: linear-gradient(to bottom, transparent, black 16px, black calc(100% - 16px), transparent);
 }
