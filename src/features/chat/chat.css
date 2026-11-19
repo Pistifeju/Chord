@@ -324,9 +324,18 @@
   margin: 0 auto;
   padding: 0 15px 8px;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
-.chat-working-verb {
+.chat-working > * {
+  flex-shrink: 0;
+}
+
+.chat-working > .chat-working-verb {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--ink-secondary);
 }
 
