@@ -1,5 +1,12 @@
 #!/bin/sh
-# Prints every source file with its first line, which says what the file holds.
+# Without a folder: prints every source folder with its file count. With folders: prints their source files, each with its first line, which says what the file holds.
 
-find src crates src-tauri \( -name '*.ts*' -o -name '*.rs' \) -not -path '*/target/*' -not -path '*/node_modules/*' \
-  -exec awk 'FNR==1{print FILENAME": "$0; nextfile}' {} + | sort
+sources() {
+  find "$@" \( -name '*.ts*' -o -name '*.rs' \) -not -path '*/target/*' -not -path '*/node_modules/*'
+}
+
+if [ $# -eq 0 ]; then
+  sources src crates src-tauri | sed 's|/[^/]*$||' | sort | uniq -c
+else
+  sources "$@" | sort | xargs awk 'FNR==1{print FILENAME": "$0; nextfile}'
+fi

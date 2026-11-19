@@ -3,7 +3,7 @@
 A macOS workspace for coding agents: one git worktree per task, each with its own agent chats. Tauri 2, Rust, React/TS.
 
 - Architecture: `ARCHITECTURE.md`. UI rules: `DESIGN.md`.
-- Module map: `npm run map` prints every source file with its line 1, which says what the file holds. Run it first when you look for code, then read only the files you need, by name.
+- Module map: `npm run map` prints every source folder with its file count. `npm run map <folder>` prints that folder's files, each with its line 1, which says what the file holds. When you look for code, run the first, then the second on the folders the task names, and read only the files you need, by name.
 
 ## Boundaries
 
@@ -21,7 +21,7 @@ A macOS workspace for coding agents: one git worktree per task, each with its ow
 - Build nothing before a feature needs it: no empty container, no option nobody asked for.
 - Before you write new logic at any scale, search the repo for the same thing. Extend or generalize it instead of building a parallel version.
 - State rules live in a pure module outside React.
-- Every UI change follows `DESIGN.md`, including its `Components` section for the control you touch.
+- Every UI change follows `DESIGN.md` and the `design/` file of each component you touch. `DESIGN.md` lists the files under `Components`.
 - CSS variables from `src/ui/tokens.css`. No raw hex in components.
 - Name a file, folder or module after the domain concept it holds. Never `utils`, `helpers`, `common`, `misc` or `shared`. Reaching for one of those means the file holds two jobs: split it, or find the name in what its functions operate on.
 - Write a comment only where the code cannot say it: one line, the why, never the how.

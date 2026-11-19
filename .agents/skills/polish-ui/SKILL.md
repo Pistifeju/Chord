@@ -17,7 +17,7 @@ Done when: you hold a list of files and the feature folders they belong to.
 ## 2. Load context once
 
 1. Read `.agents/skills/impeccable/SKILL.md` and follow its Setup: run `impeccable context --target <target>` once and read `reference/craft-floor.md` before the first edit.
-2. Read `DESIGN.md`, `src/ui/tokens.css`, `src/ui/controls.css`.
+2. Read `DESIGN.md`, the `design/` file of each component the target touches, `src/ui/tokens.css`, `src/ui/controls.css`.
 3. Read one neighbor for each target file: a sibling component in another feature folder with the same role (list row, pill button, sheet, popover, empty state). The neighbor sets the bar for consistency.
 
 Chord overrides to impeccable:
@@ -42,7 +42,7 @@ Grep the target, and compare each hit with the neighbor from step 2 and the DESI
 
 - **Values**: raw hex, `rgb()` or `hsl()` outside `tokens.css`; a shadow, easing or duration written inline instead of its token. [Colors, Elevation & Depth]
 - **Type**: every `font-size` and `font-weight` matches a Hierarchy row; the same role carries the same size and weight in every feature. [Typography]
-- **Shape**: every `border-radius` matches the Shapes table; control heights match Buttons and Inputs. [Shapes, Components]
+- **Shape**: every `border-radius` matches the Shapes table; control heights match Buttons and Inputs. [Shapes, `design/buttons.md`, `design/inputs.md`]
 - **Color use**: semantic red or green stays in text and small icons; no accent color on buttons, links or selection; one black pill per view. [Do's and Don'ts]
 - **States**: hover, pressed, focus ring, disabled and loading exist and match `controls.css`; empty and loading states follow their section. [Buttons, Empty and loading states]
 - **Copy**: title case on buttons and menu items, sentence case in the canvas, meta lines joined with ` · `, an ellipsis `…` on commands that open a sheet. [Typography › Principles]
@@ -51,8 +51,8 @@ Grep the target, and compare each hit with the neighbor from step 2 and the DESI
 Resolve every finding instead of listing it:
 
 - **Native control where DESIGN.md names a styled one** (a `<select>` where the doc describes a popover): replace it with the shared component in `src/ui/`, or the neighbor's pattern. Build a new component only when none exists.
-- **DESIGN.md contradicts itself or `tokens.css`**: the token value wins. Fix the prose in `DESIGN.md` to match, in the same diff.
-- **A state, motion or limit with no DESIGN.md rule** (pill hover, sheet open and close, max-height and scroll): copy the neighbor from step 2, using existing tokens and `controls.css` classes. Then add the rule to the matching `DESIGN.md` section. No neighbor and no token that fits: leave it and list it in the report.
+- **DESIGN.md contradicts itself or `tokens.css`**: the token value wins. Fix the prose in `DESIGN.md` or the `design/` file to match, in the same diff.
+- **A state, motion or limit with no DESIGN.md rule** (pill hover, sheet open and close, max-height and scroll): copy the neighbor from step 2, using existing tokens and `controls.css` classes. Then add the rule to the matching `DESIGN.md` section or `design/` file. No neighbor and no token that fits: leave it and list it in the report.
 
 Done when: every bullet above was grepped on every target file.
 
@@ -62,6 +62,6 @@ Done when: every bullet above was grepped on every target file.
 2. Run `npm run check`. Fix failures it reports in files you touched.
 3. Report, short:
    - what changed, grouped by command and sweep;
-   - each `DESIGN.md` edit, with the rule you added or the contradiction you settled;
+   - each `DESIGN.md` or `design/` edit, with the rule you added or the contradiction you settled;
    - the intentional exceptions;
    - findings you left alone, each with the one decision it needs.
