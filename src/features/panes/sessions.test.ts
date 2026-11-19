@@ -93,11 +93,13 @@ test("a preview file takes the place of the focused group's preview tab until th
 });
 
 test("a tab shows the first user message of its session, cut to 30 characters", () => {
+  const task = paneNames({ p1: { items: [{ role: "user", text: "- [ ] K5 Needs K2. Settings sheet", streaming: false }] } }, ["p1"]);
+  assert.deepEqual(task, { p1: "K5 Needs K2. Settings sheet" });
   const said = (text: string) => ({ role: "user" as const, text, streaming: false });
   const items = [{ role: "assistant" as const, text: "Hi", streaming: false }, said("  Fix the\n login   form so it accepts emails"), said("Later")];
   const names = paneNames({ p1: { items: [] }, p2: { items } }, ["p1", "p2", "p3"]);
-  assert.deepEqual(names, { p2: "Fix the login form so it accep" });
-  assert.equal(tabName(chat("p2", "Session 2"), names), "Fix the login form so it accep");
+  assert.deepEqual(names, { p2: "Fix the login form so it acce…" });
+  assert.equal(tabName(chat("p2", "Session 2"), names), "Fix the login form so it acce…");
   assert.equal(tabName(chat("p1", "Session 1"), names), "Session 1");
   assert.equal(tabName({ kind: "file", id: "f1", path: "src/a.ts" }, names), "a.ts");
 });

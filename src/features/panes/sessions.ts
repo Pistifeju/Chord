@@ -64,17 +64,20 @@ export function withSplitFocused(panes: WorktreePanes, group: string, chat: stri
 /** The name of each pane's agent session, by pane id; a pane whose session has no user message yet is left out. */
 export type PaneNames = Record<string, string | undefined>;
 
-// A session is named after its first user message, on one line and cut to 30 characters.
+// A list, checkbox, heading or quote marker in front of the first word.
+const MARKERS = /^\s*(?:(?:[-*+>]|#+|\d+[.)])\s+)*(?:\[[ xX]\]\s+)?/;
+
+// A session is named after its first user message, on one line, without its leading Markdown markers, cut to 30 characters with an ellipsis.
 function sessionName(items: Item[]): string | undefined {
   const first = items.find((item) => item.role === "user");
   if (first?.role !== "user") return undefined;
   // Every chunk asks again, so only the words that reach 30 characters are read.
   let name = "";
-  for (const [word] of first.text.matchAll(/\S+/g)) {
+  for (const [word] of first.text.replace(MARKERS, "").matchAll(/\S+/g)) {
     name += name ? ` ${word}` : word;
-    if (name.length >= 30) break;
+    if (name.length > 30) break;
   }
-  return name.slice(0, 30) || undefined;
+  return (name.length > 30 ? `${name.slice(0, 29).trimEnd()}…` : name) || undefined;
 }
 
 export const paneNames = (chats: Record<string, { items: Item[] } | undefined>, panes: string[]): PaneNames =>

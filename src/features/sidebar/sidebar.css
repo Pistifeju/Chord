@@ -145,7 +145,8 @@
   min-height: 16px;
 }
 
-.dock-card-project {
+/* Outranks .project-name's padding, so the project name sits on the title's edge. */
+.dock-card .dock-card-project {
   flex: 1;
   min-width: 0;
   padding: 0;
