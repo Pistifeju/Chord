@@ -1,10 +1,10 @@
-//! Commands for projects and their worktrees: add, remove, list, create, rename the branch, list the local branches and switch to one, delete, git counts.
+//! Commands for projects and their worktrees: add, remove, list, create, rename a branch, list the local branches, switch to one and delete one, delete a worktree, git counts.
 
 use std::path::PathBuf;
 
 use chord_core::{
     Error, GitCounts, Project, Removal, Store, Worktree,
-    branches::{self, LocalBranch},
+    branches::{self, Deletion, LocalBranch},
     git_counts, projects, worktrees,
 };
 use tauri::AppHandle;
@@ -85,11 +85,11 @@ pub async fn check_branch_name(
 pub async fn check_branch_rename(
     app: AppHandle,
     project: PathBuf,
-    worktree: PathBuf,
+    branch: String,
     name: String,
 ) -> Result<Option<String>, String> {
     blocking(app, move |_, store| {
-        worktrees::check_branch_rename(&projects::find(store, &project)?, &worktree, &name)
+        worktrees::check_branch_rename(&projects::find(store, &project)?, &branch, &name)
     })
     .await
 }
@@ -99,11 +99,11 @@ pub async fn check_branch_rename(
 pub async fn rename_branch(
     app: AppHandle,
     project: PathBuf,
-    worktree: PathBuf,
+    branch: String,
     name: String,
 ) -> Result<(), String> {
     blocking(app, move |_, store| {
-        worktrees::rename_branch(&projects::find(store, &project)?, &worktree, &name)
+        worktrees::rename_branch(&projects::find(store, &project)?, &branch, &name)
     })
     .await
 }
@@ -122,6 +122,17 @@ pub async fn switch_branch(
     branch: String,
 ) -> Result<(), String> {
     blocking(app, move |_, _| branches::switch(&worktree, &branch)).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn delete_branch(
+    app: AppHandle,
+    worktree: PathBuf,
+    branch: String,
+    force: bool,
+) -> Result<Deletion, String> {
+    blocking(app, move |_, _| branches::delete(&worktree, &branch, force)).await
 }
 
 #[tauri::command]

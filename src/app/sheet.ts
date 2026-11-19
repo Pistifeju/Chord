@@ -6,6 +6,8 @@ export type Sheet =
   | { kind: "newWorktree" }
   | { kind: "deleteWorktree"; project: string; path: string; name: string }
   | { kind: "forceRemoval"; project: string; path: string; branch: string | null; reason: string }
+  | { kind: "renameBranch" }
+  | { kind: "deleteBranch"; worktree: string; branch: string; unmerged: boolean }
   | { kind: "trashFile"; worktree: string; path: string }
   | { kind: "discardChanges"; worktree: string; changes: Change[]; hunk?: Hunk }
   | { kind: "dropStash"; worktree: string; stash: Stash }

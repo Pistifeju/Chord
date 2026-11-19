@@ -33,6 +33,7 @@ pub fn ipc() -> tauri_specta::Builder<tauri::Wry> {
             commands::projects::rename_branch,
             commands::projects::list_branches,
             commands::projects::switch_branch,
+            commands::projects::delete_branch,
             commands::projects::create_worktree,
             commands::projects::remove_worktree,
             commands::projects::read_git_counts,

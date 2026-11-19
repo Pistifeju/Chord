@@ -1,4 +1,5 @@
-// The worktree whose branch name shows as a field on its card, the typed name's live git check, and the rename on Return.
+// The branch being renamed, in the field on its worktree's card or in the branch menu's Rename Branch sheet, the typed name's live git check, and the rename on Return.
+import { closeSheet, openSheet } from "../../app/sheet";
 import { commands } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
 import { fail } from "../../ui/alert";
@@ -8,7 +9,9 @@ import { projects, refreshWorktrees } from "./store";
 
 type Rename = {
   project: string;
-  path: string;
+  // the card that shows the field; null for the sheet
+  path: string | null;
+  branch: string | null;
   name: string;
   // null while the name is empty, being checked, or valid; also holds git's refusal of the rename
   problem: string | null;
@@ -28,40 +31,55 @@ export function startRename(path?: string) {
   const branch = path ? worktreeAt(projects.get(), path)?.branch : undefined;
   if (!path || !project || path === project) return;
   check.drop();
-  rename.set({ project, path, name: branch ?? "", problem: branch ? null : "A detached HEAD has no branch to rename", renaming: false });
+  rename.set({ project, path, branch: branch ?? null, name: branch ?? "", problem: branch ? null : "A detached HEAD has no branch to rename", renaming: false });
 }
+
+export function startBranchRename(worktree: string, branch: string) {
+  const project = ownerOf(projects.get(), worktree);
+  if (!project) return;
+  check.drop();
+  rename.set({ project, path: null, branch, name: branch, problem: null, renaming: false });
+  openSheet({ kind: "renameBranch" });
+}
+
+const close = () => {
+  rename.set(null);
+  closeSheet("renameBranch");
+};
 
 // A rename already sent finishes; leaving the field only drops the field.
 export const cancelRename = () => {
   check.drop();
-  rename.set(null);
+  close();
 };
 
 export async function setRenameName(name: string) {
-  update({ name, problem: null });
   const form = rename.get();
+  if (!form?.branch) return update({ name });
+  update({ name, problem: null });
   const typed = branchName(name);
-  if (!form || !typed) return check.drop();
-  await check.run(() => commands.checkBranchRename(form.project, form.path, typed), (problem) => update({ problem }));
+  if (!typed) return check.drop();
+  const { project, branch } = form;
+  await check.run(() => commands.checkBranchRename(project, branch, typed), (problem) => update({ problem }));
 }
 
 // Return during the live check renames anyway: Rust checks the name again before `git branch -m`.
 export async function finishRename() {
   const form = rename.get();
-  if (!form || form.renaming || form.problem) return;
+  if (!form?.branch || form.renaming || form.problem) return;
   const name = branchName(form.name);
   if (!name) return;
-  if (name === worktreeAt(projects.get(), form.path)?.branch) return rename.set(null);
+  if (name === form.branch) return close();
   check.drop();
   update({ renaming: true });
   const open = () => rename.get()?.path === form.path;
   try {
-    await commands.renameBranch(form.project, form.path, name);
+    await commands.renameBranch(form.project, form.branch, name);
   } catch (error) {
     if (open()) update({ renaming: false, problem: String(error) });
     else fail(error);
     return;
   }
-  if (open()) rename.set(null);
+  if (open()) close();
   await refreshWorktrees(form.project).catch(fail);
 }

@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 use specta::Type;
 
+use crate::branches::{self, Deletion};
 use crate::{Error, git, projects::Project, state::place_in};
 
 #[derive(Serialize, Type, Clone, Debug, PartialEq)]
@@ -67,57 +68,33 @@ pub fn check_branch(project: &Project, name: &str) -> Result<Option<String>, Err
         .then(|| "A folder with this name exists".into()))
 }
 
-/// None when the worktree's branch can take `name`, else the reason it cannot. Its own name passes.
+/// None when the branch `current` can take `name`, else the reason it cannot. Its own name passes.
 pub fn check_branch_rename(
     project: &Project,
-    worktree: &Path,
+    current: &str,
     name: &str,
 ) -> Result<Option<String>, Error> {
-    rename_problem(project, branch_of(project, worktree)?.as_deref(), name)
+    if current == name {
+        return Ok(None);
+    }
+    branch_problem(project, name, Some(current))
 }
 
-/// Renames the worktree's branch with `git branch -m`; its folder keeps its name.
-pub fn rename_branch(project: &Project, worktree: &Path, name: &str) -> Result<(), Error> {
-    let current = branch_of(project, worktree)?;
-    if let Some(reason) = rename_problem(project, current.as_deref(), name)? {
+/// Renames the branch `current` with `git branch -m`; a worktree on it keeps its folder name.
+pub fn rename_branch(project: &Project, current: &str, name: &str) -> Result<(), Error> {
+    if let Some(reason) = check_branch_rename(project, current, name)? {
         return Err(Error::Message(reason));
     }
-    let Some(current) = current.filter(|current| current != name) else {
+    if current == name {
         return Ok(());
-    };
+    }
     // A change of letter case alone needs `-M`: a case-insensitive disk finds the old ref under the new name.
     let flag = if current.eq_ignore_ascii_case(name) {
         "-M"
     } else {
         "-m"
     };
-    git::run(&project.path, &["branch", flag, &current, name]).map(|_| ())
-}
-
-fn rename_problem(
-    project: &Project,
-    current: Option<&str>,
-    name: &str,
-) -> Result<Option<String>, Error> {
-    match current {
-        None => Ok(Some("A detached HEAD has no branch to rename".into())),
-        Some(current) if current == name => Ok(None),
-        Some(current) => branch_problem(project, name, Some(current)),
-    }
-}
-
-fn branch_of(project: &Project, worktree: &Path) -> Result<Option<String>, Error> {
-    entries(&project.path)?
-        .into_iter()
-        .find(|entry| entry.worktree.path == worktree)
-        .map(|entry| entry.worktree.branch)
-        .ok_or_else(|| {
-            Error::Message(format!(
-                "{} is not a worktree of {}",
-                worktree.display(),
-                project.name
-            ))
-        })
+    git::run(&project.path, &["branch", flag, "--", current, name]).map(|_| ())
 }
 
 // `renaming` is the branch the name replaces; a name that differs from it only in letter case is free.
@@ -356,14 +333,11 @@ pub fn remove_folder(
 }
 
 /// Deletes a removed worktree's branch when it is merged; the branch and why it stays otherwise.
-pub fn delete_branch(project: &Project, name: String) -> Option<KeptBranch> {
-    let Err(Error::Message(message)) = git::run(&project.path, &["branch", "-d", &name]) else {
-        return None;
-    };
-    let reason = if message.contains("not fully merged") {
-        "it is not merged".to_string()
-    } else {
-        message
+pub fn delete_merged_branch(project: &Project, name: String) -> Option<KeptBranch> {
+    let reason = match branches::delete(&project.path, &name, false) {
+        Ok(Deletion::Unmerged) => "it is not merged".to_string(),
+        Err(Error::Message(message)) => message,
+        Ok(Deletion::Deleted) | Err(_) => return None,
     };
     Some(KeptBranch { name, reason })
 }
@@ -478,25 +452,19 @@ mod tests {
         };
         let worktree = path("foo")?;
 
-        let taken = check_branch_rename(&project, &worktree, "main")?;
-        let own = check_branch_rename(&project, &worktree, "foo")?;
-        let bad = check_branch_rename(&project, &worktree, "a b")?;
-        rename_branch(&project, &worktree, "Foo")?;
+        let taken = check_branch_rename(&project, "foo", "main")?;
+        let own = check_branch_rename(&project, "foo", "foo")?;
+        let bad = check_branch_rename(&project, "foo", "a b")?;
+        rename_branch(&project, "foo", "Foo")?;
         let after_case = path("Foo")?;
-        rename_branch(&project, &worktree, "bar/baz")?;
+        rename_branch(&project, "Foo", "bar/baz")?;
         let after_rename = path("bar/baz")?;
-        git::run(&worktree, &["checkout", "-q", "--detach"])?;
-        let detached = check_branch_rename(&project, &worktree, "other")?;
 
         assert_eq!(taken.as_deref(), Some("A branch with this name exists"));
         assert_eq!(own, None);
         assert_eq!(bad.as_deref(), Some("Not a valid branch name"));
         assert_eq!(after_case, worktree);
         assert_eq!(after_rename, worktree);
-        assert_eq!(
-            detached.as_deref(),
-            Some("A detached HEAD has no branch to rename")
-        );
         Ok(())
     }
 
@@ -592,7 +560,7 @@ mod tests {
         }
         Ok(match remove_folder(project, path, false)? {
             Ok(branch) => Removal::Removed {
-                kept_branch: branch.and_then(|name| delete_branch(project, name)),
+                kept_branch: branch.and_then(|name| delete_merged_branch(project, name)),
             },
             Err(refusal) => refusal,
         })

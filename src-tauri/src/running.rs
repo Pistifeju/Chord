@@ -39,7 +39,7 @@ impl<'a> Running<'a> {
             Err(refusal) => return Ok(refusal),
         };
         self.sessions.forget(worktree)?;
-        let kept_branch = branch.and_then(|name| worktrees::delete_branch(project, name));
+        let kept_branch = branch.and_then(|name| worktrees::delete_merged_branch(project, name));
         self.builds.forget(worktree);
         Ok(Removal::Removed { kept_branch })
     }

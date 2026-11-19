@@ -13,10 +13,11 @@ export const commands = {
 	removeProject: (project: string) => __TAURI_INVOKE<null>("remove_project", { project }),
 	listWorktrees: (project: string) => __TAURI_INVOKE<Worktree_Serialize[]>("list_worktrees", { project }),
 	checkBranchName: (project: string, name: string) => __TAURI_INVOKE<string | null>("check_branch_name", { project, name }),
-	checkBranchRename: (project: string, worktree: string, name: string) => __TAURI_INVOKE<string | null>("check_branch_rename", { project, worktree, name }),
-	renameBranch: (project: string, worktree: string, name: string) => __TAURI_INVOKE<null>("rename_branch", { project, worktree, name }),
+	checkBranchRename: (project: string, branch: string, name: string) => __TAURI_INVOKE<string | null>("check_branch_rename", { project, branch, name }),
+	renameBranch: (project: string, branch: string, name: string) => __TAURI_INVOKE<null>("rename_branch", { project, branch, name }),
 	listBranches: (worktree: string) => __TAURI_INVOKE<LocalBranch_Serialize[]>("list_branches", { worktree }),
 	switchBranch: (worktree: string, branch: string) => __TAURI_INVOKE<null>("switch_branch", { worktree, branch }),
+	deleteBranch: (worktree: string, branch: string, force: boolean) => __TAURI_INVOKE<Deletion>("delete_branch", { worktree, branch, force }),
 	createWorktree: (project: string, branch: string) => __TAURI_INVOKE<Worktree_Serialize>("create_worktree", { project, branch }),
 	removeWorktree: (project: string, worktree: string, force: boolean) => __TAURI_INVOKE<Removal_Serialize>("remove_worktree", { project, worktree, force }),
 	readGitCounts: (worktrees: string[]) => __TAURI_INVOKE<GitCounts_Serialize[]>("read_git_counts", { worktrees }),
@@ -433,6 +434,10 @@ export type ConsoleTone =
 
 /**  `simctl ui content_size`'s categories. */
 export type ContentSize = "extra-small" | "small" | "medium" | "large" | "extra-large" | "extra-extra-large" | "extra-extra-extra-large" | "accessibility-medium" | "accessibility-large" | "accessibility-extra-large" | "accessibility-extra-extra-large" | "accessibility-extra-extra-extra-large";
+
+export type Deletion = "Deleted" | 
+/**  `git branch -d` refused: the branch has commits that neither HEAD nor its upstream holds. */
+"Unmerged";
 
 export type Destinations = {
 	devices: RunDestination[],

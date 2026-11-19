@@ -1,5 +1,5 @@
 // The dialog an agent's extension opens, shown in place of the composer: a select with its filter row, a confirm or an input; the menu a composer bar picker floats above it; and the select itself, which the branch menu takes too.
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import type { DialogAnswer } from "../../ipc/bindings";
 import { CheckIcon } from "../../ui/icons";
 import { useOutsidePointer } from "../../ui/outsidePointer";
@@ -23,6 +23,8 @@ type SelectProps = {
   meta?: (at: number) => string;
   /** Whether the option at this index shows but cannot be picked. */
   unavailable?: (at: number) => boolean;
+  /** The right-click menu of the option at this index. */
+  rowMenu?: (at: number, event: MouseEvent) => void;
 };
 
 const noneUnavailable = () => false;
@@ -30,7 +32,7 @@ const noneUnavailable = () => false;
 const openFrom = (at: number, shown: number[], unavailable: (at: number) => boolean) =>
   shown[at] !== undefined && unavailable(shown[at]) ? steppedPast(at, 1, shown.length, (i) => unavailable(shown[i])) : at;
 
-export function Select({ options, current, answer, filter = "field", meta, unavailable = noneUnavailable }: SelectProps) {
+export function Select({ options, current, answer, filter = "field", meta, unavailable = noneUnavailable, rowMenu }: SelectProps) {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(() => openFrom(startIndex(options, current), matchingOptions(options, ""), unavailable));
   const root = useRef<HTMLDivElement>(null);
@@ -90,6 +92,7 @@ export function Select({ options, current, answer, filter = "field", meta, unava
               className="chat-dialog-option"
               onMouseMove={() => i !== active && !unavailable(at) && setActive(i)}
               onClick={() => choose(at)}
+              onContextMenu={rowMenu && ((e) => rowMenu(at, e))}
             >
               {meta ? (
                 <>

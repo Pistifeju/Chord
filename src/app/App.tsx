@@ -31,6 +31,8 @@ import { NoProjects } from "../features/worktrees/NoProjects";
 import { DeleteWorktreePopup } from "../features/worktrees/DeleteWorktreePopup";
 import { RemoveProjectPopup } from "../features/worktrees/RemoveProjectPopup";
 import { ForceRemovalPopup } from "../features/worktrees/ForceRemovalPopup";
+import { DeleteBranchPopup } from "../features/worktrees/DeleteBranchPopup";
+import { RenameBranchPopup } from "../features/worktrees/RenameBranchPopup";
 import { NewWorktreePopup } from "../features/worktrees/NewWorktreePopup";
 import { ProjectDrop } from "../features/worktrees/ProjectDrop";
 import { watchGitCounts } from "../features/worktrees/gitCountsRefresh";
@@ -174,6 +176,8 @@ export default function App() {
       <NewWorktreePopup />
       <DeleteWorktreePopup />
       <ForceRemovalPopup />
+      <RenameBranchPopup />
+      <DeleteBranchPopup />
       <TrashFilePopup />
       <DiscardChangesPopup />
       <DropStashPopup />

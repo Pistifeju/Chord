@@ -256,6 +256,7 @@ Edge cases:
 - [x] M3 Needs M2. Commit and push: under the groups the author a commit records, a message field and a Commit button (⌘Return in the field), enabled while the field has text and a file is staged; it commits the staged files and empties the field. Two checkboxes over the button: Push changes immediately to the upstream (or the remote and branch a first push sets), which pushes right after the commit, and Amend last commit, which fills an empty field with the last commit's message and lets Commit replace that commit, with or without staged files. A Push button shows while the branch has commits its upstream lacks or has no upstream; it runs `git push` and sets the upstream on the first push. The card's git counts (B6) refresh after both.
 - [x] M4 Needs M1. Scope control in the view's header: Uncommitted (M1's groups) or Branch. Branch lists the files that differ between HEAD and its merge base with the main checkout's branch, with their statuses and line counts, and over them the branch's commits since that merge base, newest first: subject, short hash and age. A commit opens like a folder to the files it changed. A click on a file opens its diff for the branch or for that commit. Under the control, Compared to names the base; its menu lists the default base, then the local and the remote branches, and a pick holds until the app quits.
 - [x] M5 Needs M1. Stashes: Stash Changes on the Changes group stashes the worktree's changes with its untracked files. A Stashes group under the others lists the repository's stashes, newest first: message, the branch it came from and age; a stash opens like a folder to the files it holds, and a click on one opens its diff. Right-click: Apply, Pop, Drop; Drop asks first.
+- [ ] M6 Needs M1. Branches: a Branches group under Stashes lists the repository's local branches, newest first: name, the worktree that holds it and the last commit's age. Right-click: Rename and Delete. Rename turns the name into a field with B2's live `git check-ref-format` check; Return runs `git branch -m`, Esc cancels. Delete asks first and runs `git branch -d`; a branch with unmerged commits asks again with the commit count and runs `git branch -D`.
 
 Edge cases:
 - The view reads git when it shows, on window focus, after each of its own actions and on B6's refresh while it shows; an open diff tab reads again with it. No file watcher.
@@ -272,6 +273,9 @@ Edge cases:
 - M4: a picked base that is gone falls back to the default.
 - M5: stashes belong to the repository, so every worktree lists the same ones.
 - M5: an Apply or Pop that conflicts leaves the stash in the list.
+- M6: branches belong to the repository, so every worktree lists the same ones.
+- M6: a branch a worktree or the main checkout holds has no Delete; B3 deletes it with its worktree. A rename of a worktree's branch updates its card as B8 does.
+- M6: a name another branch holds keeps the Rename field open with the reason.
 
 ## 14. Harness capabilities these features need
 

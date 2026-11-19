@@ -1,5 +1,6 @@
-// The composer's branch menu, floating above the composer card as a picker menu: the worktree's local branches newest first, read when it opens, a pick switching the worktree to one.
+// The composer's branch menu, floating above the composer card as a picker menu: the worktree's local branches newest first, read when it opens, a pick switching the worktree to one, and a row's right-click menu with Rename Branch and, for a branch no worktree holds, Delete Branch.
 import { useEffect, useState } from "react";
+import { showMenu } from "../../app/commands";
 import { commands, type LocalBranch } from "../../ipc/bindings";
 import { fail } from "../../ui/alert";
 import { switchBranch } from "../worktrees/branchSwitch";
@@ -35,6 +36,10 @@ export function BranchMenu({ worktree, current }: { worktree: string; current: s
         filter={filtersBranches(branches.length) ? "field" : "typing"}
         meta={(at) => branchMeta(branches[at], now)}
         unavailable={(at) => !!branches[at].heldBy}
+        rowMenu={(at, e) => {
+          const { name, heldBy } = branches[at];
+          void showMenu(e, heldBy || name === current ? [["branch.rename", name]] : [["branch.rename", name], ["branch.delete", name]]);
+        }}
         answer={(answer) => {
           closeBranchMenu();
           if (answer.kind === "value" && answer.value !== current) void switchBranch(worktree, answer.value);

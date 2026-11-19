@@ -1,4 +1,4 @@
-//! A worktree's local branches for the composer's branch menu, newest first with the other worktree that holds each, and the switch of the worktree to one.
+//! A worktree's local branches for the composer's branch menu, newest first with the other worktree that holds each, the switch of the worktree to one, and the delete of a branch.
 
 use std::path::{Path, PathBuf};
 
@@ -54,12 +54,32 @@ pub fn switch(worktree: &Path, branch: &str) -> Result<(), Error> {
     git::run(worktree, &["switch", "--no-guess", "--", branch]).map(|_| ())
 }
 
+#[derive(Serialize, Type, Debug, PartialEq)]
+pub enum Deletion {
+    Deleted,
+    /// `git branch -d` refused: the branch has commits that neither HEAD nor its upstream holds.
+    Unmerged,
+}
+
+/// Deletes `branch` with `git branch -d` run in `repo`, or with `-D` when `force`; git refuses a branch a worktree holds.
+pub fn delete(repo: &Path, branch: &str, force: bool) -> Result<Deletion, Error> {
+    let flag = if force { "-D" } else { "-d" };
+    match git::run(repo, &["branch", flag, "--", branch]) {
+        Ok(_) => Ok(Deletion::Deleted),
+        Err(Error::Message(message)) if !force && message.contains("not fully merged") => {
+            Ok(Deletion::Unmerged)
+        }
+        Err(other) => Err(other),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn marks_branches_other_worktrees_hold_and_switches_to_a_free_one() -> Result<(), Error> {
+    fn marks_branches_other_worktrees_hold_switches_to_a_free_one_and_deletes_only_with_force_when_unmerged()
+    -> Result<(), Error> {
         let root = std::env::temp_dir().join(format!("chord-branches-{}", std::process::id()));
         let result = list_and_switch(&root);
         let _ = std::fs::remove_dir_all(&root);
@@ -105,6 +125,30 @@ mod tests {
         switch(&repo, "free")?;
         let current = git::run(&repo, &["symbolic-ref", "--short", "HEAD"])?;
 
+        git::run(&repo, &["switch", "-q", "-c", "side"])?;
+        git::run(
+            &repo,
+            &[
+                "-c",
+                "user.name=t",
+                "-c",
+                "user.email=t@t",
+                "-c",
+                "commit.gpgsign=false",
+                "commit",
+                "-q",
+                "--allow-empty",
+                "-m",
+                "second",
+            ],
+        )?;
+        switch(&repo, "free")?;
+        let unmerged = delete(&repo, "side", false)?;
+        let forced = delete(&repo, "side", true)?;
+        let merged = delete(&repo, "main", false)?;
+        let held_delete = delete(&repo, "taken", true);
+        let left: Vec<String> = list(&repo)?.into_iter().map(|b| b.name).collect();
+
         let holder = |name: &str| {
             listed
                 .iter()
@@ -117,6 +161,11 @@ mod tests {
         assert_eq!(holder("taken"), Some(Some(other.canonicalize()?)));
         assert!(held.is_err());
         assert_eq!(current.trim(), "free");
+        assert_eq!(unmerged, Deletion::Unmerged);
+        assert_eq!(forced, Deletion::Deleted);
+        assert_eq!(merged, Deletion::Deleted);
+        assert!(held_delete.is_err());
+        assert_eq!(left.len(), 2);
         Ok(())
     }
 }
