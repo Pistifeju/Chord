@@ -21,6 +21,7 @@ import { CloseIcon, DiffIcon, FileIcon, GlobeIcon, PiIcon, PlusIcon, SidePanelIc
 import { BrowserView } from "../browser/BrowserView";
 import { usePointerDrag } from "../../ui/pointerDrag";
 import { chatPaneIds, dropEdge, dropPreview, edgeDirection, fitsSplit, groupOf, minExtent, paneIds, resizedSizes, type Box, type Group } from "./layout";
+import { diffTitle } from "../changes/changes";
 import { movesTab, tabName, type PaneNames, type TabDrop } from "./sessions";
 import { closePane, endResize, ensurePanes, evenOutSplit, focusPane, keepFilePane, moveTab, newSession, panes, resizeSplit } from "./store";
 import "./panes.css";
@@ -101,8 +102,6 @@ const tabIcon = (tab: Tab) => (tab.kind === "file" ? (tab.diff ? <DiffIcon /> : 
 
 const closeLabel = (tab: Tab) => (tab.kind === "file" ? "Close File" : tab.kind === "browser" ? "Close Page" : "Close Session");
 
-const diffTitles: Record<DiffSide, string> = { staged: " (Staged)", unstaged: " (Changes)" };
-
 function TabView({ tab, group, place, status }: { tab: Tab; group: Group; place: Place; status: Status | null }) {
   const { worktree, drag } = place;
   const open = tab.id === group.active;
@@ -123,7 +122,7 @@ function TabView({ tab, group, place, status }: { tab: Tab; group: Group; place:
         role="tab"
         className="tab-name"
         aria-selected={open}
-        title={file ? `${tab.path}${tab.diff ? diffTitles[tab.diff] : ""}` : tab.kind === "browser" ? tab.url : undefined}
+        title={file ? `${tab.path}${tab.diff ? diffTitle(tab.diff) : ""}` : tab.kind === "browser" ? tab.url : undefined}
         {...drag.handlers(tab.id)}
         onClick={show}
         onDoubleClick={() => keepFilePane(worktree, tab.id)}

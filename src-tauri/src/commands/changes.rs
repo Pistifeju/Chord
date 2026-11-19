@@ -1,9 +1,12 @@
-//! Commands for a worktree's changes: list the changed files, read one file's diff, stage, unstage and discard files and hunks, commit the staged files or amend the last commit, read who commits and where a push goes, and push the branch.
+//! Commands for a worktree's changes: list the changed files, read the branch's commits and files against a base, list a commit's files and the bases to pick from, read one file's diff, stage, unstage and discard files and hunks, commit the staged files or amend the last commit, read who commits and where a push goes, and push the branch.
 
 use std::path::PathBuf;
 
 use chord_core::{
-    Change, DiffSide, FileDiff, Hunk, HunkAction, changes, commits, commits::CommitTarget,
+    Change, DiffSide, FileDiff, Hunk, HunkAction,
+    branch_changes::{self, BaseBranches, BranchChanges, CommittedFile},
+    changes, commits,
+    commits::CommitTarget,
 };
 
 use super::blocking;
@@ -16,13 +19,48 @@ pub async fn list_changes(app: tauri::AppHandle, worktree: PathBuf) -> Result<Ve
 
 #[tauri::command]
 #[specta::specta]
+pub async fn read_branch(
+    app: tauri::AppHandle,
+    worktree: PathBuf,
+    base: Option<String>,
+) -> Result<Option<BranchChanges>, String> {
+    blocking(app, move |_, _| {
+        branch_changes::read(&worktree, base.as_deref())
+    })
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn list_commit_files(
+    app: tauri::AppHandle,
+    worktree: PathBuf,
+    commit: String,
+) -> Result<Vec<CommittedFile>, String> {
+    blocking(app, move |_, _| {
+        branch_changes::commit_files(&worktree, &commit)
+    })
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn list_base_branches(
+    app: tauri::AppHandle,
+    worktree: PathBuf,
+) -> Result<BaseBranches, String> {
+    blocking(app, move |_, _| branch_changes::bases(&worktree)).await
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn read_diff(
     app: tauri::AppHandle,
     worktree: PathBuf,
     file: String,
     side: DiffSide,
 ) -> Result<FileDiff, String> {
-    blocking(app, move |_, _| changes::diff(&worktree, &file, side)).await
+    blocking(app, move |_, _| changes::diff(&worktree, &file, &side)).await
 }
 
 #[tauri::command]

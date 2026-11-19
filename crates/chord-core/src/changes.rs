@@ -8,7 +8,7 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-use crate::{DiffSide, Error, files, git};
+use crate::{DiffSide, Error, branch_changes, files, git};
 
 #[derive(Serialize, Type, Clone, Copy, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -69,7 +69,7 @@ pub struct FileDiff {
 }
 
 // Without optional locks git leaves the index alone, so an agent's own git command never meets our lock.
-fn read(dir: &Path, args: &[&str]) -> Result<String, Error> {
+pub(crate) fn read(dir: &Path, args: &[&str]) -> Result<String, Error> {
     git::run(
         dir,
         &[&["--no-optional-locks", "--literal-pathspecs"], args].concat(),
@@ -108,7 +108,7 @@ pub fn list(dir: &Path) -> Result<Vec<Change>, Error> {
 }
 
 /// git's diff of the file, as `git apply` takes it.
-fn raw_diff(dir: &Path, path: &str, side: DiffSide) -> Result<String, Error> {
+fn raw_diff(dir: &Path, path: &str, side: &DiffSide) -> Result<String, Error> {
     let mut args = vec![
         "diff",
         "--no-color",
@@ -116,7 +116,7 @@ fn raw_diff(dir: &Path, path: &str, side: DiffSide) -> Result<String, Error> {
         "--src-prefix=a/",
         "--dst-prefix=b/",
     ];
-    if side == DiffSide::Unstaged {
+    if *side == DiffSide::Unstaged {
         args.extend(["-2", "--", path]);
         return read(dir, &args);
     }
@@ -135,9 +135,13 @@ fn raw_diff(dir: &Path, path: &str, side: DiffSide) -> Result<String, Error> {
     read(dir, &args)
 }
 
-pub fn diff(dir: &Path, path: &str, side: DiffSide) -> Result<FileDiff, Error> {
+/// The file's diff in `side`; a branch's or a commit's comes from `branch_changes`.
+pub fn diff(dir: &Path, path: &str, side: &DiffSide) -> Result<FileDiff, Error> {
+    if let DiffSide::Branch(_) | DiffSide::Commit(_) = side {
+        return branch_changes::diff(dir, path, side);
+    }
     let output = raw_diff(dir, path, side)?;
-    if side == DiffSide::Staged {
+    if *side == DiffSide::Staged {
         return Ok(parse_diff(&output));
     }
     // An untracked file has no diff output, so only an empty one needs the tracked check.
@@ -247,11 +251,11 @@ pub fn apply_hunk(dir: &Path, path: &str, hunk: &Hunk, action: HunkAction) -> Re
             "The diff changed since it showed. Try again on the diff as it reads now.".into(),
         )
     };
-    let output = raw_diff(dir, path, side)?;
+    let output = raw_diff(dir, path, &side)?;
     let Some(start) = output.find("\n@@ ").map(|at| at + 1) else {
         // An untracked file's one hunk is the whole file.
         if side == DiffSide::Unstaged
-            && diff(dir, path, side)?.hunks.as_slice() == std::slice::from_ref(hunk)
+            && diff(dir, path, &side)?.hunks.as_slice() == std::slice::from_ref(hunk)
         {
             let paths = [path.to_string()];
             return if action == HunkAction::Stage {
@@ -320,7 +324,7 @@ fn untracked_lines(dir: &Path, path: &str) -> Option<Option<(u32, u32)>> {
     Some(Some((u32::try_from(lines).unwrap_or(u32::MAX), 0)))
 }
 
-fn status_of(code: u8) -> Option<ChangeStatus> {
+pub(crate) fn status_of(code: u8) -> Option<ChangeStatus> {
     match code {
         b'M' | b'T' => Some(ChangeStatus::Modified),
         b'A' | b'C' => Some(ChangeStatus::Added),
@@ -386,7 +390,7 @@ fn parse_status(output: &str) -> Vec<Change> {
 }
 
 /// The lines added and removed per path of `git diff --numstat -z`, None for a binary file; a rename counts under its new path.
-fn parse_numstat(output: &str) -> HashMap<String, Option<(u32, u32)>> {
+pub(crate) fn parse_numstat(output: &str) -> HashMap<String, Option<(u32, u32)>> {
     let mut counts = HashMap::new();
     let mut records = output.split('\0');
     while let Some(record) = records.next() {
@@ -409,7 +413,7 @@ fn parse_numstat(output: &str) -> HashMap<String, Option<(u32, u32)>> {
     counts
 }
 
-fn parse_diff(output: &str) -> FileDiff {
+pub(crate) fn parse_diff(output: &str) -> FileDiff {
     let mut diff = FileDiff::default();
     let (mut old, mut new) = (0, 0);
     for line in output.lines() {
@@ -542,7 +546,7 @@ mod tests {
                 .replace("\n3\n", "\nthree\n")
                 .replace("\n30\n", "\nthirty\n"),
         )?;
-        let hunks = diff(repo, "f", DiffSide::Unstaged)?.hunks;
+        let hunks = diff(repo, "f", &DiffSide::Unstaged)?.hunks;
         apply_hunk(repo, "f", &hunks[1], HunkAction::Stage)?;
         assert_eq!(read(repo, &["diff", "--cached", "--numstat"])?, "1\t1\tf\n");
         apply_hunk(repo, "f", &hunks[0], HunkAction::Discard)?;
@@ -551,7 +555,7 @@ mod tests {
             numbers.replace("\n30\n", "\nthirty\n")
         );
         assert!(apply_hunk(repo, "f", &hunks[0], HunkAction::Discard).is_err());
-        let staged = diff(repo, "f", DiffSide::Staged)?.hunks;
+        let staged = diff(repo, "f", &DiffSide::Staged)?.hunks;
         apply_hunk(repo, "f", &staged[0], HunkAction::DiscardStaged)?;
         assert_eq!(std::fs::read_to_string(&file)?, numbers);
         assert_eq!(read(repo, &["diff", "--cached", "--numstat"])?, "");

@@ -1,4 +1,4 @@
-// The Changes view: the worktree's changed files under Staged and Changes, with the commit area under them: the author, the message field, then Push Immediately and Amend beside Push and Commit; each row with its name, folder, line counts and status; a click opens its diff. A checkbox on each row and group heading stages or unstages, and a row's More button and right-click menu hold its Stage or Unstage, and Discard. Also its tab bar button.
+// The Changes view: its scope control, Uncommitted or Branch while the worktree has a base (see BranchList), then under Uncommitted the worktree's changed files under Staged and Changes, with the commit area under them: the author, the message field, then Push Immediately and Amend beside Push and Commit; each row with its name, folder, line counts and status; a click opens its diff. A checkbox on each row and group heading stages or unstages, and a row's More button and right-click menu hold its Stage or Unstage, and Discard. Also its tab bar button.
 import { memo, useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import type { Change } from "../../ipc/bindings";
 import { showMenu, tooltip } from "../../app/commands";
@@ -7,10 +7,12 @@ import { shortcutChanges } from "../settings/store";
 import { showsSideView, sidePanels, toggleSideView } from "../sidepanel/store";
 import { panes } from "../panes/store";
 import { gitCounts } from "../worktrees/gitCountsRefresh";
-import { fileName, parentFolder } from "../files/paths";
-import { arrivals, canCommit, changeGroups, diffKey, focusedDiff, nextSelection, pickRange, statusLetters, statusWord } from "./changes";
+import { Segmented } from "../../ui/Segmented";
+import { arrivals, canCommit, changeGroups, diffKey, focusedDiff, nextSelection, pickRange, statusWord } from "./changes";
+import { BaseControl, BranchList } from "./BranchList";
+import { ChangeParts } from "./ChangeParts";
 import { changesTarget } from "./commands";
-import { changes, commitMessages, commitOptions, commitStaged, commitTargets, followsAct, optionsOf, pushBranch, readChanges, running, showDiff, stageChanges, toggleAmend, togglePushAfter, typeCommitMessage, unstageChanges } from "./store";
+import { branches, changes, commitMessages, commitOptions, commitStaged, commitTargets, followsAct, optionsOf, pushBranch, readChanges, running, scopes, setScope, showDiff, stageChanges, toggleAmend, togglePushAfter, typeCommitMessage, unstageChanges, type Scope } from "./store";
 import "./changes.css";
 
 export function ChangesToggle({ worktree }: { worktree: string }) {
@@ -30,16 +32,39 @@ export function ChangesToggle({ worktree }: { worktree: string }) {
   );
 }
 
+const scopeOptions: { value: Scope; label: string }[] = [
+  { value: "uncommitted", label: "Uncommitted" },
+  { value: "branch", label: "Branch" },
+];
+
 // A side panel drag re-renders the panel each frame; the view reads its own stores.
 export const ChangesView = memo(function ChangesView({ worktree }: { worktree: string }) {
-  const list = changes.usePart((all) => all[worktree]);
-  const selected = panes.usePart((all) => focusedDiff(all[worktree]));
+  const branch = branches.usePart((all) => all[worktree]);
+  const picked = scopes.usePart((all) => all[worktree] ?? "uncommitted");
   // Reads when it shows, then with each git counts refresh, which also runs on window focus.
   useEffect(() => {
     void readChanges(worktree);
     const unsubscribe = gitCounts.subscribe(() => void readChanges(worktree));
     return () => void unsubscribe();
   }, [worktree]);
+  // Without a base, on a detached HEAD or a main checkout without an upstream, Uncommitted is the only scope, so no control shows.
+  const scope = branch ? picked : "uncommitted";
+  return (
+    <>
+      {branch && (
+        <div className="changes-header">
+          <Segmented label="Scope" options={scopeOptions} value={scope} onChange={(value) => setScope(worktree, value)} />
+          {scope === "branch" && <BaseControl worktree={worktree} branch={branch} />}
+        </div>
+      )}
+      {branch && scope === "branch" ? <BranchList worktree={worktree} branch={branch} /> : <UncommittedList worktree={worktree} />}
+    </>
+  );
+});
+
+function UncommittedList({ worktree }: { worktree: string }) {
+  const list = changes.usePart((all) => all[worktree]);
+  const selected = panes.usePart((all) => focusedDiff(all[worktree]));
   const tree = useRef<HTMLDivElement>(null);
   useEffect(() => {
     tree.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" });
@@ -140,7 +165,7 @@ export const ChangesView = memo(function ChangesView({ worktree }: { worktree: s
       <CommitBox worktree={worktree} staged={groups[0]?.changes.length > 0} />
     </>
   );
-});
+}
 
 function CommitBox({ worktree, staged }: { worktree: string; staged: boolean }) {
   const message = commitMessages.usePart((all) => all[worktree] ?? "");
@@ -250,7 +275,6 @@ type RowProps = { worktree: string; change: Change; rowKey: string; arrived: boo
 
 // A row's checkbox, Space, More and right-click act on all the picked rows while it is one of them.
 function ChangeRow({ worktree, change, rowKey, arrived, selected, actsOn, onPick }: RowProps) {
-  const folder = parentFolder(change.path);
   const word = statusWord(change.status);
   return (
     <div className="changes-item" data-arrived={arrived || undefined}>
@@ -275,17 +299,7 @@ function ChangeRow({ worktree, change, rowKey, arrived, selected, actsOn, onPick
         onKeyUp={(e) => e.key === " " && e.preventDefault()}
         onContextMenu={(e) => showRowMenu(e, actsOn)}
       >
-        <span className="files-name changes-name" data-status={change.status}>
-          {fileName(change.path)}
-        </span>
-        {folder && <span className="changes-folder">{folder}</span>}
-        <span className="changes-lines">
-          {!!change.added && <span className="changes-added">+{change.added}</span>}
-          {!!change.removed && <span className="changes-removed">−{change.removed}</span>}
-        </span>
-        <span className="changes-status" data-status={change.status} title={word}>
-          {statusLetters[change.status]}
-        </span>
+        <ChangeParts path={change.path} status={change.status} added={change.added} removed={change.removed} />
       </button>
       <button type="button" className="icon-button changes-more" title="More" aria-label={`More for ${change.path}`} onClick={(e) => showRowMenu(e, actsOn)}>
         <MoreIcon />

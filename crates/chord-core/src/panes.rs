@@ -76,13 +76,17 @@ impl Tab {
 }
 
 /// Which diff of a file a tab shows.
-#[derive(Serialize, Deserialize, Type, Clone, Copy, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Type, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub enum DiffSide {
     /// The index against HEAD.
     Staged,
     /// The file on disk against the index.
     Unstaged,
+    /// HEAD against its merge base with this base branch.
+    Branch(String),
+    /// This commit against its first parent.
+    Commit(String),
 }
 
 #[derive(Serialize, Deserialize, Type, Clone, Copy, Debug, PartialEq)]

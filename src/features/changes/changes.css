@@ -1,4 +1,69 @@
-/* The Changes view: its groups and their rows, which take the Files tree and its row, and the commit area under them. Rules: DESIGN.md, Changes view. */
+/* The Changes view: its scope control and base, its groups and their rows, which take the Files tree and its row, a branch's commit rows, and the commit area under them. Rules: DESIGN.md, Changes view. */
+.changes-header {
+  flex: none;
+  padding: 4px 8px 0;
+}
+
+/* In a 200px panel a half is narrower than "Uncommitted", so the label truncates. */
+.changes-header .segmented button {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.changes-base {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 28px;
+  margin-top: 4px;
+  padding-left: 8px;
+  font-size: calc(12px * var(--text-scale));
+  color: var(--ink-muted);
+}
+
+/* A long base truncates its name; the label never wraps. */
+.changes-base > span {
+  flex: none;
+}
+
+.changes-base-button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  height: 24px;
+  padding: 0 6px;
+  border: none;
+  border-radius: var(--radius-inset);
+  background: none;
+  font-weight: 500;
+  color: var(--ink-secondary);
+  transition: background-color var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out);
+}
+
+.changes-base-button:hover {
+  background: var(--raised);
+  color: var(--ink);
+}
+
+.changes-base-button:active {
+  background: var(--selected);
+}
+
+.changes-base-button > svg {
+  flex: none;
+  color: var(--ink-muted);
+}
+
+.changes-base-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .changes-section + .changes-section {
   margin-top: 12px;
 }
@@ -137,6 +202,10 @@
   padding-left: 30px;
 }
 
+.changes-branch .changes-section > .files-empty {
+  padding-left: 8px;
+}
+
 .changes-group > .changes-check {
   margin-right: 2px;
 }
@@ -145,6 +214,42 @@
 .files-row.changes-row {
   gap: 6px;
   padding: 0 28px 0 30px;
+}
+
+/* A committed file has no checkbox or More button; inside a commit it starts on the commit's subject. */
+.files-row.changes-committed {
+  padding: 0 8px 0 calc(8px + var(--depth) * 16px);
+}
+
+/* A commit: its chevron, subject, short hash and age, opening like a folder. */
+.files-row.changes-log-row {
+  gap: 4px;
+  padding: 0 8px;
+}
+
+.changes-subject {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.changes-hash {
+  flex: none;
+  margin-left: 2px;
+  font-family: var(--font-code);
+  font-size: calc(11px * var(--text-scale));
+  color: var(--ink-muted);
+}
+
+.changes-age {
+  flex: none;
+  min-width: 24px;
+  text-align: right;
+  font-size: calc(12px * var(--text-scale));
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
 }
 
 .changes-name {

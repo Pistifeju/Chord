@@ -6,6 +6,7 @@ import { chats, forgetChat, startChat } from "../chat/store";
 import { anyRunning } from "../chat/transcript";
 import { allPaneIds, paneChanges, resumedPanes } from "./agents";
 import { isAtOrInside } from "../files/paths";
+import { diffKey } from "../changes/changes";
 import { browserPaneIds, filePanes, groupOf, withBrowserPage, withEvenSizes, withFilePanesMoved, withSizes, type BrowserPane, type FilePane } from "./layout";
 import { firstPanes, withBrowserOpened, withFileKept, withFileOpened, withFocus, withNewSession, withSplitFocused, withTabClosed, withTabMoved, type TabDrop } from "./sessions";
 
@@ -123,7 +124,8 @@ export function closeFilePanesAt(worktree: string, path: string) {
 
 const filePaneOf = (worktree: string, path: string, diff: DiffSide | undefined): FilePane | undefined => {
   const saved = panes.get()[worktree];
-  return saved && filePanes(saved.layout).find((f) => f.path === path && (f.diff ?? undefined) === diff);
+  const key = diff && diffKey(diff, path);
+  return saved && filePanes(saved.layout).find((f) => f.path === path && (f.diff ? diffKey(f.diff, path) : undefined) === key);
 };
 
 // Focus stays in memory; the next layout save writes it.

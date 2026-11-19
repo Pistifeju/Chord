@@ -1,8 +1,8 @@
-// Rules for the Changes view: its Staged and Changes groups, when Commit runs, the rows a shift-click picks, how a change's status reads, and which row the focused tab's diff selects.
+// Rules for the Changes view: its Staged and Changes groups, when Commit runs, the rows a shift-click picks, how a change's status reads, which row the focused tab's diff selects, and what a diff tab's title adds.
 import type { Change, ChangeStatus, DiffSide, WorktreePanes } from "../../ipc/bindings";
 import { groupOf } from "../panes/layout.ts";
 
-export type ChangeGroup = { title: "Staged" | "Changes"; side: DiffSide; changes: Change[] };
+export type ChangeGroup = { title: "Staged" | "Changes"; side: "staged" | "unstaged"; changes: Change[] };
 
 /** Both groups, Staged first, each in path order; an empty one still shows, so a count of 0 reads. */
 export function changeGroups(list: Change[]): ChangeGroup[] {
@@ -17,8 +17,15 @@ export const statusLetters: Record<ChangeStatus, string> = { modified: "M", adde
 
 export const statusWord = (status: ChangeStatus) => status[0].toUpperCase() + status.slice(1);
 
+// A ref name and a hash hold no colon, so the path starts after the first one.
+const sideKey = (side: DiffSide) => (typeof side === "string" ? side : "branch" in side ? `branch ${side.branch}` : `commit ${side.commit}`);
+
 /** A row's key: its side and path, as the diff tab it opens holds them. */
-export const diffKey = (side: DiffSide, path: string) => `${side}:${path}`;
+export const diffKey = (side: DiffSide, path: string) => `${sideKey(side)}:${path}`;
+
+/** What a diff tab's tooltip adds to the path. */
+export const diffTitle = (side: DiffSide) =>
+  typeof side !== "string" ? ("branch" in side ? ` (Compared to ${side.branch})` : ` (Commit ${side.commit.slice(0, 7)})`) : side === "staged" ? " (Staged)" : " (Changes)";
 
 /** The keys of the group's rows from `anchor` to `key`, both in; `key` alone while the anchor is not in the group. */
 export function pickRange(group: ChangeGroup, anchor: string | null, key: string): string[] {

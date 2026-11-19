@@ -1,4 +1,4 @@
-/* Shared controls: buttons, icon button, input, sheet, toast, drop target, drag ghost and drop line, find bar. Rules: DESIGN.md, Components. */
+/* Shared controls: buttons, icon button, segmented control, input, sheet, toast, drop target, drag ghost and drop line, find bar. Rules: DESIGN.md, Components. */
 button {
   font: inherit;
   color: inherit;
@@ -563,4 +563,33 @@ button:focus-visible {
   background: var(--accent-ink);
   pointer-events: none;
   transform: translateY(-1px);
+}
+
+.segmented {
+  flex: none;
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius-control);
+  background: var(--raised);
+}
+
+.segmented button {
+  height: 24px;
+  padding: 0 12px;
+  border: none;
+  border-radius: var(--radius-inset);
+  background: transparent;
+  font-weight: 500;
+  color: var(--ink-secondary);
+}
+
+.segmented button[aria-checked="false"]:hover {
+  color: var(--ink);
+}
+
+.segmented button[aria-checked="true"] {
+  background: var(--control-selected);
+  box-shadow: var(--shadow-control);
+  color: var(--ink);
 }

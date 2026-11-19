@@ -38,6 +38,9 @@ export const commands = {
 	trashFile: (worktree: string, path: string) => __TAURI_INVOKE<null>("trash_file", { worktree, path }),
 	revealFile: (worktree: string, path: string) => __TAURI_INVOKE<null>("reveal_file", { worktree, path }),
 	listChanges: (worktree: string) => __TAURI_INVOKE<Change_Serialize[]>("list_changes", { worktree }),
+	readBranch: (worktree: string, base: string | null) => __TAURI_INVOKE<BranchChanges_Serialize | null>("read_branch", { worktree, base }),
+	listCommitFiles: (worktree: string, commit: string) => __TAURI_INVOKE<CommittedFile_Serialize[]>("list_commit_files", { worktree, commit }),
+	listBaseBranches: (worktree: string) => __TAURI_INVOKE<BaseBranches>("list_base_branches", { worktree }),
 	readDiff: (worktree: string, file: string, side: DiffSide) => __TAURI_INVOKE<FileDiff_Serialize>("read_diff", { worktree, file, side }),
 	stageFiles: (worktree: string, files: string[]) => __TAURI_INVOKE<null>("stage_files", { worktree, files }),
 	unstageFiles: (worktree: string, files: string[]) => __TAURI_INVOKE<null>("unstage_files", { worktree, files }),
@@ -159,6 +162,13 @@ export type Appearance_Serialize = {
 	terminalFontSize: number,
 };
 
+export type BaseBranches = {
+	/**  Without the worktree's own branch. */
+	local: string[],
+	/**  As `origin/main`, without the remotes' HEAD. */
+	remote: string[],
+};
+
 /**  The phone's frame around the screen: the screen's corner radius and the window's colors as sRGB bytes. Drawn natively, so frame and screen move in the same frame. */
 export type Bezel = {
 	radius: number | null,
@@ -193,6 +203,28 @@ export type BottomPanel_Serialize = {
 
 /**  The view beside the terminal; `Terminal` means none. */
 export type BottomView = "terminal" | "build" | "console";
+
+export type BranchChanges = BranchChanges_Serialize | BranchChanges_Deserialize;
+
+export type BranchChanges_Deserialize = {
+	/**  The base the commits and files compare with: the one asked for while it exists, else the default. */
+	base: string,
+	/**  The main checkout's branch, or the upstream on the main checkout itself. */
+	defaultBase: string,
+	/**  Newest first. */
+	commits: Commit[],
+	files: CommittedFile_Deserialize[],
+};
+
+export type BranchChanges_Serialize = {
+	/**  The base the commits and files compare with: the one asked for while it exists, else the default. */
+	base: string,
+	/**  The main checkout's branch, or the upstream on the main checkout itself. */
+	defaultBase: string,
+	/**  Newest first. */
+	commits: Commit[],
+	files: CommittedFile_Serialize[],
+};
 
 export type BrowserAction = { kind: "back" } | { kind: "forward" } | { kind: "reload" } | { kind: "open"; url: string };
 
@@ -327,6 +359,14 @@ export type Change_Serialize = {
 	removed: number | null,
 };
 
+export type Commit = {
+	hash: string,
+	shortHash: string,
+	subject: string,
+	/**  When it was committed, in milliseconds since 1970. */
+	time: number | null,
+};
+
 export type CommitTarget = CommitTarget_Serialize | CommitTarget_Deserialize;
 
 export type CommitTarget_Deserialize = {
@@ -349,6 +389,28 @@ export type CommitTarget_Serialize = {
 	pushable: boolean,
 	/**  Whether HEAD has a commit to amend. */
 	amendable: boolean,
+};
+
+export type CommittedFile = CommittedFile_Serialize | CommittedFile_Deserialize;
+
+export type CommittedFile_Deserialize = {
+	path: string,
+	/**  The path a rename came from. */
+	oldPath?: string | null,
+	status: ChangeStatus,
+	/**  None for a binary file. */
+	added?: number | null,
+	removed?: number | null,
+};
+
+export type CommittedFile_Serialize = {
+	path: string,
+	/**  The path a rename came from. */
+	oldPath: string | null,
+	status: ChangeStatus,
+	/**  None for a binary file. */
+	added: number | null,
+	removed: number | null,
 };
 
 export type ConsoleTone = 
@@ -413,7 +475,11 @@ export type DiffSide =
 /**  The index against HEAD. */
 "staged" | 
 /**  The file on disk against the index. */
-"unstaged";
+"unstaged" | 
+/**  HEAD against its merge base with this base branch. */
+({ branch: string }) & { commit?: never } | 
+/**  This commit against its first parent. */
+({ commit: string }) & { branch?: never };
 
 export type Direction = 
 /**  Children sit side by side. */

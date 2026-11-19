@@ -1,5 +1,5 @@
-// Connects the Changes view to IPC: each worktree's changed files read from git, one read at a time, a failed read leaving the last list, a change's diff opened in a tab, the stage, unstage and discard of files and hunks, each followed by a read, and the commit message with its options, commit, amend and push, each followed by a read and the git counts.
-import { commands, type Change, type CommitTarget_Serialize as CommitTarget, type Hunk, type HunkAction } from "../../ipc/bindings";
+// Connects the Changes view to IPC: each worktree's changed files read from git with its branch against its base, one read at a time, a failed read leaving the last list, the scope and base each worktree shows, the files of an opened commit, a change's diff opened in a tab, the stage, unstage and discard of files and hunks, each followed by a read, and the commit message with its options, commit, amend and push, each followed by a read and the git counts.
+import { commands, type BranchChanges_Serialize as BranchChanges, type Change, type CommitTarget_Serialize as CommitTarget, type CommittedFile_Serialize as CommittedFile, type Hunk, type HunkAction } from "../../ipc/bindings";
 import { closeSheet, openSheet, sheet, sheetOf } from "../../app/sheet";
 import { externalStore } from "../../ui/externalStore";
 import { canCommit } from "./changes";
@@ -13,6 +13,38 @@ export const changes = externalStore<Record<string, Change[]>>({});
 
 /** Who each worktree commits as and where its push goes, read with its changes. */
 export const commitTargets = externalStore<Record<string, CommitTarget>>({});
+
+/** Each worktree's branch against its base; null without a base, which leaves Uncommitted the only scope. */
+export const branches = externalStore<Record<string, BranchChanges | null>>({});
+
+export type Scope = "uncommitted" | "branch";
+
+/** Each worktree's scope as picked; Branch shows only while the worktree has a base. */
+export const scopes = externalStore<Record<string, Scope>>({});
+
+export const setScope = (worktree: string, scope: Scope) => scopes.set({ ...scopes.get(), [worktree]: scope });
+
+// The base each worktree compares with in place of its default, until the app quits.
+const pickedBases = new Map<string, string>();
+
+export function pickBase(worktree: string, base: string) {
+  if (base === branches.get()[worktree]?.defaultBase) pickedBases.delete(worktree);
+  else pickedBases.set(worktree, base);
+  void readChanges(worktree);
+}
+
+/** The files of each commit opened, by hash; a commit never changes, so one read serves for good. */
+export const commitFiles = externalStore<Record<string, CommittedFile[]>>({});
+
+export async function readCommitFiles(worktree: string, hash: string) {
+  if (commitFiles.get()[hash]) return;
+  try {
+    const files = await commands.listCommitFiles(worktree, hash);
+    commitFiles.set({ ...commitFiles.get(), [hash]: files });
+  } catch (error) {
+    fail(error);
+  }
+}
 
 /** Each worktree's commit message as typed. */
 export const commitMessages = externalStore<Record<string, string>>({});
@@ -43,10 +75,11 @@ export async function readChanges(worktree: string) {
   reading.set(worktree, false);
   const afterAct = acted.delete(worktree);
   try {
-    const [list, target] = await Promise.all([commands.listChanges(worktree), commands.readCommitTarget(worktree)]);
+    const [list, target, branch] = await Promise.all([commands.listChanges(worktree), commands.readCommitTarget(worktree), commands.readBranch(worktree, pickedBases.get(worktree) ?? null)]);
     if (afterAct) actedLists.add(list);
     changes.set({ ...changes.get(), [worktree]: list });
     commitTargets.set({ ...commitTargets.get(), [worktree]: target });
+    branches.set({ ...branches.get(), [worktree]: branch });
   } catch (error) {
     fail(error);
   } finally {
