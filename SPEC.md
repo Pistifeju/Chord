@@ -91,10 +91,12 @@ Edge cases:
 - [x] D3 A finished pane shows a marker until you open it; its session row too.
 - [x] D4 macOS notification for done and waiting, naming project and branch; a click opens the worktree and focuses the pane. Settings row: notifications on or off.
 - [x] D5 Settings row: keep the Mac awake while an agent runs (`caffeinate`).
+- [x] D6 Next Agent Needing You (⌘J) opens the next agent in the attention queue: Awaiting input first, then a Failed, an Exited or a Done you have not opened, the longest wait first within each. It opens the one after the focused pane and wraps; with none it says "No agent needs you", or "No other agent needs you" when the focused pane is the only one. An attention dock over the sidebar's foot, in every navigator view, folds the running agents into a Working row and the queue's others into a Needs you row, each with its count, and shows a card for the agent ⌘J opens; the dock hides while no agent runs or needs you.
 
 Edge cases:
 - A failure in status handling never breaks the agent.
 - Opening a worktree clears its finished markers.
+- D6: opening a Failed, Exited or Done agent takes it out of the queue; an agent that awaits input stays until it runs again.
 - A running card shows "Working" in its first minute.
 
 ## 5. Chat (harness(chat) and others)
@@ -305,7 +307,6 @@ Steering while a run goes (E1) waits for capability `steer`.
 | Dictation | On-device speech to text in the composer |
 | Swift check for agents | A type-check command agents can call |
 | Setup script | A per-project script that runs in each new worktree |
-| Next waiting agent | A shortcut that jumps to the next pane waiting for input |
 | Command palette | Worktrees and actions with fuzzy search |
 | Extension status texts | The lines pi extensions set with `setStatus` (a mode, an MCP server count), anywhere in the window; only the usage status is read |
 | Status for an agent started by hand in the terminal | The terminal is a shell; chat panes report status |

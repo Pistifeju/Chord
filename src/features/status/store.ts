@@ -1,12 +1,15 @@
-// The panes that finished unseen, and the pane a notification click opens.
+// The panes that finished unseen, the pane a notification click opens, and the open of the next agent needing you.
 import { listen } from "@tauri-apps/api/event";
 import { commands } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
 import { chats } from "../chat/store";
 import { shownTabIds } from "../panes/layout";
-import { focusPane } from "../panes/store";
-import { selectWorktree, shownPanes, shownPanesStores } from "../worktrees/store";
-import { keptMarks, turnedDone, type PaneKinds } from "./finished";
+import { focusPane, panes } from "../panes/store";
+import { worktreeOrder } from "../worktrees/projects";
+import { projects, selectWorktree, shownPanes, shownPanesStores } from "../worktrees/store";
+import { notify } from "../../ui/alert";
+import { agentPanes, attentionQueue, nextAttention, type AgentPane } from "./attention";
+import { keptMarks, turnedFinished, type PaneKinds } from "./finished";
 
 export const finished = externalStore<string[]>([]);
 
@@ -22,7 +25,7 @@ export function watchFinished(): () => void {
   let before = kindsNow();
   const sync = () => {
     const now = kindsNow();
-    const marks = keptMarks([...finished.get(), ...turnedDone(before, now)], now, openPanes());
+    const marks = keptMarks([...finished.get(), ...turnedFinished(before, now)], now, openPanes());
     before = now;
     if (marks.join() !== finished.get().join()) finished.set(marks);
   };
@@ -37,6 +40,18 @@ export function watchFinished(): () => void {
   };
   const unsubscribe = [chats.subscribe(syncReports), ...shownPanesStores().map((store) => store.subscribe(sync))];
   return () => unsubscribe.forEach((off) => off());
+}
+
+export function openAgent({ worktree, pane }: AgentPane) {
+  selectWorktree(worktree);
+  focusPane(worktree, pane);
+}
+
+export function openNextAttention() {
+  const queue = attentionQueue(agentPanes(worktreeOrder(projects.get()), panes.get()), chats.get(), finished.get());
+  const next = nextAttention(queue, shownPanes()?.focused ?? null);
+  if (next) openAgent(next);
+  else notify(queue.length ? "No other agent needs you" : "No agent needs you");
 }
 
 // Tells Rust which panes the window shows, so it skips notifications for them.
@@ -56,8 +71,7 @@ export function watchShownPanes(): () => void {
 // A click on a notification, sent by Rust with the worktree and the pane.
 export function watchNotificationClicks(): () => void {
   const unlisten = listen<[string, string]>("notification-opened", ({ payload: [worktree, pane] }) => {
-    selectWorktree(worktree);
-    focusPane(worktree, pane);
+    openAgent({ worktree, pane });
   });
   return () => void unlisten.then((off) => off());
 }

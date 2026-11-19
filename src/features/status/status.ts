@@ -5,7 +5,7 @@ import type { Status } from "../../ipc/bindings";
 export type StatusReport = { status: Status; lastMessage: string; since: number };
 
 // Most urgent first: what needs the user before what runs or rests.
-const URGENCY: Status["kind"][] = ["waiting", "error", "exited", "running", "done"];
+export const URGENCY: Status["kind"][] = ["waiting", "error", "exited", "running", "done"];
 
 export function urgentReport(reports: (StatusReport | null | undefined)[]): StatusReport | null {
   let urgent: StatusReport | null = null;

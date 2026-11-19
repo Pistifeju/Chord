@@ -14,6 +14,7 @@ import { simulatorCommands } from "../features/ios/simulator/commands";
 import { previewCommands } from "../features/ios/preview/commands";
 import { shortcutChanges } from "../features/settings/store";
 import { sidebarCommands } from "../features/sidebar/commands";
+import { statusCommands } from "../features/status/commands";
 import { terminalCommands } from "../features/terminal/commands";
 import { worktreeCommands } from "../features/worktrees/commands";
 import { changedShortcut, currentShortcuts, loadedChanges, pressMatches, type Shortcut, type ShortcutChanges, type ShortcutMap } from "./shortcuts";
@@ -23,7 +24,7 @@ export type AppCommand = { id: string; title: string; shortcut?: Shortcut; run: 
   when?: () => boolean;
 };
 
-const table: AppCommand[] = [...sidebarCommands, ...filesCommands, ...changesCommands, ...editorCommands, ...terminalCommands, ...settingsCommands, ...chatCommands, ...paneCommands, ...worktreeCommands, ...buildCommands, ...simulatorCommands, ...previewCommands];
+const table: AppCommand[] = [...sidebarCommands, ...filesCommands, ...changesCommands, ...editorCommands, ...terminalCommands, ...settingsCommands, ...chatCommands, ...paneCommands, ...worktreeCommands, ...statusCommands, ...buildCommands, ...simulatorCommands, ...previewCommands];
 
 const defaultShortcuts: ShortcutMap = Object.fromEntries(table.map((c) => [c.id, c.shortcut]));
 

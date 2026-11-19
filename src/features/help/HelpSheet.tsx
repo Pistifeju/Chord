@@ -22,7 +22,7 @@ const statuses: { status: Status; text: string }[] = [
   { status: { kind: "exited" }, text: "The agent's process ended." },
 ];
 
-const shortcuts = ["worktree.new", "session.new", "sidebar.toggle", "files.toggle", "terminal.toggle", "settings.open"];
+const shortcuts = ["worktree.new", "session.new", "agent.next", "sidebar.toggle", "files.toggle", "terminal.toggle", "settings.open"];
 
 function showAllShortcuts() {
   closeSheet("help");

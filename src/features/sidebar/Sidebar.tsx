@@ -1,22 +1,23 @@
-// The sidebar: the navigator's control over one view at a time, Workspaces, Files or Changes; under Workspaces each project's worktrees as cards under its name, in project order, each with a row per chat session and its status, and the drags that reorder the projects and the cards; its show/hide button and the Settings and Help buttons at its foot.
+// The sidebar: the navigator's control over one view at a time, Workspaces, Files or Changes; under Workspaces each project's worktrees as cards under its name, in project order, each with a row per chat session and its status, and the drags that reorder the projects and the cards; the attention dock over its foot; its show/hide button and the Settings and Help buttons at its foot.
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import type { GitCounts_Serialize as GitCounts, Project, Worktree_Serialize as Worktree } from "../../ipc/bindings";
 import { shortcutLabel, showMenu, tooltip } from "../../app/commands";
 import { openSheet } from "../../app/sheet";
 import { chats, usePaneNames } from "../chat/store";
-import { chatTabs } from "../panes/layout";
+import { chatTabs, groupOf } from "../panes/layout";
 import { tabName } from "../panes/sessions";
 import { focusPane, panes } from "../panes/store";
 import { openSettings, settingsOpen, shortcutChanges } from "../settings/store";
-import { finished } from "../status/store";
+import { agentPanes, attentionQueue, nextAttention, runningAgents, type AgentPane } from "../status/attention";
+import { finished, openAgent } from "../status/store";
 import { ageLabel, seenDone, statusLabel, urgentReport } from "../status/status";
 import { StatusMark } from "../status/StatusMark";
-import { BranchIcon, FolderIcon, GearIcon, PlusIcon, QuestionIcon, SidebarIcon, WorkspacesIcon } from "../../ui/icons";
+import { BranchIcon, ChevronIcon, FolderIcon, GearIcon, PlusIcon, QuestionIcon, SidebarIcon, WorkspacesIcon } from "../../ui/icons";
 import { ChangesView } from "../changes/ChangesView";
 import { FilesView } from "../files/FilesView";
 import { countsLabel, countsTitle } from "../worktrees/gitCounts";
 import { gitCounts } from "../worktrees/gitCountsRefresh";
-import { movesTo, worktreeName, worktreeOrder } from "../worktrees/projects";
+import { movesTo, ownerOf, worktreeAt, worktreeName, worktreeOrder } from "../worktrees/projects";
 import { cancelRename, finishRename, rename, setRenameName, startRename } from "../worktrees/rename";
 import { moveProject, moveWorktree, pickProject, projects, selectWorktree } from "../worktrees/store";
 import { usePointerDrag } from "../../ui/pointerDrag";
@@ -197,6 +198,7 @@ export function Sidebar({ markers }: { markers: Record<string, CardMarker> }) {
       ) : (
         <div className="sidebar-view">{worktree && (shown === "files" ? <FilesView worktree={worktree} /> : <ChangesView worktree={worktree} />)}</div>
       )}
+      <AttentionDock />
       <div className="sidebar-footer">
         <SettingsButton />
         <button type="button" className="icon-button sidebar-help" title="Help" aria-label="Help" onClick={() => openSheet({ kind: "help" })}>
@@ -238,6 +240,82 @@ function SessionStatus({ paneIdList, finishedPanes }: { paneIdList: string[]; fi
       <StatusMark kind={report.status.kind} />
       {kind === "running" ? age !== "now" && age : label}
     </span>
+  );
+}
+
+// The dock over the sidebar's foot, in every navigator view: the running agents and the other agents that need you folded into a row each, and a card for the agent Next Agent Needing You opens.
+function AttentionDock() {
+  shortcutChanges.use();
+  const state = projects.use();
+  const saved = panes.use();
+  const finishedPanes = finished.use();
+  // A reply's chunks leave every report as it was, so they skip the render.
+  chats.usePart((all) => Object.entries(all).map(([pane, chat]) => (chat.report ? `${pane}:${chat.report.status.kind}:${chat.report.since}` : "")).join());
+  const [open, setOpen] = useState<"working" | "needs" | null>(null);
+  const reports = chats.get();
+  const all = agentPanes(worktreeOrder(state), saved);
+  const queue = attentionQueue(all, reports, finishedPanes);
+  const running = runningAgents(all, reports);
+  const current = state.selected ? (saved[state.selected]?.focused ?? null) : null;
+  const next = nextAttention(queue, current);
+  const card = next ?? queue[0];
+  const others = queue.filter((entry) => entry !== card);
+  const names = usePaneNames(all.map((entry) => entry.pane));
+  const now = useNow();
+  if (!card && running.length === 0) return null;
+  const nameOf = (entry: AgentPane) => {
+    const tab = saved[entry.worktree] && groupOf(saved[entry.worktree].layout, entry.pane)?.tabs.find((t) => t.id === entry.pane);
+    return tab ? tabName(tab, names) : "";
+  };
+  const rows = (list: AgentPane[]) => (
+    <ul className="session-list">
+      {list.map((entry) => (
+        <li key={entry.pane}>
+          <button type="button" className="session-row" aria-current={entry.pane === current} onClick={() => openAgent(entry)}>
+            <span className="session-name">{nameOf(entry)}</span>
+            <SessionStatus paneIdList={[entry.pane]} finishedPanes={finishedPanes} />
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+  const fold = (which: "working" | "needs", label: string, list: AgentPane[]) =>
+    list.length > 0 && (
+      <>
+        <button type="button" className="dock-row" aria-expanded={open === which} onClick={() => setOpen(open === which ? null : which)}>
+          <span className="dock-label">{label}</span>
+          <span className="dock-count">{list.length}</span>
+          <span className="turn-chevron" data-open={open === which}>
+            <ChevronIcon />
+          </span>
+        </button>
+        {open === which && rows(list)}
+      </>
+    );
+  const report = card && reports[card.pane]?.report;
+  const owner = card && ownerOf(state, card.worktree);
+  const branch = card && worktreeAt(state, card.worktree);
+  return (
+    <div className="attention-dock">
+      {fold("working", "Working", running)}
+      {fold("needs", "Needs you", others)}
+      {card && report && (
+        <button key={card.pane} type="button" className="dock-card" aria-current={card.pane === current} title={report.lastMessage.trim() || undefined} onClick={() => openAgent(card)}>
+          <span className="dock-card-line">
+            <span className="project-name dock-card-project">{state.list.find((p) => p.path === owner)?.name}</span>
+            <span className="session-status" data-status={report.status.kind}>
+              <StatusMark kind={report.status.kind} />
+              {statusLabel(report.status)} · {ageLabel(report.since, now)}
+            </span>
+          </span>
+          <span className="dock-card-title">{nameOf(card)}</span>
+          <span className="dock-card-line dock-card-meta">
+            <span className="dock-card-branch">{branch && worktreeName(branch)}</span>
+            {card === next && <span className="worktree-hint">{shortcutLabel("agent.next")}</span>}
+          </span>
+        </button>
+      )}
+    </div>
   );
 }
 
