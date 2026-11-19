@@ -34,13 +34,15 @@ button:focus-visible {
 /* An icon-only button's icon presses to 90%. */
 .icon-button > svg,
 .settings-step > svg,
-.tab-close > svg {
+.tab-close > svg,
+.navigator button > svg {
   transition: transform var(--t-fast) var(--ease-out);
 }
 
 .icon-button:active:not(:disabled) > svg,
 .settings-step:active:not(:disabled) > svg,
-.tab-close:active > svg {
+.tab-close:active > svg,
+.navigator button:active > svg {
   transform: scale(0.9);
   transition-duration: 60ms;
 }
@@ -501,7 +503,8 @@ button:focus-visible {
 
   .icon-button:active:not(:disabled) > svg,
   .settings-step:active:not(:disabled) > svg,
-  .tab-close:active > svg {
+  .tab-close:active > svg,
+  .navigator button:active > svg {
     transform: none;
   }
 
