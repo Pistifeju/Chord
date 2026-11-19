@@ -3,6 +3,7 @@
 mod awake;
 pub mod branch_changes;
 pub mod changes;
+pub mod commit_diff;
 pub mod commits;
 mod error;
 pub mod files;
@@ -13,6 +14,7 @@ pub mod images;
 mod lock;
 mod panes;
 pub mod projects;
+pub mod stashes;
 mod state;
 pub mod terminal;
 pub mod worktrees;

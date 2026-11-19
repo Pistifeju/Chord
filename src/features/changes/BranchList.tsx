@@ -1,7 +1,7 @@
-// The Changes view's Branch scope: the base it compares with and its menu, the branch's commits since the merge base, each opening to the files it changed, then the files the branch changed; a click on a file opens its diff for the branch or for that commit.
+// The Changes view's Branch scope: the base it compares with and its menu, the branch's commits since the merge base, each opening to the files it changed, then the files the branch changed; a click on a file opens its diff for the branch or for that commit. Also the commit row and the file row the Stashes group takes.
 import { CheckMenuItem, Menu, MenuItem, PredefinedMenuItem } from "@tauri-apps/api/menu";
 import { LogicalPosition } from "@tauri-apps/api/dpi";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type MouseEventHandler, type ReactNode } from "react";
 import { commands, type BranchChanges_Serialize as BranchChanges, type CommittedFile_Serialize as CommittedFile, type DiffSide } from "../../ipc/bindings";
 import { openContextMenu } from "../../app/contextMenu";
 import { fail } from "../../ui/alert";
@@ -45,16 +45,11 @@ export function BaseControl({ worktree, branch }: { worktree: string; branch: Br
 export function BranchList({ worktree, branch }: { worktree: string; branch: BranchChanges }) {
   const selected = panes.usePart((all) => focusedDiff(all[worktree]));
   const files = commitFiles.use();
-  const [open, setOpen] = useState<string[]>([]);
+  const [open, toggle] = useOpenCommits((hash) => void readCommitFiles(worktree, hash));
   const tree = useRef<HTMLDivElement>(null);
   useEffect(() => {
     tree.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" });
   }, [selected]);
-  const toggle = (hash: string, opens: boolean) => {
-    setOpen((was) => (opens ? [...new Set([...was, hash])] : was.filter((h) => h !== hash)));
-    if (opens) void readCommitFiles(worktree, hash);
-  };
-  const now = Date.now();
   const fileRow = (file: CommittedFile, side: DiffSide, depth: number) => {
     const key = diffKey(side, file.path);
     return <CommittedRow key={key} worktree={worktree} file={file} side={side} rowKey={key} depth={depth} selected={selected === key} />;
@@ -91,33 +86,11 @@ export function BranchList({ worktree, branch }: { worktree: string; branch: Bra
           <span className="changes-count">{branch.commits.length}</span>
         </div>
         {branch.commits.length === 0 && <div className="files-empty">No commits</div>}
-        {branch.commits.map((commit) => {
-          const opened = open.includes(commit.hash);
-          return (
-            <div key={commit.hash} role="none">
-              <button
-                type="button"
-                role="treeitem"
-                className="files-row changes-log-row"
-                aria-expanded={opened}
-                data-commit={commit.hash}
-                title={commit.subject}
-                onClick={(e) => {
-                  e.currentTarget.focus();
-                  toggle(commit.hash, !opened);
-                }}
-              >
-                <span className="turn-chevron files-chevron" data-open={opened}>
-                  <ChevronIcon />
-                </span>
-                <span className="changes-subject">{commit.subject}</span>
-                <span className="changes-hash">{commit.shortHash}</span>
-                <span className="changes-age">{ageLabel(commit.time ?? now, now)}</span>
-              </button>
-              {opened && <div role="group">{files[commit.hash]?.map((file) => fileRow(file, { commit: commit.hash }, 1))}</div>}
-            </div>
-          );
-        })}
+        {branch.commits.map((commit) => (
+          <CommitRow key={commit.hash} hash={commit.hash} subject={commit.subject} time={commit.time} opened={open.includes(commit.hash)} toggle={toggle} detail={<span className="changes-hash">{commit.shortHash}</span>}>
+            {files[commit.hash]?.map((file) => fileRow(file, { commit: commit.hash }, 1))}
+          </CommitRow>
+        ))}
       </div>
       <div className="changes-section" role="group" aria-label="Files">
         <div className="changes-group">
@@ -131,9 +104,63 @@ export function BranchList({ worktree, branch }: { worktree: string; branch: Bra
   );
 }
 
+/** The commits or stashes opened to their files, and their toggle; opening one reads its files. */
+export function useOpenCommits(read: (hash: string) => void) {
+  const [open, setOpen] = useState<string[]>([]);
+  const toggle = (hash: string, opens: boolean) => {
+    setOpen((was) => (opens ? [...new Set([...was, hash])] : was.filter((h) => h !== hash)));
+    if (opens) read(hash);
+  };
+  return [open, toggle] as const;
+}
+
+type CommitRowProps = {
+  hash: string;
+  subject: string;
+  time: number | null;
+  opened: boolean;
+  toggle: (hash: string, opens: boolean) => void;
+  /** What sits between the subject and the age: a commit's short hash, a stash's branch. */
+  detail: ReactNode;
+  onContextMenu?: MouseEventHandler;
+  /** Its files' rows, shown while it is open. */
+  children: ReactNode;
+};
+
+/** A commit's or a stash's row: a click opens it to its files and closes it again. */
+export function CommitRow({ hash, subject, time, opened, toggle, detail, onContextMenu, children }: CommitRowProps) {
+  const now = Date.now();
+  return (
+    <div role="none">
+      <button
+        type="button"
+        role="treeitem"
+        className="files-row changes-log-row"
+        aria-expanded={opened}
+        data-commit={hash}
+        title={subject}
+        onClick={(e) => {
+          e.currentTarget.focus();
+          toggle(hash, !opened);
+        }}
+        onContextMenu={onContextMenu}
+      >
+        <span className="turn-chevron files-chevron" data-open={opened}>
+          <ChevronIcon />
+        </span>
+        <span className="changes-subject">{subject}</span>
+        {detail}
+        <span className="changes-age">{ageLabel(time ?? now, now)}</span>
+      </button>
+      {opened && <div role="group">{children}</div>}
+    </div>
+  );
+}
+
 type RowProps = { worktree: string; file: CommittedFile; side: DiffSide; rowKey: string; depth: number; selected: boolean };
 
-function CommittedRow({ worktree, file, side, rowKey, depth, selected }: RowProps) {
+/** A committed file's row, of the branch, a commit or a stash: a click opens its read-only diff. */
+export function CommittedRow({ worktree, file, side, rowKey, depth, selected }: RowProps) {
   return (
     <button
       type="button"

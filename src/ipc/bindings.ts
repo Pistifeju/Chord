@@ -50,6 +50,10 @@ export const commands = {
 	readCommitTarget: (worktree: string) => __TAURI_INVOKE<CommitTarget_Serialize>("read_commit_target", { worktree }),
 	lastCommitMessage: (worktree: string) => __TAURI_INVOKE<string>("last_commit_message", { worktree }),
 	pushBranch: (worktree: string) => __TAURI_INVOKE<null>("push_branch", { worktree }),
+	listStashes: (worktree: string) => __TAURI_INVOKE<Stash[]>("list_stashes", { worktree }),
+	listStashFiles: (worktree: string, stash: string) => __TAURI_INVOKE<CommittedFile_Serialize[]>("list_stash_files", { worktree, stash }),
+	stashChanges: (worktree: string) => __TAURI_INVOKE<null>("stash_changes", { worktree }),
+	actOnStash: (worktree: string, stash: string, action: StashAction) => __TAURI_INVOKE<null>("act_on_stash", { worktree, stash, action }),
 	startTerminal: (worktree: string, cols: number, rows: number, onEvent: Channel<TerminalEvent>) => __TAURI_INVOKE<null>("start_terminal", { worktree, cols, rows, onEvent }),
 	writeTerminal: (worktree: string, text: string) => __TAURI_INVOKE<null>("write_terminal", { worktree, text }),
 	resizeTerminal: (worktree: string, cols: number, rows: number) => __TAURI_INVOKE<null>("resize_terminal", { worktree, cols, rows }),
@@ -477,9 +481,11 @@ export type DiffSide =
 /**  The file on disk against the index. */
 "unstaged" | 
 /**  HEAD against its merge base with this base branch. */
-({ branch: string }) & { commit?: never } | 
+({ branch: string }) & { commit?: never; stash?: never } | 
 /**  This commit against its first parent. */
-({ commit: string }) & { branch?: never };
+({ commit: string }) & { branch?: never; stash?: never } | 
+/**  This stash, by its commit, against the commit it was made on; an untracked file against nothing. */
+({ stash: string }) & { branch?: never; commit?: never };
 
 export type Direction = 
 /**  Children sit side by side. */
@@ -1078,6 +1084,19 @@ export type SlashCommand_Serialize = {
 export type SlashKind = "skill" | "prompt" | "extension" | 
 /**  A command of the harness itself that acts on the pane's session, such as picking the model or resuming another session; the adapter runs it when `send` gets it. */
 "session";
+
+export type Stash = {
+	/**  The stash's commit, which names it while the `stash@{n}` indexes shift. */
+	hash: string,
+	/**  Without git's "WIP on main:" or "On main:". */
+	message: string,
+	/**  The branch it came from, "(no branch)" from a detached HEAD. */
+	branch: string,
+	/**  When it was made, in milliseconds since 1970. */
+	time: number | null,
+};
+
+export type StashAction = "apply" | "pop" | "drop";
 
 export type State = State_Serialize | State_Deserialize;
 

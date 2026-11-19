@@ -1,5 +1,5 @@
 // The one sheet the window shows, if any: opening a sheet replaces the one that was open.
-import type { Change, Hunk } from "../ipc/bindings";
+import type { Change, Hunk, Stash } from "../ipc/bindings";
 import { externalStore } from "../ui/externalStore";
 
 export type Sheet =
@@ -8,6 +8,7 @@ export type Sheet =
   | { kind: "forceRemoval"; project: string; path: string; branch: string | null; reason: string }
   | { kind: "trashFile"; worktree: string; path: string }
   | { kind: "discardChanges"; worktree: string; changes: Change[]; hunk?: Hunk }
+  | { kind: "dropStash"; worktree: string; stash: Stash }
   | { kind: "openFileByName"; worktree: string }
   | { kind: "quit" }
   | { kind: "help" }

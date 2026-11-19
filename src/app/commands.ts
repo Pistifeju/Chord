@@ -93,8 +93,8 @@ export function menuItem(id: string, target: string) {
 }
 
 // Opens a context menu of commands, each run on its target.
-export async function showMenu(event: MouseEvent, items: [commandId: string, target: string][]) {
+export async function showMenu(event: MouseEvent, items: ([commandId: string, target: string] | "separator")[]) {
   event.preventDefault();
   event.stopPropagation();
-  await openContextMenu(async () => (await Menu.new({ items: items.map(([id, target]) => menuItem(id, target)) })).popup());
+  await openContextMenu(async () => (await Menu.new({ items: items.map((item) => (item === "separator" ? { item: "Separator" as const } : menuItem(...item))) })).popup());
 }

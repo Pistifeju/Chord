@@ -1,4 +1,4 @@
-/* The Changes view: its scope control and base, its groups and their rows, which take the Files tree and its row, a branch's commit rows, and the commit area under them. Rules: DESIGN.md, Changes view. */
+/* The Changes view: its scope control and base, its groups and their rows, which take the Files tree and its row, a branch's commit rows, the Stashes group and its stash rows, and the commit area under them. Rules: DESIGN.md, Changes view. */
 .changes-header {
   flex: none;
   padding: 4px 8px 0;
@@ -167,6 +167,49 @@
 .changes-option:active > .changes-check {
   transform: scale(0.9);
   transition-duration: 60ms;
+}
+
+/* Stash Changes at the Changes heading's right end. */
+.changes-stash {
+  width: 20px;
+  height: 20px;
+  margin-left: auto;
+  border-radius: var(--radius-inset);
+}
+
+/* The Stashes heading opens and closes its group; its chevron sits where the other headings have their checkbox. */
+.changes-group.changes-group-toggle {
+  width: 100%;
+  border: none;
+  border-radius: var(--radius-control);
+  text-align: left;
+  transition: background-color var(--t-fast) var(--ease-out);
+}
+
+.files-tree:not([data-keys]) .changes-group-toggle:hover {
+  background: var(--raised);
+}
+
+.changes-group-toggle:focus-visible {
+  outline-offset: -2px;
+}
+
+.changes-group-toggle > .turn-chevron {
+  width: 14px;
+  margin-right: 2px;
+  place-items: center;
+}
+
+/* The branch a stash came from, between its message and its age. */
+.changes-stash-branch {
+  flex: 0 1 auto;
+  max-width: 40%;
+  margin-left: 2px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: calc(12px * var(--text-scale));
+  color: var(--ink-muted);
 }
 
 /* The check always renders, so it animates only when it changes, never when a row first shows. */

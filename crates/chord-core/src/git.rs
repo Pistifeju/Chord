@@ -1,4 +1,4 @@
-//! Runs git in a folder, with or without input on its stdin, and returns its output.
+//! Runs git in a folder, with or without input on its stdin, and returns its output, or None for a failure that only means the thing asked for is not there.
 
 use std::io::Write;
 use std::path::Path;
@@ -19,7 +19,12 @@ fn started(result: std::io::Result<Output>) -> Result<String, Error> {
         result.map_err(|error| Error::start_failed("git", "xcode-select --install", error))?;
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::Message(stderr.trim().to_string()));
+        // A stash that conflicts reports on stdout alone.
+        let reason = match stderr.trim() {
+            "" => String::from_utf8_lossy(&output.stdout).trim().to_string(),
+            stderr => stderr.to_string(),
+        };
+        return Err(Error::Message(reason));
     }
     Ok(String::from_utf8_lossy(&output.stdout).into_owned())
 }
@@ -39,4 +44,13 @@ pub fn run_with_input(dir: &Path, args: &[&str], input: &[u8]) -> Result<String,
         let _ = child.stdin.take().expect("piped stdin").write_all(input);
         child.wait_with_output()
     })())
+}
+
+/// Other git failures read as None, so a detached HEAD, a branch without an upstream or a stash without untracked files reads as nothing there.
+pub fn optional(result: Result<String, Error>) -> Result<Option<String>, Error> {
+    match result {
+        Ok(output) => Ok(Some(output.trim().to_string())),
+        Err(error @ Error::MissingTool { .. }) => Err(error),
+        Err(_) => Ok(None),
+    }
 }

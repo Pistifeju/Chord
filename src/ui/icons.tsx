@@ -228,6 +228,13 @@ export const BranchIcon = () => (
   </Icon>
 );
 
+export const StashIcon = () => (
+  <Icon>
+    <rect x="2" y="3" width="12" height="3" rx="1" />
+    <path d="M3 6v6.5a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V6M6.5 8.75h3" />
+  </Icon>
+);
+
 export const DiffIcon = () => (
   <Icon>
     <path d="M4.5 1.75h4.75l3.25 3.25v8a1.25 1.25 0 0 1-1.25 1.25h-6.75A1.25 1.25 0 0 1 3.25 13V3A1.25 1.25 0 0 1 4.5 1.75z" />

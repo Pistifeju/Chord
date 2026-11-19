@@ -16,6 +16,7 @@ import { watchBrowsers } from "../features/browser/store";
 import { OpenFileByNamePopup } from "../features/files/OpenFileByNamePopup";
 import { TrashFilePopup } from "../features/files/TrashFilePopup";
 import { DiscardChangesPopup } from "../features/changes/DiscardChangesPopup";
+import { DropStashPopup } from "../features/changes/DropStashPopup";
 import { CloseAgentsPopup } from "../features/panes/CloseAgentsPopup";
 import { PaneArea } from "../features/panes/PaneArea";
 import { QuitPopup } from "../features/quit/QuitPopup";
@@ -175,6 +176,7 @@ export default function App() {
       <ForceRemovalPopup />
       <TrashFilePopup />
       <DiscardChangesPopup />
+      <DropStashPopup />
       <OpenFileByNamePopup />
       <QuitPopup />
       <HelpSheet />

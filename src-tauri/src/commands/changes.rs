@@ -1,12 +1,15 @@
-//! Commands for a worktree's changes: list the changed files, read the branch's commits and files against a base, list a commit's files and the bases to pick from, read one file's diff, stage, unstage and discard files and hunks, commit the staged files or amend the last commit, read who commits and where a push goes, and push the branch.
+//! Commands for a worktree's changes: list the changed files, read the branch's commits and files against a base, list a commit's files and the bases to pick from, read one file's diff, stage, unstage and discard files and hunks, commit the staged files or amend the last commit, read who commits and where a push goes, push the branch, and list, make, apply, pop and drop the repository's stashes and list a stash's files.
 
 use std::path::PathBuf;
 
 use chord_core::{
     Change, DiffSide, FileDiff, Hunk, HunkAction,
-    branch_changes::{self, BaseBranches, BranchChanges, CommittedFile},
-    changes, commits,
+    branch_changes::{self, BaseBranches, BranchChanges},
+    changes,
+    commit_diff::{self, CommittedFile},
+    commits,
     commits::CommitTarget,
+    stashes::{self, Stash, StashAction},
 };
 
 use super::blocking;
@@ -38,7 +41,7 @@ pub async fn list_commit_files(
     commit: String,
 ) -> Result<Vec<CommittedFile>, String> {
     blocking(app, move |_, _| {
-        branch_changes::commit_files(&worktree, &commit)
+        commit_diff::commit_files(&worktree, &commit)
     })
     .await
 }
@@ -141,4 +144,37 @@ pub async fn read_commit_target(
 #[specta::specta]
 pub async fn push_branch(app: tauri::AppHandle, worktree: PathBuf) -> Result<(), String> {
     blocking(app, move |_, _| commits::push(&worktree)).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn list_stashes(app: tauri::AppHandle, worktree: PathBuf) -> Result<Vec<Stash>, String> {
+    blocking(app, move |_, _| stashes::list(&worktree)).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn list_stash_files(
+    app: tauri::AppHandle,
+    worktree: PathBuf,
+    stash: String,
+) -> Result<Vec<CommittedFile>, String> {
+    blocking(app, move |_, _| stashes::files(&worktree, &stash)).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn stash_changes(app: tauri::AppHandle, worktree: PathBuf) -> Result<(), String> {
+    blocking(app, move |_, _| stashes::push(&worktree)).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn act_on_stash(
+    app: tauri::AppHandle,
+    worktree: PathBuf,
+    stash: String,
+    action: StashAction,
+) -> Result<(), String> {
+    blocking(app, move |_, _| stashes::act(&worktree, &stash, action)).await
 }

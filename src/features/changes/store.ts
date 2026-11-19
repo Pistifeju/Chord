@@ -1,9 +1,9 @@
-// Connects the Changes view to IPC: each worktree's changed files read from git with its branch against its base, one read at a time, a failed read leaving the last list, the scope and base each worktree shows, the files of an opened commit, a change's diff opened in a tab, the stage, unstage and discard of files and hunks, each followed by a read, and the commit message with its options, commit, amend and push, each followed by a read and the git counts.
-import { commands, type BranchChanges_Serialize as BranchChanges, type Change, type CommitTarget_Serialize as CommitTarget, type CommittedFile_Serialize as CommittedFile, type Hunk, type HunkAction } from "../../ipc/bindings";
+// Connects the Changes view to IPC: each worktree's changed files read from git with its branch against its base and the repository's stashes, one read at a time, a failed read leaving the last list, the scope and base each worktree shows, whether its Stashes group is open, the files of an opened commit or stash, a change's diff opened in a tab, the stage, unstage and discard of files and hunks, each followed by a read, the commit message with its options, commit, amend and push, and the stash of the changes, a stash's apply, pop and drop, each followed by a read and the git counts.
+import { commands, type BranchChanges_Serialize as BranchChanges, type Change, type CommitTarget_Serialize as CommitTarget, type CommittedFile_Serialize as CommittedFile, type Hunk, type HunkAction, type Stash, type StashAction } from "../../ipc/bindings";
 import { closeSheet, openSheet, sheet, sheetOf } from "../../app/sheet";
 import { externalStore } from "../../ui/externalStore";
 import { canCommit } from "./changes";
-import { fail } from "../../ui/alert";
+import { fail, notify } from "../../ui/alert";
 import { flushAllSaves } from "../editor/store";
 import { closeFilePanesAt, openFileTab } from "../panes/store";
 import { refreshGitCounts } from "../worktrees/gitCountsRefresh";
@@ -33,18 +33,30 @@ export function pickBase(worktree: string, base: string) {
   void readChanges(worktree);
 }
 
-/** The files of each commit opened, by hash; a commit never changes, so one read serves for good. */
+/** The files of each commit or stash opened, by hash; neither ever changes, so one read serves for good. */
 export const commitFiles = externalStore<Record<string, CommittedFile[]>>({});
 
-export async function readCommitFiles(worktree: string, hash: string) {
+export const readCommitFiles = (worktree: string, hash: string) => readFilesOf(hash, () => commands.listCommitFiles(worktree, hash));
+
+export const readStashFiles = (worktree: string, hash: string) => readFilesOf(hash, () => commands.listStashFiles(worktree, hash));
+
+async function readFilesOf(hash: string, list: () => Promise<CommittedFile[]>) {
   if (commitFiles.get()[hash]) return;
   try {
-    const files = await commands.listCommitFiles(worktree, hash);
+    const files = await list();
     commitFiles.set({ ...commitFiles.get(), [hash]: files });
   } catch (error) {
     fail(error);
   }
 }
+
+/** The repository's stashes as each worktree read them, newest first. */
+export const stashes = externalStore<Record<string, Stash[]>>({});
+
+/** The worktrees whose Stashes group is open; it starts closed and holds until the app quits. */
+export const openStashGroups = externalStore<Record<string, boolean>>({});
+
+export const toggleStashGroup = (worktree: string) => openStashGroups.set({ ...openStashGroups.get(), [worktree]: !openStashGroups.get()[worktree] });
 
 /** Each worktree's commit message as typed. */
 export const commitMessages = externalStore<Record<string, string>>({});
@@ -75,11 +87,17 @@ export async function readChanges(worktree: string) {
   reading.set(worktree, false);
   const afterAct = acted.delete(worktree);
   try {
-    const [list, target, branch] = await Promise.all([commands.listChanges(worktree), commands.readCommitTarget(worktree), commands.readBranch(worktree, pickedBases.get(worktree) ?? null)]);
+    const [list, target, branch, stashList] = await Promise.all([
+      commands.listChanges(worktree),
+      commands.readCommitTarget(worktree),
+      commands.readBranch(worktree, pickedBases.get(worktree) ?? null),
+      commands.listStashes(worktree),
+    ]);
     if (afterAct) actedLists.add(list);
     changes.set({ ...changes.get(), [worktree]: list });
     commitTargets.set({ ...commitTargets.get(), [worktree]: target });
     branches.set({ ...branches.get(), [worktree]: branch });
+    stashes.set({ ...stashes.get(), [worktree]: stashList });
   } catch (error) {
     fail(error);
   } finally {
@@ -194,4 +212,29 @@ export async function toggleAmend(worktree: string) {
   } catch (error) {
     fail(error);
   }
+}
+
+// A stash moves files on disk, so the cards' git counts read again too.
+async function actOnStashes(worktree: string, run: () => Promise<unknown>) {
+  await act(worktree, run);
+  refreshGitCounts();
+}
+
+export function stashChanges(worktree: string) {
+  // A file both staged and changed on disk counts once.
+  const count = new Set(changes.get()[worktree]?.map((c) => c.path)).size;
+  return actOnStashes(worktree, async () => {
+    await commands.stashChanges(worktree);
+    notify(count === 1 ? "Stashed 1 file" : `Stashed ${count} files`);
+  });
+}
+
+export const actOnStash = (worktree: string, hash: string, action: Exclude<StashAction, "drop">) => actOnStashes(worktree, () => commands.actOnStash(worktree, hash, action));
+
+export const requestDropStash = (worktree: string, stash: Stash) => openSheet({ kind: "dropStash", worktree, stash });
+
+export async function confirmDropStash() {
+  const pending = sheetOf(sheet.get(), "dropStash");
+  closeSheet("dropStash");
+  if (pending) await actOnStashes(pending.worktree, () => commands.actOnStash(pending.worktree, pending.stash.hash, "drop"));
 }

@@ -1,4 +1,4 @@
-// Rules for the Changes view: its Staged and Changes groups, when Commit runs, the rows a shift-click picks, how a change's status reads, which row the focused tab's diff selects, and what a diff tab's title adds.
+// Rules for the Changes view: its Staged and Changes groups, when Commit runs, the rows a shift-click picks, how a change's status reads, which row the focused tab's diff selects, what a diff tab's title adds, and whether its diff can change.
 import type { Change, ChangeStatus, DiffSide, WorktreePanes } from "../../ipc/bindings";
 import { groupOf } from "../panes/layout.ts";
 
@@ -17,15 +17,24 @@ export const statusLetters: Record<ChangeStatus, string> = { modified: "M", adde
 
 export const statusWord = (status: ChangeStatus) => status[0].toUpperCase() + status.slice(1);
 
-// A ref name and a hash hold no colon, so the path starts after the first one.
-const sideKey = (side: DiffSide) => (typeof side === "string" ? side : "branch" in side ? `branch ${side.branch}` : `commit ${side.commit}`);
+/** A diff side's key, what its tab's tooltip adds to the path, and whether its diff can change, so the view's reads refresh it. */
+function describeSide(side: DiffSide): { key: string; title: string; changes: boolean } {
+  if (side === "staged") return { key: side, title: " (Staged)", changes: true };
+  if (side === "unstaged") return { key: side, title: " (Changes)", changes: true };
+  if (side.branch !== undefined) return { key: `branch ${side.branch}`, title: ` (Compared to ${side.branch})`, changes: true };
+  if (side.commit !== undefined) return { key: `commit ${side.commit}`, title: ` (Commit ${side.commit.slice(0, 7)})`, changes: false };
+  return { key: `stash ${side.stash}`, title: ` (Stash ${side.stash.slice(0, 7)})`, changes: false };
+}
 
+// A ref name and a hash hold no colon, so the path starts after the first one.
 /** A row's key: its side and path, as the diff tab it opens holds them. */
-export const diffKey = (side: DiffSide, path: string) => `${sideKey(side)}:${path}`;
+export const diffKey = (side: DiffSide, path: string) => `${describeSide(side).key}:${path}`;
 
 /** What a diff tab's tooltip adds to the path. */
-export const diffTitle = (side: DiffSide) =>
-  typeof side !== "string" ? ("branch" in side ? ` (Compared to ${side.branch})` : ` (Commit ${side.commit.slice(0, 7)})`) : side === "staged" ? " (Staged)" : " (Changes)";
+export const diffTitle = (side: DiffSide) => describeSide(side).title;
+
+/** False for a commit's or a stash's diff, which never changes. */
+export const diffChanges = (side: DiffSide) => describeSide(side).changes;
 
 /** The keys of the group's rows from `anchor` to `key`, both in; `key` alone while the anchor is not in the group. */
 export function pickRange(group: ChangeGroup, anchor: string | null, key: string): string[] {

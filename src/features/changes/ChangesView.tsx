@@ -1,8 +1,8 @@
-// The Changes view: its scope control, Uncommitted or Branch while the worktree has a base (see BranchList), then under Uncommitted the worktree's changed files under Staged and Changes, with the commit area under them: the author, the message field, then Push Immediately and Amend beside Push and Commit; each row with its name, folder, line counts and status; a click opens its diff. A checkbox on each row and group heading stages or unstages, and a row's More button and right-click menu hold its Stage or Unstage, and Discard. Also its tab bar button.
+// The Changes view: its scope control, Uncommitted or Branch while the worktree has a base (see BranchList), then under Uncommitted the worktree's changed files under Staged and Changes, Stash Changes on the Changes heading, the repository's stashes under them (see StashList), with the commit area under them: the author, the message field, then Push Immediately and Amend beside Push and Commit; each row with its name, folder, line counts and status; a click opens its diff. A checkbox on each row and group heading stages or unstages, and a row's More button and right-click menu hold its Stage or Unstage, and Discard. Also its tab bar button.
 import { memo, useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import type { Change } from "../../ipc/bindings";
 import { showMenu, tooltip } from "../../app/commands";
-import { BranchIcon, CheckIcon, MoreIcon } from "../../ui/icons";
+import { BranchIcon, CheckIcon, MoreIcon, StashIcon } from "../../ui/icons";
 import { shortcutChanges } from "../settings/store";
 import { showsSideView, sidePanels, toggleSideView } from "../sidepanel/store";
 import { panes } from "../panes/store";
@@ -11,8 +11,9 @@ import { Segmented } from "../../ui/Segmented";
 import { arrivals, canCommit, changeGroups, diffKey, focusedDiff, nextSelection, pickRange, statusWord } from "./changes";
 import { BaseControl, BranchList } from "./BranchList";
 import { ChangeParts } from "./ChangeParts";
+import { StashList } from "./StashList";
 import { changesTarget } from "./commands";
-import { branches, changes, commitMessages, commitOptions, commitStaged, commitTargets, followsAct, optionsOf, pushBranch, readChanges, running, scopes, setScope, showDiff, stageChanges, toggleAmend, togglePushAfter, typeCommitMessage, unstageChanges, type Scope } from "./store";
+import { branches, changes, commitMessages, commitOptions, commitStaged, commitTargets, followsAct, optionsOf, pushBranch, readChanges, running, scopes, setScope, showDiff, stageChanges, stashChanges, toggleAmend, togglePushAfter, typeCommitMessage, unstageChanges, type Scope } from "./store";
 import "./changes.css";
 
 export function ChangesToggle({ worktree }: { worktree: string }) {
@@ -118,8 +119,8 @@ function UncommittedList({ worktree }: { worktree: string }) {
           const step = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
           if (e.key === "Escape" && many) return setPick({ ...pick, keys: [] });
           const key = (e.target as HTMLElement).dataset.key;
-          if (e.key === " " && key) {
-            // Space ticks the row's checkbox instead of opening the diff.
+          if (e.key === " " && key && rows.some((r) => r.key === key)) {
+            // Space ticks the row's checkbox instead of opening the diff; a stash's file has no checkbox, so Space opens it.
             e.preventDefault();
             if (!e.repeat) toggleFrom(key);
             return;
@@ -131,8 +132,10 @@ function UncommittedList({ worktree }: { worktree: string }) {
           e.preventDefault();
           e.currentTarget.dataset.keys = "";
           const next = items[at + step];
-          if (!next?.dataset.key) return;
+          if (!next) return;
           next.focus();
+          // The Stashes heading and a stash only take the focus.
+          if (!next.dataset.key) return;
           // A plain arrow opens the next file's diff, as a click does; shift only picks.
           if (e.shiftKey) pickTo(next.dataset.key, true);
           else next.click();
@@ -145,6 +148,11 @@ function UncommittedList({ worktree }: { worktree: string }) {
               <StageBox worktree={worktree} list={group.changes} staged={group.side === "staged" && group.changes.length > 0} label={group.side === "staged" ? "Unstage All" : "Stage All"} focusable />
               <span>{group.title}</span>
               <span className="changes-count">{group.changes.length}</span>
+              {group.side === "unstaged" && (
+                <button type="button" className="icon-button changes-stash" title="Stash Changes" aria-label="Stash Changes" disabled={!list?.length} onClick={() => void stashChanges(worktree)}>
+                  <StashIcon />
+                </button>
+              )}
             </div>
             {group.changes.length === 0 && <div className="files-empty">{group.side === "staged" ? "No staged files" : "No changes"}</div>}
             {group.changes.map((change) => (
@@ -161,6 +169,7 @@ function UncommittedList({ worktree }: { worktree: string }) {
             ))}
           </div>
         ))}
+        <StashList worktree={worktree} selected={selected} />
       </div>
       <CommitBox worktree={worktree} staged={groups[0]?.changes.length > 0} />
     </>

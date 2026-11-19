@@ -87,6 +87,8 @@ pub enum DiffSide {
     Branch(String),
     /// This commit against its first parent.
     Commit(String),
+    /// This stash, by its commit, against the commit it was made on; an untracked file against nothing.
+    Stash(String),
 }
 
 #[derive(Serialize, Deserialize, Type, Clone, Copy, Debug, PartialEq)]

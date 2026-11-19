@@ -8,7 +8,7 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-use crate::{DiffSide, Error, branch_changes, files, git};
+use crate::{DiffSide, Error, branch_changes, commit_diff, files, git, stashes};
 
 #[derive(Serialize, Type, Clone, Copy, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -135,10 +135,13 @@ fn raw_diff(dir: &Path, path: &str, side: &DiffSide) -> Result<String, Error> {
     read(dir, &args)
 }
 
-/// The file's diff in `side`; a branch's or a commit's comes from `branch_changes`.
+/// The file's diff in `side`; a branch's, a commit's and a stash's come from their own modules.
 pub fn diff(dir: &Path, path: &str, side: &DiffSide) -> Result<FileDiff, Error> {
-    if let DiffSide::Branch(_) | DiffSide::Commit(_) = side {
-        return branch_changes::diff(dir, path, side);
+    match side {
+        DiffSide::Branch(base) => return branch_changes::diff(dir, path, base),
+        DiffSide::Commit(commit) => return commit_diff::commit_diff(dir, commit, path),
+        DiffSide::Stash(stash) => return stashes::diff(dir, path, stash),
+        DiffSide::Staged | DiffSide::Unstaged => {}
     }
     let output = raw_diff(dir, path, side)?;
     if *side == DiffSide::Staged {

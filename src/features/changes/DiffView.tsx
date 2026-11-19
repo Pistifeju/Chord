@@ -1,4 +1,4 @@
-// A file's diff in its tab: the read-only unified diff of the index against HEAD, of the file on disk against the index, of the branch since its base or of one commit, with the editor's syntax highlighting and each hunk's Stage and Discard, or Unstage and Discard, read again with each read of the Changes view.
+// A file's diff in its tab: the read-only unified diff of the index against HEAD, of the file on disk against the index, of the branch since its base, of one commit or of one stash, with the editor's syntax highlighting and each hunk's Stage and Discard, or Unstage and Discard, read again with each read of the Changes view.
 import { drawSelection, EditorView, Decoration, gutter, GutterMarker, WidgetType } from "@codemirror/view";
 import { Compartment, EditorState, type Range } from "@codemirror/state";
 import { LanguageDescription, type LanguageSupport } from "@codemirror/language";
@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { commands, type DiffLine, type DiffSide, type FileDiff, type Hunk, type HunkAction } from "../../ipc/bindings";
 import { fail } from "../../ui/alert";
 import { editorTheme } from "../editor/theme";
-import { diffKey } from "./changes";
+import { diffChanges, diffKey } from "./changes";
 import { applyHunk, changes, requestDiscard } from "./store";
 
 class GutterText extends GutterMarker {
@@ -150,7 +150,7 @@ export function DiffView({ worktree, path, side }: { worktree: string; path: str
   const [diff, setDiff] = useState<FileDiff | null>(null);
   const [failed, setFailed] = useState(false);
   const read = changes.usePart((all) => all[worktree]);
-  // A branch's or a commit's diff is committed, so it has no hunk to stage or discard.
+  // A branch's, a commit's or a stash's diff is committed, so it has no hunk to stage or discard.
   const change = typeof side === "string" ? read?.find((c) => c.path === path && c.staged === (side === "staged")) : undefined;
   // A conflicted file stages whole, which marks it resolved.
   const actions: HunkAction[] = !change || change.status === "conflicted" ? [] : side === "staged" ? ["discardStaged", "unstage"] : ["discard", "stage"];
@@ -167,8 +167,7 @@ export function DiffView({ worktree, path, side }: { worktree: string; path: str
   const shown = useRef(false);
   // A new tab state brings a new object for the same side, so the read follows its key.
   const key = diffKey(side, path);
-  // A commit never changes, so its diff skips the refreshes.
-  const refresh = typeof side === "object" && "commit" in side ? null : read;
+  const refresh = diffChanges(side) ? read : null;
   useEffect(() => {
     let gone = false;
     commands
