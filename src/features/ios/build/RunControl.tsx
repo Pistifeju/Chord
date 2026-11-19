@@ -63,15 +63,14 @@ async function runMenu(worktree: string) {
   return Menu.new({ items });
 }
 
-/** Opens `menu` under `button` once a destination listing is known. */
-export function popUpUnder(worktree: string, button: HTMLElement, menu: () => Promise<Menu>) {
-  return openContextMenu(async () => {
-    // The listing is the last one while the new one loads: the menu opens at once and a later open shows the new one.
-    const refreshing = refreshDestinations(worktree).catch(fail);
-    if (!destinations.get()) await refreshing;
-    const box = button.getBoundingClientRect();
-    await (await menu()).popup(new LogicalPosition(box.left, box.bottom));
-  });
+/** Opens `menu` under `button` once a destination listing is known and `loading` ends. */
+export async function popUpUnder(worktree: string, button: HTMLElement, menu: () => Promise<Menu>, loading?: Promise<unknown>) {
+  // The listing is the last one while the new one loads: the menu opens at once and a later open shows the new one.
+  const refreshing = refreshDestinations(worktree).catch(fail);
+  // Loads wait outside the menu lock, so a slow one cannot block every other menu.
+  await Promise.all([destinations.get() ? null : refreshing, loading]);
+  const box = button.getBoundingClientRect();
+  await openContextMenu(async () => (await menu()).popup(new LogicalPosition(box.left, box.bottom)));
 }
 
 export function RunControl({ worktree }: { worktree: string }) {
@@ -90,10 +89,7 @@ export function RunControl({ worktree }: { worktree: string }) {
         onClick={(e: MouseEvent<HTMLButtonElement>) => {
           // Listed beside the destinations; like them, the last listing shows while the new one loads.
           const listing = refreshSchemes(worktree).catch(fail);
-          popUpUnder(worktree, e.currentTarget, async () => {
-            if (!schemeListings.get()[worktree]) await listing;
-            return runMenu(worktree);
-          }).catch(fail);
+          popUpUnder(worktree, e.currentTarget, () => runMenu(worktree), schemeListings.get()[worktree] ? undefined : listing).catch(fail);
         }}
       >
         <PhoneIcon />

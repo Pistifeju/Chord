@@ -61,13 +61,12 @@ function appearanceMenu(worktree: string, preview: boolean, now: SimulatorAppear
 }
 
 /** Opens the menu under `button`. */
-export function openAppearanceMenu(worktree: string, preview: boolean, button: HTMLElement) {
+export async function openAppearanceMenu(worktree: string, preview: boolean, button: HTMLElement) {
   const box = button.getBoundingClientRect();
-  return openContextMenu(async () => {
-    const reading = loadAppearance(worktree, preview);
-    const last = known.get(keyOf(worktree, preview));
-    if (last) reading.catch(console.error);
-    const menu = await appearanceMenu(worktree, preview, last ?? (await reading));
-    await menu.popup(new LogicalPosition(box.left, box.bottom));
-  });
+  const reading = loadAppearance(worktree, preview);
+  const last = known.get(keyOf(worktree, preview));
+  if (last) reading.catch(console.error);
+  // The read waits outside the menu lock, so a slow one cannot block every other menu.
+  const now = last ?? (await reading);
+  await openContextMenu(async () => (await appearanceMenu(worktree, preview, now)).popup(new LogicalPosition(box.left, box.bottom)));
 }
