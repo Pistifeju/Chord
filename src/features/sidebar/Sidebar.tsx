@@ -1,4 +1,4 @@
-// The sidebar: the navigator's control over one view at a time, Workspaces, Files, Changes or the Tests view the window passes in; under Workspaces each project's worktrees as cards under its name, in project order, each with a row per chat session and its status, and the drags that reorder the projects and the cards; its show/hide button and the Settings and Help buttons at its foot.
+// The sidebar: the navigator's control over one view at a time, Workspaces, Files or Changes; under Workspaces each project's worktrees as cards under its name, in project order, each with a row per chat session and its status, and the drags that reorder the projects and the cards; its show/hide button and the Settings and Help buttons at its foot.
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import type { GitCounts_Serialize as GitCounts, Project, Worktree_Serialize as Worktree } from "../../ipc/bindings";
 import { shortcutLabel, showMenu, tooltip } from "../../app/commands";
@@ -11,7 +11,7 @@ import { openSettings, settingsOpen, shortcutChanges } from "../settings/store";
 import { finished } from "../status/store";
 import { ageLabel, seenDone, statusLabel, urgentReport } from "../status/status";
 import { StatusMark } from "../status/StatusMark";
-import { BranchIcon, FolderIcon, GearIcon, PlusIcon, QuestionIcon, SidebarIcon, TestIcon, WorkspacesIcon } from "../../ui/icons";
+import { BranchIcon, FolderIcon, GearIcon, PlusIcon, QuestionIcon, SidebarIcon, WorkspacesIcon } from "../../ui/icons";
 import { ChangesView } from "../changes/ChangesView";
 import { FilesView } from "../files/FilesView";
 import { countsLabel, countsTitle } from "../worktrees/gitCounts";
@@ -45,7 +45,6 @@ const navigatorViews: { view: NavigatorView; label: string; icon: ReactNode }[] 
   { view: "workspaces", label: "Workspaces", icon: <WorkspacesIcon /> },
   { view: "files", label: "Files", icon: <FolderIcon size={16} /> },
   { view: "changes", label: "Changes", icon: <BranchIcon /> },
-  { view: "tests", label: "Tests", icon: <TestIcon /> },
 ];
 
 // The navigator's control: one icon per view; Workspaces carries a dot while an agent awaits input, so a hidden card still calls.
@@ -130,8 +129,8 @@ function useSidebarDrag(scroller: RefObject<HTMLDivElement | null>) {
   return { drag: { handlers: drag.handlers, clicked: drag.clicked, dragging: dragged?.path ?? null }, dragged, line, ghost: drag.ghost };
 }
 
-// `markers` are the iOS part of the cards, passed in by App by worktree path; `tests` is the Tests view, in a worktree with an Xcode project.
-export function Sidebar({ markers, tests }: { markers: Record<string, CardMarker>; tests: ReactNode }) {
+// `markers` are the iOS part of the cards, passed in by App by worktree path.
+export function Sidebar({ markers }: { markers: Record<string, CardMarker> }) {
   const { hidden } = sidebar.use();
   const picked = navigatorView.use();
   shortcutChanges.use();
@@ -144,8 +143,8 @@ export function Sidebar({ markers, tests }: { markers: Record<string, CardMarker
   if (hidden) return null;
   const order = worktreeOrder(state);
   const worktree = state.selected;
-  // Files and Changes need an open worktree, Tests one with an Xcode project; without them the sidebar shows Workspaces.
-  const views: NavigatorView[] = worktree ? ["workspaces", "files", "changes", ...(tests ? (["tests"] as const) : [])] : ["workspaces"];
+  // Files and Changes need an open worktree; without one the sidebar shows Workspaces.
+  const views: NavigatorView[] = worktree ? ["workspaces", "files", "changes"] : ["workspaces"];
   const shown = views.includes(picked) ? picked : "workspaces";
   return (
     <nav className="sidebar" aria-label="Navigator">
@@ -196,7 +195,7 @@ export function Sidebar({ markers, tests }: { markers: Record<string, CardMarker
           )}
         </>
       ) : (
-        <div className="sidebar-view">{shown === "tests" ? tests : worktree && (shown === "files" ? <FilesView worktree={worktree} /> : <ChangesView worktree={worktree} />)}</div>
+        <div className="sidebar-view">{worktree && (shown === "files" ? <FilesView worktree={worktree} /> : <ChangesView worktree={worktree} />)}</div>
       )}
       <div className="sidebar-footer">
         <SettingsButton />

@@ -4,7 +4,6 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { BuildView } from "../features/ios/build/BuildView";
 import { ConsoleView } from "../features/ios/build/ConsoleView";
 import { Toolbar } from "../features/ios/build/Toolbar";
-import { TestsView } from "../features/ios/tests/TestsView";
 import { BuildDataSize } from "../features/ios/simulators/BuildDataSize";
 import { ScreenshotRows } from "../features/ios/simulator/ScreenshotRows";
 import { ServiceRows } from "../features/ios/simulators/ServiceRows";
@@ -138,7 +137,7 @@ export default function App() {
           </span>
         </div>
         <div className="app-body">
-          <Sidebar markers={markers} tests={xcode ? <TestsView /> : null} />
+          <Sidebar markers={markers} />
           <div className="app-column">
             <main className="main">{list.length === 0 ? (
                 <NoProjects />

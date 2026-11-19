@@ -21,7 +21,7 @@ Tags:
 - [x] A5 Light / dark / system theme; text size (⌘=, ⌘-, ⌘0). Settings rows for both.
 - [x] A6 Restores the open project and worktree on launch.
 - [x] A7 Settings row: editor font size, for the editor and diffs.
-- [x] A8 Navigator at the top of the sidebar, as in Xcode: Workspaces (⌃1), Files (⌃2, ⌘⇧E), Changes (⌃3, ⌘⇧G) and, in a worktree with an Xcode project, Tests (⌃4). Files and Changes move out of the side panel. Workspaces carries a dot while an agent awaits input.
+- [x] A8 Navigator at the top of the sidebar, as in Xcode: Workspaces (⌃1), Files (⌃2, ⌘⇧E) and Changes (⌃3, ⌘⇧G). Files and Changes move out of the side panel. Workspaces carries a dot while an agent awaits input.
 
 Containers. The first feature that puts something in one builds it:
 
@@ -174,10 +174,8 @@ Edge cases:
 - [x] H10 harness(tools): `run` builds and runs like ⌘R on the worktree's simulator and returns "Launched", "Stopped" or what `build` returns. Both tools exist only in a worktree with an `.xcodeproj` or `.xcworkspace`.
 - [x] H11 Slim simulators: before a boot, Chord writes launchd disable overrides into its own simulators, so the background services a run does not need (Siri, Spotlight, widgets, iCloud and more) never start. A Rust port of simslim's service list, with its MIT notice. Settings section Simulators: one row per service group with its name, what stops working and its memory, and a switch to keep it on.
 - [x] H12 Product menu in the menu bar after View, as Xcode's: Run (⌘R), Build (⌘B), Clean Build Folder (⌘⇧K) and Stop (⌘.), each disabled while it cannot run. Clean Build Folder stops the worktree's build and run, then removes the `Build` folder of its DerivedData and its hot reload folder; the build log says Clean Finished. Take Screenshot moves to ⌘S.
-- [ ] H13 ⌘U runs the scheme's tests on the worktree's own simulator, in the same slot as ⌘R and ⌘B. The H12 Product menu gets a Test item after Build, with ⌘U; the build log shows the run.
-- [ ] H14 harness(tools): `test` runs the tests like ⌘U and returns "Passed", "Stopped" or the failed tests as `file:line: message`, 30 at most, with a build error returned like `build`. It exists only in a worktree with an `.xcodeproj` or `.xcworkspace`.
 - [ ] H15 **hard** Project view: opens the worktree's `.xcodeproj` as a tab, lists its targets, and shows each target's build settings per configuration and its Info.plist keys. A value edits in place and writes back to `project.pbxproj`.
-- [x] H16 Toolbar in a worktree with an Xcode project, as in Xcode: Run, Stop, Test (disabled until H13), the scheme and run destination buttons, which open the scheme menu and the run menu, the activity field with the build's status and error count, and the Simulator and Preview buttons. The tab bars sit under it.
+- [x] H16 Toolbar in a worktree with an Xcode project, as in Xcode: Run, Stop, the scheme and run destination buttons, which open the scheme menu and the run menu, the activity field with the build's status and error count, and the Simulator and Preview buttons. The tab bars sit under it.
 
 Edge cases:
 - ⌘R opens the Simulator view in the side panel; when the private API fails to load, the selected Xcode's simulator app (DeviceHub from Xcode 27, Simulator.app before).
@@ -200,8 +198,6 @@ Edge cases:
 - H11: Chord reads the overrides back after the boot; a lost override leaves the simulator stock and the run goes on.
 - H9 and H10: each tool's description tells the agent to build and run through the tools and never to use `simctl … booted`; a call that runs long reports every 30 s that it still runs.
 - H4: ⌘B while the app runs builds beside the run that holds the app, as Xcode does: the app, its console and the Running marker stay (the marker says Building while it builds), ⌘. stops the app and the build, and a ⌘R takeover ends both and launches with `--terminate-running-process`.
-- H13: ⌘U and `test` share H4's slot: a test run takes over a running build, and ⌘R or ⌘B takes over a test run. ⌘. stops it.
-- H13: the Test item is disabled while the worktree has no scheme with a test target.
 - H15: a write keeps the file's order, quoting and untouched entries as they were; a change an agent or Xcode made on disk since the view opened stops the write, as F3 does.
 - H15: a setting inherited from an xcconfig file shows read only with the file's name.
 - H4: only a stop (⌘. or quit) ends the app, through the run that launched it; a takeover never runs `simctl terminate`, so a stale run never ends an app a newer ⌘R launched.
@@ -258,7 +254,6 @@ Edge cases:
 - [x] M3 Needs M2. Commit and push: under the groups a message field, with the author a commit records as its tooltip, and a Commit button (⌘Return in the field), enabled while the field has text and a file is staged; it commits the staged files and empties the field. Two toggles beside the button: Push After, to the upstream (or the remote and branch a first push sets), which pushes right after the commit, and Amend, which fills an empty field with the last commit's message and lets Commit replace that commit, with or without staged files. A push line with the count of unpushed commits and a Push button shows while the branch has commits its upstream lacks or has no upstream; it runs `git push` and sets the upstream on the first push. The card's git counts (B6) refresh after both.
 - [x] M4 Needs M1. Scope control in the view's header: Uncommitted (M1's groups) or Branch. Branch lists the files that differ between HEAD and its merge base with the main checkout's branch, with their statuses and line counts, and over them the branch's commits since that merge base, newest first: subject, short hash and age. A commit opens like a folder to the files it changed. A click on a file opens its diff for the branch or for that commit. Under the control, Compared to names the base; its menu lists the default base, then the local and the remote branches, and a pick holds until the app quits.
 - [x] M5 Needs M1. Stashes: Stash Changes on the Changes group stashes the worktree's changes with its untracked files. A Stashes group under the others lists the repository's stashes, newest first: message, the branch it came from and age; a stash opens like a folder to the files it holds, and a click on one opens its diff. Right-click: Apply, Pop, Drop; Drop asks first.
-- [ ] M6 Needs M1. Branches: a Branches group under Stashes lists the repository's local branches, newest first: name, the worktree that holds it and the last commit's age. Right-click: Rename and Delete. Rename turns the name into a field with B2's live `git check-ref-format` check; Return runs `git branch -m`, Esc cancels. Delete asks first and runs `git branch -d`; a branch with unmerged commits asks again with the commit count and runs `git branch -D`.
 
 Edge cases:
 - The view reads git when it shows, on window focus, after each of its own actions and on B6's refresh while it shows; an open diff tab reads again with it. No file watcher.
@@ -296,7 +291,7 @@ A tag with a capability is a `Capability` variant: the UI hides the feature when
 | context | E10 | capability `context` | RPC |
 | usage | E11 | event: `usage` | a pi extension that reports it |
 | subagents | E13 | capability `subagents` | a pi subagent extension |
-| tools | H9, H10, H14 | the adapter starts the agent with the tools in a worktree with an Xcode project | the extension Chord ships registers them and sends each call to Chord's socket; ACP agents will get an MCP server in `session/new` that does the same (`docs/ios.md`, 3.6) |
+| tools | H9, H10 | the adapter starts the agent with the tools in a worktree with an Xcode project | the extension Chord ships registers them and sends each call to Chord's socket; ACP agents will get an MCP server in `session/new` that does the same (`docs/ios.md`, 3.6) |
 
 Steering while a run goes (E1) waits for capability `steer`.
 

@@ -1,4 +1,4 @@
-// The sidebar's shown state, saved through Rust, and the navigator view it shows: Workspaces, Files, Changes or Tests.
+// The sidebar's shown state, saved through Rust, and the navigator view it shows: Workspaces, Files or Changes.
 import { commands, type Sidebar_Serialize as Sidebar } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
 
@@ -10,7 +10,7 @@ export function toggleSidebar() {
   commands.changeState({ sidebarHidden: hidden }).catch(console.error);
 }
 
-export type NavigatorView = "workspaces" | "files" | "changes" | "tests";
+export type NavigatorView = "workspaces" | "files" | "changes";
 
 // shortcut: lasts until the app quits; save it through Rust if the developer wants it back after a relaunch.
 export const navigatorView = externalStore<NavigatorView>("workspaces");

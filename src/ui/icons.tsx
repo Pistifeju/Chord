@@ -139,13 +139,6 @@ export const WorkspacesIcon = () => (
   </Icon>
 );
 
-export const TestIcon = () => (
-  <Icon>
-    <path d="M8 1.75 14.25 8 8 14.25 1.75 8z" />
-    <path d="M5.75 8.1l1.5 1.5 3-3.1" />
-  </Icon>
-);
-
 export const SchemeIcon = () => (
   <Icon>
     <rect x="2.25" y="2.25" width="11.5" height="11.5" rx="3" />

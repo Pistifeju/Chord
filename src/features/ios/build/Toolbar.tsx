@@ -1,4 +1,4 @@
-// The window toolbar over the panes in a worktree with an Xcode project: Run, Stop and Test, the scheme button with its scheme and build configuration menu, the run destination button with the run menu, the activity field with the build's status and error count, and the side panel's view buttons.
+// The window toolbar over the panes in a worktree with an Xcode project: Run and Stop, the scheme button with its scheme and build configuration menu, the run destination button with the run menu, the activity field with the build's status and error count, and the side panel's view buttons.
 import { CheckMenuItem, Menu, MenuItem, PredefinedMenuItem } from "@tauri-apps/api/menu";
 import { LogicalPosition } from "@tauri-apps/api/dpi";
 import { useEffect, type MouseEvent, type ReactNode } from "react";
@@ -7,7 +7,7 @@ import { menuItem, tooltip } from "../../../app/commands";
 import { openContextMenu } from "../../../app/contextMenu";
 import { shortcutChanges } from "../../settings/store";
 import { fail } from "../../../ui/alert";
-import { ChevronIcon, PhoneIcon, PlayIcon, SchemeIcon, StopIcon, TestIcon, WarningIcon } from "../../../ui/icons";
+import { ChevronIcon, PhoneIcon, PlayIcon, SchemeIcon, StopIcon, WarningIcon } from "../../../ui/icons";
 import { sidebar } from "../../sidebar/store";
 import { sameDestination } from "./destination";
 import { chooseRunDestination, destinations, refreshDestinations, runDestinationOf, useRunDestination } from "./destinationStore";
@@ -143,9 +143,6 @@ export function Toolbar({ worktree, viewButtons }: { worktree: string; viewButto
       </button>
       <button type="button" className="icon-button toolbar-stop" title={tooltip("build.stop")} aria-label="Stop" disabled={!busy} onClick={() => stopBuild(worktree)}>
         <StopIcon />
-      </button>
-      <button type="button" className="icon-button" title="Test" aria-label="Test" disabled>
-        <TestIcon />
       </button>
       <div className="toolbar-scheme">
         <button
