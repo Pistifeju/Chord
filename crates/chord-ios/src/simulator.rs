@@ -524,7 +524,7 @@ pub(crate) fn launch(
     });
     // The stream prints its filter notice once it runs; the launch waits for it so the app's first lines are caught.
     let _ = stream_started.recv_timeout(STREAM_START);
-    let (mut child, reader) = match process::merged(command, Some(stream.id())) {
+    let (mut child, reader) = match process::merged_on_terminal(command, Some(stream.id())) {
         Ok(started) => started,
         Err(error) => {
             let ended = stream.try_wait();
@@ -533,7 +533,7 @@ pub(crate) fn launch(
                 Ok(Some(status)) => Error::Message(format!(
                     "The OSLog stream ended before the app launched: {status}"
                 )),
-                _ => error.into(),
+                _ => error,
             });
         }
     };

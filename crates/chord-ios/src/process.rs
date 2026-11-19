@@ -1,6 +1,7 @@
 //! Spawning the tools a build runs, each in a process group so a stop can end it with its children, and reading their output in lines and batches.
 
-use std::io::{self, BufRead, BufReader, PipeReader};
+use std::fs::File;
+use std::io::{self, BufRead, BufReader, PipeReader, Read};
 use std::os::unix::process::CommandExt;
 use std::process::{Child, Command, Output, Stdio};
 use std::sync::mpsc::{self, Receiver};
@@ -56,8 +57,24 @@ pub(crate) fn merged(mut command: Command, group: Option<u32>) -> io::Result<(Ch
     Ok((child, reader))
 }
 
-/// The reader's lines, read on a thread of its own; the channel closes at the pipe's end.
-pub(crate) fn read_lines(reader: PipeReader) -> Receiver<Vec<u8>> {
+/// `merged` on a terminal instead of a pipe: a tool that buffers its output on a pipe, as simctl does with the launched app's pid, prints each line as it comes.
+pub(crate) fn merged_on_terminal(
+    mut command: Command,
+    group: Option<u32>,
+) -> Result<(Child, File), Error> {
+    let (terminal, output) = chord_core::terminal::open_pty(200, 50)?;
+    command
+        .stdin(Stdio::null())
+        .stdout(output.try_clone()?)
+        .stderr(output)
+        .process_group(group.map_or(0, |id| id as i32));
+    let child = command.spawn()?;
+    drop(command);
+    Ok((child, terminal))
+}
+
+/// The reader's lines, read on a thread of its own; the channel closes at the pipe's end, or when a terminal's last writer closes.
+pub(crate) fn read_lines(reader: impl Read + Send + 'static) -> Receiver<Vec<u8>> {
     let (lines, received) = mpsc::channel();
     thread::spawn(move || {
         let mut reader = BufReader::new(reader);

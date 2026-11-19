@@ -219,7 +219,8 @@ fn window_size(cols: u16, rows: u16) -> libc::winsize {
     }
 }
 
-fn open_pty(cols: u16, rows: u16) -> Result<(File, OwnedFd), Error> {
+/// A terminal's controlling end and the end a process writes to, both closed on exec.
+pub fn open_pty(cols: u16, rows: u16) -> Result<(File, OwnedFd), Error> {
     let (mut master, mut slave) = (0, 0);
     let mut size = window_size(cols, rows);
     let opened = unsafe {
