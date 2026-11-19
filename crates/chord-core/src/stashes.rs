@@ -5,8 +5,9 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-use crate::changes::{self, ChangeStatus, FileDiff};
+use crate::changes::ChangeStatus;
 use crate::commit_diff::{self, CommittedFile};
+use crate::diff::FileDiff;
 use crate::{Error, git};
 
 #[derive(Serialize, Type, Debug, PartialEq)]
@@ -32,7 +33,7 @@ pub enum StashAction {
 
 /// Newest first.
 pub fn list(dir: &Path) -> Result<Vec<Stash>, Error> {
-    Ok(parse_list(&changes::read(
+    Ok(parse_list(&git::read(
         dir,
         &["stash", "list", "-z", "--format=%H%x1f%ct%x1f%gs"],
     )?))
@@ -56,7 +57,7 @@ pub fn act(dir: &Path, hash: &str, action: StashAction) -> Result<(), Error> {
 
 /// git drops a stash only by its `stash@{n}` index, which a stash made meanwhile shifts, so a wrong drop goes back.
 fn drop_stash(dir: &Path, hash: &str) -> Result<(), Error> {
-    let hashes = changes::read(dir, &["stash", "list", "--format=%H"])?;
+    let hashes = git::read(dir, &["stash", "list", "--format=%H"])?;
     let index = hashes
         .lines()
         .position(|line| line == hash)
@@ -65,7 +66,7 @@ fn drop_stash(dir: &Path, hash: &str) -> Result<(), Error> {
     let Some(dropped) = dropped_hash(&output).filter(|dropped| *dropped != hash) else {
         return Ok(());
     };
-    let message = changes::read(dir, &["log", "-1", "--format=%s", dropped])?;
+    let message = git::read(dir, &["log", "-1", "--format=%s", dropped])?;
     git::run(dir, &["stash", "store", "-m", message.trim(), dropped])?;
     Err(Error::Message(
         "The stashes changed while Chord dropped one. Try again.".to_string(),
@@ -104,7 +105,7 @@ pub fn files(dir: &Path, hash: &str) -> Result<Vec<CommittedFile>, Error> {
 
 pub fn diff(dir: &Path, path: &str, hash: &str) -> Result<FileDiff, Error> {
     if let Some(untracked) = untracked_commit(dir, hash)?
-        && !changes::read(dir, &["ls-tree", "--name-only", &untracked, "--", path])?.is_empty()
+        && !git::read(dir, &["ls-tree", "--name-only", &untracked, "--", path])?.is_empty()
     {
         return commit_diff::commit_diff(dir, &untracked, path);
     }

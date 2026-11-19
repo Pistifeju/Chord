@@ -1,4 +1,4 @@
-// The Simulator view in the side panel: Home, Lock, Shake, Screenshot, Record (a pill with the recording's time while it records) and the Appearance menu under the worktree's simulator screen, which the native view draws through the see-through hole; the screen takes clicks, drags, trackpad pinches and typing. The Preview view shows its preview simulator here with only Screenshot, Record and Appearance. Also its tab bar button.
+// The Simulator view in the side panel: Home, Lock, Shake, Screenshot, Record (a pill with the recording's time while it records) and the Appearance menu under the worktree's simulator screen, which the native view draws through the see-through hole; the screen takes clicks, drags, trackpad pinches and typing. The Preview view shows its preview simulator here with only Screenshot, Record and Appearance. Also its toolbar button.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { shortcutLabel, tooltip } from "../../../app/commands";
 import type { Bezel, Button, ButtonFace, FaceIcon, ScreenButtons } from "../../../ipc/bindings";

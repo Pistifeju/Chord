@@ -1,19 +1,22 @@
-// The run control at the tab bar's right end: the run destination, which opens the run menu with the project's scheme and build configuration, and a play button that builds and runs, a stop square from the start of a build until the app launches.
+// The window toolbar over the panes in a worktree with an Xcode project: Run, Stop and Test, the scheme and run destination button that opens the run menu with the build configuration, the activity field with the build's status and error count, and the side panel's view buttons.
 import { CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu } from "@tauri-apps/api/menu";
 import { LogicalPosition } from "@tauri-apps/api/dpi";
-import type { MouseEvent } from "react";
+import { useEffect, type MouseEvent, type ReactNode } from "react";
 import type { RunDestination } from "../../../ipc/bindings";
 import { menuItem, tooltip } from "../../../app/commands";
 import { openContextMenu } from "../../../app/contextMenu";
 import { shortcutChanges } from "../../settings/store";
 import { fail } from "../../../ui/alert";
-import { ChevronDownIcon, PhoneIcon, PlayIcon, StopIcon } from "../../../ui/icons";
+import { ChevronIcon, PhoneIcon, PlayIcon, SchemeIcon, StopIcon, TestIcon, WarningIcon } from "../../../ui/icons";
+import { sidebar } from "../../sidebar/store";
 import { sameDestination } from "./destination";
 import { chooseRunDestination, destinations, refreshDestinations, runDestinationOf, useRunDestination } from "./destinationStore";
-import { isRunning, isStarting } from "./run";
+import { activityOf, isRunning, isStarting } from "./run";
 import { shownPick } from "./scheme";
-import { chooseSchemePick, refreshSchemes, schemeListings, schemePickOf } from "./schemeStore";
-import { builds, runApp, stopBuild } from "./store";
+import { chooseSchemePick, refreshSchemes, schemeListings, schemePickOf, useSchemePick } from "./schemeStore";
+import { builds, runApp, showBuildLog, stopBuild } from "./store";
+import { messageTime } from "../../chat/messageTime";
+import "./toolbar.css";
 
 const disabledLine = (text: string) => MenuItem.new({ text, enabled: false });
 
@@ -73,39 +76,91 @@ export async function popUpUnder(worktree: string, button: HTMLElement, menu: ()
   await openContextMenu(async () => (await menu()).popup(new LogicalPosition(box.left, box.bottom)));
 }
 
-export function RunControl({ worktree }: { worktree: string }) {
+// The scheme's name is known once the listing came; the toolbar reads it when it shows, as the menu does when it opens.
+function useSchemeName(worktree: string): string | null {
+  const listing = schemeListings.usePart((all) => all[worktree]);
+  const pick = useSchemePick(worktree);
+  useEffect(() => {
+    if (!schemeListings.get()[worktree]) refreshSchemes(worktree).catch(console.error);
+  }, [worktree]);
+  return listing ? shownPick(pick, listing).scheme : null;
+}
+
+// Today's time reads "today at 10:32", the way a message's older times read.
+function endTime(at: number): string {
+  const time = messageTime(at, Date.now());
+  return time.includes(" at ") ? time : `today at ${time}`;
+}
+
+function Activity({ worktree, scheme, destination }: { worktree: string; scheme: string | null; destination: string }) {
+  const build = builds.usePart((all) => all[worktree]);
+  const activity = activityOf(build, scheme, destination, endTime);
+  const text = activity.detail ? `${activity.lead} ${activity.detail}` : activity.lead;
+  return (
+    <div className="toolbar-activity" data-tone={activity.tone} role="status">
+      <span className="toolbar-activity-text" title={text}>
+        <span className="toolbar-activity-lead">{activity.lead}</span>
+        {activity.detail && ` ${activity.detail}`}
+      </span>
+      {activity.errors > 0 && (
+        <button type="button" className="toolbar-errors" title="Show Build Log" aria-label={`${activity.errors} errors, Show Build Log`} onClick={() => showBuildLog(worktree)}>
+          <WarningIcon />
+          {activity.errors}
+        </button>
+      )}
+      {activity.tone === "busy" && <span className="toolbar-progress" aria-hidden="true" />}
+    </div>
+  );
+}
+
+// `viewButtons` are the side panel's view buttons, passed in by the window.
+export function Toolbar({ worktree, viewButtons }: { worktree: string; viewButtons: ReactNode }) {
   shortcutChanges.use();
-  const building = builds.usePart((all) => isStarting(all[worktree]));
+  const { hidden } = sidebar.use();
+  const busy = builds.usePart((all) => isStarting(all[worktree]) || isRunning(all[worktree]));
   const destination = useRunDestination(worktree);
+  const scheme = useSchemeName(worktree);
   const name = destination?.name ?? "Newest iPhone";
   const os = destination?.kind === "simulator" ? destination.os : null;
   return (
-    <div className="run-controls">
+    <div className="toolbar" data-tauri-drag-region data-sidebar-hidden={hidden || undefined}>
+      <button type="button" className="icon-button toolbar-run" title={tooltip("build.run")} aria-label="Run" onClick={() => runApp(worktree)}>
+        <PlayIcon />
+      </button>
+      <button type="button" className="icon-button toolbar-stop" title={tooltip("build.stop")} aria-label="Stop" disabled={!busy} onClick={() => stopBuild(worktree)}>
+        <StopIcon />
+      </button>
+      <button type="button" className="icon-button" title="Test" aria-label="Test" disabled>
+        <TestIcon />
+      </button>
       <button
         type="button"
-        className="run-destination"
-        title="Run Destination"
-        aria-label={`Run Destination: ${os ? `${name}, ${os}` : name}`}
+        className="toolbar-scheme"
+        title="Scheme and Run Destination"
+        aria-label={`Scheme and Run Destination: ${[scheme, name, os].filter(Boolean).join(", ")}`}
         onClick={(e: MouseEvent<HTMLButtonElement>) => {
           // Listed beside the destinations; like them, the last listing shows while the new one loads.
           const listing = refreshSchemes(worktree).catch(fail);
           popUpUnder(worktree, e.currentTarget, () => runMenu(worktree), schemeListings.get()[worktree] ? undefined : listing).catch(fail);
         }}
       >
+        <SchemeIcon />
+        {scheme && (
+          <>
+            <span className="toolbar-scheme-name">{scheme}</span>
+            <span className="toolbar-scheme-separator">
+              <ChevronIcon />
+            </span>
+          </>
+        )}
         <PhoneIcon />
-        <span className="run-destination-name">{name}</span>
-        {os && <span className="run-destination-os">{os}</span>}
-        <ChevronDownIcon />
+        <span className="toolbar-destination">{name}</span>
+        {os && <span className="toolbar-destination-os">{os}</span>}
       </button>
-      <button
-        type="button"
-        className="icon-button run-control"
-        title={tooltip(building ? "build.stop" : "build.run")}
-        aria-label={building ? "Stop" : "Run"}
-        onClick={() => (building ? stopBuild(worktree) : runApp(worktree))}
-      >
-        {building ? <StopIcon /> : <PlayIcon />}
-      </button>
+      <span className="toolbar-spacer" data-tauri-drag-region />
+      <Activity worktree={worktree} scheme={scheme} destination={name} />
+      <span className="toolbar-spacer" data-tauri-drag-region />
+      <div className="side-view-toggles">{viewButtons}</div>
     </div>
   );
 }

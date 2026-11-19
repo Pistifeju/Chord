@@ -3,7 +3,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { BuildView } from "../features/ios/build/BuildView";
 import { ConsoleView } from "../features/ios/build/ConsoleView";
-import { RunControl } from "../features/ios/build/RunControl";
+import { Toolbar } from "../features/ios/build/Toolbar";
+import { TestsView } from "../features/ios/tests/TestsView";
 import { BuildDataSize } from "../features/ios/simulators/BuildDataSize";
 import { ScreenshotRows } from "../features/ios/simulator/ScreenshotRows";
 import { ServiceRows } from "../features/ios/simulators/ServiceRows";
@@ -93,7 +94,7 @@ export default function App() {
   const buildStates = builds.use();
   const projectHasXcode = hasXcodeProject(state);
   const xcode = worktreeAt(state, selected)?.xcode === true;
-  // The iOS parts of the sidebar, the tab bar, and the bottom panel are slots, so no core feature imports features/ios.
+  // The iOS parts of the sidebar, the toolbar, the side panel and the bottom panel are slots, so no core feature imports features/ios.
   const markers = useMemo(
     () => Object.fromEntries(Object.entries(buildStates).flatMap(([path, build]) => { const marker = markerText(build); return marker ? [[path, marker]] : []; })),
     [buildStates],
@@ -137,7 +138,7 @@ export default function App() {
           </span>
         </div>
         <div className="app-body">
-          <Sidebar markers={markers} />
+          <Sidebar markers={markers} tests={xcode ? <TestsView /> : null} />
           <div className="app-column">
             <main className="main">{list.length === 0 ? (
                 <NoProjects />
@@ -146,7 +147,19 @@ export default function App() {
                   <PaneArea
                     key={selected}
                     worktree={selected}
-                    runControl={xcode ? <RunControl worktree={selected} /> : null}
+                    toolbar={
+                      xcode ? (
+                        <Toolbar
+                          worktree={selected}
+                          viewButtons={
+                            <>
+                              <SimulatorToggle worktree={selected} />
+                              <PreviewToggle worktree={selected} />
+                            </>
+                          }
+                        />
+                      ) : null
+                    }
                     bottomViews={
                       xcode
                         ? [
@@ -158,8 +171,8 @@ export default function App() {
                     sideViews={
                       xcode
                         ? [
-                            { id: "simulator", title: "Simulator", button: <SimulatorToggle worktree={selected} />, body: <SimulatorView worktree={selected} /> },
-                            { id: "preview", title: "Preview", button: <PreviewToggle worktree={selected} />, body: <PreviewView worktree={selected} /> },
+                            { id: "simulator", title: "Simulator", body: <SimulatorView worktree={selected} /> },
+                            { id: "preview", title: "Preview", body: <PreviewView worktree={selected} /> },
                           ]
                         : []
                     }

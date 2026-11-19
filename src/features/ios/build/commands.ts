@@ -2,17 +2,10 @@
 import type { AppCommand } from "../../../app/commands";
 import { onTarget } from "../../../app/commandTarget";
 import type { BottomViewSlot } from "../../bottompanel/BottomPanel";
-import { openWorktree, projects } from "../../worktrees/store";
-import { worktreeAt } from "../../worktrees/projects";
+import { xcodeWorktree } from "../../worktrees/store";
 import { findsOf } from "./find";
 import { isStarting, isRunning } from "./run";
 import { builds, cleanBuild, runApp, startBuild, stopBuild, toggleLogView } from "./store";
-
-// The open worktree while it has an Xcode project.
-export const xcodeWorktree = (): string | null => {
-  const worktree = openWorktree();
-  return worktree && worktreeAt(projects.get(), worktree)?.xcode ? worktree : null;
-};
 
 // The worktree whose build or app runs.
 const busyWorktree = (): string | null => {

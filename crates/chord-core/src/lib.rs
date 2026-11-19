@@ -6,6 +6,7 @@ pub mod branches;
 pub mod changes;
 pub mod commit_diff;
 pub mod commits;
+mod diff;
 mod error;
 pub mod files;
 mod git;
@@ -20,7 +21,8 @@ mod state;
 pub mod terminal;
 pub mod worktrees;
 
-pub use changes::{Change, FileDiff, Hunk, HunkAction};
+pub use changes::{Change, HunkAction};
+pub use diff::{FileDiff, Hunk};
 pub use error::Error;
 pub use files::FileEntry;
 pub use git_counts::GitCounts;

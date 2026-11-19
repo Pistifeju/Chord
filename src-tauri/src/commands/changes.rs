@@ -92,8 +92,9 @@ pub async fn discard_files(
     app: tauri::AppHandle,
     worktree: PathBuf,
     files: Vec<String>,
+    staged: bool,
 ) -> Result<(), String> {
-    blocking(app, move |_, _| changes::discard(&worktree, &files)).await
+    blocking(app, move |_, _| changes::discard(&worktree, &files, staged)).await
 }
 
 #[tauri::command]

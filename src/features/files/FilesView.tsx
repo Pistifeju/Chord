@@ -12,7 +12,7 @@ import { emptyTree, stemLength, treeKeyAction, visibleRows, type Row } from "./t
 import type { FileEntry } from "../../ipc/bindings";
 import "./files.css";
 
-// A side panel drag re-renders the panel each frame; the tree reads its own stores.
+// The sidebar re-renders with every git count and project change; the tree reads its own stores.
 export const FilesView = memo(function FilesView({ worktree }: { worktree: string }) {
   const tree = trees.use()[worktree] ?? emptyTree;
   const rows = visibleRows(tree);

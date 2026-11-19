@@ -7,13 +7,19 @@ import { shownSession } from "../panes/sessions";
 import { vanishedWorktrees } from "../panes/agents";
 import { agentsWorkIn, forgetPanes, panes } from "../panes/store";
 import { settingsOpen } from "../settings/store";
-import { goneWorktrees, movesTo, noProjects, withProject, withProjectMoved, withWorktreeMoved, withoutProject, withoutWorktree, withSavedSelection, withSelectionRestored, withWorktrees, worktreeName, worktreeOrder, type Projects } from "./projects";
+import { goneWorktrees, movesTo, noProjects, withProject, withProjectMoved, withWorktreeMoved, withoutProject, withoutWorktree, withSavedSelection, withSelectionRestored, withWorktrees, worktreeAt, worktreeName, worktreeOrder, type Projects } from "./projects";
 import { fileName } from "../files/paths";
 
 export const projects = externalStore(noProjects);
 
 // The worktree the window shows: the selected one, none while Settings covers the window.
 export const openWorktree = (): string | null => (settingsOpen.get() ? null : projects.get().selected);
+
+/** The open worktree while it has an Xcode project. */
+export const xcodeWorktree = (): string | null => {
+  const worktree = openWorktree();
+  return worktree && worktreeAt(projects.get(), worktree)?.xcode ? worktree : null;
+};
 
 export const shownPanes = () => shownSession(panes.get(), projects.get().selected, settingsOpen.get());
 

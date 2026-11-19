@@ -20,11 +20,10 @@
   padding: 0 9px 0 18px;
 }
 
+/* As the Files and Tests headers' title, so the navigator's views read alike. */
 .sidebar-title {
-  font-size: calc(12px * var(--text-scale));
-  font-weight: 600;
-  line-height: 16px;
-  color: var(--ink-secondary);
+  font-weight: 500;
+  color: var(--ink);
 }
 
 .sidebar-header .icon-button {
@@ -315,4 +314,56 @@
 
 .session-row:focus-visible {
   outline-offset: -2px;
+}
+
+/* The navigator's control over the sidebar's views, one icon per view. Rules: DESIGN.md, Sidebar. */
+.navigator {
+  margin: 0 8px 4px;
+}
+
+.navigator button {
+  position: relative;
+  display: grid;
+  flex: 1;
+  place-items: center;
+  padding: 0;
+  color: var(--ink-muted);
+}
+
+.navigator button:focus-visible {
+  outline-offset: -2px;
+}
+
+/* An agent awaits input while Workspaces is not the shown view. */
+.navigator-waiting {
+  position: absolute;
+  top: 3px;
+  right: calc(50% - 11px);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--status-waiting);
+  box-shadow: 0 0 0 1.5px var(--raised);
+}
+
+.navigator button[aria-checked="true"] .navigator-waiting {
+  display: none;
+}
+
+.sidebar-view {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.sidebar-view > .files {
+  flex: 1;
+  min-height: 0;
+}
+
+/* The Changes view's sticky headings take the sidebar's fill. */
+.sidebar .changes-group {
+  background: var(--panel);
+  box-shadow: 0 -4px 0 var(--panel);
 }

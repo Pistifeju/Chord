@@ -1,4 +1,4 @@
-//! Runs git in a folder, with or without input on its stdin, and returns its output, or None for a failure that only means the thing asked for is not there.
+//! Runs git in a folder, with or without input on its stdin, or as a read that leaves the index lock alone, and returns its output, or None for a failure that only means the thing asked for is not there.
 
 use std::io::Write;
 use std::path::Path;
@@ -31,6 +31,14 @@ fn started(result: std::io::Result<Output>) -> Result<String, Error> {
 
 pub fn run(dir: &Path, args: &[&str]) -> Result<String, Error> {
     started(command(dir, args).output())
+}
+
+// Without optional locks git leaves the index alone, so an agent's own git command never meets our lock.
+pub fn read(dir: &Path, args: &[&str]) -> Result<String, Error> {
+    run(
+        dir,
+        &[&["--no-optional-locks", "--literal-pathspecs"], args].concat(),
+    )
 }
 
 pub fn run_with_input(dir: &Path, args: &[&str], input: &[u8]) -> Result<String, Error> {

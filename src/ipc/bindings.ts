@@ -47,7 +47,7 @@ export const commands = {
 	readDiff: (worktree: string, file: string, side: DiffSide) => __TAURI_INVOKE<FileDiff_Serialize>("read_diff", { worktree, file, side }),
 	stageFiles: (worktree: string, files: string[]) => __TAURI_INVOKE<null>("stage_files", { worktree, files }),
 	unstageFiles: (worktree: string, files: string[]) => __TAURI_INVOKE<null>("unstage_files", { worktree, files }),
-	discardFiles: (worktree: string, files: string[]) => __TAURI_INVOKE<null>("discard_files", { worktree, files }),
+	discardFiles: (worktree: string, files: string[], staged: boolean) => __TAURI_INVOKE<null>("discard_files", { worktree, files, staged }),
 	applyHunk: (worktree: string, file: string, hunk: Hunk_Deserialize, action: HunkAction) => __TAURI_INVOKE<null>("apply_hunk", { worktree, file, hunk, action }),
 	commitStaged: (worktree: string, message: string, amend: boolean) => __TAURI_INVOKE<null>("commit_staged", { worktree, message, amend }),
 	readCommitTarget: (worktree: string) => __TAURI_INVOKE<CommitTarget_Serialize>("read_commit_target", { worktree }),
@@ -387,6 +387,8 @@ export type CommitTarget_Deserialize = {
 	pushTo?: string | null,
 	/**  Whether the branch has commits `push_to` lacks, or no upstream. */
 	pushable: boolean,
+	/**  The commits `push_to` lacks; None before the first push sets the upstream. */
+	ahead?: number | null,
 	/**  Whether HEAD has a commit to amend. */
 	amendable: boolean,
 };
@@ -398,6 +400,8 @@ export type CommitTarget_Serialize = {
 	pushTo: string | null,
 	/**  Whether the branch has commits `push_to` lacks, or no upstream. */
 	pushable: boolean,
+	/**  The commits `push_to` lacks; None before the first push sets the upstream. */
+	ahead: number | null,
 	/**  Whether HEAD has a commit to amend. */
 	amendable: boolean,
 };

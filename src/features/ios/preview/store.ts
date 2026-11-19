@@ -2,9 +2,8 @@
 import { Channel } from "@tauri-apps/api/core";
 import { commands, type PreviewPick, type PreviewState, type RunDestination } from "../../../ipc/bindings";
 import { externalStore } from "../../../ui/externalStore";
-import { ownerOf } from "../../worktrees/projects";
-import { projects } from "../../worktrees/store";
 import { fail } from "../../../ui/alert";
+import { projectPicks } from "../projectPicks";
 import { appliedState, type Preview } from "./preview";
 
 export const previews = externalStore<Record<string, Preview>>({});
@@ -13,19 +12,19 @@ export const previews = externalStore<Record<string, Preview>>({});
 export const previewPicks = externalStore<Record<string, PreviewPick>>({});
 
 /** Each project's preview model; a project without one previews on the newest iPhone. */
-const previewModels = externalStore<Record<string, RunDestination>>({});
+const previewModels = projectPicks<RunDestination>((project, model) => commands.changeState({ previewModel: { project, model } }));
 
 /** Each worktree's previews; a worktree is missing while its first list loads. */
 export const previewLists = externalStore<Record<string, PreviewPick[]>>({});
 
 export function loadPreviewChoices(picks: Record<string, PreviewPick>, models: Record<string, RunDestination>) {
   previewPicks.set(picks);
-  previewModels.set(models);
+  previewModels.load(models);
 }
 
-const previewModelOf = (worktree: string): RunDestination | null => previewModels.get()[ownerOf(projects.get(), worktree) ?? ""] ?? null;
+const previewModelOf = (worktree: string): RunDestination | null => previewModels.of(worktree) ?? null;
 
-export const usePreviewModel = (worktree: string): RunDestination | null => previewModels.usePart(() => previewModelOf(worktree));
+export const usePreviewModel = (worktree: string): RunDestination | null => previewModels.use(worktree) ?? null;
 
 /** The newest open per worktree: an older channel's late states are ignored. */
 const latest = new Map<string, number>();
@@ -83,9 +82,4 @@ export function choosePreview(worktree: string, pick: PreviewPick) {
 }
 
 /** The view reopens the preview on the new model's simulator. */
-export function choosePreviewModel(worktree: string, model: RunDestination) {
-  const project = ownerOf(projects.get(), worktree);
-  if (!project) return;
-  previewModels.set({ ...previewModels.get(), [project]: model });
-  commands.changeState({ previewModel: { project, model } }).catch(fail);
-}
+export const choosePreviewModel = (worktree: string, model: RunDestination) => previewModels.choose(worktree, model);

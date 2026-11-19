@@ -35,8 +35,8 @@ export const SidePanelIcon = () => (
   </Icon>
 );
 
-export const ArrowUpIcon = () => (
-  <Icon>
+export const ArrowUpIcon = ({ size }: { size?: number }) => (
+  <Icon size={size}>
     <path d="M8 13V3M3.5 7.5L8 3l4.5 4.5" strokeWidth="1.8" />
   </Icon>
 );
@@ -132,6 +132,27 @@ export const FolderIcon = ({ size = 24 }: { size?: number }) => (
   </Icon>
 );
 
+export const WorkspacesIcon = () => (
+  <Icon>
+    <rect x="2" y="2.25" width="12" height="4.5" rx="1.5" />
+    <rect x="2" y="9.25" width="12" height="4.5" rx="1.5" />
+  </Icon>
+);
+
+export const TestIcon = () => (
+  <Icon>
+    <path d="M8 1.75 14.25 8 8 14.25 1.75 8z" />
+    <path d="M5.75 8.1l1.5 1.5 3-3.1" />
+  </Icon>
+);
+
+export const SchemeIcon = () => (
+  <Icon>
+    <rect x="2.25" y="2.25" width="11.5" height="11.5" rx="3" />
+    <path d="M6 10.75 8 5.25l2 5.5M6.6 9h2.8" />
+  </Icon>
+);
+
 export const WarningIcon = () => (
   <Icon>
     <path d="M8 2.25l6.25 11H1.75z" />
@@ -209,6 +230,12 @@ export const CollapseAllIcon = () => (
 export const ReloadIcon = () => (
   <Icon>
     <path d="M13 8a5 5 0 1 1-1.6-3.67M13 2.5v3h-3" />
+  </Icon>
+);
+
+export const AmendIcon = ({ size }: { size?: number }) => (
+  <Icon size={size}>
+    <path d="M3 8a5 5 0 1 0 1.6-3.67M3 2.5v3h3" />
   </Icon>
 );
 

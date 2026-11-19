@@ -1,6 +1,5 @@
 //! A worktree's changed files from `git status`, staged or not, with the lines each adds and removes, one file's diff: the index against HEAD, or the file on disk against the index, and the stage, unstage and discard of files and of a diff's hunks.
 
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
@@ -8,6 +7,8 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
+use crate::diff::{DiffLine, FileDiff, Hunk, LineKind, parse_diff, parse_numstat};
+use crate::git::read;
 use crate::{DiffSide, Error, branch_changes, commit_diff, files, git, stashes};
 
 #[derive(Serialize, Type, Clone, Copy, Debug, PartialEq)]
@@ -33,47 +34,6 @@ pub struct Change {
     /// None for a binary file.
     pub added: Option<u32>,
     pub removed: Option<u32>,
-}
-
-#[derive(Serialize, Deserialize, Type, Clone, Copy, Debug, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub enum LineKind {
-    Context,
-    Added,
-    Removed,
-}
-
-#[derive(Serialize, Deserialize, Type, Debug, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct DiffLine {
-    pub kind: LineKind,
-    pub text: String,
-    /// The line's number in the old side, the new side, or both for context.
-    pub old: Option<u32>,
-    pub new: Option<u32>,
-}
-
-#[derive(Serialize, Deserialize, Type, Debug, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct Hunk {
-    /// The line git names after the hunk's range, mostly the function it sits in; empty when git finds none.
-    pub context: String,
-    pub lines: Vec<DiffLine>,
-}
-
-#[derive(Serialize, Type, Debug, PartialEq, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct FileDiff {
-    pub binary: bool,
-    pub hunks: Vec<Hunk>,
-}
-
-// Without optional locks git leaves the index alone, so an agent's own git command never meets our lock.
-pub(crate) fn read(dir: &Path, args: &[&str]) -> Result<String, Error> {
-    git::run(
-        dir,
-        &[&["--no-optional-locks", "--literal-pathspecs"], args].concat(),
-    )
 }
 
 pub fn list(dir: &Path) -> Result<Vec<Change>, Error> {
@@ -215,13 +175,36 @@ pub fn stage(dir: &Path, paths: &[String]) -> Result<(), Error> {
     with_paths(dir, &["add", "-A"], paths)
 }
 
-/// Puts the files' HEAD versions back in the index; a rename needs its old path too.
+/// The paths, with the path each staged rename among them came from: a rename moves out of the index with both.
+fn with_rename_sources(dir: &Path, paths: &[String]) -> Result<Vec<String>, Error> {
+    let status = read(
+        dir,
+        &["status", "--porcelain=v2", "-z", "--untracked-files=no"],
+    )?;
+    let sources = parse_status(&status)
+        .into_iter()
+        .filter(|change| change.staged && paths.contains(&change.path))
+        .filter_map(|change| change.old_path);
+    Ok(paths.iter().cloned().chain(sources).collect())
+}
+
+/// Puts the files' HEAD versions back in the index, a rename's old path too.
 pub fn unstage(dir: &Path, paths: &[String]) -> Result<(), Error> {
-    with_paths(dir, &["reset", "-q"], paths)
+    with_paths(dir, &["reset", "-q"], &with_rename_sources(dir, paths)?)
+}
+
+/// Puts the files back as HEAD has them, staged ones out of the index first, and moves a file git holds no copy of to the Trash.
+pub fn discard(dir: &Path, paths: &[String], staged: bool) -> Result<(), Error> {
+    if !staged {
+        return restore(dir, paths);
+    }
+    let paths = with_rename_sources(dir, paths)?;
+    with_paths(dir, &["reset", "-q"], &paths)?;
+    restore(dir, &paths)
 }
 
 /// Restores the files on disk from the index, and moves the untracked ones to the Trash.
-pub fn discard(dir: &Path, paths: &[String]) -> Result<(), Error> {
+fn restore(dir: &Path, paths: &[String]) -> Result<(), Error> {
     let status = read(
         dir,
         &["status", "--porcelain=v2", "-z", "--untracked-files=all"],
@@ -264,7 +247,7 @@ pub fn apply_hunk(dir: &Path, path: &str, hunk: &Hunk, action: HunkAction) -> Re
             return if action == HunkAction::Stage {
                 stage(dir, &paths)
             } else {
-                discard(dir, &paths)
+                restore(dir, &paths)
             };
         }
         return Err(changed());
@@ -392,72 +375,6 @@ fn parse_status(output: &str) -> Vec<Change> {
     changes
 }
 
-/// The lines added and removed per path of `git diff --numstat -z`, None for a binary file; a rename counts under its new path.
-pub(crate) fn parse_numstat(output: &str) -> HashMap<String, Option<(u32, u32)>> {
-    let mut counts = HashMap::new();
-    let mut records = output.split('\0');
-    while let Some(record) = records.next() {
-        let mut fields = record.splitn(3, '\t');
-        let (Some(added), Some(removed), Some(path)) =
-            (fields.next(), fields.next(), fields.next())
-        else {
-            continue;
-        };
-        // A rename leaves the path empty, then gives the old and the new path.
-        let path = if path.is_empty() {
-            records.next();
-            records.next().unwrap_or_default()
-        } else {
-            path
-        };
-        let lines = added.parse().ok().zip(removed.parse().ok());
-        counts.insert(path.to_string(), lines);
-    }
-    counts
-}
-
-pub(crate) fn parse_diff(output: &str) -> FileDiff {
-    let mut diff = FileDiff::default();
-    let (mut old, mut new) = (0, 0);
-    for line in output.lines() {
-        if let Some(header) = line.strip_prefix("@@ -") {
-            let (ranges, context) = header.split_once(" @@").unwrap_or((header, ""));
-            let mut sides = ranges.split(' ');
-            let start = |side: Option<&str>| {
-                side.and_then(|side| side.split(',').next()?.trim_start_matches('+').parse().ok())
-                    .unwrap_or(0)
-            };
-            old = start(sides.next());
-            new = start(sides.next());
-            diff.hunks.push(Hunk {
-                context: context.trim().to_string(),
-                lines: Vec::new(),
-            });
-            continue;
-        }
-        let Some(hunk) = diff.hunks.last_mut() else {
-            diff.binary |= line.starts_with("Binary files ") || line == "GIT binary patch";
-            continue;
-        };
-        let (kind, old_at, new_at) = match line.as_bytes().first() {
-            Some(b'+') => (LineKind::Added, None, Some(new)),
-            Some(b'-') => (LineKind::Removed, Some(old), None),
-            Some(b' ') | None => (LineKind::Context, Some(old), Some(new)),
-            // "\ No newline at end of file"
-            _ => continue,
-        };
-        old += u32::from(old_at.is_some());
-        new += u32::from(new_at.is_some());
-        hunk.lines.push(DiffLine {
-            kind,
-            text: line.get(1..).unwrap_or_default().to_string(),
-            old: old_at,
-            new: new_at,
-        });
-    }
-    diff
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -487,33 +404,40 @@ mod tests {
     }
 
     #[test]
-    fn a_numstat_counts_renames_under_the_new_path_and_binaries_as_none() {
-        let counts = parse_numstat("3\t1\ta.rs\x001\t1\t\x00old.rs\x00new.rs\x00-\t-\timg.png\x00");
-        assert_eq!(counts.get("a.rs"), Some(&Some((3, 1))));
-        assert_eq!(counts.get("new.rs"), Some(&Some((1, 1))));
-        assert_eq!(counts.get("img.png"), Some(&None));
-        assert_eq!(counts.len(), 3);
+    fn a_staged_rename_unstages_with_its_source_and_a_staged_edit_discards_to_head()
+    -> Result<(), Error> {
+        let repo = std::env::temp_dir().join(format!("chord-unstage-{}", std::process::id()));
+        let result = unstage_in(&repo);
+        let _ = std::fs::remove_dir_all(&repo);
+        result
     }
 
-    #[test]
-    fn a_diff_numbers_each_side() {
-        let output = "diff --git a/a.rs b/a.rs\n--- a/a.rs\n+++ b/a.rs\n@@ -4,3 +4,3 @@ fn main\n keep\n-old\n+new\n\\ No newline at end of file\n";
-        let hunks = parse_diff(output).hunks;
-        assert_eq!(hunks[0].context, "fn main");
-        let lines: Vec<_> = hunks
-            .into_iter()
-            .flat_map(|hunk| hunk.lines)
-            .map(|l| (l.kind, l.text, l.old, l.new))
-            .collect();
-        assert_eq!(
-            lines,
-            vec![
-                (LineKind::Context, "keep".into(), Some(4), Some(4)),
-                (LineKind::Removed, "old".into(), Some(5), None),
-                (LineKind::Added, "new".into(), None, Some(5)),
-            ]
-        );
-        assert!(parse_diff("diff --git a/i b/i\nBinary files a/i and b/i differ\n").binary);
+    fn unstage_in(repo: &Path) -> Result<(), Error> {
+        std::fs::create_dir_all(repo)?;
+        std::fs::write(repo.join("old"), "a\n")?;
+        std::fs::write(repo.join("edit"), "b\n")?;
+        git::run(repo, &["init", "-q"])?;
+        git::run(repo, &["add", "."])?;
+        git::run(
+            repo,
+            &[
+                "-c",
+                "user.name=t",
+                "-c",
+                "user.email=t@t",
+                "commit",
+                "-qm",
+                "i",
+            ],
+        )?;
+        git::run(repo, &["mv", "old", "new"])?;
+        std::fs::write(repo.join("edit"), "c\n")?;
+        git::run(repo, &["add", "edit"])?;
+        unstage(repo, &["new".into()])?;
+        discard(repo, &["edit".into()], true)?;
+        assert_eq!(read(repo, &["status", "--porcelain"])?, " D old\n?? new\n");
+        assert_eq!(std::fs::read_to_string(repo.join("edit"))?, "b\n");
+        Ok(())
     }
 
     #[test]

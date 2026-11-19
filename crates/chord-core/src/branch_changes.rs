@@ -5,8 +5,8 @@ use std::path::Path;
 use serde::Serialize;
 use specta::Type;
 
-use crate::changes::{self, FileDiff};
 use crate::commit_diff::{self, CommittedFile};
+use crate::diff::FileDiff;
 use crate::{Error, git, worktrees};
 
 #[derive(Serialize, Type, Debug, PartialEq)]
@@ -88,7 +88,7 @@ pub fn read(dir: &Path, base: Option<&str>) -> Result<Option<BranchChanges>, Err
     let Some((base, from)) = found else {
         return Ok(None);
     };
-    let log = changes::read(
+    let log = git::read(
         dir,
         &[
             "log",
@@ -109,7 +109,7 @@ pub fn read(dir: &Path, base: Option<&str>) -> Result<Option<BranchChanges>, Err
 /// The branches a worktree can compare with, local and remote.
 pub fn bases(dir: &Path) -> Result<BaseBranches, Error> {
     let own = current_branch(dir)?;
-    let refs = changes::read(
+    let refs = git::read(
         dir,
         &[
             "for-each-ref",

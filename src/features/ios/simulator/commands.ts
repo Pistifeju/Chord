@@ -3,7 +3,7 @@ import type { AppCommand } from "../../../app/commands";
 import { onTarget } from "../../../app/commandTarget";
 import type { Button } from "../../../ipc/bindings";
 import { showsSideView, sidePanels, toggleSideView } from "../../sidepanel/store";
-import { xcodeWorktree } from "../build/commands";
+import { xcodeWorktree } from "../../worktrees/store";
 import { pressButton, screen, takeScreenshot } from "./store";
 
 // The open worktree while its side panel shows the Simulator view.

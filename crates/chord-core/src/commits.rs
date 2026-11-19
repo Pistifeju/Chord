@@ -16,6 +16,8 @@ pub struct CommitTarget {
     pub push_to: Option<String>,
     /// Whether the branch has commits `push_to` lacks, or no upstream.
     pub pushable: bool,
+    /// The commits `push_to` lacks; None before the first push sets the upstream.
+    pub ahead: Option<u32>,
     /// Whether HEAD has a commit to amend.
     pub amendable: bool,
 }
@@ -109,6 +111,7 @@ pub fn target(dir: &Path) -> Result<CommitTarget, Error> {
         author,
         pushable: push_to.is_some() && branch.ahead.is_none_or(|ahead| ahead > 0),
         push_to,
+        ahead: branch.ahead,
         amendable: branch.born,
     })
 }
@@ -167,7 +170,8 @@ mod tests {
         std::fs::write(repo.join("f"), "2\n")?;
         git::run(&repo, &["add", "f"])?;
         commit(&repo, "second", false)?;
-        assert!(target(&repo)?.pushable);
+        let second = target(&repo)?;
+        assert_eq!((second.pushable, second.ahead), (true, Some(1)));
         commit(&repo, "second, amended", true)?;
         assert_eq!(last_message(&repo)?, "second, amended");
         push(&repo)?;

@@ -12,12 +12,10 @@ import { StatusMark } from "../status/StatusMark";
 import { finished } from "../status/store";
 import { BottomPanel, type BottomViewSlot } from "../bottompanel/BottomPanel";
 import { SidePanel, type SideViewSlot } from "../sidepanel/SidePanel";
-import { sidePanelOf, sidePanels, showsSideView, toggleSideView } from "../sidepanel/store";
 import { sidebar } from "../sidebar/store";
 import { ImageView } from "../editor/ImageView";
 import { selectFile } from "../files/store";
-import { ChangesToggle } from "../changes/ChangesView";
-import { CloseIcon, DiffIcon, FileIcon, GlobeIcon, PiIcon, PlusIcon, SidePanelIcon } from "../../ui/icons";
+import { CloseIcon, DiffIcon, FileIcon, GlobeIcon, PiIcon, PlusIcon } from "../../ui/icons";
 import { BrowserView } from "../browser/BrowserView";
 import { usePointerDrag } from "../../ui/pointerDrag";
 import { chatPaneIds, dropEdge, dropPreview, edgeDirection, fitsSplit, groupOf, minExtent, paneIds, resizedSizes, type Box, type Group } from "./layout";
@@ -31,12 +29,11 @@ type Drop = TabDrop & { box: Box };
 /** The tab drag shared by every group's bar. */
 type TabDrag = { handlers: (tab: string) => object; clicked: () => boolean; dragging: string | null };
 
-/** Which window edges a group touches: its bar holds the room for the traffic lights or the Files button there. */
-type Edges = { top: boolean; left: boolean; right: boolean };
+/** Which window edges a group touches: a bar along the window's top is the title bar row and holds the room for the traffic lights. */
+type Edges = { top: boolean; left: boolean };
 
 // seen: the tabs already shown, so a tab that remounts after a split or a move does not animate in again.
-// corner: the buttons at the window's top right end: the run control and the side panel's view buttons.
-type Place = { worktree: string; focused: string; split: boolean; names: PaneNames; drag: TabDrag; seen: Set<string>; corner: ReactNode };
+type Place = { worktree: string; focused: string; split: boolean; names: PaneNames; drag: TabDrag; seen: Set<string> };
 
 const rectOf = (element: Element): Box => {
   const { left, top, width, height } = element.getBoundingClientRect();
@@ -79,23 +76,6 @@ function useTabDrag(worktree: string) {
     },
   });
   return { tabDrag: { handlers: drag.handlers, clicked: drag.clicked, dragging }, drop, ghost: drag.ghost };
-}
-
-function FilesToggle({ worktree }: { worktree: string }) {
-  shortcutChanges.use();
-  const shown = sidePanels.usePart((all) => showsSideView(all, worktree, "files"));
-  return (
-    <button
-      type="button"
-      className="icon-button"
-      title={tooltip("files.toggle")}
-      aria-label="Show or Hide Files"
-      aria-pressed={shown}
-      onClick={() => toggleSideView(worktree, "files")}
-    >
-      <SidePanelIcon />
-    </button>
-  );
 }
 
 const tabIcon = (tab: Tab) => (tab.kind === "file" ? (tab.diff ? <DiffIcon /> : <FileIcon />) : tab.kind === "browser" ? <GlobeIcon /> : <PiIcon />);
@@ -150,7 +130,6 @@ function GroupTabs({ group, place, edges }: { group: Group; place: Place; edges:
   shortcutChanges.use();
   const { hidden } = sidebar.use();
   const { worktree } = place;
-  const sidePanelOpen = sidePanels.usePart((all) => sidePanelOf(all, worktree).open);
   const chatIds = chatPaneIds(group);
   const statusesJson = chats.usePart((all) => JSON.stringify(chatIds.map((tab) => all[tab]?.report?.status ?? null)));
   const statuses: (Status | null)[] = JSON.parse(statusesJson);
@@ -168,9 +147,6 @@ function GroupTabs({ group, place, edges }: { group: Group; place: Place; edges:
       <button type="button" className="icon-button" title={tooltip("session.new")} aria-label="New Session" onClick={() => newSession(worktree, group.id)}>
         <PlusIcon />
       </button>
-      {edges.top && edges.right && !sidePanelOpen && (
-        place.corner
-      )}
     </div>
   );
 }
@@ -282,7 +258,6 @@ function LayoutView({ layout, path, place, edges }: { layout: Layout; path: numb
   const container = useRef<HTMLDivElement>(null);
   if (layout.kind === "group") return <GroupView group={layout} place={place} edges={edges} />;
   const sizes = layout.sizes.map(Number);
-  const last = layout.children.length - 1;
   const row = layout.direction === "row";
   return (
     <div className="split" data-direction={layout.direction} ref={container}>
@@ -297,7 +272,6 @@ function LayoutView({ layout, path, place, edges }: { layout: Layout; path: numb
               edges={{
                 top: edges.top && (row || i === 0),
                 left: edges.left && (!row || i === 0),
-                right: edges.right && (!row || i === last),
               }}
             />
           </div>
@@ -317,8 +291,8 @@ function TabGhost({ tab, ghost, names }: { tab: Tab; ghost: (el: HTMLElement | n
   );
 }
 
-// `runControl`, `bottomViews` and `sideViews` are the iOS parts of the window, passed in by App.
-export function PaneArea({ worktree, runControl, bottomViews, sideViews }: { worktree: string; runControl: ReactNode; bottomViews: BottomViewSlot[]; sideViews: SideViewSlot[] }) {
+// `toolbar`, `bottomViews` and `sideViews` are the iOS parts of the window, passed in by App. The toolbar takes the title bar row, and the tab bars sit under it.
+export function PaneArea({ worktree, toolbar, bottomViews, sideViews }: { worktree: string; toolbar: ReactNode; bottomViews: BottomViewSlot[]; sideViews: SideViewSlot[] }) {
   const current = panes.use()[worktree];
   useEffect(() => ensurePanes(worktree), [worktree]);
   const names = usePaneNames(current ? chatPaneIds(current.layout) : []);
@@ -327,31 +301,22 @@ export function PaneArea({ worktree, runControl, bottomViews, sideViews }: { wor
   if (!current) return null;
   // The tabs a worktree opens with show still.
   seen.current ??= new Set(paneIds(current.layout));
-  const corner = (
-    <>
-      {runControl}
-      <div className="side-view-toggles">
-        {sideViews.map((view) => (
-          <Fragment key={view.id}>{view.button}</Fragment>
-        ))}
-        <ChangesToggle worktree={worktree} />
-        <FilesToggle worktree={worktree} />
-      </div>
-    </>
-  );
-  const place: Place = { worktree, focused: current.focused, split: current.layout.kind === "split", names, drag: tabDrag, seen: seen.current, corner };
+  const place: Place = { worktree, focused: current.focused, split: current.layout.kind === "split", names, drag: tabDrag, seen: seen.current };
   const dragged = tabDrag.dragging ? groupOf(current.layout, tabDrag.dragging)?.tabs.find((t) => t.id === tabDrag.dragging) : undefined;
   return (
-    <div className="panes">
-      <div className="panes-work">
-        <div className="pane-layout">
-          <LayoutView layout={current.layout} path={[]} place={place} edges={{ top: true, left: true, right: true }} />
+    <div className="panes-frame" data-toolbar={toolbar ? true : undefined}>
+      {toolbar}
+      <div className="panes">
+        <div className="panes-work">
+          <div className="pane-layout">
+            <LayoutView layout={current.layout} path={[]} place={place} edges={{ top: !toolbar, left: true }} />
+          </div>
+          <BottomPanel worktree={worktree} views={bottomViews} />
         </div>
-        <BottomPanel worktree={worktree} views={bottomViews} />
+        <SidePanel worktree={worktree} views={sideViews} />
+        {drop && <div className="drop-edge" style={drop.box} />}
+        {dragged && <TabGhost tab={dragged} ghost={ghost} names={names} />}
       </div>
-      <SidePanel worktree={worktree} views={sideViews} bar={corner} />
-      {drop && <div className="drop-edge" style={drop.box} />}
-      {dragged && <TabGhost tab={dragged} ghost={ghost} names={names} />}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 // Tests for the build state rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { appliedEvent, appliedSideEvent, markerText, noBuild, pathInWorktree, seenEnd } from "./run.ts";
+import { activityOf, appliedEvent, appliedSideEvent, buildStep, markerText, noBuild, pathInWorktree, seenEnd } from "./run.ts";
 
 test("a failed build keeps its errors and the count of the ones it did not list", () => {
   let state = appliedEvent(noBuild, { kind: "phase", phase: "preparing" }, 1000);
@@ -59,4 +59,15 @@ test("an error's file is a worktree path only inside the worktree", () => {
   assert.equal(pathInWorktree("/w", "/w/App/A.swift"), "App/A.swift");
   assert.equal(pathInWorktree("/w", "/other/A.swift"), null);
   assert.equal(pathInWorktree("/w", "/wx/A.swift"), null);
+});
+
+test("the activity field names the last step a log batch gives its target", () => {
+  const text = "SwiftCompile normal arm64 /w/Login.swift (in target 'ChordKit' from project 'Chord')\nLd /w/Chord normal (in target 'Chord' from project 'Chord')\nnote: done";
+  assert.equal(buildStep(text), "Linking Chord");
+  assert.equal(buildStep("ProcessInfoPlistFile /w/Info.plist (in target 'Chord' from project 'Chord')"), null);
+  let state = appliedEvent(noBuild, { kind: "phase", phase: "building" }, 1000);
+  state = appliedEvent(state, { kind: "log", text }, 1500);
+  assert.deepEqual(activityOf(state.build, "Chord", "iPhone 17 Pro", () => "10:32"), { lead: "Building Chord", detail: "· Linking Chord", tone: "busy", errors: 0 });
+  state = appliedEvent(state, { kind: "succeeded" }, 2000);
+  assert.deepEqual(activityOf(state.build, "Chord", "iPhone 17 Pro", () => "10:32"), { lead: "Build succeeded", detail: "· 10:32", tone: "done", errors: 0 });
 });

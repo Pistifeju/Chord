@@ -2,7 +2,7 @@
 import type { AppCommand } from "../../app/commands";
 import { onTarget } from "../../app/commandTarget";
 import type { Change, Stash } from "../../ipc/bindings";
-import { toggleSideView } from "../sidepanel/store";
+import { toggleNavigator } from "../sidebar/store";
 import { openWorktree, projects } from "../worktrees/store";
 import { actOnStash, changes, requestDiscard, requestDropStash, stageChanges, stashes, unstageChanges } from "./store";
 
@@ -25,7 +25,7 @@ const onStash = (act: (worktree: string, stash: Stash) => void) => (target?: str
 };
 
 export const changesCommands: AppCommand[] = [
-  { id: "changes.toggle", title: "Show or Hide Changes", shortcut: { key: "g", cmd: true, shift: true }, ...onTarget(openWorktree, (worktree) => toggleSideView(worktree, "changes")) },
+  { id: "changes.toggle", title: "Show or Hide Changes", shortcut: { key: "g", cmd: true, shift: true }, ...onTarget(openWorktree, () => toggleNavigator("changes")) },
   { id: "changes.stage", title: "Stage", run: onChanges(false, (worktree, list) => void stageChanges(worktree, list)) },
   { id: "changes.discard", title: "Discard", run: onChanges(false, requestDiscard) },
   { id: "changes.unstage", title: "Unstage", run: onChanges(true, (worktree, list) => void unstageChanges(worktree, list)) },

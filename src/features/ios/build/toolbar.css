@@ -1,0 +1,209 @@
+/* The window toolbar over the panes and the side panel in a worktree with an Xcode project. Rules: DESIGN.md, Build and Run. */
+.toolbar {
+  position: relative;
+  /* Above the fixed title bar, as the tab bar is, so its buttons take clicks. */
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: 2px;
+  height: var(--titlebar-height);
+  /* Run's glyph starts 10px in, where a tab's icon and a lone plus's glyph start in the tab bar. */
+  padding: 0 8px 0 4px;
+  background: var(--canvas);
+  box-shadow: inset 0 -1px 0 var(--line);
+  container-type: inline-size;
+}
+
+.toolbar[data-sidebar-hidden="true"] {
+  padding-left: calc(var(--titlebar-lead) + 44px);
+}
+
+.toolbar > .icon-button {
+  flex: none;
+}
+
+/* Play reads green and stop red; a disabled one takes the disabled glyph. */
+.toolbar-run:not(:disabled) {
+  color: var(--success);
+}
+
+.toolbar-stop:not(:disabled) {
+  color: var(--danger);
+}
+
+/* One button for the scheme and the destination: it never shrinks, so the activity field gives way first. */
+.toolbar-scheme {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  margin-left: 6px;
+  padding: 0 8px;
+  border: none;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--ink);
+  font-size: calc(12px * var(--text-scale));
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background-color var(--t-fast) var(--ease-out);
+}
+
+.toolbar-scheme:hover {
+  background: var(--raised);
+}
+
+.toolbar-scheme:active {
+  background: var(--selected);
+}
+
+.toolbar-scheme > svg {
+  flex: none;
+  color: var(--ink-muted);
+}
+
+.toolbar-scheme-separator {
+  display: flex;
+  color: var(--ink-disabled);
+}
+
+.toolbar-destination-os {
+  font-weight: 400;
+  color: var(--ink-muted);
+}
+
+.toolbar-spacer {
+  flex: 1;
+  min-width: 8px;
+  align-self: stretch;
+}
+
+/* The build's status, centered between the scheme and the view buttons. */
+.toolbar-activity {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex: 0 4 420px;
+  align-items: center;
+  gap: 8px;
+  min-width: 120px;
+  height: 28px;
+  padding: 0 4px 0 10px;
+  border-radius: var(--radius-control);
+  background: var(--raised);
+  font-size: calc(12px * var(--text-scale));
+  color: var(--ink-secondary);
+  white-space: nowrap;
+}
+
+/* The lead names what happens in `ink`, the detail after it in `ink-secondary`; a success or a failure colors the lead. */
+.toolbar-activity-lead {
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.toolbar-activity[data-tone="idle"] .toolbar-activity-lead {
+  font-weight: 400;
+  color: var(--ink-secondary);
+}
+
+.toolbar-activity[data-tone="done"] .toolbar-activity-lead {
+  color: var(--success);
+}
+
+.toolbar-activity[data-tone="failed"] .toolbar-activity-lead {
+  color: var(--danger);
+}
+
+.toolbar-activity-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* While it builds, installs or launches: a 2px line along the field's bottom edge with a segment sliding across it. Rust reports no file counts, so it shows that work goes on, not how far. */
+.toolbar-progress {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.toolbar-progress::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 30%;
+  border-radius: 1px;
+  background: var(--accent-ink);
+  animation: toolbar-progress 1.4s ease-in-out infinite;
+}
+
+@keyframes toolbar-progress {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(340%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toolbar-progress::after {
+    width: 100%;
+    animation: toolbar-progress-pulse 2.4s ease-in-out infinite;
+  }
+}
+
+@keyframes toolbar-progress-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.toolbar-errors {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 3px;
+  height: 22px;
+  padding: 0 6px;
+  border: none;
+  border-radius: var(--radius-inset);
+  background: transparent;
+  color: var(--danger);
+  font-size: calc(11px * var(--text-scale));
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.toolbar-errors:hover {
+  background: var(--selected);
+}
+
+.toolbar-errors > svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* A narrow toolbar hides the iOS version, then the scheme's name. */
+@container (max-width: 900px) {
+  .toolbar-destination-os {
+    display: none;
+  }
+}
+
+@container (max-width: 640px) {
+  .toolbar-scheme-name,
+  .toolbar-scheme-separator {
+    display: none;
+  }
+}

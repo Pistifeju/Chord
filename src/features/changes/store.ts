@@ -125,10 +125,7 @@ async function act(worktree: string, run: () => Promise<unknown>) {
 
 export const stageChanges = (worktree: string, list: Change[]) => act(worktree, () => commands.stageFiles(worktree, pathsOf(list)));
 
-// A rename's old path goes back into the index with its new one.
-const indexPaths = (list: Change[]) => list.flatMap((c) => (c.oldPath ? [c.path, c.oldPath] : [c.path]));
-
-export const unstageChanges = (worktree: string, list: Change[]) => act(worktree, () => commands.unstageFiles(worktree, indexPaths(list)));
+export const unstageChanges = (worktree: string, list: Change[]) => act(worktree, () => commands.unstageFiles(worktree, pathsOf(list)));
 
 export const applyHunk = (worktree: string, path: string, hunk: Hunk, action: Exclude<HunkAction, "discard" | "discardStaged">) => act(worktree, () => commands.applyHunk(worktree, path, hunk, action));
 
@@ -146,11 +143,7 @@ export async function confirmDiscard() {
   await act(worktree, async () => {
     // git holds no copy of a new file, so its hunk goes the file's way, to the Trash.
     if (hunk && !goesToTrash(list[0])) await commands.applyHunk(worktree, list[0].path, hunk, list[0].staged ? "discardStaged" : "discard");
-    else if (list[0].staged) {
-      // Unstaged first, the files go back to HEAD with the restore from the index.
-      await commands.unstageFiles(worktree, indexPaths(list));
-      await commands.discardFiles(worktree, indexPaths(list));
-    } else await commands.discardFiles(worktree, pathsOf(list));
+    else await commands.discardFiles(worktree, pathsOf(list), list[0].staged);
     // A file that went to the Trash loses its tabs, as in the Files tree.
     for (const change of list) if (goesToTrash(change)) closeFilePanesAt(worktree, change.path);
   });

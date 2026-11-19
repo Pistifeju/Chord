@@ -1,5 +1,5 @@
-// The sidebar: each project's worktrees as cards under its name, in project order, each with a row per chat session and its status; the drags that reorder the projects and the cards; its show/hide button and the Settings and Help buttons at its foot.
-import { useEffect, useRef, useState, type RefObject } from "react";
+// The sidebar: the navigator's control over one view at a time, Workspaces, Files, Changes or the Tests view the window passes in; under Workspaces each project's worktrees as cards under its name, in project order, each with a row per chat session and its status, and the drags that reorder the projects and the cards; its show/hide button and the Settings and Help buttons at its foot.
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import type { GitCounts_Serialize as GitCounts, Project, Worktree_Serialize as Worktree } from "../../ipc/bindings";
 import { shortcutLabel, showMenu, tooltip } from "../../app/commands";
 import { openSheet } from "../../app/sheet";
@@ -11,14 +11,16 @@ import { openSettings, settingsOpen, shortcutChanges } from "../settings/store";
 import { finished } from "../status/store";
 import { ageLabel, seenDone, statusLabel, urgentReport } from "../status/status";
 import { StatusMark } from "../status/StatusMark";
-import { GearIcon, PlusIcon, QuestionIcon, SidebarIcon } from "../../ui/icons";
+import { BranchIcon, FolderIcon, GearIcon, PlusIcon, QuestionIcon, SidebarIcon, TestIcon, WorkspacesIcon } from "../../ui/icons";
+import { ChangesView } from "../changes/ChangesView";
+import { FilesView } from "../files/FilesView";
 import { countsLabel, countsTitle } from "../worktrees/gitCounts";
 import { gitCounts } from "../worktrees/gitCountsRefresh";
 import { movesTo, worktreeName, worktreeOrder } from "../worktrees/projects";
 import { cancelRename, finishRename, rename, setRenameName, startRename } from "../worktrees/rename";
 import { moveProject, moveWorktree, pickProject, projects, selectWorktree } from "../worktrees/store";
 import { usePointerDrag } from "../../ui/pointerDrag";
-import { sidebar, toggleSidebar } from "./store";
+import { navigatorView, showNavigator, sidebar, toggleSidebar, type NavigatorView } from "./store";
 import "./sidebar.css";
 
 function SettingsButton() {
@@ -36,6 +38,31 @@ export function SidebarToggle() {
     <button type="button" className="icon-button" title={tooltip("sidebar.toggle")} aria-label="Show or Hide Sidebar" onClick={toggleSidebar}>
       <SidebarIcon />
     </button>
+  );
+}
+
+const navigatorViews: { view: NavigatorView; label: string; icon: ReactNode }[] = [
+  { view: "workspaces", label: "Workspaces", icon: <WorkspacesIcon /> },
+  { view: "files", label: "Files", icon: <FolderIcon size={16} /> },
+  { view: "changes", label: "Changes", icon: <BranchIcon /> },
+  { view: "tests", label: "Tests", icon: <TestIcon /> },
+];
+
+// The navigator's control: one icon per view; Workspaces carries a dot while an agent awaits input, so a hidden card still calls.
+function Navigator({ shown, views }: { shown: NavigatorView; views: NavigatorView[] }) {
+  shortcutChanges.use();
+  const waiting = chats.usePart((all) => Object.values(all).some((chat) => chat.report?.status.kind === "waiting"));
+  return (
+    <div className="segmented navigator" role="radiogroup" aria-label="Navigator">
+      {navigatorViews
+        .filter((item) => views.includes(item.view))
+        .map((item) => (
+          <button key={item.view} type="button" role="radio" aria-checked={shown === item.view} title={tooltip(`navigator.${item.view}`)} aria-label={item.view === "workspaces" && waiting ? "Workspaces, an agent awaits input" : item.label} onClick={() => showNavigator(item.view)}>
+            {item.icon}
+            {item.view === "workspaces" && waiting && <span className="navigator-waiting" />}
+          </button>
+        ))}
+    </div>
   );
 }
 
@@ -103,9 +130,10 @@ function useSidebarDrag(scroller: RefObject<HTMLDivElement | null>) {
   return { drag: { handlers: drag.handlers, clicked: drag.clicked, dragging: dragged?.path ?? null }, dragged, line, ghost: drag.ghost };
 }
 
-// `markers` are the iOS part of the cards, passed in by App by worktree path.
-export function Sidebar({ markers }: { markers: Record<string, CardMarker> }) {
+// `markers` are the iOS part of the cards, passed in by App by worktree path; `tests` is the Tests view, in a worktree with an Xcode project.
+export function Sidebar({ markers, tests }: { markers: Record<string, CardMarker>; tests: ReactNode }) {
   const { hidden } = sidebar.use();
+  const picked = navigatorView.use();
   shortcutChanges.use();
   const state = projects.use();
   const counts = gitCounts.use();
@@ -115,49 +143,60 @@ export function Sidebar({ markers }: { markers: Record<string, CardMarker> }) {
   const { drag, dragged, line, ghost } = useSidebarDrag(scroller);
   if (hidden) return null;
   const order = worktreeOrder(state);
+  const worktree = state.selected;
+  // Files and Changes need an open worktree, Tests one with an Xcode project; without them the sidebar shows Workspaces.
+  const views: NavigatorView[] = worktree ? ["workspaces", "files", "changes", ...(tests ? (["tests"] as const) : [])] : ["workspaces"];
+  const shown = views.includes(picked) ? picked : "workspaces";
   return (
-    <nav className="sidebar" aria-label="Workspaces">
-      <div className="sidebar-header">
-        <span className="sidebar-title">Workspaces</span>
-        <button type="button" className="icon-button" title={tooltip("project.add")} aria-label="Add Project" onClick={pickProject}>
-          <PlusIcon />
-        </button>
-      </div>
-      <div className="sidebar-scroll" ref={scroller}>
-        {state.list.map((project) => (
-          <section key={project.path} className="project-group" aria-label={project.name} data-project={project.path} data-dragging={drag.dragging === project.path}>
-            <div
-              className="project-name"
-              title={project.path}
-              {...drag.handlers({ kind: "project", project: project.path, path: project.path, name: project.name })}
-              onContextMenu={(e) => showMenu(e, [["worktree.new", project.path], ["project.remove", project.path]])}
-            >
-              {project.name}
+    <nav className="sidebar" aria-label="Navigator">
+      <Navigator shown={shown} views={views} />
+      {shown === "workspaces" ? (
+        <>
+          <div className="sidebar-header">
+            <span className="sidebar-title">Workspaces</span>
+            <button type="button" className="icon-button" title={tooltip("project.add")} aria-label="Add Project" onClick={pickProject}>
+              <PlusIcon />
+            </button>
+          </div>
+          <div className="sidebar-scroll" ref={scroller}>
+            {state.list.map((project) => (
+              <section key={project.path} className="project-group" aria-label={project.name} data-project={project.path} data-dragging={drag.dragging === project.path}>
+                <div
+                  className="project-name"
+                  title={project.path}
+                  {...drag.handlers({ kind: "project", project: project.path, path: project.path, name: project.name })}
+                  onContextMenu={(e) => showMenu(e, [["worktree.new", project.path], ["project.remove", project.path]])}
+                >
+                  {project.name}
+                </div>
+                <ul className="worktree-list">
+                  {(state.worktrees[project.path] ?? []).map((worktree) => (
+                    <WorktreeCard
+                      key={worktree.path}
+                      project={project}
+                      worktree={worktree}
+                      drag={drag}
+                      selected={worktree.path === state.selected}
+                      shown={worktree.path === state.selected && !settings}
+                      hint={shortcutLabel(`worktree.select.${order.indexOf(worktree.path) + 1}`)}
+                      counts={counts[worktree.path]}
+                      marker={markers[worktree.path]}
+                      finishedPanes={finishedPanes}
+                    />
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </div>
+          {line && <div className="drop-line" style={line} />}
+          {dragged && (
+            <div className="drag-ghost" ref={ghost}>
+              <span className="drag-ghost-label">{dragged.name}</span>
             </div>
-            <ul className="worktree-list">
-              {(state.worktrees[project.path] ?? []).map((worktree) => (
-                <WorktreeCard
-                  key={worktree.path}
-                  project={project}
-                  worktree={worktree}
-                  drag={drag}
-                  selected={worktree.path === state.selected}
-                  shown={worktree.path === state.selected && !settings}
-                  hint={shortcutLabel(`worktree.select.${order.indexOf(worktree.path) + 1}`)}
-                  counts={counts[worktree.path]}
-                  marker={markers[worktree.path]}
-                  finishedPanes={finishedPanes}
-                />
-              ))}
-            </ul>
-          </section>
-        ))}
-      </div>
-      {line && <div className="drop-line" style={line} />}
-      {dragged && (
-        <div className="drag-ghost" ref={ghost}>
-          <span className="drag-ghost-label">{dragged.name}</span>
-        </div>
+          )}
+        </>
+      ) : (
+        <div className="sidebar-view">{shown === "tests" ? tests : worktree && (shown === "files" ? <FilesView worktree={worktree} /> : <ChangesView worktree={worktree} />)}</div>
       )}
       <div className="sidebar-footer">
         <SettingsButton />

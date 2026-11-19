@@ -1,4 +1,4 @@
-// The Preview view in the side panel: its header with the preview model's menu and the line while a rebuild runs, over the worktree's `#Preview` list, as a Files tree with its filter, beside the worktree's preview simulator screen and the compile error's bar, with the Simulator view's screen, bezel, input and Screenshot button, or the line that stands in for it. Also its tab bar button.
+// The Preview view in the side panel: its header with the preview model's menu and the line while a rebuild runs, over the worktree's `#Preview` list, as a Files tree with its filter, beside the worktree's preview simulator screen and the compile error's bar, with the Simulator view's screen, bezel, input and Screenshot button, or the line that stands in for it. Also its toolbar button.
 import { Menu } from "@tauri-apps/api/menu";
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import { tooltip } from "../../../app/commands";
@@ -6,7 +6,7 @@ import type { BuildIssue_Deserialize } from "../../../ipc/bindings";
 import { ChevronIcon, EyeIcon, FileIcon, FilterIcon, PhoneIcon, WarningIcon } from "../../../ui/icons";
 import { showFileAt } from "../../editor/showing";
 import { fail } from "../../../ui/alert";
-import { popUpUnder, simulatorItems } from "../build/RunControl";
+import { popUpUnder, simulatorItems } from "../build/Toolbar";
 import { issuePlace, pathInWorktree } from "../build/run";
 import { shortcutChanges } from "../../settings/store";
 import { showsSideView, sidePanels, toggleSideView } from "../../sidepanel/store";

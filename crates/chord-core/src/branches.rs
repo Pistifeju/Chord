@@ -5,7 +5,6 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 use specta::Type;
 
-use crate::changes;
 use crate::{Error, git};
 
 #[derive(Serialize, Type, Debug, PartialEq)]
@@ -21,7 +20,7 @@ pub struct LocalBranch {
 /// The local branches, newest commit first.
 pub fn list(worktree: &Path) -> Result<Vec<LocalBranch>, Error> {
     let here = worktree.canonicalize()?;
-    let refs = changes::read(
+    let refs = git::read(
         worktree,
         &[
             "for-each-ref",

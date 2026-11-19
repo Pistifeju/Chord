@@ -1,7 +1,14 @@
 /* The split layout of tab groups, each group's tab bar, and the dividers. Rules: DESIGN.md, Tab bar and Panes. */
+.panes-frame {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
 .panes {
   display: flex;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
 }
 
 .group {
@@ -22,6 +29,11 @@
   z-index: 2;
   background: var(--canvas);
   box-shadow: inset 0 -1px 0 var(--line);
+}
+
+/* Under the toolbar a bar is no title bar row: it is shorter and drags nothing. */
+.panes-frame[data-toolbar] .tabbar {
+  height: 34px;
 }
 
 .tabbar[data-sidebar-hidden="true"] {
@@ -159,6 +171,11 @@
   margin: 0 8px 0 2px;
 }
 
+/* A bar with no tab: the plus's glyph starts 10px in, where a tab's icon and the toolbar's Run glyph start. */
+.tabbar > .icon-button:first-child {
+  margin-left: 4px;
+}
+
 /* The shown file or the panes, with the bottom panel under them. */
 .panes-work {
   display: flex;
@@ -168,16 +185,11 @@
   min-height: 0;
 }
 
-/* The side panel's view buttons: at the bar's right end, and in the same place over the open side panel, 2px apart in both. */
+/* The side panel's view buttons at the toolbar's right end. */
 .side-view-toggles {
   display: flex;
   flex: none;
   gap: 2px;
-  margin-right: 8px;
-}
-
-.tabbar .side-view-toggles {
-  margin-left: auto;
 }
 
 .side-view-toggles .icon-button[aria-pressed="true"],
@@ -186,10 +198,9 @@
   color: var(--ink);
 }
 
-/* With two or more views the buttons share one capsule, as the run control's buttons do: a 1px `line` edge, a 1px `line` between them. The 6px margin keeps Files' icon where a lone Files button has it. */
+/* With two or more views the buttons share one capsule: a 1px `line` edge, a 1px `line` between them. */
 .side-view-toggles:has(> .icon-button + .icon-button) {
   gap: 0;
-  margin-right: 6px;
   height: 28px;
   border: 1px solid var(--line);
   border-radius: var(--radius-control);

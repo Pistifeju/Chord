@@ -1,6 +1,6 @@
 /* The window's layout: title bar row, the sidebar and the main area, the status bar under both. */
 .app {
-  --sidebar-width: 264px;
+  --sidebar-width: 280px;
   --sidebar-inset: 8px;
   --titlebar-height: 40px;
   /* Where the sidebar toggle starts: right of the traffic lights. */
@@ -64,7 +64,7 @@
   overflow-y: auto;
 }
 
-.main:has(> .panes) {
+.main:has(> .panes-frame) {
   padding-top: 0;
 }
 

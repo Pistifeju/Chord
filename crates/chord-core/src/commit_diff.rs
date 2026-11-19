@@ -5,7 +5,8 @@ use std::path::Path;
 use serde::Serialize;
 use specta::Type;
 
-use crate::changes::{self, ChangeStatus, FileDiff};
+use crate::changes::{self, ChangeStatus};
+use crate::diff::{self, FileDiff};
 use crate::{Error, git};
 
 #[derive(Serialize, Type, Debug, PartialEq)]
@@ -41,8 +42,8 @@ pub fn commit_files(dir: &Path, commit: &str) -> Result<Vec<CommittedFile>, Erro
 }
 
 pub(crate) fn files_between(dir: &Path, from: &str, to: &str) -> Result<Vec<CommittedFile>, Error> {
-    let names = changes::read(dir, &["diff", "-M", "--name-status", "-z", from, to, "--"])?;
-    let counts = changes::parse_numstat(&changes::read(
+    let names = git::read(dir, &["diff", "-M", "--name-status", "-z", from, to, "--"])?;
+    let counts = diff::parse_numstat(&git::read(
         dir,
         &["diff", "-M", "--numstat", "-z", from, to, "--"],
     )?);
@@ -66,7 +67,7 @@ pub(crate) fn diff_between(
     path: &str,
 ) -> Result<FileDiff, Error> {
     // A rename shows against the file it came from, so git needs both paths.
-    let names = changes::read(dir, &["diff", "-M", "--name-status", "-z", from, to, "--"])?;
+    let names = git::read(dir, &["diff", "-M", "--name-status", "-z", from, to, "--"])?;
     let old_path = parse_name_status(&names)
         .into_iter()
         .find(|file| file.path == path)
@@ -74,7 +75,7 @@ pub(crate) fn diff_between(
     let mut args = vec!["diff", "--no-color", "--no-ext-diff", "-M", from, to, "--"];
     args.extend(old_path.as_deref());
     args.push(path);
-    Ok(changes::parse_diff(&changes::read(dir, &args)?))
+    Ok(diff::parse_diff(&git::read(dir, &args)?))
 }
 
 /// Each record of `git diff --name-status -z`: the status, then the path, or a rename's or copy's old and new path.

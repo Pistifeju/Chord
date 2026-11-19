@@ -2,7 +2,7 @@
 import type { AppCommand } from "../../app/commands";
 import { onTarget } from "../../app/commandTarget";
 import { settingsOpen } from "../settings/store";
-import { toggleSideView } from "../sidepanel/store";
+import { toggleNavigator } from "../sidebar/store";
 import { openWorktree, projects } from "../worktrees/store";
 import { fail } from "../../ui/alert";
 import { openFileByName, requestTrash, revealFile, startNew, startRename } from "./store";
@@ -19,14 +19,14 @@ const onEntry = (act: (worktree: string, path: string) => void, key: "path" | "f
   if (worktree && path !== undefined) act(worktree, path);
 };
 
-// The Files view's filter field while the focus is anywhere in the view.
+// The Files view's filter field while the focus is anywhere in the sidebar showing it, its navigator included.
 const focusedFilter = () =>
-  document.activeElement?.closest(".files")?.querySelector<HTMLInputElement>(".files-filter input");
+  document.activeElement?.closest(".sidebar")?.querySelector<HTMLInputElement>(".files-filter input");
 
 const copy = (text: string) => void navigator.clipboard.writeText(text).catch(fail);
 
 export const filesCommands: AppCommand[] = [
-  { id: "files.toggle", title: "Show or Hide Files", shortcut: { key: "e", cmd: true, shift: true }, ...onTarget(openWorktree, (worktree) => toggleSideView(worktree, "files")) },
+  { id: "files.toggle", title: "Show or Hide Files", shortcut: { key: "e", cmd: true, shift: true }, ...onTarget(openWorktree, () => toggleNavigator("files")) },
   { id: "files.openByName", title: "Open File by Name", shortcut: { key: "o", cmd: true, shift: true }, ...onTarget(openWorktree, (worktree) => void openFileByName(worktree)) },
   { id: "files.find", title: "Filter Files", shortcut: { key: "f", cmd: true }, ...onTarget(focusedFilter, (field) => field.select()) },
   { id: "files.newFile", title: "New File", run: onEntry((worktree, folder) => startNew(worktree, folder, "newFile"), "folder") },

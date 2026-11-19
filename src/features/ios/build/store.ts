@@ -111,6 +111,9 @@ export function cleanBuild(worktree: string) {
     .catch(fail);
 }
 
+/** The toolbar's error count: the log half on Build. */
+export const showBuildLog = (worktree: string) => changeBottomPanel(worktree, { view: "build" });
+
 export function toggleLogView(worktree: string) {
   const panel = bottomPanelOf(bottomPanels.get(), worktree);
   changeBottomPanel(worktree, { view: panel.view === "terminal" ? viewToShow(builds.get()[worktree]) : "terminal" });

@@ -1,10 +1,8 @@
-// The Changes view: its scope control, Uncommitted or Branch while the worktree has a base (see BranchList), then under Uncommitted the worktree's changed files under Staged and Changes, Stash Changes on the Changes heading, the repository's stashes under them (see StashList), with the commit area under them: the author, the message field, then Push Immediately and Amend beside Push and Commit; each row with its name, folder, line counts and status; a click opens its diff. A checkbox on each row and group heading stages or unstages, and a row's More button and right-click menu hold its Stage or Unstage, and Discard. Also its tab bar button.
-import { memo, useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
+// The Changes view: its scope control, Uncommitted or Branch while the worktree has a base (see BranchList), then under Uncommitted the worktree's changed files under Staged and Changes, Stash Changes on the Changes heading, the repository's stashes under them (see StashList), with the commit area under them: the push line while the branch has commits to push, then the message card with Amend, Push After and Commit in its foot; each row with its name, folder, line counts and status; a click opens its diff. A checkbox on each row and group heading stages or unstages, and a row's More button and right-click menu hold its Stage or Unstage, and Discard.
+import { memo, useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from "react";
 import type { Change } from "../../ipc/bindings";
-import { showMenu, tooltip } from "../../app/commands";
-import { BranchIcon, CheckIcon, MoreIcon, StashIcon } from "../../ui/icons";
-import { shortcutChanges } from "../settings/store";
-import { showsSideView, sidePanels, toggleSideView } from "../sidepanel/store";
+import { showMenu } from "../../app/commands";
+import { AmendIcon, ArrowUpIcon, CheckIcon, MoreIcon, StashIcon } from "../../ui/icons";
 import { panes } from "../panes/store";
 import { gitCounts } from "../worktrees/gitCountsRefresh";
 import { Segmented } from "../../ui/Segmented";
@@ -16,29 +14,12 @@ import { changesTarget } from "./commands";
 import { branches, changes, commitMessages, commitOptions, commitStaged, commitTargets, followsAct, optionsOf, pushBranch, readChanges, running, scopes, setScope, showDiff, stageChanges, stashChanges, toggleAmend, togglePushAfter, typeCommitMessage, unstageChanges, type Scope } from "./store";
 import "./changes.css";
 
-export function ChangesToggle({ worktree }: { worktree: string }) {
-  shortcutChanges.use();
-  const shown = sidePanels.usePart((all) => showsSideView(all, worktree, "changes"));
-  return (
-    <button
-      type="button"
-      className="icon-button"
-      title={tooltip("changes.toggle")}
-      aria-label="Show or Hide Changes"
-      aria-pressed={shown}
-      onClick={() => toggleSideView(worktree, "changes")}
-    >
-      <BranchIcon />
-    </button>
-  );
-}
-
 const scopeOptions: { value: Scope; label: string }[] = [
   { value: "uncommitted", label: "Uncommitted" },
   { value: "branch", label: "Branch" },
 ];
 
-// A side panel drag re-renders the panel each frame; the view reads its own stores.
+// The sidebar re-renders with every git count and project change; the view reads its own stores.
 export const ChangesView = memo(function ChangesView({ worktree }: { worktree: string }) {
   const branch = branches.usePart((all) => all[worktree]);
   const picked = scopes.usePart((all) => all[worktree] ?? "uncommitted");
@@ -182,63 +163,67 @@ function CommitBox({ worktree, staged }: { worktree: string; staged: boolean }) 
   const options = commitOptions.usePart((all) => optionsOf(all, worktree));
   const busy = running.usePart((all) => all[worktree]);
   const ready = canCommit(message, options.amend, staged);
-  const [, name, email] = /^(.*?)\s*(<[^>]*>)?$/.exec(target?.author ?? "") ?? [];
+  // With nothing to commit, Push is the one action left, so it takes the blue.
+  const pushFirst = !ready && busy !== "commit";
+  const subject = message.split("\n")[0].length;
+  const field = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const el = field.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [message]);
   return (
     <div className="changes-commit">
-      {name && (
-        <div className="changes-author" title={target?.author ?? undefined}>
-          <span className="changes-author-name">{name}</span>
-          {email && <span className="changes-author-email">{email}</span>}
-        </div>
-      )}
-      <textarea
-        className="input changes-message"
-        placeholder="Message"
-        aria-label="Commit message"
-        value={message}
-        onChange={(e) => typeCommitMessage(worktree, e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key !== "Enter" || !e.metaKey) return;
-          e.preventDefault();
-          if (!e.repeat) void commitStaged(worktree);
-        }}
-      />
-      <div className="changes-commit-bar">
-        <div className="changes-options">
-          {target?.pushTo && (
-            <OptionBox checked={options.pushAfter} onToggle={() => togglePushAfter(worktree)}>
-              Push changes immediately to {target.pushTo}
-            </OptionBox>
-          )}
-          {target?.amendable && (
-            <OptionBox checked={options.amend} onToggle={() => void toggleAmend(worktree)}>
-              Amend last commit
-            </OptionBox>
-          )}
-        </div>
-        {target?.pushable && (
-          <button type="button" className="button-secondary" aria-busy={busy === "push"} onClick={() => void pushBranch(worktree)}>
+      {target?.pushable && target.pushTo && (
+        <div className="changes-sync">
+          <span className="changes-sync-label">
+            {target.ahead ? <span className="changes-ahead">↑{target.ahead}</span> : "First push"} to {target.pushTo}
+          </span>
+          <button type="button" className={pushFirst ? "button-primary" : "button-secondary"} aria-busy={busy === "push"} onClick={() => void pushBranch(worktree)}>
             <span className="button-label">Push</span>
             {busy === "push" && <span className="spinner" aria-label="Pushing" />}
           </button>
-        )}
-        <button type="button" className="button-primary" title="Commit (⌘Return)" disabled={!ready && busy !== "commit"} aria-busy={busy === "commit"} onClick={() => void commitStaged(worktree)}>
-          <span className="button-label">Commit</span>
-          {busy === "commit" && <span className="spinner" aria-label="Committing" />}
-        </button>
+        </div>
+      )}
+      <div className="changes-card">
+        <textarea
+          ref={field}
+          className="changes-message"
+          placeholder="Message"
+          aria-label="Commit message"
+          title={target?.author ?? undefined}
+          value={message}
+          onChange={(e) => typeCommitMessage(worktree, e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter" || !e.metaKey) return;
+            e.preventDefault();
+            if (!e.repeat) void commitStaged(worktree);
+          }}
+        />
+        <div className={subject > 50 ? "changes-subject changes-subject-long" : "changes-subject"} title="Subject length">
+          {subject > 0 && `${subject}/50`}
+        </div>
+        <div className="changes-card-foot">
+          {target?.amendable && (
+            <button type="button" className="changes-toggle" aria-pressed={options.amend} title="Amend Last Commit" onClick={() => void toggleAmend(worktree)}>
+              <AmendIcon size={14} />
+              Amend
+            </button>
+          )}
+          {target?.pushTo && (
+            <button type="button" className="changes-toggle" aria-pressed={options.pushAfter} title={`Push to ${target.pushTo} after the commit`} onClick={() => togglePushAfter(worktree)}>
+              <ArrowUpIcon size={14} />
+              Push After
+            </button>
+          )}
+          <button type="button" className="button-primary changes-commit-button" title="Commit (⌘Return)" disabled={!ready && busy !== "commit"} aria-busy={busy === "commit"} onClick={() => void commitStaged(worktree)}>
+            <span className="button-label">{options.amend ? "Amend" : "Commit"}</span>
+            {busy === "commit" && <span className="spinner" aria-label="Committing" />}
+          </button>
+        </div>
       </div>
     </div>
-  );
-}
-
-function OptionBox({ checked, onToggle, children }: { checked: boolean; onToggle: () => void; children: ReactNode }) {
-  return (
-    <button type="button" role="checkbox" className="changes-option" aria-checked={checked} onClick={onToggle}>
-      <span className="changes-check">
-        <CheckIcon size={12} />
-      </span>
-      <span className="changes-option-label">{children}</span>
-    </button>
   );
 }
 

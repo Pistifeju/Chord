@@ -3,7 +3,7 @@ import { commands, type SidePanel_Serialize as SidePanel, type SideView } from "
 import { panelStore } from "../../ui/panel";
 
 const store = panelStore<"width", SidePanel>({
-  fallback: { open: false, width: 300, view: "files" },
+  fallback: { open: false, width: 300, view: "simulator" },
   size: "width",
   min: 200,
   max: 640,
@@ -20,6 +20,9 @@ export const showsSideView = (all: Record<string, SidePanel>, worktree: string, 
 
 /** Shows `view` the next time the panel opens, without opening it. */
 export const keepSideView = (worktree: string, view: SideView) => store.change(worktree, { view });
+
+/** Files and Changes moved to the sidebar: a panel saved on one of them closes and keeps `view` for its next open. */
+export const leaveSidebarView = (worktree: string, view: SideView) => store.change(worktree, { open: false, view });
 
 // The Preview view's list sits beside its screen and needs the room.
 const minWidths: Partial<Record<SideView, number>> = { preview: 560 };
