@@ -1,12 +1,13 @@
 /* The window toolbar over the panes and the side panel in a worktree with an Xcode project. Rules: DESIGN.md, Build and Run. */
+/* The lead holds a slot of up to 360px, smaller in a narrow toolbar, and grows into the column after it; the activity field centers between the slot and the view buttons, so a longer scheme or destination moves it only once the lead would touch it. */
 .toolbar {
   position: relative;
   /* Above the fixed title bar, as the tab bar is, so its buttons take clicks. */
   z-index: 2;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 360px) 1fr minmax(120px, 420px) 1fr auto;
   align-items: center;
   flex: none;
-  gap: 2px;
   height: var(--titlebar-height);
   /* Run's glyph starts 10px in, where a tab's icon and a lone plus's glyph start in the tab bar. */
   padding: 0 8px 0 4px;
@@ -19,8 +20,20 @@
   padding-left: calc(var(--titlebar-lead) + 44px);
 }
 
-.toolbar > .icon-button {
+.toolbar-lead {
+  grid-column: 1 / 3;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-right: 8px;
+}
+
+.toolbar-lead > .icon-button {
   flex: none;
+}
+
+.toolbar > .side-view-toggles {
+  grid-column: 5;
 }
 
 /* Play reads green and stop red; a disabled one takes the disabled glyph. */
@@ -32,17 +45,29 @@
   color: var(--danger);
 }
 
-/* One button for the scheme and the destination: it never shrinks, so the activity field gives way first. */
+/* One pill with two buttons, as in Xcode: the scheme, then the destination. It never shrinks, so the activity field gives way first. */
 .toolbar-scheme {
   display: flex;
   flex: none;
   align-items: center;
-  gap: 6px;
   height: 28px;
   margin-left: 6px;
-  padding: 0 8px;
-  border: none;
   border-radius: var(--radius-control);
+  transition: background-color var(--t-fast) var(--ease-out);
+}
+
+.toolbar-scheme:hover {
+  background: var(--raised);
+}
+
+.toolbar-scheme-part {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 4px 0 8px;
+  border: none;
+  border-radius: var(--radius-control) 0 0 var(--radius-control);
   background: transparent;
   color: var(--ink);
   font-size: calc(12px * var(--text-scale));
@@ -51,15 +76,17 @@
   transition: background-color var(--t-fast) var(--ease-out);
 }
 
-.toolbar-scheme:hover {
-  background: var(--raised);
+.toolbar-scheme-part:last-child {
+  padding: 0 8px 0 4px;
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
 }
 
-.toolbar-scheme:active {
+.toolbar-scheme-part:hover,
+.toolbar-scheme-part:active {
   background: var(--selected);
 }
 
-.toolbar-scheme > svg {
+.toolbar-scheme-part > svg {
   flex: none;
   color: var(--ink-muted);
 }
@@ -69,26 +96,32 @@
   color: var(--ink-disabled);
 }
 
+/* The build configuration, after the scheme's name. */
+.toolbar-configuration {
+  font-weight: 400;
+  color: var(--ink-secondary);
+}
+
+.toolbar-configuration::before {
+  content: "·";
+  margin-right: 6px;
+  color: var(--ink-muted);
+}
+
 .toolbar-destination-os {
   font-weight: 400;
   color: var(--ink-muted);
 }
 
-.toolbar-spacer {
-  flex: 1;
-  min-width: 8px;
-  align-self: stretch;
-}
-
 /* The build's status, centered between the scheme and the view buttons. */
 .toolbar-activity {
+  grid-column: 3;
   position: relative;
   overflow: hidden;
   display: flex;
-  flex: 0 4 420px;
   align-items: center;
   gap: 8px;
-  min-width: 120px;
+  min-width: 0;
   height: 28px;
   padding: 0 4px 0 10px;
   border-radius: var(--radius-control);
@@ -194,7 +227,7 @@
   height: 12px;
 }
 
-/* A narrow toolbar hides the iOS version, then the scheme's name. */
+/* A narrow toolbar hides the iOS version, then the scheme's name and configuration. */
 @container (max-width: 900px) {
   .toolbar-destination-os {
     display: none;
@@ -203,7 +236,7 @@
 
 @container (max-width: 640px) {
   .toolbar-scheme-name,
-  .toolbar-scheme-separator {
+  .toolbar-configuration {
     display: none;
   }
 }

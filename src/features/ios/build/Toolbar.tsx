@@ -1,8 +1,8 @@
-// The window toolbar over the panes in a worktree with an Xcode project: Run, Stop and Test, the scheme and run destination button that opens the run menu with the build configuration, the activity field with the build's status and error count, and the side panel's view buttons.
-import { CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu } from "@tauri-apps/api/menu";
+// The window toolbar over the panes in a worktree with an Xcode project: Run, Stop and Test, the scheme button with its scheme and build configuration menu, the run destination button with the run menu, the activity field with the build's status and error count, and the side panel's view buttons.
+import { CheckMenuItem, Menu, MenuItem, PredefinedMenuItem } from "@tauri-apps/api/menu";
 import { LogicalPosition } from "@tauri-apps/api/dpi";
 import { useEffect, type MouseEvent, type ReactNode } from "react";
-import type { RunDestination } from "../../../ipc/bindings";
+import type { RunDestination, SchemePick_Serialize as SchemePick } from "../../../ipc/bindings";
 import { menuItem, tooltip } from "../../../app/commands";
 import { openContextMenu } from "../../../app/contextMenu";
 import { shortcutChanges } from "../../settings/store";
@@ -36,20 +36,28 @@ export async function simulatorItems(pick: RunDestination | null, choose: (desti
   return items;
 }
 
-// The Scheme and Build Configuration submenus, the project's picks checked; none before the first listing.
-async function schemeItems(worktree: string) {
+// The worktree's schemes, then its project's configurations under their line; the shown picks are checked.
+async function schemeMenu(worktree: string) {
   const listing = schemeListings.get()[worktree];
-  if (!listing) return [];
+  if (!listing) return Menu.new({ items: [await disabledLine("No Schemes")] });
   const shown = shownPick(schemePickOf(worktree), listing);
-  const submenu = async (text: string, names: string[], checked: string | null, choose: (name: string) => void) =>
-    Submenu.new({ text, items: await Promise.all(names.map((name) => CheckMenuItem.new({ text: name, checked: name === checked, action: () => choose(name) }))) });
-  const items = [await PredefinedMenuItem.new({ item: "Separator" }), await submenu("Scheme", listing.schemes.map((listed) => listed.name), shown.scheme, (scheme) => chooseSchemePick(worktree, { scheme }))];
+  const choices = (names: string[], checked: string | null, choose: (name: string) => void) =>
+    Promise.all(names.map((name) => CheckMenuItem.new({ text: name, checked: name === checked, action: () => choose(name) })));
+  const items: (MenuItem | CheckMenuItem | PredefinedMenuItem)[] = await choices(
+    listing.schemes.map((listed) => listed.name),
+    shown.scheme,
+    (scheme) => chooseSchemePick(worktree, { scheme }),
+  );
   if (listing.configurations.length)
-    items.push(await submenu("Build Configuration", listing.configurations, shown.configuration, (configuration) => chooseSchemePick(worktree, { configuration })));
-  return items;
+    items.push(
+      await PredefinedMenuItem.new({ item: "Separator" }),
+      await disabledLine("Build Configuration"),
+      ...(await choices(listing.configurations, shown.configuration, (configuration) => chooseSchemePick(worktree, { configuration }))),
+    );
+  return Menu.new({ items });
 }
 
-// The commands, then the devices under their line and the simulator models under a line per iOS version, then the scheme submenus; the project's picks are checked.
+// The commands, then the devices under their line and the simulator models under a line per iOS version; the project's pick is checked.
 async function runMenu(worktree: string) {
   const listing = destinations.get();
   const pick = runDestinationOf(worktree);
@@ -62,28 +70,33 @@ async function runMenu(worktree: string) {
     for (const device of listing.devices) items.push(await choiceItem(pick, device, choose));
     items.push(await PredefinedMenuItem.new({ item: "Separator" }));
   }
-  items.push(...(await simulatorItems(pick, choose)), ...(await schemeItems(worktree)));
+  items.push(...(await simulatorItems(pick, choose)));
   return Menu.new({ items });
 }
 
-/** Opens `menu` under `button` once a destination listing is known and `loading` ends. */
-export async function popUpUnder(worktree: string, button: HTMLElement, menu: () => Promise<Menu>, loading?: Promise<unknown>) {
-  // The listing is the last one while the new one loads: the menu opens at once and a later open shows the new one.
-  const refreshing = refreshDestinations(worktree).catch(fail);
+/** Opens `menu` under `button` once `loading` ends. */
+async function popUp(button: HTMLElement, menu: () => Promise<Menu>, loading?: Promise<unknown>) {
   // Loads wait outside the menu lock, so a slow one cannot block every other menu.
-  await Promise.all([destinations.get() ? null : refreshing, loading]);
+  await loading;
   const box = button.getBoundingClientRect();
   await openContextMenu(async () => (await menu()).popup(new LogicalPosition(box.left, box.bottom)));
 }
 
-// The scheme's name is known once the listing came; the toolbar reads it when it shows, as the menu does when it opens.
-function useSchemeName(worktree: string): string | null {
+/** Opens `menu` under `button` once a destination listing is known and `loading` ends. */
+export function popUpUnder(worktree: string, button: HTMLElement, menu: () => Promise<Menu>, loading?: Promise<unknown>) {
+  // The listing is the last one while the new one loads: the menu opens at once and a later open shows the new one.
+  const refreshing = refreshDestinations(worktree).catch(fail);
+  return popUp(button, menu, Promise.all([destinations.get() ? null : refreshing, loading]));
+}
+
+// The saved pick shows at once; without one, the scheme a build uses shows once the listing came.
+function useShownPick(worktree: string): SchemePick {
   const listing = schemeListings.usePart((all) => all[worktree]);
   const pick = useSchemePick(worktree);
   useEffect(() => {
     if (!schemeListings.get()[worktree]) refreshSchemes(worktree).catch(console.error);
   }, [worktree]);
-  return listing ? shownPick(pick, listing).scheme : null;
+  return listing ? shownPick(pick, listing) : pick;
 }
 
 // Today's time reads "today at 10:32", the way a message's older times read.
@@ -119,11 +132,12 @@ export function Toolbar({ worktree, viewButtons }: { worktree: string; viewButto
   const { hidden } = sidebar.use();
   const busy = builds.usePart((all) => isStarting(all[worktree]) || isRunning(all[worktree]));
   const destination = useRunDestination(worktree);
-  const scheme = useSchemeName(worktree);
+  const { scheme, configuration } = useShownPick(worktree);
   const name = destination?.name ?? "Newest iPhone";
   const os = destination?.kind === "simulator" ? destination.os : null;
   return (
     <div className="toolbar" data-tauri-drag-region data-sidebar-hidden={hidden || undefined}>
+      <div className="toolbar-lead" data-tauri-drag-region>
       <button type="button" className="icon-button toolbar-run" title={tooltip("build.run")} aria-label="Run" onClick={() => runApp(worktree)}>
         <PlayIcon />
       </button>
@@ -133,33 +147,39 @@ export function Toolbar({ worktree, viewButtons }: { worktree: string; viewButto
       <button type="button" className="icon-button" title="Test" aria-label="Test" disabled>
         <TestIcon />
       </button>
-      <button
-        type="button"
-        className="toolbar-scheme"
-        title="Scheme and Run Destination"
-        aria-label={`Scheme and Run Destination: ${[scheme, name, os].filter(Boolean).join(", ")}`}
-        onClick={(e: MouseEvent<HTMLButtonElement>) => {
-          // Listed beside the destinations; like them, the last listing shows while the new one loads.
-          const listing = refreshSchemes(worktree).catch(fail);
-          popUpUnder(worktree, e.currentTarget, () => runMenu(worktree), schemeListings.get()[worktree] ? undefined : listing).catch(fail);
-        }}
-      >
-        <SchemeIcon />
-        {scheme && (
-          <>
-            <span className="toolbar-scheme-name">{scheme}</span>
-            <span className="toolbar-scheme-separator">
-              <ChevronIcon />
-            </span>
-          </>
-        )}
-        <PhoneIcon />
-        <span className="toolbar-destination">{name}</span>
-        {os && <span className="toolbar-destination-os">{os}</span>}
-      </button>
-      <span className="toolbar-spacer" data-tauri-drag-region />
+      <div className="toolbar-scheme">
+        <button
+          type="button"
+          className="toolbar-scheme-part"
+          title="Scheme and Build Configuration"
+          aria-label={`Scheme and Build Configuration: ${[scheme, configuration].filter(Boolean).join(", ")}`}
+          onClick={(e: MouseEvent<HTMLButtonElement>) => {
+            // The last listing shows while the new one loads.
+            const listing = refreshSchemes(worktree).catch(fail);
+            popUp(e.currentTarget, () => schemeMenu(worktree), schemeListings.get()[worktree] ? undefined : listing).catch(fail);
+          }}
+        >
+          <SchemeIcon />
+          {scheme && <span className="toolbar-scheme-name">{scheme}</span>}
+          {configuration && <span className="toolbar-configuration">{configuration}</span>}
+        </button>
+        <span className="toolbar-scheme-separator">
+          <ChevronIcon />
+        </span>
+        <button
+          type="button"
+          className="toolbar-scheme-part"
+          title="Run Destination"
+          aria-label={`Run Destination: ${[name, os].filter(Boolean).join(", ")}`}
+          onClick={(e: MouseEvent<HTMLButtonElement>) => popUpUnder(worktree, e.currentTarget, () => runMenu(worktree)).catch(fail)}
+        >
+          <PhoneIcon />
+          <span className="toolbar-destination">{name}</span>
+          {os && <span className="toolbar-destination-os">{os}</span>}
+        </button>
+      </div>
+      </div>
       <Activity worktree={worktree} scheme={scheme} destination={name} />
-      <span className="toolbar-spacer" data-tauri-drag-region />
       <div className="side-view-toggles">{viewButtons}</div>
     </div>
   );

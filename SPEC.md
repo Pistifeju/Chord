@@ -177,7 +177,7 @@ Edge cases:
 - [ ] H13 ⌘U runs the scheme's tests on the worktree's own simulator, in the same slot as ⌘R and ⌘B. The H12 Product menu gets a Test item after Build, with ⌘U; the build log shows the run.
 - [ ] H14 harness(tools): `test` runs the tests like ⌘U and returns "Passed", "Stopped" or the failed tests as `file:line: message`, 30 at most, with a build error returned like `build`. It exists only in a worktree with an `.xcodeproj` or `.xcworkspace`.
 - [ ] H15 **hard** Project view: opens the worktree's `.xcodeproj` as a tab, lists its targets, and shows each target's build settings per configuration and its Info.plist keys. A value edits in place and writes back to `project.pbxproj`.
-- [x] H16 Toolbar in a worktree with an Xcode project, as in Xcode: Run, Stop, Test (disabled until H13), the scheme and run destination button that opens the run menu, the activity field with the build's status and error count, and the Simulator and Preview buttons. The tab bars sit under it.
+- [x] H16 Toolbar in a worktree with an Xcode project, as in Xcode: Run, Stop, Test (disabled until H13), the scheme and run destination buttons, which open the scheme menu and the run menu, the activity field with the build's status and error count, and the Simulator and Preview buttons. The tab bars sit under it.
 
 Edge cases:
 - ⌘R opens the Simulator view in the side panel; when the private API fails to load, the selected Xcode's simulator app (DeviceHub from Xcode 27, Simulator.app before).
@@ -244,7 +244,7 @@ Edge cases:
 ## 12. Simulator tools (iOS)
 
 - [x] L1 Appearance menu on the Simulator view: light / dark, Dynamic Type size, language and region of the worktree's simulator.
-- [x] L4 Scheme and build configuration (Debug / Release), per project, as submenus of the play button's menu under the destinations; ⌘R and ⌘B use them.
+- [x] L4 Scheme and build configuration (Debug / Release), per project, in the menu of the toolbar's scheme button, which shows the scheme and the configuration; ⌘R and ⌘B use them.
 - [x] L5 Screen recording: record / stop button next to the I3 screenshot button (`simctl io recordVideo`); the video gets the I3 thumbnail and drag.
 
 Edge cases:
