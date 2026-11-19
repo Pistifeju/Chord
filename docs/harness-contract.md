@@ -53,7 +53,9 @@ The `Agent` trait and `start` in `crates/chord-core/src/harness/mod.rs`, one imp
 - **Capabilities**: `capabilities()` returns the list at start; the UI hides a control whose capability is missing.
 - **Status**: `status_for` folds the events into the card status; an adapter only emits events. The pi adapter reads the facts from pi's stdout (`ARCHITECTURE.md`, section 4).
 - **Process**: `harness/process.rs` starts the binary through the user's login shell on pipes, hands each stdout line to the adapter and reports the exit. An adapter that speaks over stdio builds on it.
-- **Version check**: the pi adapter runs `pi --version` at start and refuses a pi older than the tested one, with the upgrade command.
+- **Harness list**: `HARNESSES` in `harness/mod.rs` describes each harness: name, title, binary, install, sign-in and upgrade step, oldest tested version, and whether Chord has its adapter. The order decides a new pane's default.
+- **Version check**: `harness/installed.rs` runs each binary's `--version` and sign-in check on the login shell and opens no session. An adapter calls `installed::require` at start, which refuses a harness older than the tested one, with the upgrade command.
+- **Default harness**: a pane saves its harness. A pane without one takes the default at its first start: `State.default_harness`, the user's pick, while it is installed and new enough, else the first ready harness in the list. `start_chat` returns the harness with its capabilities.
 
 ## 4. Adapter order
 

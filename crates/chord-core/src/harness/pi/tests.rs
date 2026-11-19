@@ -7,7 +7,6 @@ use super::commands::{
 };
 use super::reader::Reader;
 use super::records::{OpenCalls, collapse_skill, newest_first};
-use super::*;
 use crate::harness::{
     DialogAnswer, DialogAsk, HarnessEvent, Image, LineChanges, SlashCommand, SlashKind,
     SubagentNode, SubagentState, ToolOutcome, UsageWindow,
@@ -947,10 +946,4 @@ fn the_run_starts_and_settles() {
             HarnessEvent::Aborted
         ]
     );
-}
-
-#[test]
-fn a_version_line_parses() {
-    assert_eq!(parse_version("1.5.0"), Some((1, 5, 0)));
-    assert_eq!(parse_version("welcome back"), None);
 }

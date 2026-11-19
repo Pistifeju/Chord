@@ -21,7 +21,7 @@ export const commands = {
 	createWorktree: (project: string, branch: string) => __TAURI_INVOKE<Worktree_Serialize>("create_worktree", { project, branch }),
 	removeWorktree: (project: string, worktree: string, force: boolean) => __TAURI_INVOKE<Removal_Serialize>("remove_worktree", { project, worktree, force }),
 	readGitCounts: (worktrees: string[]) => __TAURI_INVOKE<GitCounts_Serialize[]>("read_git_counts", { worktrees }),
-	startChat: (worktree: string, pane: string, onEvent: Channel<HarnessEvent_Deserialize>) => __TAURI_INVOKE<Capability[]>("start_chat", { worktree, pane, onEvent }),
+	startChat: (worktree: string, pane: string, onEvent: Channel<HarnessEvent_Deserialize>) => __TAURI_INVOKE<Started>("start_chat", { worktree, pane, onEvent }),
 	sendMessage: (pane: string, text: string, images: Image[]) => __TAURI_INVOKE<null>("send_message", { pane, text, images }),
 	answerDialog: (pane: string, id: string, answer: DialogAnswer) => __TAURI_INVOKE<null>("answer_dialog", { pane, id, answer }),
 	/**  Asks for image files with one of the extensions; no pick gives an empty list. */
@@ -31,6 +31,7 @@ export const commands = {
 	stopChat: (pane: string) => __TAURI_INVOKE<null>("stop_chat", { pane }),
 	/**  Tells Rust which panes the window shows, so a notification skips a pane the user is looking at. */
 	showPanes: (panes: string[]) => __TAURI_INVOKE<void>("show_panes", { panes }),
+	checkHarnesses: () => __TAURI_INVOKE<Checks_Serialize>("check_harnesses"),
 	listFolder: (worktree: string, folder: string) => __TAURI_INVOKE<FileEntry[]>("list_folder", { worktree, folder }),
 	listFiles: (worktree: string) => __TAURI_INVOKE<string[]>("list_files", { worktree }),
 	readFile: (worktree: string, file: string) => __TAURI_INVOKE<string>("read_file", { worktree, file }),
@@ -370,6 +371,23 @@ export type Change_Serialize = {
 	removed: number | null,
 };
 
+/**  Every harness's check in the list's order, git's install step when git does not run, and the default harness for new panes. */
+export type Checks = Checks_Serialize | Checks_Deserialize;
+
+/**  Every harness's check in the list's order, git's install step when git does not run, and the default harness for new panes. */
+export type Checks_Deserialize = {
+	harnesses: HarnessCheck_Deserialize[],
+	gitInstall?: string | null,
+	defaultHarness?: string | null,
+};
+
+/**  Every harness's check in the list's order, git's install step when git does not run, and the default harness for new panes. */
+export type Checks_Serialize = {
+	harnesses: HarnessCheck_Serialize[],
+	gitInstall: string | null,
+	defaultHarness: string | null,
+};
+
 export type Commit = {
 	hash: string,
 	shortHash: string,
@@ -551,6 +569,33 @@ export type GitCounts_Serialize = {
 	changed: number,
 };
 
+/**  One harness as the onboarding and Settings rows show it. */
+export type HarnessCheck = HarnessCheck_Serialize | HarnessCheck_Deserialize;
+
+/**  One harness as the onboarding and Settings rows show it. */
+export type HarnessCheck_Deserialize = {
+	name: string,
+	title: string,
+	/**  Chord has its adapter. */
+	starts: boolean,
+	install: string,
+	signIn?: string | null,
+	upgrade: string,
+	installState: Install,
+};
+
+/**  One harness as the onboarding and Settings rows show it. */
+export type HarnessCheck_Serialize = {
+	name: string,
+	title: string,
+	/**  Chord has its adapter. */
+	starts: boolean,
+	install: string,
+	signIn: string | null,
+	upgrade: string,
+	installState: Install,
+};
+
 export type HarnessEvent = HarnessEvent_Serialize | HarnessEvent_Deserialize;
 
 export type HarnessEvent_Deserialize = 
@@ -705,6 +750,9 @@ export type Input_Serialize =
 /**  A USB HID keyboard usage (page 7). */
 { kind: "key"; usage: number; down: boolean } | { kind: "button"; button: Button };
 
+/**  What a harness's check found. */
+export type Install = { kind: "ready"; version: string } | { kind: "missing" } | { kind: "signed_out"; version: string } | { kind: "outdated"; version: string; oldest: string };
+
 export type InterfaceStyle = "light" | "dark";
 
 export type KeptBranch = {
@@ -765,13 +813,15 @@ export type Outline = {
 export type PaneAgent = PaneAgent_Serialize | PaneAgent_Deserialize;
 
 export type PaneAgent_Deserialize = {
-	harness?: string,
+	/**  None until the pane's first start takes the default harness. */
+	harness?: string | null,
 	/**  What the harness opens the session by; none until it reports one. */
 	session?: string | null,
 };
 
 export type PaneAgent_Serialize = {
-	harness: string,
+	/**  None until the pane's first start takes the default harness. */
+	harness: string | null,
 	/**  What the harness opens the session by; none until it reports one. */
 	session: string | null,
 };
@@ -1118,6 +1168,12 @@ export type SlashKind = "skill" | "prompt" | "extension" |
 /**  A command of the harness itself that acts on the pane's session, such as picking the model or resuming another session; the adapter runs it when `send` gets it. */
 "session";
 
+/**  A pane's started agent: the harness it runs and what that harness can do. */
+export type Started = {
+	harness: string,
+	capabilities: Capability[],
+};
+
 export type Stash = {
 	/**  The stash's commit, which names it while the `stash@{n}` indexes shift. */
 	hash: string,
@@ -1137,88 +1193,88 @@ export type State = State_Serialize | State_Deserialize;
 export type StateChange = StateChange_Serialize | StateChange_Deserialize;
 
 /**  One change the frontend saves. */
-export type StateChange_Deserialize = ({ selectedWorktree?: string | null }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ sidebarHidden: boolean }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ theme: Theme }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; worktreeOrder?: never } | ({ textPercent: number }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; theme?: never; worktreeOrder?: never } | ({ terminalFontSize: number }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ editorFontSize: number }) & { bottomPanel?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ muteNotifications: boolean }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ linksInDefaultBrowser: boolean }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ shortcuts: { [key in string]: Shortcut_Deserialize | null } }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | 
+export type StateChange_Deserialize = ({ selectedWorktree?: string | null }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ sidebarHidden: boolean }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ theme: Theme }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; worktreeOrder?: never } | ({ textPercent: number }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; theme?: never; worktreeOrder?: never } | ({ terminalFontSize: number }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ editorFontSize: number }) & { bottomPanel?: never; defaultHarness?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ muteNotifications: boolean }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ linksInDefaultBrowser: boolean }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ defaultHarness: string }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ shortcuts: { [key in string]: Shortcut_Deserialize | null } }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | 
 /**  `None` forgets the worktree's layouts. */
 ({ panes: {
 	worktree: string,
 	panes?: WorktreePanes_Deserialize | null,
-} }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ sidePanel: {
+} }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ sidePanel: {
 	worktree: string,
 	panel: SidePanel_Deserialize,
-} }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ bottomPanel: {
+} }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ bottomPanel: {
 	worktree: string,
 	panel: BottomPanel_Deserialize,
-} }) & { editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | 
+} }) & { defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | 
 /**  `ids` are subgroup ids, or a group id for a group without subgroups; all are set in one save. */
 ({ keptServices: {
 	ids: string[],
 	kept: boolean,
-} }) & { bottomPanel?: never; editorFontSize?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ screenshotFolder?: string | null }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | 
+} }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ screenshotFolder?: string | null }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | 
 /**  The project paths in sidebar order; a project missing from it goes last. */
-({ projectOrder: string[] }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ worktreeOrder: {
+({ projectOrder: string[] }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ worktreeOrder: {
 	project: string,
 	worktrees: string[],
-} }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
+} }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
 /**  `None` returns the project to the default. */
 ({ runDestination: {
 	project: string,
 	destination?: RunDestination | null,
-} }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | 
+} }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | 
 /**  `None` returns the project to the default. */
 ({ previewModel: {
 	project: string,
 	model?: RunDestination | null,
-} }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ previewPick: {
+} }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ previewPick: {
 	worktree: string,
 	pick: PreviewPick_Deserialize,
-} }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | 
+} }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | 
 /**  A pick of all defaults returns the project to the default. */
 ({ schemePick: {
 	project: string,
 	pick: SchemePick_Deserialize,
-} }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never };
+} }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never };
 
 /**  One change the frontend saves. */
-export type StateChange_Serialize = ({ selectedWorktree: string | null }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ sidebarHidden: boolean }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ theme: Theme }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; worktreeOrder?: never } | ({ textPercent: number }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; theme?: never; worktreeOrder?: never } | ({ terminalFontSize: number }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ editorFontSize: number }) & { bottomPanel?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ muteNotifications: boolean }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ linksInDefaultBrowser: boolean }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ shortcuts: { [key in string]: Shortcut_Serialize | null } }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | 
+export type StateChange_Serialize = ({ selectedWorktree: string | null }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ sidebarHidden: boolean }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ theme: Theme }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; worktreeOrder?: never } | ({ textPercent: number }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; theme?: never; worktreeOrder?: never } | ({ terminalFontSize: number }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ editorFontSize: number }) & { bottomPanel?: never; defaultHarness?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ muteNotifications: boolean }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ linksInDefaultBrowser: boolean }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ defaultHarness: string }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ shortcuts: { [key in string]: Shortcut_Serialize | null } }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | 
 /**  `None` forgets the worktree's layouts. */
 ({ panes: {
 	worktree: string,
 	panes: WorktreePanes_Serialize | null,
-} }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ sidePanel: {
+} }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ sidePanel: {
 	worktree: string,
 	panel: SidePanel_Serialize,
-} }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ bottomPanel: {
+} }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ bottomPanel: {
 	worktree: string,
 	panel: BottomPanel_Serialize,
-} }) & { editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | 
+} }) & { defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | 
 /**  `ids` are subgroup ids, or a group id for a group without subgroups; all are set in one save. */
 ({ keptServices: {
 	ids: string[],
 	kept: boolean,
-} }) & { bottomPanel?: never; editorFontSize?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ screenshotFolder: string | null }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | 
+} }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ screenshotFolder: string | null }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | 
 /**  The project paths in sidebar order; a project missing from it goes last. */
-({ projectOrder: string[] }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ worktreeOrder: {
+({ projectOrder: string[] }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ worktreeOrder: {
 	project: string,
 	worktrees: string[],
-} }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
+} }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
 /**  `None` returns the project to the default. */
 ({ runDestination: {
 	project: string,
 	destination: RunDestination | null,
-} }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | 
+} }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | 
 /**  `None` returns the project to the default. */
 ({ previewModel: {
 	project: string,
 	model: RunDestination | null,
-} }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ previewPick: {
+} }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ previewPick: {
 	worktree: string,
 	pick: PreviewPick_Serialize,
-} }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | 
+} }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; projectOrder?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | 
 /**  A pick of all defaults returns the project to the default. */
 ({ schemePick: {
 	project: string,
 	pick: SchemePick_Serialize,
-} }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never };
+} }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never };
 
 export type State_Deserialize = {
 	projects?: Project[],
@@ -1244,6 +1300,8 @@ export type State_Deserialize = {
 	runningPanes?: string[],
 	/**  What each pane's agent runs: its harness and the session it last held. */
 	agents?: { [key in string]: PaneAgent_Deserialize },
+	/**  The harness the user picked for new panes; none until a pick. */
+	defaultHarness?: string | null,
 	/**  The switches of the simulator service subgroups, by subgroup id or group id: `true` keeps it on, `false` lets a boot switch it off. A group id covers the group's subgroups without a switch of their own; with neither, the group's default applies. */
 	keptServices?: { [key in string]: boolean },
 	/**  Each project's run destination; a project without one runs on the newest iPhone simulator. */
@@ -1284,6 +1342,8 @@ export type State_Serialize = {
 	runningPanes: string[],
 	/**  What each pane's agent runs: its harness and the session it last held. */
 	agents: { [key in string]: PaneAgent_Serialize },
+	/**  The harness the user picked for new panes; none until a pick. */
+	defaultHarness: string | null,
 	/**  The switches of the simulator service subgroups, by subgroup id or group id: `true` keeps it on, `false` lets a boot switch it off. A group id covers the group's subgroups without a switch of their own; with neither, the group's default applies. */
 	keptServices: { [key in string]: boolean },
 	/**  Each project's run destination; a project without one runs on the newest iPhone simulator. */

@@ -1,5 +1,6 @@
 //! What a harness tells the chat: the events every adapter emits.
 
+pub mod installed;
 pub mod pi;
 mod process;
 pub mod sessions;
@@ -13,6 +14,59 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 
 use crate::Error;
+
+/// One harness Chord knows: what it is called, how to get it, and the oldest version Chord was tested with.
+pub struct Harness {
+    /// The name a pane saves.
+    pub name: &'static str,
+    pub title: &'static str,
+    /// Found on the login shell's PATH.
+    pub binary: &'static str,
+    pub install: &'static str,
+    /// None for a harness without one sign-in for all its providers.
+    pub sign_in: Option<SignIn>,
+    pub upgrade: &'static str,
+    pub oldest_tested: (u32, u32, u32),
+    /// Chord has its adapter, so `start` runs it.
+    pub starts: bool,
+}
+
+pub struct SignIn {
+    /// The arguments of the command that exits with 0 when the user is signed in.
+    pub check: &'static [&'static str],
+    pub step: &'static str,
+}
+
+/// Every harness, in the order a new pane's default takes them.
+pub const HARNESSES: [Harness; 3] = [
+    pi::HARNESS,
+    Harness {
+        name: "codex",
+        title: "Codex",
+        binary: "codex",
+        install: "npm install -g @openai/codex",
+        sign_in: Some(SignIn {
+            check: &["login", "status"],
+            step: "codex login",
+        }),
+        upgrade: "codex update",
+        oldest_tested: (0, 158, 0),
+        starts: false,
+    },
+    Harness {
+        name: "claude",
+        title: "Claude Code",
+        binary: "claude",
+        install: "curl -fsSL https://claude.ai/install.sh | bash",
+        sign_in: Some(SignIn {
+            check: &["auth", "status"],
+            step: "claude auth login",
+        }),
+        upgrade: "claude update",
+        oldest_tested: (2, 1, 328),
+        starts: false,
+    },
+];
 
 /// One running agent of a pane. Each harness adapter implements it in `harness/<name>/`, emits `HarnessEvent`s and keeps its own records private; `start` names it. Dropping the agent ends its process and returns once it has ended.
 pub trait Agent: Send {

@@ -2,8 +2,8 @@
 
 use std::path::PathBuf;
 
-use chord_core::harness::sessions::Sessions;
-use chord_core::{Capability, DialogAnswer, Error, HarnessEvent, Image, images};
+use chord_core::harness::sessions::{Sessions, Started};
+use chord_core::{DialogAnswer, Error, HarnessEvent, Image, images};
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::DialogExt;
@@ -18,7 +18,7 @@ pub async fn start_chat(
     worktree: PathBuf,
     pane: String,
     on_event: Channel<HarnessEvent>,
-) -> Result<Vec<Capability>, String> {
+) -> Result<Started, String> {
     blocking(app, move |app, _| {
         let (notified_worktree, notified_pane) = (worktree.clone(), pane.clone());
         app.state::<Sessions>().start(

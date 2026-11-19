@@ -13,8 +13,9 @@ use std::sync::{Arc, Mutex, PoisonError};
 
 use serde_json::{Value, json};
 
+use super::installed::require;
 use super::process::{Output, Process, login_shell};
-use super::{Agent, Capability, DialogAnswer, HarnessEvent, Image};
+use super::{Agent, Capability, DialogAnswer, Harness, HarnessEvent, Image};
 use crate::Error;
 use commands::{
     command_name, dialog_response, fork_command, model_command, prompt_command, session_command,
@@ -24,10 +25,18 @@ use reader::{Read, Reader};
 
 /// The harness name a pane saves.
 pub const NAME: &str = "pi";
-/// The binary Chord runs, found on the login shell's PATH.
-const BINARY: &str = "pi";
-const INSTALL: &str = "npm install -g @earendil-works/pi-coding-agent";
-const OLDEST_TESTED: (u32, u32, u32) = (1, 5, 0);
+
+// `pi auth check` needs a provider, so pi has no sign-in check.
+pub const HARNESS: Harness = Harness {
+    name: NAME,
+    title: "pi",
+    binary: "pi",
+    install: "curl -fsSL https://pi.dev/install.sh | sh",
+    sign_in: None,
+    upgrade: "pi update",
+    oldest_tested: (1, 5, 0),
+    starts: true,
+};
 
 /// The extension Chord ships: the session commands RPC lacks, the subscription usage windows, and the build and run tools.
 const EXTENSION: &str = include_str!("extension.ts");
@@ -135,7 +144,7 @@ impl Session {
         tools: Option<&Path>,
         on_event: impl Fn(HarnessEvent) + Send + 'static,
     ) -> Result<Session, Error> {
-        check_version()?;
+        require(&HARNESS)?;
         let extension = installed_extension(extension_dir)?;
         let extension = extension.to_string_lossy().into_owned();
         let running = Arc::new(AtomicBool::new(false));
@@ -278,7 +287,7 @@ fn launch(
     let on_event = Arc::clone(on_event);
     let emit = move |event| (lock(&on_event))(event);
     let mut records = Reader::default();
-    let mut command = login_shell(BINARY, &args);
+    let mut command = login_shell(HARNESS.binary, &args);
     command.current_dir(dir);
     if let Some(socket) = tools {
         command.env(TOOLS_SOCKET_ENV, socket).env(WORKTREE_ENV, dir);
@@ -316,49 +325,5 @@ fn launch(
 }
 
 fn spawn_error(error: std::io::Error) -> Error {
-    Error::start_failed(BINARY, INSTALL, error)
-}
-
-fn missing_pi() -> Error {
-    Error::MissingTool {
-        tool: BINARY.into(),
-        install: INSTALL.into(),
-    }
-}
-
-static CHECKED: Mutex<bool> = Mutex::new(false);
-
-// A pi that passed is not asked again while the app runs: each ask costs a login shell and a pi start.
-fn check_version() -> Result<(), Error> {
-    let mut checked = lock(&CHECKED);
-    if *checked {
-        return Ok(());
-    }
-    let output = login_shell(BINARY, &["--version"])
-        .output()
-        .map_err(spawn_error)?;
-    if output.status.code() == Some(127) {
-        return Err(missing_pi());
-    }
-    let text = String::from_utf8_lossy(&output.stdout);
-    let version = text.lines().rev().find_map(parse_version);
-    match version {
-        Some(found) if found < OLDEST_TESTED => Err(Error::Message(format!(
-            "pi {}.{}.{} is older than the tested {}.{}.{}. Upgrade it with: {INSTALL}",
-            found.0, found.1, found.2, OLDEST_TESTED.0, OLDEST_TESTED.1, OLDEST_TESTED.2
-        ))),
-        _ => {
-            *checked = true;
-            Ok(())
-        }
-    }
-}
-
-fn parse_version(line: &str) -> Option<(u32, u32, u32)> {
-    let mut parts = line.trim().split('.').map(|part| part.parse::<u32>());
-    Some((
-        parts.next()?.ok()?,
-        parts.next()?.ok()?,
-        parts.next()?.ok()?,
-    ))
+    Error::start_failed(HARNESS.binary, HARNESS.install, error)
 }

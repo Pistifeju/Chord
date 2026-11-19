@@ -55,7 +55,7 @@ The trait, events, commands and capabilities: `docs/harness-contract.md`, sectio
 3. **One path for history.** On resume the adapter reads the saved messages and sends them as the same events a live reply produces.
 4. **Status without a socket.** pi's stdout carries what the status needs: `agent_start`, `agent_settled`, `message_end`, `extension_ui_request` for dialogs, and `get_state` for the session file. `status_for` in `harness/mod.rs` folds the events into a status; the app crate emits it to the sidebar and to notifications. No socket and no reporting extension.
 5. **The extension Chord ships adds three commands**: `/chord-resume`, `/chord-tree`, `/chord-reload`. RPC has no session list, tree navigation or reload. It also reports the subscription usage windows as a status text. In a worktree with an Xcode project it also adds the `build` and `run` tools, which send each call to Chord's socket (`docs/ios.md`, 3.6).
-6. **Process.** One `pi --mode rpc` per pane, on pipes, started through the user's login shell so PATH and API keys match their terminal; `harness/process.rs` holds that part for every adapter. The adapter runs `pi --version` first and returns `MissingTool` or the upgrade step.
+6. **Process.** One `pi --mode rpc` per pane, on pipes, started through the user's login shell so PATH and API keys match their terminal; `harness/process.rs` holds that part for every adapter. The adapter calls `installed::require` first, which runs `pi --version` and returns `MissingTool` or the upgrade step. `harness/installed.rs` holds the one version check and parser for every harness.
 7. **Capabilities.** The adapter returns its list when a session starts. A view checks the list before it shows a control.
 
 ## 5. IPC

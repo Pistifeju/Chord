@@ -40,6 +40,8 @@ pub struct State {
     pub running_panes: BTreeSet<String>,
     /// What each pane's agent runs: its harness and the session it last held.
     pub agents: BTreeMap<String, PaneAgent>,
+    /// The harness the user picked for new panes; none until a pick.
+    pub default_harness: Option<String>,
     /// The switches of the simulator service subgroups, by subgroup id or group id: `true` keeps it on, `false` lets a boot switch it off. A group id covers the group's subgroups without a switch of their own; with neither, the group's default applies.
     pub kept_services: BTreeMap<String, bool>,
     /// Each project's run destination; a project without one runs on the newest iPhone simulator.
@@ -108,21 +110,13 @@ pub struct PreviewPick {
     pub name: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Type, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Type, Clone, Debug, Default, PartialEq)]
 #[serde(default, rename_all = "camelCase")]
 pub struct PaneAgent {
-    pub harness: String,
+    /// None until the pane's first start takes the default harness.
+    pub harness: Option<String>,
     /// What the harness opens the session by; none until it reports one.
     pub session: Option<String>,
-}
-
-impl Default for PaneAgent {
-    fn default() -> Self {
-        PaneAgent {
-            harness: crate::harness::pi::NAME.into(),
-            session: None,
-        }
-    }
 }
 
 /// One change the frontend saves.
@@ -137,6 +131,7 @@ pub enum StateChange {
     EditorFontSize(u8),
     MuteNotifications(bool),
     LinksInDefaultBrowser(bool),
+    DefaultHarness(String),
     Shortcuts(BTreeMap<String, Option<Shortcut>>),
     /// `None` forgets the worktree's layouts.
     Panes {
@@ -196,6 +191,7 @@ impl State {
             StateChange::MuteNotifications(mute) => self.mute_notifications = mute,
             StateChange::LinksInDefaultBrowser(outside) => self.links_in_default_browser = outside,
             StateChange::Shortcuts(shortcuts) => self.shortcuts = shortcuts,
+            StateChange::DefaultHarness(harness) => self.default_harness = Some(harness),
             StateChange::SidePanel { worktree, panel } => {
                 self.side_panels.insert(worktree, panel);
             }

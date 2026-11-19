@@ -4,7 +4,7 @@ Chord runs Codex over `codex app-server` and Claude Code over `claude -p` with s
 
 ## 1. What to build
 
-- [ ] N1 core: one list describes every harness: its name, binary, install, sign-in and upgrade step, and oldest tested version. One check reads each harness's version and sign-in state on the login shell. A pane saves its harness; a new pane takes the default: the harness the user picked while it is ready, else the first ready one in the list's order, pi, Codex, Claude Code.
+- [x] N1 core: one list describes every harness: its name, binary, install, sign-in and upgrade step, and oldest tested version. One check reads each harness's version and sign-in state on the login shell. A pane saves its harness; a new pane takes the default: the harness the user picked while it is installed and new enough (sign-in is a hint, as K2 says), else the first ready one in the list's order, pi, Codex, Claude Code.
 - [ ] K2 Needs N1. Onboarding: the window with no project lists every harness Chord can start in the list's order (pi, then Codex, then Claude Code, each once its adapter lands) in one group, each row with its state: ready with its version, not installed, not signed in, or older than the tested version. A row that needs something shows the install, sign-in or upgrade command with a copy button. The checks run when the view shows and on window focus. The first ready harness becomes the default for new sessions; a click on another ready row changes it. Add Project adds the first project. A missing `git` shows its install step.
 - [ ] K5 Needs K2. Settings section Agents: K2's rows and the default harness for new sessions. A chat pane whose harness is missing or too old shows its row in place of the Start button.
 - [ ] N2 **hard** Needs N1. Codex over `codex app-server`: chat, tool calls, thinking, stop, steer, attachments, approvals and questions as dialogs, model and thinking level, context meter, slash menu, resume with history, and the permission mode picker: a composer bar button with the session's approval and sandbox mode, next to the model picker, and a `/permissions` session command that opens the same picker. A chat tab shows its harness's logo.
@@ -45,8 +45,8 @@ Tested versions: pi 1.5.2, Claude Code 2.1.328, codex-cli 0.158.0.
 |---|---|---|---|
 | Start | `claude -p --input-format stream-json --output-format stream-json --verbose --include-partial-messages --permission-prompt-tool stdio` | `codex app-server`, then `initialize` | as today |
 | Version | `claude --version`: "2.1.328 (Claude Code)" | `codex --version`: "codex-cli 0.158.0" | `pi --version` |
-| Sign-in check | `claude auth status` (JSON, `loggedIn`) | `codex login status` | `pi auth check` |
-| Sign-in step | `claude auth login` | `codex login` | `pi auth login` |
+| Sign-in check | `claude auth status` (JSON, `loggedIn`) | `codex login status` | none: `pi auth check` needs a provider |
+| Sign-in step | `claude auth login` | `codex login` | none |
 
 - Claude Code: the first message is the control request `initialize`. It returns the slash commands, the models with their effort levels, and the agents. A transcript lives at `<projectsDirectory>/<encoded cwd>/<session id>.jsonl`; `claude auth status` prints `projectsDirectory`.
 - Codex: `codex app-server generate-ts` writes the protocol's types for the installed version. Write the adapter against them and never set `experimentalApi`.

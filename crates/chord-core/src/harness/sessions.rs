@@ -5,6 +5,10 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 
+use serde::Serialize;
+use specta::Type;
+
+use super::installed::default_for_new_pane;
 use super::{
     Agent, Capability, DialogAnswer, HarnessEvent, Image, Status, StatusReport, StatusTracker,
     status_for,
@@ -14,6 +18,13 @@ use crate::{Error, Store, WorktreePanes, xcode_bundles};
 
 /// Each pane's agent and the worktree it runs in.
 type Running = HashMap<String, (PathBuf, Box<dyn Agent>)>;
+
+/// A pane's started agent: the harness it runs and what that harness can do.
+#[derive(Serialize, Type, Debug)]
+pub struct Started {
+    pub harness: String,
+    pub capabilities: Vec<Capability>,
+}
 
 pub struct Sessions {
     running: Mutex<Running>,
@@ -59,7 +70,7 @@ impl Sessions {
         }
     }
 
-    /// Starts the pane's agent in the worktree with the harness the pane saved, replaces the one the pane had, and saves the pane as running.
+    /// Starts the pane's agent in the worktree with the harness the pane saved, or the default one for a pane without one, replaces the one the pane had, and saves the pane as running.
     /// `on_status_change` hears a status once per change, with the agent's last message, before `on_event` gets it.
     pub fn start(
         &self,
@@ -67,7 +78,7 @@ impl Sessions {
         pane: String,
         on_event: impl Fn(HarnessEvent) + Send + 'static,
         on_status_change: impl Fn(Status, &str) + Send + 'static,
-    ) -> Result<Vec<Capability>, Error> {
+    ) -> Result<Started, Error> {
         let watch = Mutex::new(PaneWatch {
             pane: pane.clone(),
             store: Arc::clone(&self.store),
@@ -77,12 +88,22 @@ impl Sessions {
         let agent = self
             .store
             .update(|state| state.agents.entry(pane.clone()).or_default().clone())?;
+        let harness = match agent.harness {
+            Some(harness) => harness,
+            None => {
+                let harness = default_for_new_pane(self.store.get().default_harness.as_deref())?;
+                self.store.update(|state| {
+                    state.agents.entry(pane.clone()).or_default().harness = Some(harness.clone());
+                })?;
+                harness
+            }
+        };
         let tools = self
             .tools
             .as_deref()
             .filter(|_| !xcode_bundles(&worktree).is_empty());
         let session = super::start(
-            &agent.harness,
+            &harness,
             &worktree,
             agent.session.as_deref(),
             &self.dir,
@@ -105,7 +126,10 @@ impl Sessions {
         drop(replaced);
         self.store
             .update(|state| state.running_panes.insert(pane))?;
-        Ok(capabilities)
+        Ok(Started {
+            harness,
+            capabilities,
+        })
     }
 
     pub fn send(&self, pane: &str, text: &str, images: &[Image]) -> Result<(), Error> {
@@ -251,7 +275,7 @@ mod tests {
 
     fn held(session: &str) -> PaneAgent {
         PaneAgent {
-            harness: "pi".into(),
+            harness: Some("pi".into()),
             session: Some(session.into()),
         }
     }
@@ -331,7 +355,13 @@ mod tests {
         let state = store.get();
         let _ = std::fs::remove_dir_all(&root);
         assert!(state.running_panes.is_empty());
-        assert_eq!(state.agents.get("a"), Some(&held("/s/a.jsonl")));
+        assert_eq!(
+            state.agents.get("a"),
+            Some(&PaneAgent {
+                harness: None,
+                session: Some("/s/a.jsonl".into()),
+            })
+        );
         Ok(())
     }
 
@@ -411,7 +441,7 @@ mod tests {
             state.agents.insert(
                 "a".into(),
                 PaneAgent {
-                    harness: "nope".into(),
+                    harness: Some("nope".into()),
                     session: None,
                 },
             );

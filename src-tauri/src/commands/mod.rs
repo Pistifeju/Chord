@@ -6,6 +6,7 @@ pub mod build;
 pub mod changes;
 pub mod chat;
 pub mod files;
+pub mod harnesses;
 pub mod preview;
 pub mod projects;
 pub mod simulator;

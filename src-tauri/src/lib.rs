@@ -45,6 +45,7 @@ pub fn ipc() -> tauri_specta::Builder<tauri::Wry> {
             commands::chat::abort_run,
             commands::chat::stop_chat,
             commands::chat::show_panes,
+            commands::harnesses::check_harnesses,
             commands::files::list_folder,
             commands::files::list_files,
             commands::files::read_file,
