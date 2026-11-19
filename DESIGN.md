@@ -178,8 +178,11 @@ components:
 
 ## Overview
 
+**Creative North Star: "Flat zinc chrome"**
 
+Chord's look: Tailwind's zinc neutrals, a near-white canvas in light and pure black in dark, a slightly darker sidebar with a hairline edge, flat chrome with no bar fills, and a white (or `#111`) composer card with a 16px radius. One blue accent. A developer who has used any agent workspace finds the sidebar, the transcript and the composer where they expect them.
 
+The developer chose this look on purpose. When a new screen needs a decision, reuse what Chord's screens already do before inventing anything.
 
 The app keeps the platform conventions a Mac user expects: traffic lights on a transparent title bar, a full menu bar, a keyboard shortcut for every command, drag and drop from Finder, and light and dark appearance. Settings opens as a panel over the blurred window (⌘,).
 
@@ -197,6 +200,7 @@ A neutral gray ladder carries the layout. Blue marks the one primary action and 
 
 Every color, shadow and radius lives in `src/ui/tokens.css` as a CSS variable named after the frontmatter key (`--canvas`, `--accent`, `--radius-control`). The dark block under `:root[data-theme="dark"]` overrides the same names with the `dark-` values. Components use the variables and hold no raw color value; `npm run check` fails on a hex color in `src/app` or `src/features`. Add a new color to both blocks.
 
+Every value comes from Tailwind's zinc, blue, emerald, amber and red. In dark, `raised`, `selected`, `control-selected` and the lines are white at low opacity; a sticky control over scrolling content lays its wash over `canvas` so nothing shows through. The status roles keep Chord's meaning: running blue, done green. In light, running takes blue 600 and waiting, done and `git-changed` take the 700 shades, so their 11px words keep 4.5:1 on the sidebar and a tab.
 
 ### Primary
 

@@ -1,6 +1,6 @@
 # Sidebar
 
-It uses the app's roles; `src/ui/tokens.css` overrides `selected` inside `.sidebar`: white with a 1px `selected-ring` (zinc-200 at 70%) in light, white at 6% with no ring in dark, and adds `card-hover`: `raised` in light, white at 3% in dark.
+The sidebar uses the app's roles; `src/ui/tokens.css` overrides `selected` inside `.sidebar`: white with a 1px `selected-ring` (zinc-200 at 70%) in light, white at 6% with no ring in dark, and adds `card-hover`: `raised` in light, white at 3% in dark.
 
 - 280px, full window height, `panel` fill with a 1px `line` right edge.
 - **Navigator:** under the title bar row, a Segmented control across the sidebar, 8px in, 4px above the view: one icon segment per view, each a third of the track with its 16px icon centered in `ink-muted` (`ink` on hover and when chosen), tooltip with its shortcut, as in Xcode's navigator. Workspaces (two stacked cards, ⌃1), Files (a folder, ⌃2, and ⌘⇧E), and Changes (the branch, ⌃3, and ⌘⇧G). The sidebar shows the chosen view between the control and the footer; without an open worktree only Workspaces shows. ⌘⇧E and ⌘⇧G go back to Workspaces while their view shows, and any of the shortcuts shows a hidden sidebar. While any agent awaits input, the Workspaces segment carries a 6px `status-waiting` dot at its icon's top right with a 1.5px `raised` ring, gone while Workspaces shows, so a card the sidebar hides still calls. The choice lasts until the app quits.

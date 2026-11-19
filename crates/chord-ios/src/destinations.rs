@@ -120,6 +120,7 @@ fn simulators_in(listed: &Value) -> Vec<SimulatorModels> {
             let destination = RunDestination::Simulator {
                 model: model.into(),
                 runtime: runtime.clone(),
+                // Another tool's simulator ("Other App 8c5ca1") would list its model twice under two names.
                 name: type_name(model).unwrap_or(name).into(),
                 os: os.clone(),
             };
