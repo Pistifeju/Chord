@@ -18,8 +18,8 @@ step tsc npx tsc --noEmit
 step rules sh scripts/check-rules.sh
 step test node --test "src/**/*.test.ts"
 step fmt cargo fmt --all --check
-step clippy cargo clippy --workspace --all-targets -- -D warnings
-step cargo-test cargo test --workspace
+step clippy cargo clippy --workspace --all-targets --locked -- -D warnings
+step cargo-test cargo test --workspace --locked
 
 echo "log=$log"
 exit $status
