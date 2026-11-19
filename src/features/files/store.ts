@@ -1,9 +1,10 @@
-// Connects the Files tree rules to IPC: one tree per worktree, its folders read when opened, the entry whose name shows as a field, and the file list Open File by Name picks from.
+// Connects the Files tree rules to IPC: one tree per worktree, its folders read when opened, the entry whose name shows as a field, the files it opened, and the file list Open File by Name picks from.
 import { closeSheet, openSheet, sheet, sheetOf } from "../../app/sheet";
 import { commands } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
 import { fail } from "../../ui/alert";
 import { emptyTree, withTreeMoved, type Tree } from "./tree";
+import { recentFirst } from "./openByName";
 
 export const trees = externalStore<Record<string, Tree>>({});
 
@@ -78,7 +79,15 @@ export const requestTrash = (worktree: string, path: string) => openSheet({ kind
 
 export const revealFile = (worktree: string, path: string) => commands.revealFile(worktree, path).catch(fail);
 
-// The worktree's files while Open File by Name shows; null until they are read.
+// The files each worktree showed, latest first.
+// shortcut: memory only, so a restart forgets them; save them in state.json if someone misses them.
+const opened: Record<string, string[]> = {};
+
+export function noteOpened(worktree: string, path: string) {
+  opened[worktree] = [path, ...(opened[worktree] ?? []).filter((at) => at !== path)];
+}
+
+// The worktree's files while Open File by Name shows, recently opened first; null until they are read.
 export const namedFiles = externalStore<string[] | null>(null);
 
 export async function openFileByName(worktree: string) {
@@ -86,7 +95,7 @@ export async function openFileByName(worktree: string) {
   openSheet({ kind: "openFileByName", worktree });
   try {
     const files = await commands.listFiles(worktree);
-    if (sheetOf(sheet.get(), "openFileByName")?.worktree === worktree) namedFiles.set(files);
+    if (sheetOf(sheet.get(), "openFileByName")?.worktree === worktree) namedFiles.set(recentFirst(files, opened[worktree] ?? []));
   } catch (error) {
     if (sheetOf(sheet.get(), "openFileByName")?.worktree === worktree) closeSheet("openFileByName");
     fail(error);
