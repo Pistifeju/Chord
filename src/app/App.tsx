@@ -22,12 +22,13 @@ import { PaneArea } from "../features/panes/PaneArea";
 import { QuitPopup } from "../features/quit/QuitPopup";
 import { watchQuit } from "../features/quit/store";
 import { HelpSheet } from "../features/help/HelpSheet";
+import { NoProjects } from "../features/worktrees/NoProjects";
+import { Onboarding } from "../features/onboarding/Onboarding";
 import { SettingsPage } from "../features/settings/SettingsPage";
 import { settingsOpen } from "../features/settings/store";
 import { Sidebar, SidebarToggle } from "../features/sidebar/Sidebar";
 import { sidebar } from "../features/sidebar/store";
 import { watchFinished, watchNotificationClicks, watchShownPanes } from "../features/status/store";
-import { NoProjects } from "../features/worktrees/NoProjects";
 import { DeleteWorktreePopup } from "../features/worktrees/DeleteWorktreePopup";
 import { RemoveProjectPopup } from "../features/worktrees/RemoveProjectPopup";
 import { ForceRemovalPopup } from "../features/worktrees/ForceRemovalPopup";
@@ -37,7 +38,7 @@ import { NewWorktreePopup } from "../features/worktrees/NewWorktreePopup";
 import { ProjectDrop } from "../features/worktrees/ProjectDrop";
 import { watchGitCounts } from "../features/worktrees/gitCountsRefresh";
 import { hasXcodeProject, worktreeAt } from "../features/worktrees/projects";
-import { projects } from "../features/worktrees/store";
+import { projects, welcomed } from "../features/worktrees/store";
 import { alert, dismissAlert } from "../ui/alert";
 import { seeThrough } from "../ui/seeThrough";
 import { WarningToast } from "../ui/Toast";
@@ -58,6 +59,8 @@ function SeeThroughHole() {
 export default function App() {
   const state = projects.use();
   const { list, selected } = state;
+  const empty = list.length === 0;
+  const welcoming = empty && !welcomed.use();
   const shownAlert = alert.use();
   const { hidden } = sidebar.use();
   const settings = settingsOpen.use();
@@ -132,14 +135,18 @@ export default function App() {
       {/* An open sheet or Settings keeps keyboard focus and clicks inside itself. */}
       <div className="app-content" inert={overlay}>
         <div className="titlebar" data-tauri-drag-region>
-          <span className="titlebar-sidebar" data-hidden={hidden}>
-            <SidebarToggle />
-          </span>
+          {!empty && (
+            <span className="titlebar-sidebar" data-hidden={hidden}>
+              <SidebarToggle />
+            </span>
+          )}
         </div>
         <div className="app-body">
-          <Sidebar markers={markers} />
+          {!empty && <Sidebar markers={markers} />}
           <div className="app-column">
-            <main className="main">{list.length === 0 ? (
+            <main className="main">{welcoming ? (
+                <Onboarding />
+              ) : empty ? (
                 <NoProjects />
               ) : (
                 selected && (
@@ -181,7 +188,7 @@ export default function App() {
             </main>
           </div>
         </div>
-        <StatusBar simulators={xcode && selected ? <SimulatorsButton worktree={selected} /> : null} />
+        {!empty && <StatusBar simulators={xcode && selected ? <SimulatorsButton worktree={selected} /> : null} />}
       </div>
       {settings && <SettingsPage buildDataSize={projectHasXcode ? <BuildDataSize /> : null} simulatorScreenshots={projectHasXcode ? <ScreenshotRows /> : null} simulatorServices={projectHasXcode ? <ServiceRows /> : null} />}
       <ProjectDrop />

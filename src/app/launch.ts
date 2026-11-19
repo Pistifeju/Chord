@@ -14,7 +14,7 @@ import { loadPreviewChoices } from "../features/ios/preview/store";
 import { loadBottomPanels } from "../features/bottompanel/store";
 import { loadGitCounts } from "../features/worktrees/gitCountsRefresh";
 import { hasXcodeProject, worktreeAt } from "../features/worktrees/projects";
-import { loadProjects, projects } from "../features/worktrees/store";
+import { loadProjects, projects, welcomed } from "../features/worktrees/store";
 import { externalStore } from "../ui/externalStore";
 
 export const launched = externalStore(false);
@@ -40,6 +40,7 @@ export async function launch() {
     loadRunDestinations(state.runDestinations);
     loadSchemePicks(state.schemePicks);
     loadPreviewChoices(state.previewPicks, state.previewModels);
+    welcomed.set(state.welcomed);
     // A pi that never sends its history must not keep the window hidden; its chat fills in once it does.
     const resumed = Promise.race([resumeAgents(state.runningPanes), historyWait()]);
     await loadProjects(state.projects, state.selected);

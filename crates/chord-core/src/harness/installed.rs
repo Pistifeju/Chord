@@ -21,6 +21,13 @@ pub enum Install {
     Outdated { version: String, oldest: String },
 }
 
+impl Install {
+    // Sign-in is only a hint: a signed-out harness still starts.
+    fn takes_pick(&self) -> bool {
+        matches!(self, Install::Ready { .. } | Install::SignedOut { .. })
+    }
+}
+
 /// One harness as the onboarding and Settings rows show it.
 #[derive(Serialize, Type, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -33,6 +40,8 @@ pub struct HarnessCheck {
     pub sign_in: Option<String>,
     pub upgrade: String,
     pub install_state: Install,
+    /// It can be the default for new panes.
+    pub takes_pick: bool,
 }
 
 impl HarnessCheck {
@@ -114,13 +123,7 @@ pub fn default_for_new_pane(pick: Option<&str>) -> Result<String, Error> {
 pub fn default_harness<'a>(pick: Option<&str>, checks: &'a [HarnessCheck]) -> Option<&'a str> {
     let starting = || checks.iter().filter(|check| check.starts);
     starting()
-        .find(|check| {
-            Some(check.name.as_str()) == pick
-                && matches!(
-                    check.install_state,
-                    Install::Ready { .. } | Install::SignedOut { .. }
-                )
-        })
+        .find(|check| Some(check.name.as_str()) == pick && check.takes_pick)
         .or_else(|| starting().find(|check| matches!(check.install_state, Install::Ready { .. })))
         .map(|check| check.name.as_str())
 }
@@ -132,14 +135,18 @@ fn check_each<'a>(harnesses: impl Iterator<Item = &'a Harness>) -> Vec<HarnessCh
             .collect();
         running
             .into_iter()
-            .map(|(harness, state)| HarnessCheck {
-                name: harness.name.into(),
-                title: harness.title.into(),
-                starts: harness.starts,
-                install: harness.install.into(),
-                sign_in: harness.sign_in.as_ref().map(|sign_in| sign_in.step.into()),
-                upgrade: harness.upgrade.into(),
-                install_state: state.join().unwrap_or(Install::Missing),
+            .map(|(harness, state)| {
+                let install_state = state.join().unwrap_or(Install::Missing);
+                HarnessCheck {
+                    name: harness.name.into(),
+                    title: harness.title.into(),
+                    starts: harness.starts,
+                    install: harness.install.into(),
+                    sign_in: harness.sign_in.as_ref().map(|sign_in| sign_in.step.into()),
+                    upgrade: harness.upgrade.into(),
+                    takes_pick: install_state.takes_pick(),
+                    install_state,
+                }
             })
             .collect()
     })
@@ -266,6 +273,7 @@ mod tests {
             install: String::new(),
             sign_in: None,
             upgrade: String::new(),
+            takes_pick: install_state.takes_pick(),
             install_state,
         }
     }

@@ -16,6 +16,7 @@ pub struct Project {
 pub fn add(store: &Store, folder: &Path) -> Result<Project, Error> {
     let project = open(folder)?;
     store.update(|state| {
+        state.welcomed = true;
         if !state.projects.iter().any(|p| p.path == project.path) {
             state.projects.push(project.clone());
         }
@@ -25,6 +26,7 @@ pub fn add(store: &Store, folder: &Path) -> Result<Project, Error> {
 
 pub fn remove(store: &Store, path: &Path) -> Result<(), Error> {
     store.update(|state| {
+        state.welcomed = true;
         state.projects.retain(|p| p.path != path);
         state.run_destinations.remove(path);
         state.preview_models.remove(path);

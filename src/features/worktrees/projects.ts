@@ -78,6 +78,12 @@ export function withSelectionRestored(projects: Projects, path: string, before: 
   return before === path && projects.selected === afterDelete ? { ...projects, selected: path } : projects;
 }
 
+// A project added to a window with nothing open opens its first worktree.
+export function withFirstWorktreeSelected(projects: Projects, project: string): Projects {
+  const first = projects.worktrees[project]?.[0];
+  return projects.selected === null && first ? { ...projects, selected: first.path } : projects;
+}
+
 // The worktree saved from the last run is selected if it still exists and the user has not picked one since.
 export function withSavedSelection(projects: Projects, saved: string | null): Projects {
   if (projects.selected !== null || saved === null) return projects;

@@ -5,13 +5,14 @@ Chord runs Codex over `codex app-server` and Claude Code over `claude -p` with s
 ## 1. What to build
 
 - [x] N1 core: one list describes every harness: its name, binary, install, sign-in and upgrade step, and oldest tested version. One check reads each harness's version and sign-in state on the login shell. A pane saves its harness; a new pane takes the default: the harness the user picked while it is installed and new enough (sign-in is a hint, as K2 says), else the first ready one in the list's order, pi, Codex, Claude Code.
-- [ ] K2 Needs N1. Onboarding: the window with no project lists every harness Chord can start in the list's order (pi, then Codex, then Claude Code, each once its adapter lands) in one group, each row with its state: ready with its version, not installed, not signed in, or older than the tested version. A row that needs something shows the install, sign-in or upgrade command with a copy button. The checks run when the view shows and on window focus. The first ready harness becomes the default for new sessions; a click on another ready row changes it. Add Project adds the first project. A missing `git` shows its install step.
+- [x] K2 Needs N1. Onboarding: the window with no project lists every harness Chord can start in the list's order (pi, then Codex, then Claude Code, each once its adapter lands) in one group, each row with its state: ready with its version, not installed, not signed in, or older than the tested version. A row that needs something shows the install, sign-in or upgrade command with a copy button. The checks run when the view shows and on window focus. The first ready harness becomes the default for new sessions; a click on another ready row changes it. Add Project adds the first project. A missing `git` shows its install step.
 - [ ] K5 Needs K2. Settings section Agents: K2's rows and the default harness for new sessions. A chat pane whose harness is missing or too old shows its row in place of the Start button.
 - [ ] N2 **hard** Needs N1. Codex over `codex app-server`: chat, tool calls, thinking, stop, steer, attachments, approvals and questions as dialogs, model and thinking level, context meter, slash menu, resume with history, and the permission mode picker: a composer bar button with the session's approval and sandbox mode, next to the model picker, and a `/permissions` session command that opens the same picker. A chat tab shows its harness's logo.
 - [ ] N3 **hard** Needs N1. Claude Code over `claude -p` with stream-json in and out: N2's list, with the picker holding Claude Code's permission mode.
 - [ ] N4 Needs N2 or N3. Build and run tools for Codex and Claude Code through a stdio MCP server that Chord's own binary serves.
 - [ ] N5 Needs N2 or N3. Session commands for Codex and Claude Code: new, fork, clone, rewind, reload and compact.
 - [ ] N6 Needs N2 or N3. Usage and subagents for Codex and Claude Code, from what each CLI reports itself. The status bar shows the usage of the focused pane's harness.
+- [ ] N7 Needs N1. The oldest version of each harness Chord runs: step each harness back through its released versions, run Chord's feature list on each one, and set its `oldest_tested` to the oldest version where every feature works. pi now, Codex after N2, Claude Code after N3. Section 2's tested versions list each harness's oldest and newest passing versions.
 
 Edge cases:
 - K2: Chord never asks for a credential and never runs a sign-in or an install; it shows the command.
@@ -97,9 +98,9 @@ Every adapter takes `/model` and `/thinking` as text, as the frontend sends them
 
 ## 5. Onboarding view
 
-The empty state of a window with no project. No wizard.
+The window with no project, without the sidebar and the status bar. Once, on the first launch: three steps, Welcome, Agent, Project. After the first project, a window whose projects were all removed shows the plain "No projects yet", also without the sidebar and the status bar, with Add Project; the agent rows live in Settings › Agents (K5). `design/onboarding.md` holds the details.
 
-- A centered column. Empty title "Welcome to Chord" on the first launch, "No projects yet" after it; one muted line under it.
+- A centered column. The agent step's title says what the check found; one muted line under it.
 - A group "Agent": a `panel` card with one 44px Settings row per harness, each with its logo and name: pi, Codex, Claude Code. A secondary "Check Again" sits in the group's heading.
 - A row's meta line is its state. Its right side holds what the state needs:
 
@@ -109,10 +110,10 @@ The empty state of a window with no project. No wizard.
 | Ready | "Version 2.1.328" | the dialog's check on the default harness; a click on another ready row makes it the default |
 | Not installed | "Not installed" | the install command as selectable code with a copy icon button |
 | Sign in | "Installed, not signed in" | the sign-in command, same form |
-| Outdated | "Version 1.4.0, needs 1.5.0" | the upgrade command, same form |
+| Outdated | "Version 1.4.0, Chord needs 1.5.0" | the upgrade command, same form |
 
 - A "Git" row shows only when git is missing, with its install step.
-- One primary button, "Add Project", always enabled.
+- The project step's primary button, "Add Project", always enabled.
 - A row's state fades in and rises 4px over 200ms, as a session row's status does.
 - One component draws the rows here, in Settings › Agents, and in a chat pane whose harness is missing (in place of today's one-line notice).
 

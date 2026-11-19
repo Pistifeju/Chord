@@ -1,7 +1,8 @@
 // The agent's message as Markdown: headings, lists, tasks, quotes, tables, links and code blocks with a copy button.
-import { memo, useEffect, useState, type ReactNode } from "react";
+import { memo, type ReactNode } from "react";
 import { openLink } from "../browser/store";
-import { CheckIcon, CopyIcon } from "../../ui/icons";
+import { CopyButton } from "../../ui/CopyButton";
+import { CheckIcon } from "../../ui/icons";
 import { blocksOf, type Block, type Inline } from "./markdown";
 import "./markdown.css";
 
@@ -39,21 +40,6 @@ function Spans({ spans }: { spans: Inline[] }) {
 }
 
 const HEADINGS = ["h1", "h2", "h3", "h4", "h5", "h6"] as const;
-
-/** An icon button that copies `text` and shows a check for 1.5s after it copied. */
-export function CopyButton({ text, label, className }: { text: string; label: string; className: string }) {
-  const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    if (!copied) return;
-    const timer = setTimeout(() => setCopied(false), 1500);
-    return () => clearTimeout(timer);
-  }, [copied]);
-  return (
-    <button type="button" className={`icon-button ${className}`} title={label} aria-label={label} onClick={() => navigator.clipboard.writeText(text).then(() => setCopied(true), console.error)}>
-      {copied ? <CheckIcon /> : <CopyIcon />}
-    </button>
-  );
-}
 
 function CodeBlock({ text }: { text: string }) {
   return (

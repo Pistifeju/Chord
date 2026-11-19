@@ -7,10 +7,13 @@ import { shownSession } from "../panes/sessions";
 import { vanishedWorktrees } from "../panes/agents";
 import { agentsWorkIn, forgetPanes, panes } from "../panes/store";
 import { settingsOpen } from "../settings/store";
-import { goneWorktrees, movesTo, noProjects, withProject, withProjectMoved, withWorktreeMoved, withoutProject, withoutWorktree, withSavedSelection, withSelectionRestored, withWorktrees, worktreeAt, worktreeName, worktreeOrder, type Projects } from "./projects";
+import { goneWorktrees, movesTo, noProjects, withProject, withProjectMoved, withWorktreeMoved, withoutProject, withoutWorktree, withFirstWorktreeSelected, withSavedSelection, withSelectionRestored, withWorktrees, worktreeAt, worktreeName, worktreeOrder, type Projects } from "./projects";
 import { fileName } from "../files/paths";
 
 export const projects = externalStore(noProjects);
+
+/** A project was added once, so a window without projects shows the empty state, not the welcome. Rust also sets it on a removal, for projects added before it existed. */
+export const welcomed = externalStore(false);
 
 // The worktree the window shows: the selected one, none while Settings covers the window.
 export const openWorktree = (): string | null => (settingsOpen.get() ? null : projects.get().selected);
@@ -52,9 +55,12 @@ export async function refreshWorktrees(project: string) {
 }
 
 function show(project: Project) {
+  welcomed.set(true);
   update((p) => withProject(p, project));
   return refreshWorktrees(project.path).catch(fail);
 }
+
+const add = (project: Project) => show(project).then(() => update((p) => withFirstWorktreeSelected(p, project.path)));
 
 // The saved worktree comes back once its project's list has loaded; one that no longer exists stays unselected.
 export function loadProjects(list: Project[], saved: string | null) {
@@ -72,7 +78,7 @@ function pruneVanishedPanes() {
 export async function pickProject() {
   try {
     const project = await commands.pickProject();
-    if (project) show(project);
+    if (project) void add(project);
   } catch (error) {
     fail(error);
   }
@@ -81,7 +87,7 @@ export async function pickProject() {
 export async function addFolders(folders: string[]) {
   for (const folder of folders) {
     try {
-      show(await commands.addProject(folder));
+      void add(await commands.addProject(folder));
     } catch (error) {
       fail(error);
     }

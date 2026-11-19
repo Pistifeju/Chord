@@ -582,6 +582,8 @@ export type HarnessCheck_Deserialize = {
 	signIn?: string | null,
 	upgrade: string,
 	installState: Install,
+	/**  It can be the default for new panes. */
+	takesPick: boolean,
 };
 
 /**  One harness as the onboarding and Settings rows show it. */
@@ -594,6 +596,8 @@ export type HarnessCheck_Serialize = {
 	signIn: string | null,
 	upgrade: string,
 	installState: Install,
+	/**  It can be the default for new panes. */
+	takesPick: boolean,
 };
 
 export type HarnessEvent = HarnessEvent_Serialize | HarnessEvent_Deserialize;
@@ -1302,6 +1306,8 @@ export type State_Deserialize = {
 	agents?: { [key in string]: PaneAgent_Deserialize },
 	/**  The harness the user picked for new panes; none until a pick. */
 	defaultHarness?: string | null,
+	/**  A project was added once, so a window without projects shows no welcome. A removal sets it too, for projects added before this flag existed. */
+	welcomed?: boolean,
 	/**  The switches of the simulator service subgroups, by subgroup id or group id: `true` keeps it on, `false` lets a boot switch it off. A group id covers the group's subgroups without a switch of their own; with neither, the group's default applies. */
 	keptServices?: { [key in string]: boolean },
 	/**  Each project's run destination; a project without one runs on the newest iPhone simulator. */
@@ -1344,6 +1350,8 @@ export type State_Serialize = {
 	agents: { [key in string]: PaneAgent_Serialize },
 	/**  The harness the user picked for new panes; none until a pick. */
 	defaultHarness: string | null,
+	/**  A project was added once, so a window without projects shows no welcome. A removal sets it too, for projects added before this flag existed. */
+	welcomed: boolean,
 	/**  The switches of the simulator service subgroups, by subgroup id or group id: `true` keeps it on, `false` lets a boot switch it off. A group id covers the group's subgroups without a switch of their own; with neither, the group's default applies. */
 	keptServices: { [key in string]: boolean },
 	/**  Each project's run destination; a project without one runs on the newest iPhone simulator. */

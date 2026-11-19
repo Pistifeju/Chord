@@ -42,6 +42,8 @@ pub struct State {
     pub agents: BTreeMap<String, PaneAgent>,
     /// The harness the user picked for new panes; none until a pick.
     pub default_harness: Option<String>,
+    /// A project was added once, so a window without projects shows no welcome. A removal sets it too, for projects added before this flag existed.
+    pub welcomed: bool,
     /// The switches of the simulator service subgroups, by subgroup id or group id: `true` keeps it on, `false` lets a boot switch it off. A group id covers the group's subgroups without a switch of their own; with neither, the group's default applies.
     pub kept_services: BTreeMap<String, bool>,
     /// Each project's run destination; a project without one runs on the newest iPhone simulator.
