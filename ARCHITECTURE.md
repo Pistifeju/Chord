@@ -15,38 +15,14 @@ chord-core                    projects, worktrees, git, state file,
 pi --mode rpc                  one process per pane
 ```
 
-`chord-ios` (build, simulator, previews) joins beside `chord-core` with the first iOS feature.
-
-## 2. Repo layout
-
-```
-Cargo.toml                     workspace: src-tauri, crates/*
-crates/chord-core/src/
-  projects.rs  worktrees.rs  git.rs  state.rs  files.rs  error.rs  terminal.rs
-  harness/mod.rs               Agent trait, start, HarnessEvent, Capability, status_for
-  harness/process.rs           a harness binary on pipes, for every adapter
-  harness/pi/                  the only module that knows pi's records
-src-tauri/src/
-  lib.rs                       plugins, the command list, menu
-  commands/                    one file per feature area
-src/
-  app/                         App.tsx (layout), commands.ts (the commands table)
-  features/<name>/             view, store, pure rules
-  features/ios/<name>/         with the first iOS feature
-  ipc/bindings.ts              generated, committed
-  ui/                          icons, shared controls, tokens.css
-```
-
-Feature folders: `sidebar`, `worktrees`, `panes`, `status`, `chat`, `files`, `terminal`, `settings`, `onboarding`. A folder appears with its first feature.
-
-## 3. Rust
+## 2. Rust
 
 1. **`chord-core` has no `tauri` dependency.** Its functions take paths and values and return values, so `cargo test` reaches all of it.
 2. **Commands are thin.** A Tauri command in `src-tauri` runs the core call on `spawn_blocking` and maps the result. No git, filesystem or process work on the main thread.
 3. **One error type.** `chord_core::Error` has a `MissingTool { tool, install }` case and a message case. The UI shows the install step for the first and the text for the second.
 4. **No `unwrap` outside tests.** Clippy denies it.
 
-## 4. Harness
+## 3. Harness
 
 The trait, events, commands and capabilities: `docs/harness-contract.md`, section 3. How they sit in the code:
 
@@ -58,13 +34,13 @@ The trait, events, commands and capabilities: `docs/harness-contract.md`, sectio
 6. **Process.** One `pi --mode rpc` per pane, on pipes, started through the user's login shell so PATH and API keys match their terminal; `harness/process.rs` holds that part for every adapter. The adapter calls `installed::require` first, which runs `pi --version` and returns `MissingTool` or the upgrade step. `harness/installed.rs` holds the one version check and parser for every harness.
 7. **Capabilities.** The adapter returns its list when a session starts. A view checks the list before it shows a control.
 
-## 5. IPC
+## 4. IPC
 
 1. `tauri-specta` writes `src/ipc/bindings.ts` from the Rust command and event types. The frontend calls `commands.listWorktrees()`; no `invoke("...")` strings and no hand-written copies of Rust types.
 2. Chat events go over one Tauri `Channel` per pane. Status and worktree changes go over app events.
-3. `npm run check` fails when the committed bindings differ from the generated ones. The first Tauri command brings `tauri-specta` and this check.
+3. `npm run check` fails when the committed bindings differ from the generated ones.
 
-## 6. Frontend
+## 5. Frontend
 
 1. **Stores outside React**, read with `useSyncExternalStore`: a pure rules module and a thin module that connects it to IPC.
 2. **`App.tsx` is layout.** It places the sidebar, tab bar, panes and panels, and lists each feature's exported button, view and commands. No registry.
@@ -72,37 +48,20 @@ The trait, events, commands and capabilities: `docs/harness-contract.md`, sectio
 4. **A core feature never imports from `features/ios`.** iOS views render only in a worktree with an Xcode project.
 5. **Markdown renders to React elements**, never to an HTML string.
 
-## 7. State file
+## 6. State file
 
 1. One file, `state.json`, in the app data folder. Rust reads it at launch and writes it with a rename, so a crash leaves the old file whole.
 2. One Rust struct, `State`, with `#[serde(default)]` on every field. A feature adds its fields; an older file still loads. A file that does not parse stays beside the new one as `state.json.bad`. A breaking change adds a `version` field and one migration function.
 3. The frontend gets the state at launch and sends changes back; Rust writes the file on each change that alters the state. Nothing goes to `localStorage`.
 
-## 8. Security
+## 7. Security
 
 1. **CSP on.** Scripts from the bundle only; styles from the bundle and inline, since xterm.js writes its renderer's `<style>` elements at run time (Tauri's style hashes stay off, or they would void `'unsafe-inline'`); images from the bundle, the asset protocol and `data:`; connections to Tauri IPC only.
 2. **Path check in one place.** A command that takes a path gets a worktree and a relative path. `files.rs` (`inside`) refuses a relative path that is absolute or climbs out with `..`. The worktree itself is not checked against the ones Chord knows.
 3. **No shell strings from the UI.** Arguments travel as process arguments or env vars.
 
-## 9. iOS
+## 8. iOS
 
 `chord-ios` depends on `chord-core`; `chord-core` cannot name `chord-ios`, so a leak fails to compile. `src-tauri` wires both and registers the iOS commands. The worktree record carries `xcode: bool`; that flag is the only iOS fact core holds.
 
 How worktrees stay apart (DerivedData, build slot, simulator), how ⌘R runs and the order of the iOS rows: `docs/ios.md`.
-
-## 10. What enforces each rule
-
-| Rule | Enforced by |
-|------|-------------|
-| Only the adapter knows the wire format | pi record types are private to `harness/pi/` |
-| Core never imports iOS | crate dependency direction; `scripts/check-rules.sh` in `npm run check` for `features/ios` imports |
-| Rust decides every status | `status_for` is the only function that returns `Status`; TS gets the type from the bindings |
-| The UI never waits on git or a process | commands are `async` and call core on `spawn_blocking`; review |
-| Missing tool shows the install step | `Error::MissingTool` |
-| No raw hex in components | `scripts/check-rules.sh` in `npm run check` over `src/features` and `src/app` |
-
-## 11. Not verified
-
-- `tauri-specta` for Tauri 2 is a release candidate (2.0.0-rc.28) and its docs pin exact versions. Fallback: `ts-rs` for the types and a hand-written `commands` object.
-- pi's own prompts (not from an extension) arriving as `extension_ui_request` in RPC mode. pi's docs describe the extension case.
-- Chat streaming speed with the extra parse in Rust, against sending pi's bytes to the webview untouched.

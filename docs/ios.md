@@ -188,7 +188,7 @@ src/features/ios/simulator/     the Simulator view: the screen's fit, keys, inpu
 ```
 
 - `chord-ios` depends on `chord-core` and has no `tauri` dependency. `src-tauri` wires both: its delete command calls core, then the iOS cleanup.
-- Core gains one fact: `xcode: bool` on the worktree record (`ARCHITECTURE.md`, section 9).
+- Core gains one fact: `xcode: bool` on the worktree record (`ARCHITECTURE.md`, section 8).
 - The build log and the console each go over a Tauri `Channel` per worktree, like chat and the terminal.
 - The run destination, the scheme and the configuration are per-project fields of `State`.
 - The sidebar card, the status bar and the bottom panel's header take their iOS parts as slots from `App.tsx`, as the side panel takes its buttons. None of them imports `features/ios`.

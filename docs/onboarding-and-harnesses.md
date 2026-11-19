@@ -91,8 +91,8 @@ Permission asks open as dialogs, and the card reports Waiting while one is open.
 | `panes/PaneArea.tsx:81` | every chat tab shows pi's logo | the logo of the pane's harness; the harness name in the tab's tooltip | 3 |
 | `usage/store.ts` | one usage list for the whole app | one per harness; the status bar shows the focused pane's | 6 |
 | `harness/pi/extension.ts` | the `build` and `run` tools exist only as a pi extension | one stdio MCP server in Chord's own binary | 5 |
-| `AGENTS.md` "New harness", `harness-contract.md` 3 "Version check", `ARCHITECTURE.md` 4.6 | a new harness is one `start` arm; pi checks its own version | a new harness is a list entry and a `start` arm; one check for every harness | 1 |
-| `PRODUCT.md`, `README.md:13`, `ARCHITECTURE.md` 1 and 4 | name pi as the one harness | name the three | 7 |
+| `AGENTS.md` "New harness", `harness-contract.md` 3 "Version check", `ARCHITECTURE.md` 3.6 | a new harness is one `start` arm; pi checks its own version | a new harness is a list entry and a `start` arm; one check for every harness | 1 |
+| `PRODUCT.md`, `README.md:13`, `ARCHITECTURE.md` 1 and 3 | name pi as the one harness | name the three | 7 |
 
 Every adapter takes `/model` and `/thinking` as text, as the frontend sends them (`chat/store.ts:150`).
 
