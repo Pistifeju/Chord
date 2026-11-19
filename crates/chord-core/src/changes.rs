@@ -488,4 +488,72 @@ mod tests {
         assert_eq!(read(repo, &["diff", "--cached", "--numstat"])?, "");
         Ok(())
     }
+
+    fn committed_repo(repo: &Path, files: &[(&str, &str)]) -> Result<(), Error> {
+        std::fs::create_dir_all(repo)?;
+        for (name, text) in files {
+            std::fs::write(repo.join(name), text)?;
+        }
+        git::run(repo, &["init", "-q"])?;
+        git::run(repo, &["add", "."])?;
+        git::run(
+            repo,
+            &[
+                "-c",
+                "user.name=t",
+                "-c",
+                "user.email=t@t",
+                "-c",
+                "commit.gpgsign=false",
+                "commit",
+                "-qm",
+                "i",
+            ],
+        )
+        .map(drop)
+    }
+
+    #[test]
+    fn a_discard_of_a_glob_named_file_leaves_the_files_the_glob_matches() -> Result<(), Error> {
+        let repo = std::env::temp_dir().join(format!("chord-glob-{}", std::process::id()));
+        let result = glob_in(&repo);
+        let _ = std::fs::remove_dir_all(&repo);
+        result
+    }
+
+    fn glob_in(repo: &Path) -> Result<(), Error> {
+        committed_repo(repo, &[("*", "a\n"), ("x", "a\n")])?;
+        std::fs::write(repo.join("*"), "b\n")?;
+        std::fs::write(repo.join("x"), "b\n")?;
+        discard(repo, &["*".into()], false)?;
+        assert_eq!(std::fs::read_to_string(repo.join("*"))?, "a\n");
+        assert_eq!(std::fs::read_to_string(repo.join("x"))?, "b\n");
+
+        std::fs::write(repo.join("*"), "c\n")?;
+        git::run(repo, &["add", "-A"])?;
+        discard(repo, &["*".into()], true)?;
+        assert_eq!(std::fs::read_to_string(repo.join("*"))?, "a\n");
+        assert_eq!(read(repo, &["status", "--porcelain"])?, "M  x\n");
+        Ok(())
+    }
+
+    #[test]
+    fn a_staged_hunk_discard_over_edited_lines_keeps_the_hunk_staged() -> Result<(), Error> {
+        let repo = std::env::temp_dir().join(format!("chord-hunk-kept-{}", std::process::id()));
+        let result = hunk_kept_in(&repo);
+        let _ = std::fs::remove_dir_all(&repo);
+        result
+    }
+
+    fn hunk_kept_in(repo: &Path) -> Result<(), Error> {
+        committed_repo(repo, &[("f", "a\n")])?;
+        std::fs::write(repo.join("f"), "b\n")?;
+        git::run(repo, &["add", "f"])?;
+        std::fs::write(repo.join("f"), "c\n")?;
+        let staged = diff(repo, "f", &DiffSide::Staged)?.hunks;
+        assert!(apply_hunk(repo, "f", &staged[0], HunkAction::DiscardStaged).is_err());
+        assert_eq!(read(repo, &["show", ":f"])?, "b\n");
+        assert_eq!(std::fs::read_to_string(repo.join("f"))?, "c\n");
+        Ok(())
+    }
 }
