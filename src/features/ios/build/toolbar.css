@@ -1,4 +1,4 @@
-/* The window toolbar over the panes and the side panel in a worktree with an Xcode project. Rules: DESIGN.md, Build and Run. */
+/* The window toolbar over the panes and the side panel in a worktree with an Xcode project. Rules: design/build-and-run.md. */
 /* The lead holds a slot of up to 360px, smaller in a narrow toolbar, and grows into the column after it; the activity field centers between the slot and the view buttons, so a longer scheme or destination moves it only once the lead would touch it. */
 .toolbar {
   position: relative;

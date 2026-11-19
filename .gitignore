@@ -9,4 +9,5 @@ src-tauri/gen/schemas
 .agents/skills/impeccable/
 .agents/skills/improve-animations/
 .impeccable/
-.pi/
+.pi/*
+!.pi/prompts/

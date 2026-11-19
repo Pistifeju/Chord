@@ -1,4 +1,4 @@
-/* The simulators button in the status bar. Rules: DESIGN.md, Build and Run. */
+/* The simulators button in the status bar. Rules: design/build-and-run.md. */
 .statusbar-simulators {
   display: flex;
   align-items: center;

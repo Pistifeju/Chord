@@ -1,4 +1,4 @@
-/* The side panel: one column right of the panes. Rules: DESIGN.md, Side panel and Files. */
+/* The side panel: one column right of the panes. Rules: design/side-panel-and-files.md. */
 .side-panel {
   position: relative;
   display: flex;

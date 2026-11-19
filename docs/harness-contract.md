@@ -70,7 +70,7 @@ The `Agent` trait and `start` in `crates/chord-core/src/harness/mod.rs`, one imp
 
 ## Sources
 
-- pi: `docs/rpc.md`, `rpc-commands.md`, `rpc-extension-ui.md`, `json.md` under the installed package
+- pi: `rpc.md`, `rpc-commands.md`, `rpc-extension-ui.md`, `json.md` in `$(npm root -g)/@earendil-works/pi-coding-agent/docs/`
 - https://agentclientprotocol.com/protocol/v2/overview and `/prompt-lifecycle`, `/elicitation`, `/llms.txt`
 - https://github.com/earendil-works/pi/issues/175
 - https://github.com/victor-software-house/pi-acp

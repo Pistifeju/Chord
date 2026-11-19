@@ -1,4 +1,4 @@
-/* The Build and Console views and the run status. Rules: DESIGN.md, Build and Run. */
+/* The Build and Console views and the run status. Rules: design/build-and-run.md. */
 .log-part {
   position: relative;
   display: flex;

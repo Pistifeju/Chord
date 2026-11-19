@@ -1,4 +1,4 @@
-/* The Help sheet: basics, statuses and shortcuts as short labeled lists. Rules: DESIGN.md, Sheets. */
+/* The Help sheet: basics, statuses and shortcuts as short labeled lists. Rules: design/sheets.md. */
 .help {
   width: min(440px, calc(100vw - 40px));
   gap: 20px;

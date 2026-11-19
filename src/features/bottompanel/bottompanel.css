@@ -1,4 +1,4 @@
-/* The bottom panel: one row under the panes. Rules: DESIGN.md, Bottom panel and Terminal. */
+/* The bottom panel: one row under the panes. Rules: design/bottom-panel-and-terminal.md. */
 .bottom-panel {
   position: relative;
   display: flex;

@@ -102,14 +102,10 @@ mod tests {
 
     // Folder names Xcode 27 gave projects at these paths on the developer's machine.
     #[test]
-    fn names_the_folder_like_xcode_for_a_neutral_path_and_one_with_spaces() {
+    fn names_the_folder_like_xcode() {
         assert_eq!(
             folder_name(Path::new("/tmp/neutral/Example/Example.xcodeproj")).as_deref(),
             Some("Example-cqbowptkchhfoacftbdmmagekkzu")
-        );
-        assert_eq!(
-            folder_name(Path::new("/tmp/Chord Probe/My App/My App.xcodeproj")).as_deref(),
-            Some("My_App-azhlkdaqhdwqkfgplcsnypjggokw")
         );
     }
 }

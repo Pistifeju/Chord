@@ -1,4 +1,4 @@
-/* The split layout of tab groups, each group's tab bar, and the dividers. Rules: DESIGN.md, Tab bar and Panes. */
+/* The split layout of tab groups, each group's tab bar, and the dividers. Rules: design/tab-bar-and-panes.md. */
 .panes-frame {
   display: flex;
   flex-direction: column;

@@ -1,4 +1,4 @@
-/* The Files view: header, filter field, tree rows; and the Open File by Name sheet. Rules: DESIGN.md, Side panel and Files. */
+/* The Files view: header, filter field, tree rows; and the Open File by Name sheet. Rules: design/side-panel-and-files.md. */
 .files {
   display: flex;
   flex-direction: column;

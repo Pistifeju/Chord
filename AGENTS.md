@@ -4,6 +4,7 @@ A macOS workspace for coding agents: one git worktree per task, each with its ow
 
 - Architecture: `ARCHITECTURE.md`. UI rules: `DESIGN.md`.
 - Module map: `npm run map` prints every source folder with its file count. `npm run map <folder>` prints that folder's files, each with its line 1, which says what the file holds. When you look for code, run the first, then the second on the folders the task names, and read only the files you need, by name.
+- ripgrep has no `tsx` type: `rg -t ts` searches `.ts` and `.tsx`.
 
 ## Boundaries
 
@@ -51,7 +52,8 @@ Never test copy, CSS classes, constants, third-party libraries, private state, t
 
 ## Done
 
-- `npm run check` passes. It prints one `step=<name> exit=<code>` line per step and the path of its own log; read the log only for a step that is not 0. Never report a check you did not run.
+- `npm run fix` formats the Rust code. Run it before `npm run check`.
+- `npm run check` passes. It prints one `step=<name> exit=<code> secs=<n>` line per step, the last 20 lines of each failing step, and the path of its full log. `exit=skipped` means your change touched no Rust. Never report a check you did not run.
 - Run `npm run check` once, after your last code edit. A commit request alone needs no check.
 - Skip visual checks: no screenshots, no launching the app to look at the UI. The user checks it.
 - Commit messages: `type(area): what changed`, lower case. Types: `feat`, `fix`, `perf`, `refactor`, `test`, `docs`, `chore`. The area is a feature folder (`sidebar`, `chat`, `ios`, ...) and may be left out: `docs: add the harness contract`.

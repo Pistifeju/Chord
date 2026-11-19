@@ -1,4 +1,4 @@
-/* The editor and the image view: fill the work area beside the side panel. Rules: DESIGN.md, Editor. */
+/* The editor and the image view: fill the work area beside the side panel. Rules: design/editor.md. */
 .editor {
   position: relative;
   display: flex;

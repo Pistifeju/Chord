@@ -1,4 +1,4 @@
-/* The Changes view: its scope control and base, its groups and their rows, which take the Files tree and its row, a branch's commit rows, the Stashes group and its stash rows, and the commit area under them. Rules: DESIGN.md, Changes view. */
+/* The Changes view: its scope control and base, its groups and their rows, which take the Files tree and its row, a branch's commit rows, the Stashes group and its stash rows, and the commit area under them. Rules: design/changes-view.md. */
 .changes-header {
   flex: none;
   padding: 4px 8px 0;

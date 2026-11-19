@@ -12,6 +12,7 @@
     "app:install": "sh scripts/install-app.sh",
     "map": "sh scripts/map.sh",
     "check": "sh scripts/check.sh",
+    "fix": "cargo fmt --all",
     "bindings": "UPDATE_BINDINGS=1 cargo test -p chord bindings"
   },
   "dependencies": {

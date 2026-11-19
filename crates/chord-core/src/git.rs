@@ -75,11 +75,17 @@ mod tests {
     #[test]
     fn optional_reads_a_git_failure_as_nothing_but_keeps_a_missing_git() {
         assert!(matches!(optional(Ok(" main\n".into())), Ok(Some(text)) if text == "main"));
-        assert!(matches!(optional(Err(Error::Message("no upstream".into()))), Ok(None)));
+        assert!(matches!(
+            optional(Err(Error::Message("no upstream".into()))),
+            Ok(None)
+        ));
         let missing = Error::MissingTool {
             tool: "git".into(),
             install: "xcode-select --install".into(),
         };
-        assert!(matches!(optional(Err(missing)), Err(Error::MissingTool { .. })));
+        assert!(matches!(
+            optional(Err(missing)),
+            Err(Error::MissingTool { .. })
+        ));
     }
 }

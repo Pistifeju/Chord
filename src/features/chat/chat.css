@@ -1,4 +1,4 @@
-/* The chat pane: transcript column, composer, empty state. Rules: DESIGN.md. */
+/* The chat pane: transcript column, composer, empty state. Rules: design/chat.md. */
 .chat {
   position: relative;
   display: flex;

@@ -1,4 +1,4 @@
-/* The Preview view: the `#Preview` list beside a column of its header with the model button over the Simulator view's screen, and the compile error's bar. Rules: DESIGN.md, Preview view. */
+/* The Preview view: the `#Preview` list beside a column of its header with the model button over the Simulator view's screen, and the compile error's bar. Rules: design/preview-view.md. */
 .preview {
   display: flex;
   flex-direction: column;

@@ -1,4 +1,4 @@
-/* The Simulator view in the side panel. Rules: DESIGN.md, Simulator view. */
+/* The Simulator view in the side panel. Rules: design/simulator-view.md. */
 .simulator {
   position: relative;
   display: flex;

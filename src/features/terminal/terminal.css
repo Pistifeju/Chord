@@ -1,4 +1,4 @@
-/* The terminal in the bottom panel. Rules: DESIGN.md, Bottom panel and Terminal. */
+/* The terminal in the bottom panel. Rules: design/bottom-panel-and-terminal.md. */
 .terminal-part {
   position: relative;
   display: flex;
