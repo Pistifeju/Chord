@@ -1,4 +1,4 @@
-// Rules for the harness rows: which harnesses show, each row's state line and the command it needs, and the agent screen's title.
+// Rules for the harness rows: which harnesses show, each row's state line and the command it needs, the agent screen's title, and the rows a chat pane shows in place of Start.
 import type { Checks, HarnessCheck } from "../../ipc/bindings";
 
 export const shownHarnesses = (checks: Checks): HarnessCheck[] => checks.harnesses.filter((harness) => harness.starts);
@@ -46,4 +46,11 @@ export function agentHeading(checks: Checks | null): { title: string; line: stri
 export function rowsNote(checks: Checks): string | null {
   if (!checks.defaultHarness || checks.gitInstall) return "Run the command, then switch back. Chord checks again.";
   return shownHarnesses(checks).filter((harness) => harness.takesPick).length > 1 ? "New sessions use the checked agent." : null;
+}
+
+/** A pane without a harness shows every row while no default exists to take. */
+export function blockingRows(checks: Checks | null, harness: string | null): HarnessCheck[] {
+  if (!checks) return [];
+  if (harness === null) return checks.defaultHarness ? [] : shownHarnesses(checks);
+  return shownHarnesses(checks).filter((check) => check.name === harness && !check.takesPick);
 }

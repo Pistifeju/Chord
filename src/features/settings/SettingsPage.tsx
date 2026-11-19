@@ -1,5 +1,5 @@
 // The Settings panel over the blurred window: a section list on the left, the chosen section's grouped rows on the right.
-import { useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { Theme } from "../../ipc/bindings";
 import { changeShortcut, commandTitles, resetShortcut, shortcutLabel, tooltip } from "../../app/commands";
@@ -7,7 +7,10 @@ import { sheet } from "../../app/sheet";
 import { recordedShortcut } from "../../app/shortcuts";
 import { Row } from "../../ui/Row";
 import { onOff, Segmented } from "../../ui/Segmented";
-import { AppearanceIcon, CloseIcon, KeyboardIcon, MinusIcon, PhoneIcon, PlusIcon, SlidersIcon } from "../../ui/icons";
+import { CheckAgain, HarnessRows } from "../harnesses/HarnessRows";
+import { rowsNote } from "../harnesses/harnessCheck";
+import { harnessChecks, watchHarnessChecks } from "../harnesses/store";
+import { AppearanceIcon, ChatIcon, CloseIcon, KeyboardIcon, MinusIcon, PhoneIcon, PlusIcon, SlidersIcon } from "../../ui/icons";
 import { appearance, changeFontSize, changeTextSize, closeSettings, keepAwake, linksInDefaultBrowser, muteNotifications, setKeepAwake, setLinksInDefaultBrowser, setMuteNotifications, setTheme, settingsSection, shortcutChanges, type FontSizeSetting, type SettingsSection } from "./store";
 import "./settings.css";
 
@@ -46,6 +49,7 @@ const themes: { value: Theme; label: string }[] = [
 
 const sections: { id: SettingsSection; title: string; icon: ReactNode }[] = [
   { id: "general", title: "General", icon: <SlidersIcon /> },
+  { id: "agents", title: "Agents", icon: <ChatIcon /> },
   { id: "appearance", title: "Appearance", icon: <AppearanceIcon /> },
   { id: "shortcuts", title: "Shortcuts", icon: <KeyboardIcon /> },
   { id: "simulators", title: "Simulators", icon: <PhoneIcon /> },
@@ -101,6 +105,23 @@ function General({ buildDataSize }: { buildDataSize: ReactNode }) {
         </Group>
       )}
     </>
+  );
+}
+
+// The rows draw their own card, so the section skips `Group`.
+function Agents() {
+  useEffect(watchHarnessChecks, []);
+  const checks = harnessChecks.usePart((s) => s.checks);
+  const note = checks && rowsNote(checks);
+  return (
+    <section className="settings-section" aria-label="Agent for new sessions">
+      <div className="settings-section-header">
+        <h3 className="settings-heading">Agent for new sessions</h3>
+        <CheckAgain />
+      </div>
+      <HarnessRows checks={checks} />
+      {note && <p className="settings-description settings-note">{note}</p>}
+    </section>
   );
 }
 
@@ -256,6 +277,7 @@ export function SettingsPage({ buildDataSize, simulatorScreenshots, simulatorSer
           </header>
           <div className="settings-content">
             {current.id === "general" && <General buildDataSize={buildDataSize} />}
+            {current.id === "agents" && <Agents />}
             {current.id === "appearance" && <Appearance />}
             {current.id === "shortcuts" && <Shortcuts />}
             {current.id === "simulators" && <Simulators screenshots={simulatorScreenshots} services={simulatorServices} />}

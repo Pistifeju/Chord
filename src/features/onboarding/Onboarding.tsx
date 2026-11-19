@@ -6,9 +6,9 @@ import { shortcutChanges } from "../settings/store";
 import { StatusMark } from "../status/StatusMark";
 import { statusLabel } from "../status/status";
 import { pickProject } from "../worktrees/store";
-import { HarnessRows } from "./HarnessRows";
-import { agentHeading, rowsNote, shownHarnesses } from "./harnessCheck";
-import { checkHarnesses, harnessChecks, watchHarnessChecks } from "./store";
+import { CheckAgain, HarnessRows } from "../harnesses/HarnessRows";
+import { agentHeading, rowsNote, shownHarnesses } from "../harnesses/harnessCheck";
+import { harnessChecks, watchHarnessChecks } from "../harnesses/store";
 import "./onboarding.css";
 
 type Task = "running" | "waiting" | "done";
@@ -91,16 +91,6 @@ function Heading({ title, line, large }: { title: string; line: string; large?: 
       </h1>
       <p className="onboarding-line">{line}</p>
     </div>
-  );
-}
-
-function CheckAgain() {
-  const running = harnessChecks.usePart((s) => s.running);
-  return (
-    <button type="button" className="button-secondary onboarding-recheck" aria-busy={running} onClick={() => void checkHarnesses()}>
-      <span className="button-label">Check Again</span>
-      {running && <span className="spinner" />}
-    </button>
   );
 }
 

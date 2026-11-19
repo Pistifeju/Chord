@@ -1,10 +1,11 @@
-// The harness rows: each harness Chord can start with its state, the command it needs, and the default's check; a click on a row that takes the pick makes it the default. Git's row follows while git is missing.
+// The harness rows: each harness Chord can start with its state, the command it needs, and the default's check; a click on a row that takes the pick makes it the default. Git's row follows while git is missing. Check Again runs the check.
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { Checks, HarnessCheck } from "../../ipc/bindings";
 import { CopyButton } from "../../ui/CopyButton";
 import { BranchIcon, CheckIcon, PiIcon } from "../../ui/icons";
 import { neededCommand, shownHarnesses, stateLine } from "./harnessCheck";
-import { pickHarness } from "./store";
+import { checkHarnesses, harnessChecks, pickHarness } from "./store";
+import "./harnesses.css";
 
 const logos: Record<string, () => ReactNode> = { pi: PiIcon };
 
@@ -62,7 +63,8 @@ function harnessSide(harness: HarnessCheck, chosen: boolean) {
   return command && <Command key={command} text={command} />;
 }
 
-export function HarnessRows({ checks }: { checks: Checks | null }) {
+/** Every row Chord can start, or only `rows`, which leaves out git's. */
+export function HarnessRows({ checks, rows }: { checks: Checks | null; rows?: HarnessCheck[] }) {
   if (!checks) {
     return (
       <div className="harness-group" aria-busy="true">
@@ -73,7 +75,7 @@ export function HarnessRows({ checks }: { checks: Checks | null }) {
   return (
     <>
       <div className="harness-group" role="radiogroup" aria-label="Agent for new sessions">
-        {shownHarnesses(checks).map((harness) => {
+        {(rows ?? shownHarnesses(checks)).map((harness) => {
           const chosen = harness.name === checks.defaultHarness;
           const Logo = logos[harness.name];
           return (
@@ -89,11 +91,21 @@ export function HarnessRows({ checks }: { checks: Checks | null }) {
           );
         })}
       </div>
-      {checks.gitInstall && (
+      {!rows && checks.gitInstall && (
         <div className="harness-group">
           <Row logo={<BranchIcon />} title="Git" state="Not installed, needed for worktrees" side={<Command text={checks.gitInstall} />} />
         </div>
       )}
     </>
+  );
+}
+
+export function CheckAgain() {
+  const running = harnessChecks.usePart((s) => s.running);
+  return (
+    <button type="button" className="button-secondary harness-recheck" aria-busy={running} onClick={() => void checkHarnesses()}>
+      <span className="button-label">Check Again</span>
+      {running && <span className="spinner" />}
+    </button>
   );
 }

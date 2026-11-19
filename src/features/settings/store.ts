@@ -10,7 +10,7 @@ export const muteNotifications = externalStore(false);
 export const linksInDefaultBrowser = externalStore(false);
 export const shortcutChanges = externalStore<ShortcutChanges>({});
 export const settingsOpen = externalStore(false);
-export type SettingsSection = "general" | "appearance" | "shortcuts" | "simulators";
+export type SettingsSection = "general" | "agents" | "appearance" | "shortcuts" | "simulators";
 // The section Settings opens on.
 export const settingsSection = externalStore<SettingsSection>("general");
 

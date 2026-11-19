@@ -1,9 +1,9 @@
-// The chat of one pane: transcript, composer, and a Start button while no agent runs.
+// The chat of one pane: transcript, composer, and a Start button while no agent runs, or the harness rows while its harness cannot start.
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { flushSync } from "react-dom";
 import { memo, useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type CSSProperties, type KeyboardEvent } from "react";
 import { tooltip } from "../../app/commands";
-import type { Image, SlashCommand, SubagentNode } from "../../ipc/bindings";
+import type { Checks, HarnessCheck, Image, SlashCommand, SubagentNode } from "../../ipc/bindings";
 import { elementAtDrop } from "../../ui/dropPoint";
 import { ArrowDownIcon, ArrowUpIcon, BranchIcon, ChevronDownIcon, ChevronIcon, CloseIcon, ImageIcon, PaperclipIcon } from "../../ui/icons";
 import { imageUrl, isImageType, type Attachment } from "./attachments";
@@ -20,6 +20,9 @@ import { panes } from "../panes/store";
 import { worktreeAt } from "../worktrees/projects";
 import { projects } from "../worktrees/store";
 import { StatusMark } from "../status/StatusMark";
+import { HarnessRows } from "../harnesses/HarnessRows";
+import { blockingRows } from "../harnesses/harnessCheck";
+import { checkHarnesses, harnessChecks, watchHarnessChecks } from "../harnesses/store";
 import { TranscriptFind } from "./TranscriptFind";
 import { finds } from "./find";
 import { Markdown } from "./MarkdownView";
@@ -31,7 +34,7 @@ import { composerKey, composerMenu, composerState, droppedFiles, pickerClick, se
 import { isTicking, subagentLine, subagentSummary } from "./subagents";
 import { completion, slashMenu, slashQuery } from "./slash";
 import { closeLightbox, lightboxes, openLightbox, stepLightbox } from "./viewing";
-import { addPathToDraft, answerDialog, attachFiles, attachments, attachPasted, chatOf, chats, closeSlash, drafts, openPicker, pathDropPane, pickAttachments, removeAttachment, sendMessage, setDraft, slashClosed, startChat, takesAttachments } from "./store";
+import { addPathToDraft, answerDialog, attachFiles, attachments, attachPasted, chatOf, chats, closeSlash, drafts, openPicker, paneHarnesses, pathDropPane, pickAttachments, removeAttachment, sendMessage, setDraft, slashClosed, startChat, takesAttachments } from "./store";
 import { anyRunning, callTime, isStreaming, queuedImages, stepImages, stepsChanges, stepsSummary, stepsTime, type CompactionMark, type Item, type Message, type SteerImages, type StepGroup } from "./transcript";
 import "./chat.css";
 
@@ -66,7 +69,21 @@ function SubagentLines({ nodes }: { nodes: SubagentNode[] }) {
   );
 }
 
-function StartButton({ worktree, pane }: { worktree: string; pane: string }) {
+/** The rows the user acts on before a start works; only shown rows watch window focus, so ready panes start no checks. */
+function useBlockingRows(pane: string, idle: boolean): { checks: Checks | null; rows: HarnessCheck[] } {
+  const checks = harnessChecks.usePart((s) => (idle ? s.checks : null));
+  const harness = paneHarnesses.usePart((all) => all[pane] ?? null);
+  const rows = blockingRows(checks, harness);
+  const shown = rows.length > 0;
+  useEffect(() => {
+    if (idle) void checkHarnesses();
+  }, [idle]);
+  useEffect(() => (shown ? watchHarnessChecks() : undefined), [shown]);
+  return { checks, rows };
+}
+
+function Start({ worktree, pane, blocking }: { worktree: string; pane: string; blocking: { checks: Checks | null; rows: HarnessCheck[] } }) {
+  if (blocking.rows.length > 0) return <HarnessRows checks={blocking.checks} rows={blocking.rows} />;
   return (
     <button type="button" className="button-primary" onClick={() => startChat(worktree, pane)}>
       Start
@@ -287,6 +304,8 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
   const [slashActive, setSlashActive] = useState(0);
   const { ready, steers, canSend, menu, shown: composerShown } = composerState(chat);
   const hasChat = chat.capabilities === null || chat.capabilities.includes("chat");
+  const blocking = useBlockingRows(pane, chat.agent === "idle");
+  const blocked = blocking.rows.length > 0;
   const canAttach = takesAttachments(chat);
   const slashRows = slashMenu(chat.commands, draft, closedOn);
   const slashAt = Math.min(slashActive, slashRows.length - 1);
@@ -437,8 +456,8 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
           ) : chat.items.length === 0 && chat.agent === "idle" ? (
             <div className="chat-empty">
               <h1 className="chat-empty-title">No chat yet</h1>
-              <p className="chat-empty-text">Start an agent in this worktree.</p>
-              <StartButton worktree={worktree} pane={pane} />
+              <p className="chat-empty-text">{blocked ? "Run the command, then switch back. Chord checks again." : "Start an agent in this worktree."}</p>
+              <Start worktree={worktree} pane={pane} blocking={blocking} />
             </div>
           ) : (
             <Messages pane={pane} items={shownItems.current} queued={chat.queued} steerImages={chat.steerImages} subagents={subagentRows} subagentsAt={chat.subagentsAt} historyLength={chat.historyLength} />
@@ -462,11 +481,12 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
           </div>
         </div>
       )}
-      {chat.notice && <p className="chat-notice">{chat.notice}</p>}
+      {/* The rows say what a failed start's notice says. */}
+      {chat.notice && !blocked && <p className="chat-notice">{chat.notice}</p>}
       {chat.agent === "idle" && chat.items.length > 0 && (
-        <div className="chat-restart">
+        <div className="chat-restart" data-blocked={blocked || undefined}>
           <span className="chat-hint">The agent stopped.</span>
-          <StartButton worktree={worktree} pane={pane} />
+          <Start worktree={worktree} pane={pane} blocking={blocking} />
         </div>
       )}
       {chat.dialog && !menu && <DialogPanel key={chat.dialog.id} pane={pane} dialog={chat.dialog} />}

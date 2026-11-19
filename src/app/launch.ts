@@ -5,6 +5,7 @@ import { installAppMenu } from "./appMenu";
 import { loadDeferredViews } from "./deferredViews";
 import { keepAwake, linksInDefaultBrowser, loadAppearance, muteNotifications } from "../features/settings/store";
 import { loadPanes, resumeAgents } from "../features/panes/store";
+import { loadPaneHarnesses } from "../features/chat/store";
 import { sidebar } from "../features/sidebar/store";
 import { loadSidePanels } from "../features/sidepanel/store";
 import { screenshotFolder } from "../features/ios/simulator/store";
@@ -35,6 +36,7 @@ export async function launch() {
     loadShortcutChanges(state.shortcuts);
     sidebar.set(state.sidebar);
     loadPanes(state.panes);
+    loadPaneHarnesses(state.agents);
     loadSidePanels(state.sidePanels);
     loadBottomPanels(state.bottomPanels);
     loadRunDestinations(state.runDestinations);

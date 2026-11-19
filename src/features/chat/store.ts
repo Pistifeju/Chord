@@ -1,6 +1,6 @@
 // Connects the transcript rules to IPC: one chat per pane, started, fed by the agent's events, stopped.
 import { Channel } from "@tauri-apps/api/core";
-import { commands, type DialogAnswer, type HarnessEvent, type Image } from "../../ipc/bindings";
+import { commands, type DialogAnswer, type HarnessEvent, type Image, type PaneAgent } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
 import { paneNames, type PaneNames } from "../panes/sessions";
 import { usage } from "../usage/store";
@@ -14,6 +14,12 @@ export const chats = externalStore<Record<string, Chat>>({});
 
 /** The name of each listed pane's agent session; a component re-renders only when one changes. */
 export const usePaneNames = (panes: string[]): PaneNames => JSON.parse(chats.usePart((all) => JSON.stringify(paneNames(all, panes))));
+
+// A pane without a harness takes the default at its first start.
+export const paneHarnesses = externalStore<Record<string, string>>({});
+
+export const loadPaneHarnesses = (agents: Record<string, PaneAgent>) =>
+  paneHarnesses.set(Object.fromEntries(Object.entries(agents).flatMap(([pane, agent]) => (agent.harness ? [[pane, agent.harness]] : []))));
 
 export const chatOf = (all: Record<string, Chat>, pane: string): Chat => all[pane] ?? emptyChat;
 
@@ -65,7 +71,8 @@ export async function startChat(worktree: string, pane: string) {
   channel.onmessage = (event) => received(pane, start, event);
   update(pane, (chat) => ({ ...chat, agent: "starting", notice: null, report: null, commands: [] }));
   try {
-    const { capabilities } = await commands.startChat(worktree, pane, channel);
+    const { harness, capabilities } = await commands.startChat(worktree, pane, channel);
+    paneHarnesses.set({ ...paneHarnesses.get(), [pane]: harness });
     // The pane closed while its agent started, so the stop came first and missed it.
     if (!intake.has(pane)) commands.stopChat(pane).catch(console.error);
     if (intake.latest(pane, start)) update(pane, (chat) => (chat.agent === "starting" ? { ...chat, agent: "ready", capabilities } : chat));
@@ -164,5 +171,7 @@ export function forgetChat(pane: string) {
   drafts.set(restDrafts);
   const { [pane]: goneAttachments, ...restAttachments } = attachments.get();
   attachments.set(restAttachments);
+  const { [pane]: goneHarness, ...restHarnesses } = paneHarnesses.get();
+  paneHarnesses.set(restHarnesses);
   commands.stopChat(pane).catch(console.error);
 }
