@@ -19,7 +19,7 @@ step rules sh scripts/check-rules.sh
 step test node --test "src/**/*.test.ts"
 step fmt cargo fmt --all --check
 step clippy cargo clippy --workspace --all-targets --locked -- -D warnings
-step cargo-test cargo test --workspace --locked
+step cargo-test cargo test --workspace --all-targets --locked
 
 echo "log=$log"
 exit $status
