@@ -15,6 +15,8 @@ export const commands = {
 	checkBranchName: (project: string, name: string) => __TAURI_INVOKE<string | null>("check_branch_name", { project, name }),
 	checkBranchRename: (project: string, worktree: string, name: string) => __TAURI_INVOKE<string | null>("check_branch_rename", { project, worktree, name }),
 	renameBranch: (project: string, worktree: string, name: string) => __TAURI_INVOKE<null>("rename_branch", { project, worktree, name }),
+	listBranches: (worktree: string) => __TAURI_INVOKE<LocalBranch_Serialize[]>("list_branches", { worktree }),
+	switchBranch: (worktree: string, branch: string) => __TAURI_INVOKE<null>("switch_branch", { worktree, branch }),
 	createWorktree: (project: string, branch: string) => __TAURI_INVOKE<Worktree_Serialize>("create_worktree", { project, branch }),
 	removeWorktree: (project: string, worktree: string, force: boolean) => __TAURI_INVOKE<Removal_Serialize>("remove_worktree", { project, worktree, force }),
 	readGitCounts: (worktrees: string[]) => __TAURI_INVOKE<GitCounts_Serialize[]>("read_git_counts", { worktrees }),
@@ -721,6 +723,24 @@ export type LineKind = "context" | "added" | "removed";
 
 /**  A link tried to load in the app's own web view; the window opens it like a chat link. */
 export type LinkRequested = string;
+
+export type LocalBranch = LocalBranch_Serialize | LocalBranch_Deserialize;
+
+export type LocalBranch_Deserialize = {
+	name: string,
+	/**  When its last commit was made, in milliseconds since 1970. */
+	time: number | null,
+	/**  The other worktree that has it checked out, which keeps git from switching to it here. */
+	heldBy?: string | null,
+};
+
+export type LocalBranch_Serialize = {
+	name: string,
+	/**  When its last commit was made, in milliseconds since 1970. */
+	time: number | null,
+	/**  The other worktree that has it checked out, which keeps git from switching to it here. */
+	heldBy: string | null,
+};
 
 export type Outline = {
 	x: number | null,

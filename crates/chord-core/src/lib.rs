@@ -2,6 +2,7 @@
 
 mod awake;
 pub mod branch_changes;
+pub mod branches;
 pub mod changes;
 pub mod commit_diff;
 pub mod commits;

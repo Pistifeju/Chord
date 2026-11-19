@@ -6,6 +6,7 @@ import { shownPanes } from "../worktrees/store";
 import { sheet } from "../../app/sheet";
 import { closeFind, finds, openFind } from "./find";
 import { closeLightbox, lightboxes, stepLightbox } from "./viewing";
+import { branchMenuPane, closeBranchMenu } from "./branch";
 import { slashMenu } from "./slash";
 import { abortRun, answerDialog, chatOf, chats, closeSlash, drafts, pickAttachments, slashClosed } from "./store";
 
@@ -38,6 +39,11 @@ const slashPane = (): string | null => {
   return slashMenu(chatOf(chats.get(), pane).commands, draft, slashClosed.get()[pane]).length > 0 ? pane : null;
 };
 
+const branchMenuOpenPane = (): string | null => {
+  const pane = focusedPane();
+  return pane && branchMenuPane.get() === pane ? pane : null;
+};
+
 const lightboxPane = (): string | null => {
   const pane = focusedPane();
   return pane && lightboxes.get()[pane] ? pane : null;
@@ -66,5 +72,6 @@ export const chatCommands: AppCommand[] = [
     }),
   },
   { id: "chat.slashClose", title: "Close Command Menu", shortcut: { key: "escape" }, ...onTarget(slashPane, (pane) => closeSlash(pane, drafts.get()[pane] ?? "")) },
+  { id: "chat.branchMenuClose", title: "Close Branch Menu", shortcut: { key: "escape" }, ...onTarget(branchMenuOpenPane, closeBranchMenu) },
   { id: "chat.stop", title: "Stop Agent", shortcut: { key: "escape" }, ...onTarget(runningPane, abortRun) },
 ];

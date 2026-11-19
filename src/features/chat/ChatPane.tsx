@@ -5,14 +5,20 @@ import { memo, useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent
 import { tooltip } from "../../app/commands";
 import type { Image, SlashCommand, SubagentNode } from "../../ipc/bindings";
 import { elementAtDrop } from "../../ui/dropPoint";
-import { ArrowDownIcon, ArrowUpIcon, ChevronIcon, CloseIcon, ImageIcon, PaperclipIcon } from "../../ui/icons";
+import { ArrowDownIcon, ArrowUpIcon, BranchIcon, ChevronDownIcon, ChevronIcon, CloseIcon, ImageIcon, PaperclipIcon } from "../../ui/icons";
 import { imageUrl, isImageType, type Attachment } from "./attachments";
+import { BranchMenu } from "./BranchMenu";
+import { branchLabel, branchMenuPane, closeBranchMenu, openBranchMenu } from "./branch";
 import { DialogMenu, DialogPanel } from "./DialogPanel";
 import { compactionLabel, contextMeter } from "./context";
 import { useClock } from "./clock";
 import { elapsedText } from "./elapsed";
 import { modelLabels } from "./model";
 import { appearance } from "../settings/store";
+import { allPaneIds } from "../panes/agents";
+import { panes } from "../panes/store";
+import { worktreeAt } from "../worktrees/projects";
+import { projects } from "../worktrees/store";
 import { StatusMark } from "../status/StatusMark";
 import { TranscriptFind } from "./TranscriptFind";
 import { finds } from "./find";
@@ -20,12 +26,12 @@ import { CopyButton, Markdown } from "./MarkdownView";
 import { messageTime } from "./messageTime";
 import { Lightbox } from "./Lightbox";
 import { SlashMenu } from "./SlashMenu";
-import { composerKey, composerState, droppedFiles, pickerClick, sendable } from "./composer";
+import { composerKey, composerMenu, composerState, droppedFiles, pickerClick, sendable } from "./composer";
 import { isTicking, subagentLine, subagentSummary } from "./subagents";
 import { completion, slashMenu, slashQuery } from "./slash";
 import { closeLightbox, lightboxes, openLightbox, stepLightbox } from "./viewing";
 import { addPathToDraft, answerDialog, attachFiles, attachments, attachPasted, chatOf, chats, closeSlash, drafts, openPicker, pathDropPane, pickAttachments, removeAttachment, sendMessage, setDraft, slashClosed, startChat, takesAttachments } from "./store";
-import { callTime, isStreaming, queuedImages, stepImages, stepsChanges, stepsSummary, stepsTime, type CompactionMark, type Item, type Message, type SteerImages, type StepGroup } from "./transcript";
+import { anyRunning, callTime, isStreaming, queuedImages, stepImages, stepsChanges, stepsSummary, stepsTime, type CompactionMark, type Item, type Message, type SteerImages, type StepGroup } from "./transcript";
 import "./chat.css";
 
 function SubagentLine({ mark, text }: { mark: SubagentNode["state"]; text: string }) {
@@ -288,6 +294,15 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
   const canSubmit = sendable(canSend, draft, waiting.length);
   const textPercent = appearance.usePart((a) => a.textPercent);
   const dialogOpen = chat.dialog !== null;
+  const branch = projects.usePart((p) => worktreeAt(p, worktree)?.branch ?? null);
+  // A switch changes the folder every pane of the worktree works in, so any running agent locks it.
+  const worktreeBusy = chats.usePart((all) => anyRunning(all, allPaneIds(panes.get()[worktree])));
+  const branchAsked = branchMenuPane.usePart((open) => open === pane);
+  const floating = composerMenu(menu !== null, branchAsked && !worktreeBusy, slashRows.length > 0);
+
+  useEffect(() => {
+    if (worktreeBusy && branchMenuPane.get() === pane) closeBranchMenu();
+  }, [worktreeBusy, pane]);
 
   // The pane under the pointer takes the dropped images; any other file, such as a video, goes into the draft as its path.
   useEffect(() => {
@@ -328,10 +343,19 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
   useEffect(() => {
     if (ready && focused && !dialogOpen) composer.current?.focus();
   }, [ready, focused, dialogOpen]);
+  const closeMenus = () => {
+    closeBranchMenu();
+    if (menu) answerDialog(pane, menu.dialog.id, { kind: "cancelled" });
+  };
   const togglePicker = (command: "/model" | "/thinking", title: string) => {
     const click = pickerClick(menu?.dialog.title ?? null, title);
-    if (menu && click.cancel) answerDialog(pane, menu.dialog.id, { kind: "cancelled" });
+    closeMenus();
     if (click.open) openPicker(pane, command);
+  };
+  const toggleBranch = () => {
+    const open = floating === "branch";
+    closeMenus();
+    if (!open) openBranchMenu(pane);
   };
 
   // Follow the reply while the reader sits at the bottom; reading further up pauses it. A session that opens starts the transcript over and shows its end.
@@ -447,7 +471,8 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
       {composerShown && (
         <div className="chat-composer-anchor">
           {menu && <DialogMenu key={menu.dialog.id} pane={pane} dialog={menu.dialog} options={menu.ask.options} current={menu.ask.current ?? null} filter={menu.ask.filter} />}
-          {!menu && slashRows.length > 0 && <SlashMenu commands={slashRows} query={slashQuery(draft) ?? ""} active={slashAt} onActive={setSlashActive} onPick={pickSlash} onDismiss={() => closeSlash(pane, draft)} />}
+          {floating === "branch" && <BranchMenu worktree={worktree} current={branch} />}
+          {floating === "slash" && <SlashMenu commands={slashRows} query={slashQuery(draft) ?? ""} active={slashAt} onActive={setSlashActive} onPick={pickSlash} onDismiss={() => closeSlash(pane, draft)} />}
           <div className="chat-composer" data-path-drop={pathOver || undefined}>
             {waiting.length > 0 && (
               <div className="chat-attachments">
@@ -483,6 +508,18 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
                   <PaperclipIcon />
                 </button>
               )}
+              <button
+                type="button"
+                className="chat-picker chat-branch"
+                title={worktreeBusy ? "Switch branches after the agent stops" : "Switch Branch"}
+                disabled={worktreeBusy}
+                data-menu-toggle
+                onClick={toggleBranch}
+              >
+                <BranchIcon />
+                <span className="chat-branch-name">{branchLabel(branch)}</span>
+                <ChevronDownIcon />
+              </button>
               {labels && (
                 <div className="chat-pickers">
                   <button type="button" className="chat-picker" title="Model" disabled={!ready} data-menu-toggle onClick={() => togglePicker("/model", "Model")}>

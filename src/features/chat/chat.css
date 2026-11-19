@@ -655,13 +655,14 @@
   flex: none;
 }
 
-/* Nothing in the bar overlaps: as it narrows, the model name ellipsizes, then the context percentage hides (the ring and its tooltip stay), then the thinking level, then the model name. */
+/* Nothing in the bar overlaps: as it narrows, the branch and model names ellipsize, then the branch name and the context percentage hide (the icons, the ring and their tooltips stay), then the thinking level, then the model name. */
 .chat-composer-bar {
   container-type: inline-size;
 }
 
 @container (max-width: 300px) {
-  .chat-context-percent {
+  .chat-context-percent,
+  .chat-branch-name {
     display: none;
   }
 }
@@ -731,6 +732,29 @@
 
 .chat-picker:disabled {
   color: var(--ink-disabled);
+}
+
+.chat-branch {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 6px;
+  max-width: 40%;
+}
+
+.chat-branch > svg {
+  flex: none;
+  color: var(--ink-muted);
+}
+
+.chat-branch:disabled > svg {
+  color: var(--ink-disabled);
+}
+
+.chat-branch-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .chat-context {
@@ -1065,6 +1089,42 @@
 .chat-slash-option[data-active] .chat-slash-description,
 .chat-slash-option[data-active] .chat-slash-source {
   color: var(--ink-secondary);
+}
+
+.chat-dialog-option[aria-disabled="true"] {
+  color: var(--ink-disabled);
+}
+
+.chat-dialog-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A row's meta line, as the slash menu's source label, with a slot for the check so every line ends on one edge. */
+.chat-dialog-meta {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  font-size: calc(12px * var(--text-scale));
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.chat-dialog-meta .chat-dialog-current {
+  width: 16px;
+}
+
+.chat-dialog-option[data-active] .chat-dialog-meta {
+  color: var(--ink-secondary);
+}
+
+.chat-dialog-option[aria-disabled="true"] .chat-dialog-meta {
+  color: var(--ink-disabled);
 }
 
 .chat-dialog-current {

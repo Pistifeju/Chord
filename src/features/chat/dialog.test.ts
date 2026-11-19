@@ -4,8 +4,8 @@ import { test } from "node:test";
 import { matchingOptions, typedIndex } from "./dialog.ts";
 
 test("a query keeps the options that contain it, in order and ignoring case", () => {
-  assert.deepEqual(matchingOptions(["Claude Opus", "GPT-5", "claude Haiku"], " CLAUDE "), ["Claude Opus", "claude Haiku"]);
-  assert.deepEqual(matchingOptions(["a", "b"], ""), ["a", "b"]);
+  assert.deepEqual(matchingOptions(["Claude Opus", "GPT-5", "claude Haiku"], " CLAUDE "), [0, 2]);
+  assert.deepEqual(matchingOptions(["a", "b"], ""), [0, 1]);
 });
 
 test("typing jumps to an option whose word starts with it, else one that contains it", () => {

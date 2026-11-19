@@ -115,7 +115,7 @@ Edge cases:
 - [x] E17 harness(chat): hovering a message shows a copy button and the time it was sent under it; history keeps the saved times.
 - [x] E18 harness(chat): a step group names what it did by kind ("2 searches, edited 2 files, ran 4 commands") and the lines its finished edits and writes added and removed ("+43 −5"); history keeps them.
 - [x] E20 core: a user message longer than 12 lines folds with Show more / Show less; ⌘F unfolds it.
-- [ ] E14 core: branch button in the composer: local branches newest first, switch, New Branch; branches another worktree holds stay disabled; locked while the agent runs.
+- [x] E14 core: branch button in the composer: local branches newest first, switch, a Filter field from five branches; branches another worktree holds stay disabled; locked while the agent runs.
 
 Edge cases:
 - Split harness output on LF only; JSON strings may hold U+2028.

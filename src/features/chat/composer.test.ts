@@ -36,7 +36,7 @@ test("a drop attaches images while the chat takes them and writes other paths, q
 });
 
 test("a picker button closes its own picker and swaps from the other one", () => {
-  assert.deepEqual(pickerClick("Model", "Model"), { cancel: true, open: false });
-  assert.deepEqual(pickerClick("Thinking", "Model"), { cancel: true, open: true });
-  assert.deepEqual(pickerClick(null, "Model"), { cancel: false, open: true });
+  assert.deepEqual(pickerClick("Model", "Model"), { open: false });
+  assert.deepEqual(pickerClick("Thinking", "Model"), { open: true });
+  assert.deepEqual(pickerClick(null, "Model"), { open: true });
 });

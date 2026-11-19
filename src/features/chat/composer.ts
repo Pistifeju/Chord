@@ -1,4 +1,4 @@
-// Rules for the composer: whether it shows and steers, whether a send goes through, what a key does in it, where dropped files go and what a picker button does.
+// Rules for the composer: whether it shows and steers, whether a send goes through, what a key does in it, where dropped files go, what a picker button does and which menu floats above it.
 import type { SlashCommand } from "../../ipc/bindings";
 import { steppedIndex } from "../../ui/listStep.ts";
 import { imageMime } from "./attachments.ts";
@@ -43,5 +43,9 @@ export function droppedFiles(paths: string[], canAttach: boolean): { attach: str
   };
 }
 
-/** What a picker button does: the open picker's button closes it, the other picker's button swaps to its own. A picker's dialog title is its button's title. */
-export const pickerClick = (openTitle: string | null, title: string) => ({ cancel: openTitle !== null, open: openTitle !== title });
+/** What a picker button does once the open menus close: the open picker's button leaves it closed, the other picker's button opens its own. A picker's dialog title is its button's title. */
+export const pickerClick = (openTitle: string | null, title: string) => ({ open: openTitle !== title });
+
+/** The one menu floating above the composer: an open picker first, then the branch menu, then the slash menu. */
+export const composerMenu = (picker: boolean, branch: boolean, slash: boolean): "picker" | "branch" | "slash" | null =>
+  picker ? "picker" : branch ? "branch" : slash ? "slash" : null;

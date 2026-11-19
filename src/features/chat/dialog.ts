@@ -1,9 +1,9 @@
 // Rules for a select dialog: which options match, where the highlight starts and where typing moves it.
 
-/** The options that contain the query, ignoring case, in their order. */
-export function matchingOptions(options: string[], query: string): string[] {
+/** The indexes of the options that contain the query, ignoring case, in their order. */
+export function matchingOptions(options: string[], query: string): number[] {
   const needle = query.trim().toLowerCase();
-  return needle ? options.filter((option) => option.toLowerCase().includes(needle)) : options;
+  return options.flatMap((option, at) => (option.toLowerCase().includes(needle) ? [at] : []));
 }
 
 /** Where the highlight starts: on the current option, else the first. */

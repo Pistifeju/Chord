@@ -1,9 +1,11 @@
-//! Commands for projects and their worktrees: add, remove, list, create, rename the branch, delete, git counts.
+//! Commands for projects and their worktrees: add, remove, list, create, rename the branch, list the local branches and switch to one, delete, git counts.
 
 use std::path::PathBuf;
 
 use chord_core::{
-    Error, GitCounts, Project, Removal, Store, Worktree, git_counts, projects, worktrees,
+    Error, GitCounts, Project, Removal, Store, Worktree,
+    branches::{self, LocalBranch},
+    git_counts, projects, worktrees,
 };
 use tauri::AppHandle;
 use tauri_plugin_dialog::DialogExt;
@@ -104,6 +106,22 @@ pub async fn rename_branch(
         worktrees::rename_branch(&projects::find(store, &project)?, &worktree, &name)
     })
     .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn list_branches(app: AppHandle, worktree: PathBuf) -> Result<Vec<LocalBranch>, String> {
+    blocking(app, move |_, _| branches::list(&worktree)).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn switch_branch(
+    app: AppHandle,
+    worktree: PathBuf,
+    branch: String,
+) -> Result<(), String> {
+    blocking(app, move |_, _| branches::switch(&worktree, &branch)).await
 }
 
 #[tauri::command]
