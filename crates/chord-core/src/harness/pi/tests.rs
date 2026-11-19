@@ -205,7 +205,7 @@ fn an_expanded_skill_shows_as_the_command_the_user_typed() {
 
 #[test]
 fn the_command_list_becomes_slash_commands() {
-    let record = r#"{"type":"response","command":"get_commands","success":true,"data":{"commands":[{"name":"skill:deploy","description":"Ship it","source":"skill"},{"name":"compact","source":"extension"},{"name":"chord-resume","source":"extension"},{"name":"review","source":"prompt","sourceInfo":{"source":"npm:@acme/pi-tools@1.2.0","origin":"package"}}]}}"#;
+    let record = r#"{"type":"response","command":"get_commands","success":true,"data":{"commands":[{"name":"skill:deploy","description":"Ship it","source":"skill"},{"name":"compact","source":"extension"},{"name":"chord-resume","source":"extension"},{"name":"review","source":"prompt","sourceInfo":{"source":"npm:@acme/pi-tools@1.2.0","origin":"package"}},{"name":"ship","source":"extension","sourceInfo":{"source":"https://github.com/acme/pi-ship.git","origin":"package"}}]}}"#;
     let HarnessEvent::Commands { commands } = &events(record)[0] else {
         panic!("no command list");
     };
@@ -233,6 +233,12 @@ fn the_command_list_becomes_slash_commands() {
                 description: "".into(),
                 kind: SlashKind::Prompt,
                 origin: Some("pi-tools".into())
+            },
+            &SlashCommand {
+                name: "ship".into(),
+                description: "".into(),
+                kind: SlashKind::Extension,
+                origin: Some("pi-ship".into())
             }
         ]
     );

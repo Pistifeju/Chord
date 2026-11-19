@@ -1,6 +1,6 @@
 // The subagent lines' text: a run's name, tool and time joined, the summary of several runs, and when the time ticks.
 import type { SubagentNode } from "../../ipc/bindings";
-import { elapsedText } from "./elapsed";
+import { elapsedText } from "./elapsed.ts";
 
 function subagentElapsed(node: SubagentNode, now: number): string | null {
   if (node.started_at == null) return null;
