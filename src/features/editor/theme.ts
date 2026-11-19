@@ -10,7 +10,8 @@ const surface = EditorView.theme({
   ".cm-content": { caretColor: "var(--accent-ink)", padding: "8px 0" },
   ".cm-cursor": { borderLeftColor: "var(--accent-ink)" },
   // Its own layer: WebKit otherwise paints the sticky gutter late on a sideways scroll and the text shows through.
-  ".cm-gutters": { backgroundColor: "var(--canvas)", color: "var(--ink-disabled)", border: "none", transform: "translateZ(0)" },
+  // The shadow covers the strip at its left that WebKit leaves open while the sticky gutter catches up.
+  ".cm-gutters": { backgroundColor: "var(--canvas)", color: "var(--ink-disabled)", border: "none", transform: "translateZ(0)", boxShadow: "-16px 0 0 var(--canvas)" },
   ".cm-activeLineGutter": { backgroundColor: "transparent", color: "var(--ink-secondary)" },
   ".cm-selectionBackground, &.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground": { backgroundColor: "var(--editor-selection)" },
   ".cm-activeLine": { backgroundColor: "var(--editor-line)" },
