@@ -83,6 +83,7 @@
 
   font-family: var(--font-ui);
   --text-scale: 1;
+  --editor-font-size: 12px;
   font-size: calc(13px * var(--text-scale));
   line-height: 1.45;
   color: var(--ink);

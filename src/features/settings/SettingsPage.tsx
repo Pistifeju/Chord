@@ -8,7 +8,7 @@ import { recordedShortcut } from "../../app/shortcuts";
 import { Row } from "../../ui/Row";
 import { onOff, Segmented } from "../../ui/Segmented";
 import { AppearanceIcon, CloseIcon, KeyboardIcon, MinusIcon, PhoneIcon, PlusIcon, SlidersIcon } from "../../ui/icons";
-import { appearance, changeTerminalFontSize, changeTextSize, closeSettings, keepAwake, linksInDefaultBrowser, muteNotifications, setKeepAwake, setLinksInDefaultBrowser, setMuteNotifications, setTheme, settingsSection, shortcutChanges, type SettingsSection } from "./store";
+import { appearance, changeFontSize, changeTextSize, closeSettings, keepAwake, linksInDefaultBrowser, muteNotifications, setKeepAwake, setLinksInDefaultBrowser, setMuteNotifications, setTheme, settingsSection, shortcutChanges, type FontSizeSetting, type SettingsSection } from "./store";
 import "./settings.css";
 
 // A press on the blurred window closes Settings on release; moving first drags the window instead.
@@ -105,7 +105,7 @@ function General({ buildDataSize }: { buildDataSize: ReactNode }) {
 }
 
 function Appearance() {
-  const { theme, textPercent, terminalFontSize } = appearance.use();
+  const { theme, textPercent } = appearance.use();
   return (
     <>
       <Group heading="Window">
@@ -127,20 +127,30 @@ function Appearance() {
           </div>
         </Row>
       </Group>
+      <Group heading="Editor">
+        <FontSizeRow setting="editorFontSize" area="editor" description="The size of code in the editor and in diffs, in pixels." />
+      </Group>
       <Group heading="Terminal">
-        <Row title="Font size" description={<p className="settings-description">The size of the terminal's text, in pixels.</p>}>
-          <div className="settings-stepper">
-            <button type="button" className="button-secondary settings-step" aria-label="Decrease terminal font size" onClick={() => changeTerminalFontSize(-1)}>
-              <MinusIcon />
-            </button>
-            <span className="settings-value">{terminalFontSize}</span>
-            <button type="button" className="button-secondary settings-step" aria-label="Increase terminal font size" onClick={() => changeTerminalFontSize(1)}>
-              <PlusIcon />
-            </button>
-          </div>
-        </Row>
+        <FontSizeRow setting="terminalFontSize" area="terminal" description="The size of the terminal's text, in pixels." />
       </Group>
     </>
+  );
+}
+
+function FontSizeRow({ setting, area, description }: { setting: FontSizeSetting; area: string; description: string }) {
+  const size = appearance.use()[setting];
+  return (
+    <Row title="Font size" description={<p className="settings-description">{description}</p>}>
+      <div className="settings-stepper">
+        <button type="button" className="button-secondary settings-step" aria-label={`Decrease ${area} font size`} onClick={() => changeFontSize(setting, -1)}>
+          <MinusIcon />
+        </button>
+        <span className="settings-value">{size}</span>
+        <button type="button" className="button-secondary settings-step" aria-label={`Increase ${area} font size`} onClick={() => changeFontSize(setting, 1)}>
+          <PlusIcon />
+        </button>
+      </div>
+    </Row>
   );
 }
 

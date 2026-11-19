@@ -134,6 +134,7 @@ pub enum StateChange {
     Theme(Theme),
     TextPercent(u8),
     TerminalFontSize(u8),
+    EditorFontSize(u8),
     MuteNotifications(bool),
     LinksInDefaultBrowser(bool),
     Shortcuts(BTreeMap<String, Option<Shortcut>>),
@@ -191,6 +192,7 @@ impl State {
             StateChange::Theme(theme) => self.appearance.theme = theme,
             StateChange::TextPercent(percent) => self.appearance.text_percent = percent,
             StateChange::TerminalFontSize(size) => self.appearance.terminal_font_size = size,
+            StateChange::EditorFontSize(size) => self.appearance.editor_font_size = size,
             StateChange::MuteNotifications(mute) => self.mute_notifications = mute,
             StateChange::LinksInDefaultBrowser(outside) => self.links_in_default_browser = outside,
             StateChange::Shortcuts(shortcuts) => self.shortcuts = shortcuts,
@@ -363,6 +365,8 @@ pub struct Appearance {
     pub text_percent: u8,
     /// In pixels.
     pub terminal_font_size: u8,
+    /// In pixels.
+    pub editor_font_size: u8,
 }
 
 impl Default for Appearance {
@@ -371,6 +375,7 @@ impl Default for Appearance {
             theme: Theme::default(),
             text_percent: 100,
             terminal_font_size: 12,
+            editor_font_size: 12,
         }
     }
 }

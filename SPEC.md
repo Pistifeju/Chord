@@ -20,6 +20,7 @@ Tags:
 - [x] A3 One commands table drives shortcuts, menu accelerators and tooltips.
 - [x] A5 Light / dark / system theme; text size (⌘=, ⌘-, ⌘0). Settings rows for both.
 - [x] A6 Restores the open project and worktree on launch.
+- [x] A7 Settings row: editor font size, for the editor and diffs.
 
 Containers. The first feature that puts something in one builds it:
 
@@ -29,7 +30,7 @@ Containers. The first feature that puts something in one builds it:
 | Side panel | One panel right of the panes, one view at a time; resizable; width, open state and shown view remembered per worktree | F1 Files, I1 Simulator, J1 Preview, M1 Changes |
 | Bottom panel | Resizable, the terminal with the run's view in a column beside it; open state and shown view remembered per worktree | G1 terminal, H3 build log and console |
 | Status bar | Strip at the bottom of the window | E11 usage, H5 running simulators |
-| Settings panel (⌘,) | A panel over the blurred window: a section list (General, Appearance, Shortcuts) and grouped rows | A5, D4, D5, G1, H5, H11, K1 |
+| Settings panel (⌘,) | A panel over the blurred window: a section list (General, Appearance, Shortcuts) and grouped rows | A5, A7, D4, D5, G1, H5, H11, K1 |
 
 Edge cases:
 - The window opens centered on the screen under the cursor.

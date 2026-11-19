@@ -4,7 +4,7 @@ import { EditorView } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
 
 const surface = EditorView.theme({
-  "&": { height: "100%", color: "var(--ink)", backgroundColor: "var(--canvas)", fontSize: "12px" },
+  "&": { height: "100%", color: "var(--ink)", backgroundColor: "var(--canvas)", fontSize: "var(--editor-font-size)" },
   "&.cm-focused": { outline: "none" },
   ".cm-scroller": { fontFamily: "var(--font-code)", lineHeight: "1.45" },
   ".cm-content": { caretColor: "var(--accent-ink)", padding: "8px 0" },

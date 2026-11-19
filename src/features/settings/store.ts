@@ -1,10 +1,10 @@
-// The theme, the text size, the terminal font size, keep-awake, notifications, where links open, the changed shortcuts, whether the Settings page is open and the section it opens on. The first six are saved through Rust; the theme and text size are applied to the document.
+// The theme, the text size, the terminal and editor font sizes, keep-awake, notifications, where links open, the changed shortcuts, whether the Settings page is open and the section it opens on. The first eight are saved through Rust; the theme, the text size and the editor font size are applied to the document.
 import { commands, type Appearance_Serialize as Appearance, type Theme } from "../../ipc/bindings";
 import type { ShortcutChanges } from "../../app/shortcuts";
 import { externalStore } from "../../ui/externalStore";
-import { defaultTextPercent, shownTheme, steppedTerminalFontSize, steppedTextPercent } from "./appearance";
+import { defaultTextPercent, shownTheme, steppedFontSize, steppedTextPercent } from "./appearance";
 
-export const appearance = externalStore<Appearance>({ theme: "system", textPercent: defaultTextPercent, terminalFontSize: 12 });
+export const appearance = externalStore<Appearance>({ theme: "system", textPercent: defaultTextPercent, terminalFontSize: 12, editorFontSize: 12 });
 export const keepAwake = externalStore(false);
 export const muteNotifications = externalStore(false);
 export const linksInDefaultBrowser = externalStore(false);
@@ -16,10 +16,11 @@ export const settingsSection = externalStore<SettingsSection>("general");
 
 const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
 
-function apply({ theme, textPercent }: Appearance) {
+function apply({ theme, textPercent, editorFontSize }: Appearance) {
   const root = document.documentElement;
   root.dataset.theme = shownTheme(theme, systemDark.matches);
   root.style.setProperty("--text-scale", String(textPercent / 100));
+  root.style.setProperty("--editor-font-size", `${editorFontSize}px`);
 }
 
 document.documentElement.dataset.theme = shownTheme("system", systemDark.matches);
@@ -41,10 +42,12 @@ export function changeTextSize(direction: "larger" | "smaller" | "reset") {
   commands.changeState({ textPercent }).catch(console.error);
 }
 
-export function changeTerminalFontSize(step: 1 | -1) {
-  const terminalFontSize = steppedTerminalFontSize(appearance.get().terminalFontSize, step);
-  appearance.set({ ...appearance.get(), terminalFontSize });
-  commands.changeState({ terminalFontSize }).catch(console.error);
+export type FontSizeSetting = "terminalFontSize" | "editorFontSize";
+
+export function changeFontSize(setting: FontSizeSetting, step: 1 | -1) {
+  const size = steppedFontSize(appearance.get()[setting], step);
+  loadAppearance({ ...appearance.get(), [setting]: size });
+  commands.changeState(setting === "terminalFontSize" ? { terminalFontSize: size } : { editorFontSize: size }).catch(console.error);
 }
 
 export function setMuteNotifications(mute: boolean) {

@@ -1,4 +1,4 @@
-// Rules for the text size and terminal font size steps and which theme the window shows.
+// Rules for the text size and the terminal and editor font size steps and which theme the window shows.
 import type { Theme } from "../../ipc/bindings";
 
 export const defaultTextPercent = 100;
@@ -12,10 +12,10 @@ export function steppedTextPercent(current: number, direction: "larger" | "small
   return Math.min(maxTextPercent, Math.max(minTextPercent, next));
 }
 
-const minTerminalFontSize = 9;
-const maxTerminalFontSize = 24;
+const minFontSize = 9;
+const maxFontSize = 24;
 
-export const steppedTerminalFontSize = (current: number, step: 1 | -1) => Math.min(maxTerminalFontSize, Math.max(minTerminalFontSize, current + step));
+export const steppedFontSize = (current: number, step: 1 | -1) => Math.min(maxFontSize, Math.max(minFontSize, current + step));
 
 export function shownTheme(theme: Theme, systemIsDark: boolean): "light" | "dark" {
   return theme === "system" ? (systemIsDark ? "dark" : "light") : theme;
