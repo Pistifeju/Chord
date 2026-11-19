@@ -1,7 +1,7 @@
 //! Commands for the app itself: quit it with its agents and shells, keep the Mac awake, open a chat link.
 
-use serde::Serialize;
 use chord_core::harness::sessions::Sessions;
+use serde::Serialize;
 use tauri::{AppHandle, Manager};
 
 use super::blocking;

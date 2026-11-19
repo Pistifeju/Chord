@@ -3,10 +3,10 @@
 mod dtuhid;
 mod indigo;
 
+use chord_core::Error;
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
 use serde::Deserialize;
-use chord_core::Error;
 use specta::Type;
 
 use crate::simulator;

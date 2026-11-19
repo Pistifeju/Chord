@@ -5,8 +5,8 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::SystemTime;
 
-use serde::Serialize;
 use chord_core::Error;
+use serde::Serialize;
 use specta::Type;
 
 use crate::simulator;

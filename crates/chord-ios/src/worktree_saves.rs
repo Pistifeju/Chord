@@ -9,8 +9,8 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
-use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use chord_core::Error;
+use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 
 /// An editor's save, its temporary file and rename, lands within a few milliseconds.
 const BURST: Duration = Duration::from_millis(75);

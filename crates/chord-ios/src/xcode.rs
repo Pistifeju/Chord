@@ -7,9 +7,9 @@ use std::process::Stdio;
 use std::sync::Mutex;
 use std::time::SystemTime;
 
+use chord_core::{Error, lock, login_shell, xcode_bundles};
 use serde::Serialize;
 use serde_json::Value;
-use chord_core::{Error, lock, login_shell, xcode_bundles};
 use specta::Type;
 
 use crate::derived_data::LSOF;

@@ -5,10 +5,10 @@ use std::io::ErrorKind;
 use std::path::Path;
 use std::process::Command;
 
+use chord_core::Error;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use chord_core::Error;
 use specta::Type;
 
 use crate::simulator::{self, DeviceSet};

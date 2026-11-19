@@ -476,6 +476,56 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4e7648175b45a9a48536d676f68d918270699102aa8dab5496df06904c914600"
 
 [[package]]
+name = "chord"
+version = "0.1.0"
+dependencies = [
+ "chord-core",
+ "chord-ios",
+ "drag",
+ "serde",
+ "specta",
+ "specta-typescript",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-notification",
+ "tauri-specta",
+]
+
+[[package]]
+name = "chord-core"
+version = "0.1.0"
+dependencies = [
+ "base64 0.23.1",
+ "libc",
+ "objc2-foundation",
+ "serde",
+ "serde_json",
+ "specta",
+]
+
+[[package]]
+name = "chord-ios"
+version = "0.1.0"
+dependencies = [
+ "block2",
+ "chord-core",
+ "dispatch2",
+ "libc",
+ "md-5",
+ "notify",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-core-foundation",
+ "objc2-core-graphics",
+ "objc2-foundation",
+ "objc2-quartz-core",
+ "serde",
+ "serde_json",
+ "specta",
+]
+
+[[package]]
 name = "chrono"
 version = "0.4.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3399,56 +3449,6 @@ dependencies = [
  "cfg-if",
  "cpufeatures",
  "digest",
-]
-
-[[package]]
-name = "chord"
-version = "0.1.0"
-dependencies = [
- "drag",
- "serde",
- "chord-core",
- "chord-ios",
- "specta",
- "specta-typescript",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-notification",
- "tauri-specta",
-]
-
-[[package]]
-name = "chord-core"
-version = "0.1.0"
-dependencies = [
- "base64 0.23.1",
- "libc",
- "objc2-foundation",
- "serde",
- "serde_json",
- "specta",
-]
-
-[[package]]
-name = "chord-ios"
-version = "0.1.0"
-dependencies = [
- "block2",
- "dispatch2",
- "libc",
- "md-5",
- "notify",
- "objc2",
- "objc2-app-kit",
- "objc2-core-foundation",
- "objc2-core-graphics",
- "objc2-foundation",
- "objc2-quartz-core",
- "serde",
- "serde_json",
- "chord-core",
- "specta",
 ]
 
 [[package]]

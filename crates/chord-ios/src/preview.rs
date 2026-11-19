@@ -9,9 +9,9 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock, mpsc};
 use std::time::{Duration, Instant};
 
+use chord_core::{Error, PreviewPick, login_shell};
 use serde::Serialize;
 use serde_json::{Value, json};
-use chord_core::{Error, PreviewPick, login_shell};
 use specta::Type;
 
 use crate::derived_data::path_hash;

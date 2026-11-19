@@ -11,8 +11,8 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use serde::Serialize;
 use chord_core::{Error, RunDestination, SchemePick, login_shell};
+use serde::Serialize;
 use specta::Type;
 
 use crate::capacity::{self, Booted};

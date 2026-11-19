@@ -2,12 +2,12 @@
 
 use std::path::PathBuf;
 
-use serde::Serialize;
 use chord_core::{Error, StateChange};
 use chord_ios::{
     Bezel, Button, Input, RunningSimulator, ScreenButtons, ScreenRect, ScreenState, Screenshot,
     ServiceRow, SimulatorAppearance, SimulatorAppearanceChange,
 };
+use serde::Serialize;
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Webview, Window};
 use tauri_plugin_dialog::DialogExt;
@@ -162,10 +162,7 @@ pub async fn press_simulator_button(
 ) -> Result<(), String> {
     let (sent, run) = std::sync::mpsc::channel();
     app.run_on_main_thread(move || {
-        let _ = sent.send(chord_ios::send_input(
-            &worktree,
-            Input::Button { button },
-        ));
+        let _ = sent.send(chord_ios::send_input(&worktree, Input::Button { button }));
     })
     .map_err(|error| error.to_string())?;
     tauri::async_runtime::spawn_blocking(move || match run.recv() {

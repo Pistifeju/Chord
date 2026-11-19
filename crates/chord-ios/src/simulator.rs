@@ -7,8 +7,8 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
-use serde_json::Value;
 use chord_core::{Error, login_shell};
+use serde_json::Value;
 
 use crate::console::{self, ConsoleTone};
 use crate::derived_data;
@@ -566,10 +566,7 @@ mod tests {
 
     #[test]
     fn names_the_simulator_by_folder_and_six_letters_of_the_path_hash() {
-        assert_eq!(
-            name_of(Path::new("/tmp/Example")),
-            "Chord Example euhuvy"
-        );
+        assert_eq!(name_of(Path::new("/tmp/Example")), "Chord Example euhuvy");
     }
 
     #[test]

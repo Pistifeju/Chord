@@ -3,9 +3,9 @@
 use std::fs;
 use std::sync::atomic::{AtomicU32, Ordering};
 
+use chord_core::{Error, RunDestination};
 use serde::Serialize;
 use serde_json::Value;
-use chord_core::{Error, RunDestination};
 use specta::Type;
 
 use crate::process::xcrun;

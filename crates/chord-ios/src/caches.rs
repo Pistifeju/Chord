@@ -5,8 +5,8 @@ use std::fs;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 
-use serde::Serialize;
 use chord_core::{Error, Project, worktrees};
+use serde::Serialize;
 use specta::Type;
 
 use crate::derived_data;
