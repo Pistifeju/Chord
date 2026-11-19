@@ -37,7 +37,7 @@ src/
   ui/                          icons, shared controls, tokens.css
 ```
 
-Feature folders follow the areas of `SPEC.md`: `sidebar`, `worktrees`, `panes`, `status`, `chat`, `files`, `terminal`, `settings`, `onboarding`. A folder appears with its first feature.
+Feature folders: `sidebar`, `worktrees`, `panes`, `status`, `chat`, `files`, `terminal`, `settings`, `onboarding`. A folder appears with its first feature.
 
 ## 3. Rust
 

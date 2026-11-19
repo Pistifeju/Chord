@@ -43,7 +43,7 @@ pub struct ServiceGroup {
     pub name: &'static str,
     /// What stops working while the whole group is off.
     pub effect: &'static str,
-    /// Whether its subgroups start on: App Store, Push & Media (L3) and Safari Sync & Web Services (L2 universal links).
+    /// Whether its subgroups start on: App Store, Push & Media and Safari Sync & Web Services (universal links).
     pub kept_by_default: bool,
     pub(crate) subgroups: &'static [Subgroup],
 }

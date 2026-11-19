@@ -4,7 +4,7 @@ description: "Implement one ticket end to end with a fixed chain of subagents: i
 disable-model-invocation: true
 ---
 
-You are the main agent. You write no code yourself. You run three subagent steps one after another and report to the user. The user names the ticket and its source (a file, a `SPEC.md` row, an issue text, a link).
+You are the main agent. You write no code yourself. You run three subagent steps one after another and report to the user. The user names the ticket and its source (a file, an issue text, a link).
 
 ## 1. Pin the ticket
 
@@ -37,7 +37,7 @@ Another harness: pick its closest equivalent of the tier. The reviewer needs she
 ### A. Implement, polish, animate
 
 - One Writer runs all three parts in one context, in this order, so it reuses the files it already read.
-- Part 1, implement: implement the ticket. Tick the feature in `SPEC.md`.
+- Part 1, implement: implement the ticket.
 - Part 2, polish: the one skip condition is that part 1 touched no `.tsx` or `.css` file under `src/`; name it when you skip. Otherwise read `.agents/skills/polish-ui/SKILL.md` in full and run every step on the target its step 1 pins (no target named: the skill takes it from `git diff HEAD` and untracked files). Evidence: the target file list, then for layout, typeset, polish and the drift sweep, each finding with file and selector, or `none` with the files checked.
 - Part 3, animations: the one skip condition is a grep of the changed files for `transition`, `animation`, `@keyframes`, `transform` and `--ease` that returns no hit; name the grep and its empty result when you skip. Otherwise read `.agents/skills/improve-animations/SKILL.md` and `AUDIT.md` in full and run the skill, limited to the motion code in the changed files (`git diff HEAD --name-only` plus untracked files). Name that file list to the skill so it does not answer with its greeting. Evidence: the file list, then each finding with file and line, or `none` with the files checked.
 - Return the list of changed files, the evidence of parts 2 and 3, the findings it did not fix, and one `npm run check` result at the end.
@@ -61,7 +61,7 @@ Answer in this order:
 1. Verdict: did the reviewer find anything? Yes or no, with the count per axis, and how many it fixed.
 2. What now works: the ticket's behavior in concrete terms, and the changed files.
 3. Each step: done, skipped (why) or failed (why), and the `npm run check` result of every editing step.
-4. Decisions needed: every `needs decision` finding under its own heading, ranked, the top one first. Give each its id, file and line, the question, then 2-3 lines that explain it to someone who has not read the code: what the code does now, what each answer would change for the user, and which ticket or behavior it blocks (an unticked or early-ticked `SPEC.md` row, for example). Close each with your recommendation in one line.
+4. Decisions needed: every `needs decision` finding under its own heading, ranked, the top one first. Give each its id, file and line, the question, then 2-3 lines that explain it to someone who has not read the code: what the code does now, what each answer would change for the user, and which ticket or behavior it blocks. Close each with your recommendation in one line.
 5. Fixed findings: a separate short list, ranked, each with id, file, line and who fixed it (B or C), plus any known flaw of the fix. Fixes from C had no review: say so once, above the list.
 6. Findings from polish and animations that nobody fixed.
 

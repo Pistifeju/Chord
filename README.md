@@ -2,7 +2,7 @@
 
 A macOS workspace for coding agents. Each task gets its own git worktree, and each worktree gets its own agent chats. Chord works with any git repo; a worktree with an Xcode project also gets build, run, simulator and SwiftUI preview tools.
 
-Chord is in early development. `SPEC.md` lists the features and marks the ones that work.
+Chord is in early development.
 
 ## Requirements
 

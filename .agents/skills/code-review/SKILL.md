@@ -35,7 +35,7 @@ Take the first source that exists:
 
 1. A path, issue, or description the user gave in this conversation.
 2. Issue references in the commit messages or branch name (`#123`, `Closes #45`). Fetch them with `gh issue view <n>` when `gh` is installed.
-3. A spec file in the repo matching the feature or branch name: `SPEC.md`, or files under `docs/`, `specs/`, `.scratch/`.
+3. A spec file in the repo matching the feature or branch name, under `docs/`, `specs/`, `.scratch/`.
 4. Ask the user. If they say no spec exists, skip the Spec axis.
 
 ## 3. Find the standards

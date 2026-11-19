@@ -2,7 +2,7 @@
 
 A macOS workspace for coding agents: one git worktree per task, each with its own agent chats. Tauri 2, Rust, React/TS.
 
-- Scope and tickets: `SPEC.md`. A ticket is one `- [ ]` row, named by its id (`D1`, `E2`). Architecture: `ARCHITECTURE.md`. UI rules: `DESIGN.md`.
+- Architecture: `ARCHITECTURE.md`. UI rules: `DESIGN.md`.
 - Module map: `npm run map` prints every source file with its line 1, which says what the file holds. Run it first when you look for code, then read only the files you need, by name.
 
 ## Boundaries
@@ -47,12 +47,11 @@ Never test copy, CSS classes, constants, third-party libraries, private state, t
 - New Tauri command: a function in `src-tauri/src/commands/<area>.rs`, one line in the command list in `lib.rs`, then regenerate the bindings.
 - New shortcut or menu item: one entry in the feature's commands, listed in `src/app/commands.ts`.
 - New harness: implement `Agent` in `crates/chord-core/src/harness/<name>/` and add one arm to `harness::start`.
-- New harness capability: a variant in `Capability`, emit it in `harness/pi/`, check it in the view, add a row to `SPEC.md`.
+- New harness capability: a variant in `Capability`, emit it in `harness/pi/`, check it in the view.
 
 ## Done
 
 - `npm run check` passes. It prints one `step=<name> exit=<code>` line per step and the path of its own log; read the log only for a step that is not 0. Never report a check you did not run.
 - Run `npm run check` once, after your last code edit. A commit request alone needs no check.
 - Skip visual checks: no screenshots, no launching the app to look at the UI. The user checks it.
-- `SPEC.md` ticks the feature in the same commit.
 - Commit messages: `type(area): what changed`, lower case. Types: `feat`, `fix`, `perf`, `refactor`, `test`, `docs`, `chore`. The area is a feature folder (`sidebar`, `chat`, `ios`, ...) and may be left out: `docs: add the harness contract`.
