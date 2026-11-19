@@ -52,7 +52,7 @@ export function previewLine(preview: Preview | undefined): string | null {
 }
 
 /** The macro's name, an unnamed one by its place in its file. */
-export const previewName = (pick: PreviewPick): string => pick.name ?? `Preview ${pick.index + 1}`;
+const previewName = (pick: PreviewPick): string => pick.name ?? `Preview ${pick.index + 1}`;
 
 /** `Views/ContentView.swift#1`: the list row's path. */
 export const previewKey = (pick: PreviewPick): string => `${pick.file}#${pick.index}`;
@@ -61,7 +61,7 @@ export const previewKey = (pick: PreviewPick): string => `${pick.file}#${pick.in
 export type PreviewRow = Row & { pick: PreviewPick | null };
 
 /** The previews whose name or file holds the query, ignoring case, in their file order. */
-export function matchingPreviews(all: PreviewPick[], query: string): PreviewPick[] {
+function matchingPreviews(all: PreviewPick[], query: string): PreviewPick[] {
   const needle = query.trim().toLowerCase();
   return all.filter((pick) => `${previewName(pick)} ${pick.file}`.toLowerCase().includes(needle));
 }

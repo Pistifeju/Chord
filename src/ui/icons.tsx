@@ -28,13 +28,6 @@ export const ChevronDownIcon = () => (
   </Icon>
 );
 
-export const SidePanelIcon = () => (
-  <Icon>
-    <rect x="1.75" y="2.75" width="12.5" height="10.5" rx="2.25" />
-    <path d="M10 2.75v10.5" />
-  </Icon>
-);
-
 export const ArrowUpIcon = ({ size }: { size?: number }) => (
   <Icon size={size}>
     <path d="M8 13V3M3.5 7.5L8 3l4.5 4.5" strokeWidth="1.8" />
