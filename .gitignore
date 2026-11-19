@@ -11,3 +11,4 @@ src-tauri/gen/schemas
 .impeccable/
 .pi/*
 !.pi/prompts/
+!.pi/extensions/
