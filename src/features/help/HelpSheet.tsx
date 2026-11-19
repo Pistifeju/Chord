@@ -9,7 +9,7 @@ import { statusLabel } from "../status/status";
 import "./help.css";
 
 const terms = [
-  { name: "Project", text: "A git repository you added." },
+  { name: "Project", text: "A git repository or a plain folder you added." },
   { name: "Worktree", text: "A checkout of the project on its own branch. Give each task its own, and its agents never touch another task's files." },
   { name: "Session", text: "An agent chat inside a worktree. A worktree holds as many as you open." },
 ];

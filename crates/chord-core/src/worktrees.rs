@@ -1,4 +1,4 @@
-//! A project's worktrees, read from `git worktree list`.
+//! A project's worktrees, read from `git worktree list`, or a plain folder's single card.
 
 use std::path::{Path, PathBuf};
 
@@ -14,6 +14,8 @@ pub struct Worktree {
     pub branch: Option<String>,
     /// The folder holds an Xcode project or workspace.
     pub xcode: bool,
+    /// False for a plain folder outside any git repository: its project's only card.
+    pub git: bool,
 }
 
 #[derive(Debug, PartialEq)]
@@ -23,7 +25,28 @@ pub(crate) struct Entry {
     pub prunable: bool,
 }
 
+pub(crate) fn folder_at(path: &Path) -> Result<(), Error> {
+    if path.is_dir() {
+        Ok(())
+    } else {
+        Err(Error::Message(format!(
+            "{} is not a folder",
+            path.display()
+        )))
+    }
+}
+
 pub fn list(project: &Path) -> Result<Vec<Worktree>, Error> {
+    // A gone folder, as on an unmounted volume, fails like git does, so its worktrees' caches stay.
+    folder_at(project)?;
+    if !git::in_repository(project) {
+        return Ok(vec![Worktree {
+            path: project.to_path_buf(),
+            branch: None,
+            xcode: !xcode_bundles(project).is_empty(),
+            git: false,
+        }]);
+    }
     Ok(entries(project)?
         .into_iter()
         .filter(|entry| !entry.bare && !entry.prunable)
@@ -147,6 +170,7 @@ pub fn create(project: &Project, branch: &str) -> Result<Worktree, Error> {
         xcode: !xcode_bundles(&path).is_empty(),
         path,
         branch: Some(branch.to_string()),
+        git: true,
     })
 }
 
@@ -381,6 +405,7 @@ fn parse(porcelain: &str) -> Vec<Entry> {
                         path: PathBuf::from(value),
                         branch: None,
                         xcode: false,
+                        git: true,
                     },
                     bare: false,
                     prunable: false,
@@ -409,6 +434,7 @@ mod tests {
             path: path.into(),
             branch: None,
             xcode: false,
+            git: true,
         };
         let git = vec![
             worktree("/a"),
@@ -576,6 +602,7 @@ mod tests {
                 path: PathBuf::from(path),
                 branch: branch.map(String::from),
                 xcode: false,
+                git: true,
             },
             bare: false,
             prunable,

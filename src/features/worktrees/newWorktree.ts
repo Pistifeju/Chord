@@ -4,9 +4,9 @@ import { closeSheet, openSheet } from "../../app/sheet";
 import { externalStore } from "../../ui/externalStore";
 import { startFocused } from "../panes/store";
 import { nameCheck } from "./nameCheck";
-import { branchName, canCreate, defaultProject } from "./projects";
+import { branchName, canCreate, defaultProject, isGitProject } from "./projects";
 import { projects, refreshWorktrees, selectWorktree } from "./store";
-import { fail } from "../../ui/alert";
+import { fail, notify } from "../../ui/alert";
 
 type NewWorktree = {
   project: string | null;
@@ -28,10 +28,15 @@ const branchCheck = nameCheck();
 // Bumped on every open and close, so a create that outlives its popup cannot touch the next one.
 let session = 0;
 
-// A project's menu passes the project; the shortcut takes the selected worktree's.
+// A project's menu passes the project; the shortcut takes the selected worktree's, or the first git project's while that one is a plain folder.
 export function openNewWorktree(target?: string) {
-  const project = target ?? defaultProject(projects.get());
-  if (!project) return;
+  const state = projects.get();
+  const preferred = target ?? defaultProject(state);
+  const project = preferred && isGitProject(state, preferred) ? preferred : state.list.find((p) => isGitProject(state, p.path))?.path;
+  if (!project) {
+    if (state.list.length > 0) notify("New worktrees need a git project. Add one, or run git init in this folder.");
+    return;
+  }
   session++;
   newWorktree.set({ ...closed, project });
   openSheet({ kind: "newWorktree" });

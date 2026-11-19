@@ -1,4 +1,4 @@
-//! A worktree's files on disk: one folder's entries for the Files view, without `.git`, every file git does not ignore for Open File by Name, a text file's read and write for the editor, a file's change time for the image view, and the tree's create, rename, trash and reveal.
+//! A worktree's files on disk: one folder's entries for the Files view, without `.git`, every file git does not ignore for Open File by Name, or in a plain folder every file outside hidden and build folders, a text file's read and write for the editor, a file's change time for the image view, and the tree's create, rename, trash and reveal.
 
 use std::cmp::Ordering;
 use std::fs;
@@ -55,6 +55,9 @@ pub fn list(root: &Path, folder: &str) -> Result<Vec<FileEntry>, Error> {
 
 /// Every file under `root` that git tracks or does not ignore, relative and `/`-separated, in git's order; a tracked file gone from disk is left out.
 pub fn all(root: &Path) -> Result<Vec<String>, Error> {
+    if !crate::git::in_repository(root) {
+        return Ok(walk(root));
+    }
     let listed = crate::git::run(
         root,
         &[
@@ -71,6 +74,43 @@ pub fn all(root: &Path) -> Result<Vec<String>, Error> {
         .filter(|path| !path.is_empty() && root.join(path).is_file())
         .map(str::to_owned)
         .collect())
+}
+
+// A plain folder has no .gitignore, so these stand in for the usual one.
+const UNLISTED_FOLDERS: [&str; 5] = ["node_modules", "target", "build", "dist", "DerivedData"];
+// shortcut: stops at this many files, so a home folder added by mistake stays quick; raise it if a real project hits it.
+const MAX_WALKED_FILES: usize = 50_000;
+
+/// The files under `root` outside hidden folders and `UNLISTED_FOLDERS`, relative and `/`-separated, sorted.
+fn walk(root: &Path) -> Vec<String> {
+    let mut found = Vec::new();
+    let mut folders = vec![String::new()];
+    while let Some(folder) = folders.pop() {
+        let Ok(entries) = fs::read_dir(root.join(&folder)) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            let Ok(kind) = entry.file_type() else {
+                continue;
+            };
+            let path = join(&folder, &name);
+            // A symlinked folder is skipped, so a link loop never walks forever.
+            if kind.is_dir() {
+                if !name.starts_with('.') && !UNLISTED_FOLDERS.contains(&name.as_str()) {
+                    folders.push(path);
+                }
+            } else if entry.path().is_file() {
+                found.push(path);
+                if found.len() == MAX_WALKED_FILES {
+                    folders.clear();
+                    break;
+                }
+            }
+        }
+    }
+    found.sort();
+    found
 }
 
 /// The text of `file` (relative to `root`); a file that is not UTF-8 text is an error.
@@ -358,6 +398,22 @@ mod tests {
         files.sort();
         assert_eq!(files, [".gitignore", "new.ts", "src/a.ts"]);
         let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn all_in_a_plain_folder_skips_hidden_and_build_folders() {
+        let root = std::env::temp_dir().join(format!("chord-walk-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        for folder in ["src", ".venv", "node_modules/x"] {
+            fs::create_dir_all(root.join(folder)).unwrap();
+        }
+        for file in [".env", "src/a.ts", ".venv/b.py", "node_modules/x/c.js"] {
+            fs::write(root.join(file), "").unwrap();
+        }
+
+        let files = all(&root).unwrap();
+        let _ = fs::remove_dir_all(&root);
+        assert_eq!(files, [".env", "src/a.ts"]);
     }
 
     #[test]

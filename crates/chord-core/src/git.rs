@@ -1,4 +1,4 @@
-//! Runs git in a folder, with or without input on its stdin, or as a read that leaves the index lock alone, and returns its output, or None for a failure that only means the thing asked for is not there.
+//! Whether a folder lies in a repository. Runs git in a folder, with or without input on its stdin, or as a read that leaves the index lock alone, and returns its output, or None for a failure that only means the thing asked for is not there.
 
 use std::io::Write;
 use std::path::Path;
@@ -27,6 +27,11 @@ fn started(result: std::io::Result<Output>) -> Result<String, Error> {
         return Err(Error::Message(reason));
     }
     Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
+/// `dir` or a folder above it holds the `.git` git looks for, so git commands work in it.
+pub fn in_repository(dir: &Path) -> bool {
+    dir.ancestors().any(|folder| folder.join(".git").exists())
 }
 
 pub fn run(dir: &Path, args: &[&str]) -> Result<String, Error> {

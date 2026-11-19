@@ -3,14 +3,14 @@ import type { FormEvent } from "react";
 import { tooltip } from "../../app/commands";
 import { sheet } from "../../app/sheet";
 import { CloseIcon } from "../../ui/icons";
-import { branchName, canCreate } from "./projects";
+import { branchName, canCreate, isGitProject } from "./projects";
 import { closeNewWorktree, createWorktree, newWorktree, setBranch, setProject } from "./newWorktree";
 import { projects } from "./store";
 
 export function NewWorktreePopup() {
   const open = sheet.use()?.kind === "newWorktree";
   const { project, branch, problem, checked, creating, createError } = newWorktree.use();
-  const { list } = projects.use();
+  const state = projects.use();
   if (!open) return null;
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -29,7 +29,7 @@ export function NewWorktreePopup() {
         <label className="field">
           <span className="field-label">Project</span>
           <select className="input" value={project ?? ""} onChange={(e) => setProject(e.target.value)}>
-            {list.map((p) => (
+            {state.list.filter((p) => isGitProject(state, p.path)).map((p) => (
               <option key={p.path} value={p.path}>
                 {p.name}
               </option>

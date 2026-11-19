@@ -1,11 +1,11 @@
-//! Projects: the git repositories Chord shows, keyed by their main checkout.
+//! Projects: the git repositories Chord shows, keyed by their main checkout, and plain folders outside any repository.
 
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-use crate::{Error, Store, worktrees};
+use crate::{Error, Store, git, worktrees};
 
 #[derive(Serialize, Deserialize, Type, Clone, Debug, PartialEq)]
 pub struct Project {
@@ -43,6 +43,11 @@ pub fn find(store: &Store, path: &Path) -> Result<Project, Error> {
 }
 
 fn open(folder: &Path) -> Result<Project, Error> {
+    if !git::in_repository(folder) {
+        worktrees::folder_at(folder)?;
+        // Canonical, since git lists real paths and the card must keep its path after `git init`.
+        return Ok(named(folder.canonicalize()?));
+    }
     let entries = worktrees::entries(folder).map_err(|error| match error {
         Error::Message(_) => {
             Error::Message(format!("{} is not a git repository", folder.display()))
@@ -59,12 +64,15 @@ fn open(folder: &Path) -> Result<Project, Error> {
             folder.display()
         )));
     }
-    let path = main.worktree.path;
+    Ok(named(main.worktree.path))
+}
+
+fn named(path: PathBuf) -> Project {
     let name = path
         .file_name()
         .map(|name| name.to_string_lossy().into_owned())
         .unwrap_or_else(|| path.display().to_string());
-    Ok(Project { path, name })
+    Project { path, name }
 }
 
 #[cfg(test)]
@@ -101,6 +109,32 @@ mod tests {
         let _ = fs::remove_dir_all(&root);
         assert_eq!(projects.len(), 1);
         assert_eq!(projects[0].name, "app");
+        Ok(())
+    }
+
+    #[test]
+    fn a_plain_folder_is_a_project_with_one_card_until_git_init() -> Result<(), Error> {
+        let root = std::env::temp_dir().join(format!("chord-plain-{}", std::process::id()));
+        let folder = root.join("notes");
+        fs::create_dir_all(&folder)?;
+        let store = Store::open(root.join("state.json"))?;
+
+        let project = add(&store, &folder)?;
+        let before = worktrees::list(&project.path)?;
+        Command::new("git")
+            .arg("-C")
+            .arg(&folder)
+            .args(["init", "-q"])
+            .output()?;
+        let after = worktrees::list(&project.path)?;
+        let _ = fs::remove_dir_all(&root);
+
+        assert_eq!(project.name, "notes");
+        assert_eq!(before.len(), 1);
+        assert!(!before[0].git);
+        assert_eq!(before[0].path, project.path);
+        assert!(after[0].git);
+        assert_eq!(after[0].path, project.path);
         Ok(())
     }
 }

@@ -1431,6 +1431,8 @@ export type Worktree_Deserialize = {
 	branch?: string | null,
 	/**  The folder holds an Xcode project or workspace. */
 	xcode: boolean,
+	/**  False for a plain folder outside any git repository: its project's only card. */
+	git: boolean,
 };
 
 export type Worktree_Serialize = {
@@ -1438,6 +1440,8 @@ export type Worktree_Serialize = {
 	branch: string | null,
 	/**  The folder holds an Xcode project or workspace. */
 	xcode: boolean,
+	/**  False for a plain folder outside any git repository: its project's only card. */
+	git: boolean,
 };
 
 /* Tauri Specta runtime */

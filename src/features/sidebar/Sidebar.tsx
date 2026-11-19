@@ -17,7 +17,7 @@ import { ChangesView } from "../changes/ChangesView";
 import { FilesView } from "../files/FilesView";
 import { countsLabel, countsTitle } from "../worktrees/gitCounts";
 import { gitCounts } from "../worktrees/gitCountsRefresh";
-import { movesTo, ownerOf, worktreeAt, worktreeName, worktreeOrder } from "../worktrees/projects";
+import { isGitProject, movesTo, ownerOf, worktreeAt, worktreeName, worktreeOrder } from "../worktrees/projects";
 import { cancelRename, finishRename, rename, setRenameName, startRename } from "../worktrees/rename";
 import { moveProject, moveWorktree, pickProject, projects, selectWorktree } from "../worktrees/store";
 import { usePointerDrag } from "../../ui/pointerDrag";
@@ -144,9 +144,13 @@ export function Sidebar({ markers }: { markers: Record<string, CardMarker> }) {
   if (hidden) return null;
   const order = worktreeOrder(state);
   const worktree = state.selected;
-  // Files and Changes need an open worktree; without one the sidebar shows Workspaces.
-  const views: NavigatorView[] = worktree ? ["workspaces", "files", "changes"] : ["workspaces"];
+  // Files and Changes need an open worktree, Changes one git reads; without one the sidebar shows Workspaces.
+  const views: NavigatorView[] = ["workspaces"];
+  if (worktree) views.push("files");
+  if (worktreeAt(state, worktree)?.git) views.push("changes");
   const shown = views.includes(picked) ? picked : "workspaces";
+  const projectMenu = (path: string): [string, string][] =>
+    isGitProject(state, path) ? [["worktree.new", path], ["project.remove", path]] : [["project.remove", path]];
   return (
     <nav className="sidebar" aria-label="Navigator">
       <Navigator shown={shown} views={views} />
@@ -165,7 +169,7 @@ export function Sidebar({ markers }: { markers: Record<string, CardMarker> }) {
                   className="project-name"
                   title={project.path}
                   {...drag.handlers({ kind: "project", project: project.path, path: project.path, name: project.name })}
-                  onContextMenu={(e) => showMenu(e, [["worktree.new", project.path], ["project.remove", project.path]])}
+                  onContextMenu={(e) => showMenu(e, projectMenu(project.path))}
                 >
                   {project.name}
                 </div>
@@ -349,7 +353,7 @@ function WorktreeCard({
   const branch = worktreeName(worktree);
   const renaming = rename.usePart((form) => form?.path === worktree.path);
   const main = worktree.path === project.path;
-  const menu: [string, string][] = [["worktree.new", project.path]];
+  const menu: [string, string][] = worktree.git ? [["worktree.new", project.path]] : [];
   if (!main) menu.push(["worktree.rename", worktree.path], ["worktree.delete", worktree.path]);
   return (
     <li className="worktree-card" aria-current={selected} data-dragging={drag.dragging === worktree.path}>

@@ -295,6 +295,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
   const textPercent = appearance.usePart((a) => a.textPercent);
   const dialogOpen = chat.dialog !== null;
   const branch = projects.usePart((p) => worktreeAt(p, worktree)?.branch ?? null);
+  const git = projects.usePart((p) => worktreeAt(p, worktree)?.git ?? false);
   // A switch changes the folder every pane of the worktree works in, so any running agent locks it.
   const worktreeBusy = chats.usePart((all) => anyRunning(all, allPaneIds(panes.get()[worktree])));
   const branchAsked = branchMenuPane.usePart((open) => open === pane);
@@ -508,18 +509,20 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
                   <PaperclipIcon />
                 </button>
               )}
-              <button
-                type="button"
-                className="chat-picker chat-branch"
-                title={worktreeBusy ? "Switch branches after the agent stops" : "Switch Branch"}
-                disabled={worktreeBusy}
-                data-menu-toggle
-                onClick={toggleBranch}
-              >
-                <BranchIcon />
-                <span className="chat-branch-name">{branchLabel(branch)}</span>
-                <ChevronDownIcon />
-              </button>
+              {git && (
+                <button
+                  type="button"
+                  className="chat-picker chat-branch"
+                  title={worktreeBusy ? "Switch branches after the agent stops" : "Switch Branch"}
+                  disabled={worktreeBusy}
+                  data-menu-toggle
+                  onClick={toggleBranch}
+                >
+                  <BranchIcon />
+                  <span className="chat-branch-name">{branchLabel(branch)}</span>
+                  <ChevronDownIcon />
+                </button>
+              )}
               {labels && (
                 <div className="chat-pickers">
                   <button type="button" className="chat-picker" title="Model" disabled={!ready} data-menu-toggle onClick={() => togglePicker("/model", "Model")}>

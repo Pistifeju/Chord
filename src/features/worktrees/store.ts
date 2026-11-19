@@ -21,6 +21,12 @@ export const xcodeWorktree = (): string | null => {
   return worktree && worktreeAt(projects.get(), worktree)?.xcode ? worktree : null;
 };
 
+/** The open worktree while git reads it, so not a plain folder. */
+export const gitWorktree = (): string | null => {
+  const worktree = openWorktree();
+  return worktree && worktreeAt(projects.get(), worktree)?.git ? worktree : null;
+};
+
 export const shownPanes = () => shownSession(panes.get(), projects.get().selected, settingsOpen.get());
 
 /** The stores `shownPanes` reads, for a watcher that follows it. */

@@ -43,6 +43,13 @@ export const worktreeAt = (projects: Projects, path: string | null): Worktree | 
 
 export const hasXcodeProject = (projects: Projects): boolean => allWorktrees(projects).some((worktree) => worktree.xcode);
 
+/** False for a plain folder, and while the project's list has not loaded. */
+export const isGitProject = (projects: Projects, path: string): boolean => projects.worktrees[path]?.some((w) => w.git) ?? false;
+
+/** The plain-folder projects whose card git now reads, after a `git init` in it. */
+export const projectsTurnedGit = (projects: Projects, readByGit: string[]): string[] =>
+  projects.list.filter((p) => projects.worktrees[p.path]?.some((w) => !w.git && readByGit.includes(w.path))).map((p) => p.path);
+
 export const worktreeName = (worktree: Worktree): string => worktree.branch ?? fileName(worktree.path);
 
 // Whitespace in a typed branch name becomes a dash; this is the name git sees.

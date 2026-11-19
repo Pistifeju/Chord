@@ -1,9 +1,9 @@
-// Keeps the cards' git counts fresh: on window focus, when a card appears, after a commit or a push, then every 10 seconds while the window is visible.
+// Keeps the cards' git counts fresh: on window focus, when a card appears, after a commit or a push, then every 10 seconds while the window is visible. A plain folder whose counts arrive became a repository, so its project's list reads again.
 import { commands, type GitCounts_Serialize as GitCounts } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
 import { gainsPath, nextCounts } from "./gitCounts";
-import { worktreeOrder } from "./projects";
-import { projects } from "./store";
+import { projectsTurnedGit, worktreeOrder } from "./projects";
+import { projects, refreshWorktrees } from "./store";
 import { fail } from "../../ui/alert";
 
 const REFRESH_MS = 10_000;
@@ -41,6 +41,7 @@ export function watchGitCounts(): () => void {
     try {
       const fresh = await commands.readGitCounts(paths);
       gitCounts.set(nextCounts(gitCounts.get(), worktreeOrder(projects.get()), paths, fresh));
+      for (const project of projectsTurnedGit(projects.get(), fresh.map((c) => c.path))) refreshWorktrees(project).catch(fail);
     } catch (error) {
       stopped = true;
       stop();
