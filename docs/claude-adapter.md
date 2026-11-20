@@ -1,34 +1,12 @@
-# Plan: the Claude Code adapter (N3)
+# The Claude Code adapter (N3)
 
-N3 of `docs/onboarding-and-harnesses.md`: Chord runs `claude -p` with stream-json in and out, one process per pane, as `harness/claude/` next to pi and Codex. That document holds the feature list, the edge cases and the contract changes (its sections 1, 3 and 7). This one holds the build order, the record mapping and what nobody has checked yet.
+N3 of `docs/onboarding-and-harnesses.md`: Chord runs `claude -p` with stream-json in and out, one process per pane, as `harness/claude/` next to pi and Codex. That document holds the feature list, the edge cases and the contract changes (its sections 1, 3 and 5). This one holds the record mapping and what nobody has checked yet.
 
-Written against Claude Code 2.1.328. Claude Code has no command that writes its protocol's types. The message types are published with the Claude Agent SDK; the control requests it leaves out were read from the schemas inside the 2.1.328 binary, then tried on a live process (section 9). To see a record live, pipe JSON lines into the start line of section 3 from a temp folder. Never commit a recorded run.
+Written against Claude Code 2.1.328. Claude Code has no command that writes its protocol's types. The message types are published with the Claude Agent SDK; the control requests it leaves out were read from the schemas inside the 2.1.328 binary, then tried on a live process (section 6). To see a record live, pipe JSON lines into the start line of section 1 from a temp folder. Never commit a recorded run.
 
 N3 changes no contract: every event and dialog field it needs landed with Codex.
 
-## 1. Build order
-
-One commit, built in five stages. Each stage leaves the code compiling and pi and Codex working, so you can stop after any of them and try it. `npm run check` runs once, after stage 5.
-
-1. **The shared parts leave `codex/`.** No Claude Code. The queue of asks, the elicitation form and the resume select move up to `harness/`, where both adapters call them.
-2. **Chat.** The process, the handshake, a turn: stream, thinking, tool calls, stop, steer, attachments, the context meter, the model label. `starts: true`, the `start` arm, the tab logo.
-3. **Asks as dialogs.** Tool permissions, `AskUserQuestion`, `ExitPlanMode`, elicitations.
-4. **Commands.** The slash menu, `/model`, `/thinking`, `/permissions` and the `Permissions` event.
-5. **Resume with history.** A start reopens the pane's session with its turns, read from the transcript file; `/resume` picks another one. Then the docs.
-
-After stage 2 and before stage 3 a permission ask fails with a notice in place of a dialog (section 4, "Any other control request"). The tool call fails, the turn goes on, nothing hangs. The commit holds all five stages, so no user meets that state.
-
-## 2. Stage 1: the shared parts
-
-| Where | Change |
-|---|---|
-| `harness/asks.rs`, new | From `codex/asks.rs`: `Asks` (one ask open, the rest waiting oldest first, the dialog ids), `Step`, `Field`, the walk through one ask's steps, and the elicitation form (`form_steps`, `enum_options`). An ask carries its adapter's own reply tag. `Asks::answer` returns that tag with what the user settled: a cancel, one option's value, or the answers by key. |
-| `harness/codex/asks.rs` | Keeps `parse`, Codex's questions, `permissions_detail`, and the results Codex reads, built from what `Asks::answer` returns. |
-| `harness/resume.rs`, new | From `codex/reader.rs`: the numbered select of a worktree's other sessions, the session a pick names, `age`, and the notice for a worktree with no other session. It takes each session's id, label and age in seconds. |
-| `harness/mod.rs` | One `capitalized`, which makes a level's menu label. Its two copies (`pi/records.rs:110`, `codex/commands.rs:287`) go. |
-| Tests | None new. `codex/tests.rs` feeds the reader and passes unchanged. |
-
-## 3. Stage 2: chat
+## 1. Chat
 
 ### Files
 
@@ -42,11 +20,11 @@ After stage 2 and before stage 3 a permission ask fails with a notice in place o
 | `blocks.rs` | What a content block means as harness events: text, thinking, `tool_use`, `tool_result`. Live records and a transcript's lines share it. |
 | `tests.rs` | Hand-written records fed to the reader, and the lines written to Claude Code. |
 
-Stages 3 to 5 add `asks.rs`, `commands.rs`, `permissions.rs` and `transcript.rs`.
+Sections 2 to 4 cover `asks.rs`, `commands.rs`, `permissions.rs` and `transcript.rs`.
 
 The reader sits behind one mutex, as Codex's does: the stdout thread and the `Agent` methods both lock it. The adapter reads `serde_json::Value` and skips a record it does not know.
 
-`HARNESSES` takes `claude::HARNESS`, the entry `harness/mod.rs` holds today, with `starts: true`. `harness::start` gets the `claude::NAME` arm. A failed spawn returns `Error::start_failed` with the install step. `Session::start` calls `installed::require`.
+`HARNESSES` holds `claude::HARNESS` with `starts: true`, and `harness::start` has the `claude::NAME` arm. A failed spawn returns `Error::start_failed` with the install step. `Session::start` calls `installed::require`.
 
 Capabilities: `Chat`, `Attachments`, `Steer`, `Models`, `Context`, `Subagents`.
 
@@ -58,9 +36,9 @@ Subagents (N6): `task_started` with a `task_type` of `local_agent`, `remote_agen
 
 `claude -p --input-format stream-json --output-format stream-json --verbose --include-partial-messages --replay-user-messages --permission-prompt-tool stdio`
 
-One flag is new against section 2 of the onboarding plan: `--replay-user-messages`. Claude Code echoes each user message with its `uuid` and `timestamp` once a turn takes it in. The echo is the chat's user message and the moment a steer leaves the queue.
+With `--replay-user-messages` Claude Code echoes each user message with its `uuid` and `timestamp` once a turn takes it in. The echo is the chat's user message and the moment a steer leaves the queue.
 
-Chord never passes `--allow-dangerously-skip-permissions`. Without it Claude Code refuses a switch to `bypassPermissions` (`error_code: "bypass_not_launched"`), so the picker does not offer that mode (section 5).
+Chord never passes `--allow-dangerously-skip-permissions`. Without it Claude Code refuses a switch to `bypassPermissions` (`error_code: "bypass_not_launched"`), so the picker does not offer that mode (section 3).
 
 1. The control request `initialize`, with no field. Never `supportedDialogKinds`, so Claude Code sends no `request_user_dialog`.
 2. On its answer: keep `commands` and `models`; write `set_max_thinking_tokens { thinking_display: "summarized" }`, `get_settings` and `get_context_usage`; send `HistoryStart` and `HistoryEnd`. `startChat` in `chat/store.ts` waits for `history_end`, so a new session sends the pair with nothing between.
@@ -92,8 +70,8 @@ The reader drops a `stream_event`, `assistant` or `user` record whose `parent_to
 | `assistant`, `tool_use` block | `ToolStart`, by tool (the table below) |
 | `user`, `tool_result` block | `ToolEnd` on its `tool_use_id`: `Failed` when `is_error`; `images` from the result's `image` blocks; an Edit's `changes` counted from the `+` and `-` lines of `tool_use_result.structuredPatch` |
 | `system` `compact_boundary` | `Compaction` with an empty summary and `tokens_before` from `compact_metadata.pre_tokens`, then `Context { tokens: None }` |
-| `system` `status` with `permissionMode` | `Permissions`, from stage 4 on |
-| `system` `commands_changed` | `Commands`, from stage 4 on |
+| `system` `status` with `permissionMode` | `Permissions` |
+| `system` `commands_changed` | `Commands` |
 | `result` | open tool calls end as `Stopped`; then `State { running: false }`; `terminal_reason` `aborted_streaming` or `aborted_tools` adds `Aborted`; any other result whose `subtype` is not `success` sends `MessageEnd { failed: true }` and a `Notice` with its `errors` first. The adapter then writes `get_context_usage`. |
 | `control_response` | what the pending request with that `request_id` waits for; an `error` sends a `Notice` |
 | stdout closes | `Exited`, as pi |
@@ -144,7 +122,7 @@ Skipped: each record with a `parent_tool_use_id`, whose subagent shows as its li
 
 `PaneArea.tsx` and the harness rows read `harnessMarks`, so the tab, its tooltip, onboarding and Settings › Agents pick the logo up with no other change.
 
-## 4. Stage 3: asks
+## 2. Asks
 
 `harness/claude/asks.rs` holds Claude Code's control requests as asks for `harness/asks.rs`, and the answer each one gets. One dialog is open per pane; the shared queue holds the rest.
 
@@ -164,7 +142,7 @@ The permission options:
 - Allow: `{ behavior: "allow" }`.
 - One option per entry of `permission_suggestions` the adapter can name. Each answers `allow` plus `updatedPermissions` with that one entry, as Claude Code sent it.
   - `addRules`: "Always Allow “<ruleContent>”", or the tool's name for a rule without content. Left out when `suppress_always_allow_rule` is true. An entry with `destination: "localSettings"` makes Claude Code write `.claude/settings.local.json` in the worktree.
-  - `setMode`: "Allow and Switch to <mode>", with the mode's label from section 5.
+  - `setMode`: "Allow and Switch to <mode>", with the mode's label from section 3.
   - Any other type, such as `addDirectories`: no option.
 - Deny: `deny` with a message.
 - Esc: `deny` with `interrupt: true`, which stops the turn.
@@ -177,7 +155,7 @@ The adapter keeps each open ask's options next to their answers and answers with
 
 A form whose schema `form_steps` cannot read gets `cancel` and a `Notice`.
 
-## 5. Stage 4: commands
+## 3. Commands
 
 `harness/claude/commands.rs` holds the models, the model and effort in effect, the commands and the picker menus.
 
@@ -216,7 +194,7 @@ A form whose schema `form_steps` cannot read gets `cancel` and a `Notice`.
 
 The frontend does not change: the composer's Permissions button, `openPicker("/permissions")` and the warning color landed with Codex.
 
-## 6. Stage 5: resume
+## 4. Resume
 
 `harness/claude/transcript.rs` holds the session files: the folder of a worktree, one session's turns, and the worktree's sessions.
 
@@ -238,26 +216,12 @@ The frontend does not change: the composer's Permissions button, `openPicker("/p
 
 - `/resume` lists the folder's `.jsonl` files, newest first by their change time, without the pane's own and those in `held_elsewhere`. Each one's label is the `lastPrompt` of its last `last-prompt` line; a file without one is left out. The select comes from `harness/resume.rs`.
 - The pick starts a new process on that session and drops the old one, as pi's `/new` does (`pi/mod.rs`, `restart`). Each process has its own reader. Mid-run it refuses with pi's line, "Wait for the agent to finish, then change the session".
-- Docs: tick N3, and correct the start line of section 2 and the Claude Code rows of sections 3 and 4 in `docs/onboarding-and-harnesses.md`; `docs/harness-contract.md` sections 3 and 5; a Claude Code paragraph in `ARCHITECTURE.md` section 3.
 
-## 7. Tests
-
-All in `chord-core`, with hand-written records and made-up model names.
-
-- Claude reader: a streamed turn (`init`, two `text_delta`, the `assistant` text record, `result`) gives `State`, two `MessageChunk`, `MessageEnd`, `State`.
-- Claude reader: an `assistant` record with `error` and no deltas gives its text and `MessageEnd { failed: true }`.
-- Claude reader: an `isReplay` record with a `uuid` the adapter did not send gives nothing.
-- Claude reader: a `result` with `subtype: "error_during_execution"` and `terminal_reason: "aborted_tools"` gives `State` and `Aborted`, and no `Notice`.
-- Claude asks: "Always Allow “touch notes.txt”" answers `allow` on the request's id, with that one `addRules` entry as `updatedPermissions`.
-- Claude asks: an `AskUserQuestion` with two questions answers once, after the second, with both answers under their question texts.
-- Claude transcript: a file with a branch off the chain gives the last line's chain alone, and a `compact_boundary` on the chain keeps the turns before it.
-- Claude transcript: `/work/my app/feature.one` has the folder `-work-my-app-feature-one`.
-
-## 8. Not built
+## 5. Not built
 
 A session's name in the tab, a tool card before its input is whole, a tool call's duration (`ms` stays empty), "Other" on a question that takes several answers, the option previews of `AskUserQuestion`, `bypassPermissions` and `dontAsk` as picks, an `addDirectories` suggestion as an option, a command's aliases in the slash menu, fast mode, prompt suggestions, a compaction's summary text, a masked field for a secret answer.
 
-## 9. Not verified
+## 6. Not verified
 
 Checked on a live `claude -p` 2.1.328, signed in, with turns driven by hand over stdio:
 

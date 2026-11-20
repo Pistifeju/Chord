@@ -4,7 +4,7 @@
 
 Chord's own adapter trait in Rust, with an event schema that borrows ACP's names. The pi adapter speaks pi RPC. Codex and Claude Code each get an adapter that speaks the CLI's own protocol: `codex app-server`, and `claude -p` with stream-json in and out. Chord has no ACP adapter.
 
-ACP as the contract fails for all three: section 2 lists five features that would disappear, and both ACP adapters need Node and an npm package on top of the CLI. The build plan: `docs/onboarding-and-harnesses.md`.
+ACP as the contract fails for all three: section 2 lists five features that would disappear, and both ACP adapters need Node and an npm package on top of the CLI. The feature list and the edge cases: `docs/onboarding-and-harnesses.md`.
 
 ## 1. What Chord needs from pi
 
@@ -70,7 +70,7 @@ The `Agent` trait and `start` in `crates/chord-core/src/harness/mod.rs`, one imp
 
 ## 5. Not verified
 
-- The record-by-record mappings live in `docs/codex-adapter.md` and `docs/claude-adapter.md`; section 9 of each lists the records nobody has seen live.
+- The record-by-record mappings live in `docs/codex-adapter.md` and `docs/claude-adapter.md`; section 6 of each lists the records nobody has seen live.
 - The ACP column comes from the docs index and the v2 pages.
 - Three of the four pi ACP adapters.
 - Status from pi's stdout: a recorded pi 1.5.0 RPC run had `agent_start` and `agent_settled`; the session file and the dialog records come from pi's docs only.

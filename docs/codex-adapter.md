@@ -1,34 +1,10 @@
-# Plan: the Codex adapter (N2)
+# The Codex adapter (N2)
 
-N2 of `docs/onboarding-and-harnesses.md`: Chord runs `codex app-server`, one process per pane, as `harness/codex/` next to pi. That document holds the feature list, the edge cases and the contract changes (its sections 1, 3 and 7). This one holds the build order, the record mapping and what nobody has checked yet.
+N2 of `docs/onboarding-and-harnesses.md`: Chord runs `codex app-server`, one process per pane, as `harness/codex/` next to pi. That document holds the feature list, the edge cases and the contract changes (its sections 1, 3 and 5). This one holds the record mapping and what nobody has checked yet.
 
-Written against codex-cli 0.158.0. `codex app-server generate-ts --out <folder>` writes the protocol's types; generate them into a temp folder to read while you write the adapter, and never commit them.
+Written against codex-cli 0.158.0. `codex app-server generate-ts --out <folder>` writes the protocol's types; generate them into a temp folder to read while you change the adapter, and never commit them.
 
-## 1. Build order
-
-One commit, built in five stages. Each stage leaves the code compiling and pi working, so you can stop after any of them and try it. `npm run check` runs once, after stage 5.
-
-1. **`DialogClosed` moves to the adapters.** No Codex code. `status_for` closes the dialog at `DialogClosed` alone; the pi reader emits it where core adds it today.
-2. **Chat.** The process, the handshake, a thread, a turn: stream, thinking, tool calls, stop, steer, attachments, the context meter, the model label. `starts: true`, the `start` arm, the tab logo.
-3. **Asks as dialogs.** Approvals, questions, elicitations, the queue of waiting asks, and the dialog contract additions they need.
-4. **Commands.** The slash menu with the skills, `/model`, `/thinking`, `/permissions`, the `Permissions` event and the composer bar button.
-5. **Resume with history.** A start reopens the pane's thread with its turns; `/resume` picks another one. Then the docs.
-
-After stage 2 and before stage 3 an approval ask fails with a notice in place of a dialog (section 4, "Any other server request"). The turn goes on; nothing hangs. The commit holds all five stages, so no user meets that state.
-
-## 2. Stage 1: `DialogClosed`
-
-| Where | Change |
-|---|---|
-| `harness/mod.rs`, `status_for` | `Dialog` sets `tracker.dialog`; `DialogClosed` clears it. The arms for `MessageChunk`, `ThoughtStart`, `ThoughtChunk`, `ToolStart`, `ToolEnd` and `State { running: true }` stop clearing it. |
-| `harness/mod.rs`, `HarnessEvent::DialogClosed` | The doc comment says an adapter emits it. |
-| `harness/sessions.rs:227`, `PaneWatch::deliver` | Stops adding `DialogClosed`. |
-| `harness/pi/reader.rs` | Holds whether a dialog is open. Emits `DialogClosed` before the first message, thought, tool or run-start event that follows an open dialog. |
-| Tests | `mod.rs`: `an_open_dialog_waits_until_the_agent_goes_on` and `a_dialog_stays_open_across_a_history_until_the_agent_goes_on` close on `DialogClosed`, and a `ToolEnd` leaves the dialog open. `sessions.rs:408` moves to `pi/tests.rs` as a reader test. |
-
-The frontend does not change: `transcript.ts:213` already closes on `dialog_closed`.
-
-## 3. Stage 2: chat
+## 1. Chat
 
 ### Files
 
@@ -44,7 +20,7 @@ The frontend does not change: `transcript.ts:213` already closes on `dialog_clos
 
 The reader sits behind one mutex. The stdout thread and the `Agent` methods both lock it, because a `send` needs the thread id, the running turn id and a fresh request id. The adapter reads `serde_json::Value`, as pi's does, and skips a record it does not know.
 
-`HARNESSES` takes `codex::HARNESS` with `starts: true`, and `harness::start` gets the `codex::NAME` arm. A failed spawn returns `Error::start_failed` with the install step, as pi's does. `Session::start` calls `installed::require`.
+`HARNESSES` holds `codex::HARNESS` with `starts: true`, and `harness::start` has the `codex::NAME` arm. A failed spawn returns `Error::start_failed` with the install step, as pi's does. `Session::start` calls `installed::require`.
 
 Capabilities: `Chat`, `Attachments`, `Steer`, `Models`, `Context`, `Subagents`.
 
@@ -78,7 +54,7 @@ The reader drops a notification whose `threadId` is not the pane's thread. A sub
 | same, `imageView` | Title Read, detail the path, the image read through `images.rs` |
 | `item/completed`, `contextCompaction` | `Compaction` with an empty summary, then `Context { tokens: None }` |
 | `thread/tokenUsage/updated` | `Context { tokens: last.totalTokens, window: modelContextWindow }` |
-| `thread/settings/updated` | `Model` from `model` and `effort` (and `Permissions` from stage 4 on) |
+| `thread/settings/updated` | `Model` from `model` and `effort`, and `Permissions` |
 | `error` | `Notice` with the message, unless `willRetry` |
 | `turn/completed` | open tool calls end as `Stopped`; status `failed` sends `MessageEnd { failed: true }` and a `Notice`; then `State { running: false }`; status `interrupted` adds `Aborted` |
 | stdout closes | `Exited`, as pi |
@@ -99,10 +75,10 @@ Skipped: `dynamicToolCall` (N4 uses MCP), `plan`, `hookPrompt`, `sleep`, review 
 ### Tab logo
 
 - `src/ui/icons.tsx`: a `CodexIcon`, drawn to `design/icons.md`.
-- The `logos` map leaves `HarnessRows.tsx` for its own file in `src/features/harnesses/`, with the Codex entry.
-- `PaneArea.tsx:81`: a chat tab shows the logo of its pane's harness, read from `paneHarnesses`, and the harness's title in the tab's tooltip.
+- `src/features/harnesses/logos.tsx`: the `codex` entry.
+- `PaneArea.tsx`: a chat tab shows the logo of its pane's harness and the harness's title in the tab's tooltip.
 
-## 4. Stage 3: asks
+## 2. Asks
 
 `harness/codex/asks.rs` holds the server requests as dialogs: the queue, the walk through one request's questions, and the answer that goes back. One dialog is open per pane. A request that arrives meanwhile waits and opens after `DialogClosed` goes out for the open one, oldest first.
 
@@ -129,7 +105,7 @@ Contract additions, each with its frontend half in `DialogPanel.tsx` and `design
 - `DialogAnswer::Values { values: Vec<String> }` answers a `multi` select.
 - `DialogAsk::Confirm` gains `url: Option<String>`. With one, the buttons read Open and Decline, and Open calls `openInDefaultBrowser` before it answers.
 
-## 5. Stage 4: commands
+## 3. Commands
 
 `Commands` lists `model`, `thinking`, `permissions`, `new`, `resume`, `fork`, `clone`, `rewind`, `reload` and `compact` as `Session`, then each enabled skill of `skills/list { cwds: [dir] }` as `Skill`. `skills/changed` reads the list again.
 
@@ -168,46 +144,33 @@ A picked model that lacks the current effort takes its `defaultReasoningEffort`.
 
 - `transcript.ts`: `Chat.permissions: { mode, asks } | null`, set at `permissions`, cleared at `exited`.
 - `ChatPane.tsx`: a `chat-picker` button titled "Permissions" before the model button, shown while `chat.permissions` holds a mode, in the warning color while `asks` is false. It calls `togglePicker("/permissions", "Permissions")`.
-- `store.ts:157`: `openPicker` takes `"/permissions"`.
-- `design/chat.md` gains the button.
+- `store.ts`: `openPicker` takes `"/permissions"`.
+- `design/chat.md` holds the button's rules.
 
 pi sends no `Permissions`, so its panes show no button.
 
-## 6. Stage 5: resume
+## 4. Resume
 
 - A start with a saved thread id sends `thread/resume { threadId, cwd }` in place of `thread/start`. An error answer falls back to `thread/start`: a thread that never ran a turn may have no file.
 - The answer's `thread.turns` go out between `HistoryStart` and `HistoryEnd` through `items.rs`. A completed item sends its start and its end; an agent message sends its text as one chunk.
 - `/resume` sends `thread/list { cwd }`, then opens a `Select` of each thread's `preview` and age, without the threads in `held_elsewhere`. The pick sends `thread/resume`. Mid-run it refuses with pi's line, "Wait for the agent to finish, then change the session".
-- Docs: tick N2 and correct section 4's rows in `docs/onboarding-and-harnesses.md`; `docs/harness-contract.md` sections 3 and 5; the Codex paragraph of `ARCHITECTURE.md` section 3.
 
-## 7. Tests
-
-All in `chord-core`, with hand-written records and made-up model names.
-
-- `status_for`: a `ToolEnd` leaves an open dialog open; `DialogClosed` closes it.
-- pi reader: a tool record after a dialog emits `DialogClosed` first.
-- Codex reader: a streamed turn gives `State`, `MessageChunk`, `MessageEnd`, `State`.
-- Codex reader: a notification of another thread gives nothing.
-- Codex asks: "Allow for This Session" answers `{"decision":"acceptForSession"}` on the request's id.
-- Codex asks: a second request opens its dialog only after the first one's `DialogClosed`.
-- Codex permissions: `on-request` with `readOnly` reads "Read Only" and asks; `never` with `dangerFullAccess` reads "Full Access" and does not.
-
-## 8. Not built
+## 5. Not built
 
 A thread's name in the tab, `thread/turns/list` paging for a long history, plan items, review mode, Codex's own permission profiles (`permissionProfile/list`), the `granular` approval policy as a pick, a masked field for a secret answer.
 
-## 9. Not verified
+## 6. Not verified
 
 Checked on a live `codex app-server` 0.158.0: JSON lines on stdio, `initialize` with `capabilities: null`, `model/list`, `skills/list`, `thread/list` by `cwd`, `permissionProfile/list`, and the `thread/start` answer's `model`, `approvalPolicy`, `sandbox` and `reasoningEffort`.
 
-Checked by hand during stage 2: `userMessage`, `agentMessage` with deltas, `commandExecution` (its `command` wraps the script in `/bin/zsh -lc`, and `commandActions` drops the parts after a pipe, so the title reads the unwrapped script), `fileChange` with an update diff, `reasoning` (empty summary and content at medium effort, no deltas, so a thought starts at its first delta), `last.totalTokens` as the fill, a steer's `userMessage` arriving before the next model call, a steer after the turn ended refused with -32600 "no active turn to steer", and `turn/interrupt` ending a running command with `turn/completed` status `interrupted` and no `item/completed`.
+Checked by hand on live turns: `userMessage`, `agentMessage` with deltas, `commandExecution` (its `command` wraps the script in `/bin/zsh -lc`, and `commandActions` drops the parts after a pipe, so the title reads the unwrapped script), `fileChange` with an update diff, `reasoning` (empty summary and content at medium effort, no deltas, so a thought starts at its first delta), `last.totalTokens` as the fill, a steer's `userMessage` arriving before the next model call, a steer after the turn ended refused with -32600 "no active turn to steer", and `turn/interrupt` ending a running command with `turn/completed` status `interrupted` and no `item/completed`.
 
 Still from the generated types alone:
 
 - `mcpToolCall`, `webSearch`, `imageView`, `contextCompaction`, reasoning summary deltas, an added or deleted file's diff, and `thread/settings/updated`.
 - Whether `thread/queue/changed` reports steers better than the adapter's own list.
 - What Codex does with a JSON-RPC error answer to a server request Chord does not know.
-- Every ask of stage 3: the approval and question requests, the elicitation forms and links, `serverRequest/resolved`, and `agentMessage.questions`.
+- Every ask of section 2: the approval and question requests, the elicitation forms and links, `serverRequest/resolved`, and `agentMessage.questions`.
 - A `sandboxPolicy` on `turn/start` holding for the turns after it, and `thread/settings/updated` following it.
 - `thread/resume` on a thread that never ran a turn.
 - `thread/resume` returning the turns of a thread whose `historyMode` is `paginated`; the types call full hydration deprecated there.
