@@ -712,10 +712,40 @@
   margin-left: auto;
 }
 
-/* A permission mode that never asks reads in the warning color. */
+/* The permissions button: the mode's icon, then its name. */
+.chat-permissions {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+}
+
+.chat-permissions[aria-expanded="true"] {
+  background: var(--selected);
+  color: var(--ink);
+}
+
+.chat-permissions-icon {
+  display: flex;
+  color: var(--ink-muted);
+  transition: color var(--t-fast) var(--ease-out);
+}
+
+.chat-permissions:hover:not(:disabled) .chat-permissions-icon,
+.chat-permissions[aria-expanded="true"] .chat-permissions-icon {
+  color: var(--ink-secondary);
+}
+
+/* A permission mode that never asks reads in the warning color, its icon too. */
 .chat-permissions:not([data-asks]),
-.chat-permissions:not([data-asks]):hover:not(:disabled) {
+.chat-permissions:not([data-asks]):hover:not(:disabled),
+.chat-permissions:not([data-asks])[aria-expanded="true"] {
   color: var(--status-waiting);
+}
+
+.chat-permissions:not([data-asks]) .chat-permissions-icon,
+.chat-permissions:disabled .chat-permissions-icon {
+  color: inherit;
 }
 
 .chat-pickers + .chat-send {
@@ -1201,6 +1231,25 @@
 
 .chat-dialog-option[aria-disabled="true"] .chat-dialog-meta {
   color: var(--ink-disabled);
+}
+
+/* A row with an icon: the icon, the name, then the current mode's check at the end. */
+.chat-dialog-option:has(.chat-dialog-icon) {
+  justify-content: flex-start;
+}
+
+.chat-dialog-icon {
+  display: flex;
+  flex: none;
+  color: var(--ink-muted);
+}
+
+.chat-dialog-option[data-active] .chat-dialog-icon {
+  color: var(--ink-secondary);
+}
+
+.chat-dialog-icon ~ .chat-dialog-current {
+  margin-left: auto;
 }
 
 .chat-dialog-current {

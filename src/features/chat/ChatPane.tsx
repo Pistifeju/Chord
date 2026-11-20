@@ -14,6 +14,7 @@ import { compactionLabel, contextMeter } from "./context";
 import { useClock } from "./clock";
 import { elapsedText } from "./elapsed";
 import { modelLabels } from "./model";
+import { PermissionIcon } from "./permissionIcons";
 import { appearance } from "../settings/store";
 import { StatusMark } from "../status/StatusMark";
 import { HarnessRows } from "../harnesses/HarnessRows";
@@ -489,7 +490,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
       {chat.dialog && !menu && <DialogPanel key={chat.dialog.id} pane={pane} dialog={chat.dialog} />}
       {composerShown && (
         <div className="chat-composer-anchor">
-          {menu && <DialogMenu key={menu.dialog.id} pane={pane} dialog={menu.dialog} options={menu.ask.options} current={menu.ask.current ?? null} filter={menu.ask.filter} />}
+          {menu && <DialogMenu key={menu.dialog.id} pane={pane} dialog={menu.dialog} options={menu.ask.options} current={menu.ask.current ?? null} filter={menu.ask.filter} icon={menu.dialog.title === "Permissions" ? (mode) => <PermissionIcon mode={mode} /> : undefined} />}
           {floating === "agent" && harness && <AgentMenu worktree={worktree} pane={pane} harness={harness} chat={chat} trigger={agentButton} />}
           {floating === "slash" && <SlashMenu commands={slashRows} query={slashQuery(draft) ?? ""} active={slashAt} onActive={setSlashActive} onPick={pickSlash} onDismiss={() => closeSlash(pane, draft)} />}
           <div className="chat-composer" data-path-drop={pathOver || undefined}>
@@ -535,8 +536,12 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
                   disabled={!ready || chat.loading}
                   data-menu-toggle
                   data-asks={chat.permissions.asks || undefined}
+                  aria-expanded={menu?.dialog.title === "Permissions"}
                   onClick={() => togglePicker("/permissions", "Permissions")}
                 >
+                  <span className="chat-permissions-icon">
+                    <PermissionIcon mode={chat.permissions.mode} />
+                  </span>
                   {chat.permissions.mode}
                 </button>
               )}

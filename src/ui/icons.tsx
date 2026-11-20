@@ -365,3 +365,37 @@ export const OpenOutsideIcon = () => (
     <path d="M9.5 2.75h3.75V6.5M13.25 2.75L7.5 8.5M11.25 9.5v2.75a1 1 0 0 1-1 1h-6.5a1 1 0 0 1-1-1v-6.5a1 1 0 0 1 1-1H6.5" />
   </Icon>
 );
+
+export const ShieldIcon = () => (
+  <Icon>
+    <path d="M8 1.75 13 3.5v4.25c0 3-2.2 5.1-5 6.5-2.8-1.4-5-3.5-5-6.5V3.5z" />
+  </Icon>
+);
+
+export const ShieldCheckIcon = () => (
+  <Icon>
+    <path d="M8 1.75 13 3.5v4.25c0 3-2.2 5.1-5 6.5-2.8-1.4-5-3.5-5-6.5V3.5z" />
+    <path d="m5.75 7.75 1.5 1.5 3-3" />
+  </Icon>
+);
+
+export const PencilIcon = () => (
+  <Icon>
+    <path d="M10.75 2.5 13.5 5.25 6 12.75l-3.5.75.75-3.5z" />
+    <path d="m9.25 4 2.75 2.75" />
+  </Icon>
+);
+
+export const PlanIcon = () => (
+  <Icon>
+    <path d="M6.25 4h7M6.25 8h7M6.25 12h7" />
+    <path d="M2.75 4h.01M2.75 8h.01M2.75 12h.01" strokeWidth="2" />
+  </Icon>
+);
+
+export const BlockIcon = () => (
+  <Icon>
+    <circle cx="8" cy="8" r="5.75" />
+    <path d="m3.95 3.95 8.1 8.1" />
+  </Icon>
+);

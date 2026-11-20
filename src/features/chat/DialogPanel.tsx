@@ -30,6 +30,8 @@ type SelectProps = {
   multi?: boolean;
   /** The rows lead with the check column and stack the description under the name, as the branch menu does. */
   stacked?: boolean;
+  /** The icon each row leads with. */
+  icon?: (option: string) => ReactNode;
 };
 
 const noneUnavailable = () => false;
@@ -37,7 +39,7 @@ const noneUnavailable = () => false;
 const openFrom = (at: number, shown: number[], unavailable: (at: number) => boolean) =>
   shown[at] !== undefined && unavailable(shown[at]) ? steppedPast(at, 1, shown.length, (i) => unavailable(shown[i])) : at;
 
-export function Select({ options, current, answer, filter = "field", meta, unavailable = noneUnavailable, rowMenu, descriptions = [], multi = false, stacked = false }: SelectProps) {
+export function Select({ options, current, answer, filter = "field", meta, unavailable = noneUnavailable, rowMenu, descriptions = [], multi = false, stacked = false, icon }: SelectProps) {
   const [query, setQuery] = useState("");
   const [checked, setChecked] = useState<ReadonlySet<number>>(new Set());
   const [active, setActive] = useState(() => openFrom(startIndex(options, current), matchingOptions(options, ""), unavailable));
@@ -137,6 +139,12 @@ export function Select({ options, current, answer, filter = "field", meta, unava
                     {check}
                   </span>
                 </>
+              ) : icon ? (
+                <>
+                  <span className="chat-dialog-icon">{icon(option)}</span>
+                  <span className="chat-dialog-name">{option}</span>
+                  {isCurrent && check}
+                </>
               ) : (
                 <>
                   {label}
@@ -223,11 +231,11 @@ export function MenuCard({ label, onDismiss, children }: { label: string; onDism
   );
 }
 
-export function DialogMenu({ pane, dialog, options, current, filter }: { pane: string; dialog: OpenDialog; options: string[]; current: string | null; filter: boolean }) {
+export function DialogMenu({ pane, dialog, options, current, filter, icon }: { pane: string; dialog: OpenDialog; options: string[]; current: string | null; filter: boolean; icon?: (option: string) => ReactNode }) {
   const answer = (given: DialogAnswer) => answerDialog(pane, dialog.id, given);
   return (
     <MenuCard label={dialog.title} onDismiss={() => answer({ kind: "cancelled" })}>
-      <Select options={options} current={current} answer={answer} filter={filter ? "typing" : "none"} />
+      <Select options={options} current={current} answer={answer} filter={filter ? "typing" : "none"} icon={icon} />
     </MenuCard>
   );
 }
