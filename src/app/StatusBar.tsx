@@ -1,7 +1,8 @@
-// The strip under the main area: a slot for the simulators button, and the subscription usage of each harness that reports it, after its logo, with the shortest window's bar.
+// The strip under the main area: a slot for the simulators button, and the subscription usage of each harness that reports it, after its logo, with the shortest window's bar; a click on it opens the Usage panel.
 import { useEffect, useState, type ReactNode } from "react";
 import type { UsageWindow } from "../ipc/bindings";
 import { harnessMarks } from "../features/harnesses/logos";
+import { openUsagePanel } from "../features/usage/commands";
 import { usage } from "../features/usage/store";
 import { openWindows, usageLevel, usageText, usageTitle, usedPercent } from "../features/usage/usage";
 
@@ -13,7 +14,7 @@ function HarnessUsage({ mark, windows, now }: { mark: Mark; windows: UsageWindow
   const percent = usedPercent(windows[0]);
   const title = [mark.title, ...windows.map((window) => usageTitle(window, now))].join("\n");
   return (
-    <span className="statusbar-harness-usage" title={title}>
+    <button type="button" className="statusbar-harness-usage" title={title} onClick={openUsagePanel}>
       <mark.Logo />
       {percent != null && (
         <span className="usage-bar" data-level={usageLevel(percent)} aria-hidden>
@@ -21,7 +22,7 @@ function HarnessUsage({ mark, windows, now }: { mark: Mark; windows: UsageWindow
         </span>
       )}
       {windows.map((window) => usageText(window, now)).join("  ·  ")}
-    </span>
+    </button>
   );
 }
 

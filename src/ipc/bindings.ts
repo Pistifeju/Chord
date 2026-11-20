@@ -36,6 +36,8 @@ export const commands = {
 	checkHarnesses: () => __TAURI_INVOKE<Checks_Serialize>("check_harnesses"),
 	/**  Reads every harness's models without opening a session, saves them and returns every saved list. */
 	refreshModels: () => __TAURI_INVOKE<{ [key in string]: ModelOption_Serialize[] }>("refresh_models"),
+	/**  The spend of every session file's replies at or after `since`, epoch ms. */
+	readSpend: (since: number | null) => __TAURI_INVOKE<Spend_Serialize>("read_spend", { since }),
 	listFolder: (worktree: string, folder: string) => __TAURI_INVOKE<FileEntry[]>("list_folder", { worktree, folder }),
 	listFiles: (worktree: string) => __TAURI_INVOKE<string[]>("list_files", { worktree }),
 	readFile: (worktree: string, file: string) => __TAURI_INVOKE<string>("read_file", { worktree, file }),
@@ -1249,6 +1251,50 @@ export type SlashCommand_Serialize = {
 export type SlashKind = "skill" | "prompt" | "extension" | 
 /**  A command of the harness itself that acts on the pane's session, such as picking the model or resuming another session; the adapter runs it when `send` gets it. */
 "session";
+
+/**  The rows since a time, and per harness the number of session files with a reply since then. */
+export type Spend = Spend_Serialize | Spend_Deserialize;
+
+/**  One hour of one model of one harness. `hour` is the start of the UTC hour in ms. */
+export type SpendRow = SpendRow_Serialize | SpendRow_Deserialize;
+
+/**  One hour of one model of one harness. `hour` is the start of the UTC hour in ms. */
+export type SpendRow_Deserialize = {
+	hour: number | null,
+	harness: string,
+	model: string,
+	input: number | null,
+	cacheRead: number | null,
+	cacheWrite: number | null,
+	output: number | null,
+	cost?: number | null,
+	saved?: number | null,
+};
+
+/**  One hour of one model of one harness. `hour` is the start of the UTC hour in ms. */
+export type SpendRow_Serialize = {
+	hour: number | null,
+	harness: string,
+	model: string,
+	input: number | null,
+	cacheRead: number | null,
+	cacheWrite: number | null,
+	output: number | null,
+	cost: number | null,
+	saved: number | null,
+};
+
+/**  The rows since a time, and per harness the number of session files with a reply since then. */
+export type Spend_Deserialize = {
+	rows: SpendRow_Deserialize[],
+	sessions: { [key in string]: number },
+};
+
+/**  The rows since a time, and per harness the number of session files with a reply since then. */
+export type Spend_Serialize = {
+	rows: SpendRow_Serialize[],
+	sessions: { [key in string]: number },
+};
 
 /**  A pane's started agent: the harness it runs and what that harness can do. */
 export type Started = {

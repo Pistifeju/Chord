@@ -11,7 +11,7 @@ use super::HARNESS;
 use super::blocks::{self, Streamed};
 use crate::harness::earlier::Message;
 use crate::harness::resume::Session;
-use crate::harness::{HarnessEvent, count, login_shell};
+use crate::harness::{HarnessEvent, count, login_shell, timestamp};
 
 /// The longest folder name Claude Code writes whole; a longer one it cuts and ends with a hash.
 const NAME_LIMIT: usize = 200;
@@ -150,7 +150,7 @@ pub(super) fn sessions(folder: &Path, own: Option<&str>, held: &[String]) -> Vec
 }
 
 // `projectsDirectory` in the JSON `claude auth status` prints, read once per app run.
-fn projects() -> Option<PathBuf> {
+pub(super) fn projects() -> Option<PathBuf> {
     static PROJECTS: OnceLock<Option<PathBuf>> = OnceLock::new();
     PROJECTS
         .get_or_init(|| {
@@ -165,7 +165,7 @@ fn projects() -> Option<PathBuf> {
 
 fn line_events(line: &Value, tools: &mut HashMap<String, String>, cwd: &Path) -> Vec<HarnessEvent> {
     let content = &line["message"]["content"];
-    let at = blocks::timestamp(&line["timestamp"]);
+    let at = timestamp(&line["timestamp"]);
     match (line["type"].as_str(), line["subtype"].as_str()) {
         (Some("user"), _) if line["promptSource"].is_string() => user(content, at),
         (Some("user"), _)

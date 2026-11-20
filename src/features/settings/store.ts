@@ -2,6 +2,7 @@
 import { commands, type Appearance_Serialize as Appearance, type Theme } from "../../ipc/bindings";
 import type { ShortcutChanges } from "../../app/shortcuts";
 import { externalStore } from "../../ui/externalStore";
+import { usagePanelOpen } from "../usage/store";
 import { defaultTextPercent, shownTheme, steppedFontSize, steppedTextPercent } from "./appearance";
 
 export const appearance = externalStore<Appearance>({ theme: "system", textPercent: defaultTextPercent, terminalFontSize: 12, editorFontSize: 12 });
@@ -71,13 +72,16 @@ export async function setKeepAwake(enabled: boolean): Promise<string | null> {
   }
 }
 
+// Settings and the Usage panel take the same place over the window, so one closes the other.
 export function openSettings() {
   settingsSection.set("general");
+  usagePanelOpen.set(false);
   settingsOpen.set(true);
 }
 
 export function openShortcuts() {
   settingsSection.set("shortcuts");
+  usagePanelOpen.set(false);
   settingsOpen.set(true);
 }
 

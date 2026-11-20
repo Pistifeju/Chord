@@ -62,6 +62,10 @@ colors:
   dark-diff-added: "rgba(0, 188, 125, 0.14)"
   dark-diff-removed: "rgba(251, 65, 74, 0.14)"
 typography:
+  total:
+    fontSize: "28px"
+    fontWeight: 600
+    lineHeight: 1.15
   empty-title:
     fontFamily: "-apple-system, BlinkMacSystemFont, 'Inter Variable', 'Helvetica Neue', sans-serif"
     fontSize: "16px"
@@ -184,7 +188,7 @@ Chord's look: Tailwind's zinc neutrals, a near-white canvas in light and pure bl
 
 The developer chose this look on purpose. When a new screen needs a decision, reuse what Chord's screens already do before inventing anything.
 
-The app keeps the platform conventions a Mac user expects: traffic lights on a transparent title bar, a full menu bar, a keyboard shortcut for every command, drag and drop from Finder, and light and dark appearance. Settings opens as a panel over the blurred window (⌘,).
+The app keeps the platform conventions a Mac user expects: traffic lights on a transparent title bar, a full menu bar, a keyboard shortcut for every command, drag and drop from Finder, and light and dark appearance. Settings (⌘,) and Usage (⌘⇧U) open as panels over the blurred window.
 
 **Key Characteristics:**
 
@@ -206,8 +210,8 @@ Every value comes from Tailwind's zinc, blue, emerald, amber and red. In dark, `
 
 - **Action Blue** (`accent`): the fill of the primary button. One per view.
 - **Pressed Blue** (`accent-pressed`): the same button while pressed.
-- **Blue Ink** (`accent-ink`): blue on a neutral surface: the caret, the drop target outline, the run marker's Building and Running. Dark appearance uses a lighter blue here so it reads on graphite.
-- **Blue Wash** (`accent-wash`): the text selection highlight and the halo around a recording shortcut.
+- **Blue Ink** (`accent-ink`): blue on a neutral surface: the caret, the drop target outline, the run marker's Building and Running, and in the Usage panel the first-ranked harness's dot and chart line and the models' share bars. Dark appearance uses a lighter blue here so it reads on graphite.
+- **Blue Wash** (`accent-wash`): the text selection highlight, the halo around a recording shortcut, and the fill under the Usage panel's first chart line.
 
 ### Neutral
 
@@ -254,6 +258,7 @@ Sizes multiply by `--text-scale`, which the text size setting changes (⌘=, ⌘
 
 ### Hierarchy
 
+- **Total** (600, 28px, 1.15, -0.02em, tabular figures): the Usage panel's total. The one size above 16px.
 - **Empty title** (600, 16px): the title of an empty state.
 - **Heading** (600, 14px): section headings, sheet titles and the Settings header.
 - **Body** (400, 13px, 1.45): descriptions, row labels, tab names. The transcript runs at 1.5.
@@ -278,7 +283,7 @@ Sizes multiply by `--text-scale`, which the text size setting changes (⌘=, ⌘
 - The toast shows 4px below the window's top edge, centered over the title bar row.
 - The transcript and the composer share a centered column, 720px at most, with 20px side padding. The composer card and a dialog fill the column's inner width, and the user's message bubble ends on the card's right edge. Transcript text, the Working row and the notice sit 15px further in (the card's border, padding and input padding), so they start where the draft text starts, at every pane width.
 - The transcript fades out over its top and bottom 16px, so text scrolls away under the edges.
-- The Settings panel is 960 × 760px at most and keeps 28px clear of the window edges.
+- The Settings panel and the Usage panel are 960 × 760px at most and keep 28px clear of the window edges. One of them shows at a time.
 - Sheets are 400px wide, cap at 80% of the window height and scroll inside.
 
 Spacing steps: 4, 8, 12, 16, 20, 28. Rows inside a group sit 0 to 2px apart; groups sit 12px apart; a section heading gets 28px above and 8px below.
@@ -305,6 +310,7 @@ Popover and sheet shadows include a 1px ring: black at 8% in light, white at 10%
 - A sheet fades in and rises 8px from 98% scale over 200ms; its backdrop blur fades in with it. A sheet closes at once. The toast drops 8px into place over 200ms. Both use `--ease-out`.
 - A worktree card's hover fill, its open fill and ring change over 120ms with `--ease-out`, and pressing its head or a session row scales it to 98.5%.
 - A Settings section's hover fill and ink change over 120ms with `--ease-out`, and pressing it scales it to 98.5%.
+- The Usage panel rises like a sheet. Its inspector title fades in and rises 4px over 200ms with `--ease-out` when the pick changes, a list row's hover fill changes over 120ms, and the refresh icon turns while a read runs. Its chart and bars do not animate.
 - The project chevron, a step group's chevron and a Files folder's chevron turn in 120ms.
 - In the chat, a message, a step row, the Working row, the find bar and the notice fade in and rise 4px over 200ms with `--ease-out` when they arrive. A chat that opens with history shows it still. Each part of a step group's summary whose text changes fades in and unblurs from 2px over 400ms with a plain ease-out.
 - The slash menu and a composer picker menu fade in and rise 4px over 200ms with `--ease-out` when they open. An extension's dialog in place of the composer fades in over 120ms.
@@ -320,7 +326,7 @@ Popover and sheet shadows include a 1px ring: black at 8% in light, white at 10%
 - The toolbar's error list fades in, drops 4px and grows from 96% over 200ms with `--ease-out`, out of the error count's corner.
 - The toolbar's Stop glyph changes color over 120ms with `--ease-out` when it enables or disables.
 - The toolbar's activity line slides its segment across the field every 1.4s while a build, an install or a launch goes on; under Reduce Motion the line fills the field's width and pulses to 35% opacity every 2.4s instead.
-- Under Reduce Motion the sheet, its backdrop, the lightbox, the chat drop card, scrim, toast, chevrons, the context ring, the usage bar and the onboarding check's stroke skip their animation, the toolbar's error list only fades, the welcome's sidebar loop stays on its first beat, the welcome's step slide, a harness row's state and command chip, chat items, the slash, picker and agent menus, the chat drop card's content, a message's copy button and time, a session row's status, the run marker, a step summary's changed part, a new tab and a Changes view row and the commit mode menu only fade, the send button, the agent button, a sliding Segmented control's thumb, the jump button, a worktree card, a settings section and a checkbox and its check do not move or scale, the jump scrolls instantly and spinners and the orbit run at a third of their speed.
+- Under Reduce Motion the sheet, its backdrop, the lightbox, the chat drop card, scrim, toast, chevrons, the context ring, the usage bar and the onboarding check's stroke skip their animation, the toolbar's error list only fades, the welcome's sidebar loop stays on its first beat, the welcome's step slide, a harness row's state and command chip, chat items, the slash, picker and agent menus, the chat drop card's content, a message's copy button and time, a session row's status, the run marker, a step summary's changed part, a new tab, a Changes view row, the commit mode menu, the Usage panel and its inspector title only fade, the send button, the agent button, a sliding Segmented control's thumb, the jump button, a worktree card, a settings section and a checkbox and its check do not move or scale, the jump scrolls instantly and spinners and the orbit run at a third of their speed.
 
 ## Shapes
 
@@ -329,7 +335,7 @@ Popover and sheet shadows include a 1px ring: black at 8% in light, white at 10%
 - **Inset** (6px, `--radius-inset`): a segment inside the segmented track, the close button inside a tab, the sidebar's worktree cards.
 - **Check** (4px, `--radius-check`): the 14px checkbox of the Changes view and of a multi select dialog.
 
-No pills, except the Simulator view's button row, which copies the simulator's own hardware look. A circle appears only as the spinner, the status dot and orbit, the send button and the jump to latest button.
+No pills, except the Simulator view's button row, which copies the simulator's own hardware look. A circle appears only as the spinner, the status dot and orbit, the Usage panel's rank dot, the send button and the jump to latest button.
 
 ## Components
 
@@ -351,6 +357,7 @@ Each component has a file of its own in `design/`. Read the file of every compon
 - Sheets: `design/sheets.md`
 - Onboarding and the harness rows: `design/onboarding.md`
 - Settings: `design/settings.md`
+- Usage panel: `design/usage-panel.md`
 - Toast: `design/toast.md`
 - Drop target: `design/drop-target.md`
 - Scrollbars: `design/scrollbars.md`

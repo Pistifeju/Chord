@@ -1,10 +1,10 @@
 // The Settings panel over the blurred window: a section list on the left, the chosen section's grouped rows on the right.
-import { useEffect, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useEffect, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { Theme } from "../../ipc/bindings";
 import { changeShortcut, commandTitles, resetShortcut, shortcutLabel, tooltip } from "../../app/commands";
 import { sheet } from "../../app/sheet";
 import { recordedShortcut } from "../../app/shortcuts";
+import { dragWindowOrClose } from "../../ui/backdrop";
 import { Row } from "../../ui/Row";
 import { onOff, Segmented } from "../../ui/Segmented";
 import { CheckAgain, HarnessRows } from "../harnesses/HarnessRows";
@@ -13,27 +13,6 @@ import { harnessChecks, watchHarnessChecks } from "../harnesses/store";
 import { AppearanceIcon, ChatIcon, CloseIcon, KeyboardIcon, MinusIcon, PhoneIcon, PlusIcon, SlidersIcon } from "../../ui/icons";
 import { appearance, changeFontSize, changeTextSize, closeSettings, keepAwake, linksInDefaultBrowser, muteNotifications, setKeepAwake, setLinksInDefaultBrowser, setMuteNotifications, setTheme, settingsSection, shortcutChanges, type FontSizeSetting, type SettingsSection } from "./store";
 import "./settings.css";
-
-// A press on the blurred window closes Settings on release; moving first drags the window instead.
-function dragWindowOrClose(e: MouseEvent) {
-  if (e.button !== 0) return;
-  const { screenX, screenY } = e;
-  const stop = () => {
-    window.removeEventListener("mousemove", move);
-    window.removeEventListener("mouseup", up);
-  };
-  const move = (m: globalThis.MouseEvent) => {
-    if (Math.hypot(m.screenX - screenX, m.screenY - screenY) < 4) return;
-    stop();
-    void getCurrentWindow().startDragging();
-  };
-  const up = () => {
-    stop();
-    closeSettings();
-  };
-  window.addEventListener("mousemove", move);
-  window.addEventListener("mouseup", up);
-}
 
 // The value is whether links open in the default browser.
 const linkTargets = [
@@ -252,7 +231,7 @@ export function SettingsPage({ buildDataSize, simulatorScreenshots, simulatorSer
   const shownSections = sections.filter((s) => s.id !== "simulators" || simulatorServices);
   const current = shownSections.find((s) => s.id === shown) ?? shownSections[0];
   return (
-    <div className="sheet-backdrop" inert={sheetOpen} onMouseDown={dragWindowOrClose}>
+    <div className="sheet-backdrop" inert={sheetOpen} onMouseDown={(e) => dragWindowOrClose(e, closeSettings)}>
       <div className="settings" role="dialog" aria-modal="true" aria-label="Settings" onMouseDown={(e) => e.stopPropagation()}>
         <nav className="settings-nav" aria-label="Settings sections">
           {shownSections.map(({ id, title, icon }) => (

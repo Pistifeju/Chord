@@ -15,6 +15,7 @@ mod relaunch;
 mod resume;
 pub mod sessions;
 mod shell;
+pub mod spend;
 mod subagents;
 
 pub use process::login_shell;
@@ -487,6 +488,27 @@ pub(crate) fn count(value: &Value) -> Option<u32> {
 
 /// The callback an adapter's reader thread hands its events to.
 pub(crate) type OnEvent = Arc<Mutex<dyn Fn(HarnessEvent) + Send>>;
+
+/// A record's `timestamp`, ISO 8601 in UTC, as epoch milliseconds.
+pub(crate) fn timestamp(value: &Value) -> Option<f64> {
+    let stamp = value.as_str()?.strip_suffix('Z')?;
+    let (date, time) = stamp.split_once('T')?;
+    let mut date = date.split('-').map(|part| part.parse::<i64>().ok());
+    let (year, month, day) = (date.next()??, date.next()??, date.next()??);
+    let (clock, fraction) = time.split_once('.').unwrap_or((time, ""));
+    let mut clock = clock.split(':').map(|part| part.parse::<i64>().ok());
+    let (hour, minute, second) = (clock.next()??, clock.next()??, clock.next()??);
+    let millis = format!("{fraction:0<3}").get(..3)?.parse::<i64>().ok()?;
+    // Days since 1970-01-01 in the proleptic Gregorian calendar, by Howard Hinnant's days_from_civil.
+    let year = if month <= 2 { year - 1 } else { year };
+    let era = year.div_euclid(400);
+    let of_era = year - era * 400;
+    let of_year = (153 * ((month + 9) % 12) + 2) / 5 + day - 1;
+    let of_cycle = of_era * 365 + of_era / 4 - of_era / 100 + of_year;
+    let days = era * 146_097 + of_cycle - 719_468;
+    let seconds = days * 86_400 + hour * 3_600 + minute * 60 + second;
+    Some((seconds * 1_000 + millis) as f64)
+}
 
 /// A level as its menu label shows it: "high" reads "High".
 pub(crate) fn capitalized(word: &str) -> String {

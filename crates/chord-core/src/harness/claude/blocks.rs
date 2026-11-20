@@ -1,4 +1,4 @@
-//! What Claude Code's content blocks mean as harness events: a user message's text and images, a tool call's start and end, and a record's time. Live records and a transcript's lines share it.
+//! What Claude Code's content blocks mean as harness events: a user message's text and images, a tool call's start and end. Live records and a transcript's lines share it.
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -6,7 +6,7 @@ use std::path::Path;
 use serde_json::Value;
 
 use crate::harness::shell::read_only_title;
-use crate::harness::{HarnessEvent, Image, LineChanges, ToolOutcome, relative, text};
+use crate::harness::{HarnessEvent, Image, LineChanges, ToolOutcome, relative, text, timestamp};
 
 /// What of an `assistant` record's block already came as deltas.
 #[derive(Clone, Copy, Default)]
@@ -202,27 +202,6 @@ pub(super) fn images(content: &Value) -> Vec<Image> {
             })
         })
         .collect()
-}
-
-/// A record's `timestamp`, ISO 8601 in UTC, as epoch milliseconds.
-pub(super) fn timestamp(value: &Value) -> Option<f64> {
-    let stamp = value.as_str()?.strip_suffix('Z')?;
-    let (date, time) = stamp.split_once('T')?;
-    let mut date = date.split('-').map(|part| part.parse::<i64>().ok());
-    let (year, month, day) = (date.next()??, date.next()??, date.next()??);
-    let (clock, fraction) = time.split_once('.').unwrap_or((time, ""));
-    let mut clock = clock.split(':').map(|part| part.parse::<i64>().ok());
-    let (hour, minute, second) = (clock.next()??, clock.next()??, clock.next()??);
-    let millis = format!("{fraction:0<3}").get(..3)?.parse::<i64>().ok()?;
-    // Days since 1970-01-01 in the proleptic Gregorian calendar, by Howard Hinnant's days_from_civil.
-    let year = if month <= 2 { year - 1 } else { year };
-    let era = year.div_euclid(400);
-    let of_era = year - era * 400;
-    let of_year = (153 * ((month + 9) % 12) + 2) / 5 + day - 1;
-    let of_cycle = of_era * 365 + of_era / 4 - of_era / 100 + of_year;
-    let days = era * 146_097 + of_cycle - 719_468;
-    let seconds = days * 86_400 + hour * 3_600 + minute * 60 + second;
-    Some((seconds * 1_000 + millis) as f64)
 }
 
 fn tagged<'a>(text: &'a str, tag: &str) -> Option<&'a str> {

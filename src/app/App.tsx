@@ -26,6 +26,8 @@ import { NoProjects } from "../features/worktrees/NoProjects";
 import { Onboarding } from "../features/onboarding/Onboarding";
 import { SettingsPage } from "../features/settings/SettingsPage";
 import { settingsOpen } from "../features/settings/store";
+import { UsagePanel } from "../features/usage/UsagePanel";
+import { usagePanelOpen } from "../features/usage/store";
 import { Sidebar, SidebarToggle } from "../features/sidebar/Sidebar";
 import { sidebar } from "../features/sidebar/store";
 import { watchFinished, watchNotificationClicks, watchShownPanes } from "../features/status/store";
@@ -65,9 +67,10 @@ export default function App() {
   const shownAlert = alert.use();
   const { hidden } = sidebar.use();
   const settings = settingsOpen.use();
+  const usagePanel = usagePanelOpen.use();
   const sheetOpen = sheet.use() !== null;
   const ready = launched.use();
-  const overlay = sheetOpen || settings;
+  const overlay = sheetOpen || settings || usagePanel;
   // A sheet and Settings blur the window, and the blur cannot reach the native view under the hole: the hole closes under them.
   // Only open or closed here: the hole's rect moves on every resize frame and redraws just `SeeThroughHole`.
   const holeOpen = seeThrough.usePart((open) => open !== null);
@@ -192,6 +195,7 @@ export default function App() {
         {!empty && <StatusBar simulators={xcode && selected ? <SimulatorsButton worktree={selected} /> : null} />}
       </div>
       {settings && <SettingsPage buildDataSize={projectHasXcode ? <BuildDataSize /> : null} simulatorScreenshots={projectHasXcode ? <ScreenshotRows /> : null} simulatorServices={projectHasXcode ? <ServiceRows /> : null} />}
+      {usagePanel && <UsagePanel />}
       <ProjectDrop />
       <NewWorktreePopup />
       <DeleteWorktreePopup />

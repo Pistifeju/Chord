@@ -1,4 +1,4 @@
-//! Each harness's model list, read without opening a session: one short process per harness, all at once, each list saved for the agent menu.
+//! Each harness's model list, read without opening a session: one short process per harness, all at once, each list saved for the agent menu. Other one-off questions to a harness run on the same short process.
 
 use std::collections::BTreeMap;
 use std::sync::mpsc;
@@ -10,17 +10,17 @@ use super::process::{Output, Process};
 use super::{Harness, HarnessEvent, ModelOption, claude, codex, login_shell, pi};
 use crate::{Error, Store};
 
-/// A harness that has not listed its models by then is given up on until the next read.
+/// A harness that has not answered by then is given up on until the next read.
 const WAIT: Duration = Duration::from_secs(20);
 
 /// Each adapter's read of its harness's models.
 type ListModels = fn() -> Result<Vec<ModelOption>, Error>;
 
 /// What one record of the harness leads to.
-pub(super) enum Step {
+pub(super) enum Step<T = Vec<ModelOption>> {
     /// Lines to write it next.
     Write(Vec<Value>),
-    Done(Vec<ModelOption>),
+    Done(T),
     Wait,
 }
 
@@ -32,16 +32,27 @@ pub(super) fn listed(event: HarnessEvent) -> Step {
     }
 }
 
-/// Runs the harness with `args` in the temp folder, so no project's settings apply, writes `first` and feeds each stdout record to `step` until it gives the list. The process ends with the read.
+/// Asks the harness for its models; see `answer`.
 pub(super) fn ask(
     harness: &Harness,
     args: &[&str],
     first: &[Value],
-    mut step: impl FnMut(&Value) -> Step + Send + 'static,
+    step: impl FnMut(&Value) -> Step + Send + 'static,
 ) -> Result<Vec<ModelOption>, Error> {
+    answer(harness, args, first, step)?
+        .ok_or_else(|| Error::Message(format!("{} listed no models", harness.title)))
+}
+
+/// Runs the harness with `args` in the temp folder, so no project's settings apply, writes `first` and feeds each stdout record to `step` until it gives its answer. None when the process ends or the wait runs out first. The process ends with the read.
+pub(super) fn answer<T: Send + 'static>(
+    harness: &Harness,
+    args: &[&str],
+    first: &[Value],
+    mut step: impl FnMut(&Value) -> Step<T> + Send + 'static,
+) -> Result<Option<T>, Error> {
     let mut command = login_shell(harness.binary, args);
     command.current_dir(std::env::temp_dir());
-    let (found, list) = mpsc::channel();
+    let (found, answers) = mpsc::channel();
     let process = Process::start(command, move |output, stdin| match output {
         Output::Line(line) => {
             let Ok(record) = serde_json::from_slice::<Value>(line) else {
@@ -53,8 +64,8 @@ pub(super) fn ask(
                         let _ = stdin.write(&line);
                     }
                 }
-                Step::Done(models) => {
-                    let _ = found.send(Some(models));
+                Step::Done(answer) => {
+                    let _ = found.send(Some(answer));
                 }
                 Step::Wait => {}
             }
@@ -67,9 +78,9 @@ pub(super) fn ask(
     for line in first {
         process.write(line)?;
     }
-    let models = list.recv_timeout(WAIT).ok().flatten();
+    let answer = answers.recv_timeout(WAIT).ok().flatten();
     drop(process);
-    models.ok_or_else(|| Error::Message(format!("{} listed no models", harness.title)))
+    Ok(answer)
 }
 
 /// Reads every harness's list at once and saves each one that came back with models; a harness that is missing, signed out or slow keeps the list it had. Returns every saved list.

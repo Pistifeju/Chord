@@ -1,0 +1,374 @@
+/* The Usage panel: header, the ranked list, the inspector with its chart, token bar and figures. Rules: design/usage-panel.md. */
+.usage-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(960px, calc(100vw - 56px));
+  height: min(760px, calc(100vh - 56px));
+  overflow: hidden;
+  border-radius: var(--radius-card);
+  background: var(--canvas);
+  box-shadow: var(--shadow-sheet);
+  animation: sheet-in var(--t-med) var(--ease-out);
+}
+
+.usage-header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 10px 0 28px;
+  border-bottom: 1px solid var(--line);
+}
+
+.usage-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: calc(14px * var(--text-scale));
+  font-weight: 600;
+}
+
+.usage-refresh[aria-busy="true"] > svg {
+  animation: spin 800ms linear infinite;
+}
+
+.usage-state {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  font-size: calc(12px * var(--text-scale));
+  color: var(--ink-muted);
+}
+
+.usage-state.usage-empty {
+  font-size: calc(16px * var(--text-scale));
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.usage-split {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.usage-list {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  /* The scrollbar's room stays reserved, so the values do not move when it shows. */
+  scrollbar-gutter: stable;
+  padding: 12px 2px 20px 12px;
+}
+
+.usage-list:focus-visible {
+  outline: none;
+}
+
+.usage-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: var(--radius-control);
+  color: var(--ink-secondary);
+  transition: background-color var(--t-fast) var(--ease-out);
+}
+
+.usage-row[data-kind="all"] {
+  min-height: 40px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.usage-row[data-kind="harness"] {
+  margin-top: 12px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.usage-row[data-kind="model"] {
+  padding-left: 48px;
+}
+
+.usage-row:hover {
+  background: var(--raised);
+}
+
+.usage-row[aria-selected="true"] {
+  background: var(--selected);
+  color: var(--ink);
+}
+
+.usage-list:focus .usage-row[aria-selected="true"] {
+  box-shadow: inset 0 0 0 2px var(--focus-ring);
+}
+
+.usage-row-name {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.usage-row-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: clip;
+}
+
+.usage-row-bar {
+  height: 2px;
+  border-radius: 1px;
+  background: var(--accent-ink);
+}
+
+.usage-row-share,
+.usage-row-value {
+  flex: none;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-row-share {
+  width: 56px;
+  font-size: calc(12px * var(--text-scale));
+  color: var(--ink-muted);
+}
+
+.usage-row[aria-selected="true"] .usage-row-share {
+  color: var(--ink-secondary);
+}
+
+.usage-row-value {
+  width: 96px;
+}
+
+.usage-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--rank);
+}
+
+/* The harness with the largest share takes the accent ink, the next two step down the gray ladder. */
+.usage-panel [data-rank="0"] {
+  --rank: var(--accent-ink);
+}
+
+.usage-panel [data-rank="1"] {
+  --rank: var(--ink-secondary);
+}
+
+.usage-panel [data-rank="2"] {
+  --rank: var(--ink-disabled);
+}
+
+.usage-logo {
+  display: grid;
+  flex: none;
+  place-items: center;
+}
+
+.usage-inspector {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 340px;
+  padding: 20px 18px 28px 20px;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  border-left: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.usage-inspector-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: calc(14px * var(--text-scale));
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  animation: usage-title-in var(--t-med) var(--ease-out);
+}
+
+@keyframes usage-title-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.usage-total-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.usage-total {
+  margin: 0;
+  font-size: calc(28px * var(--text-scale));
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-total[data-none] {
+  font-size: calc(16px * var(--text-scale));
+  line-height: calc(32px * var(--text-scale));
+  letter-spacing: 0;
+  color: var(--ink-muted);
+}
+
+.usage-meta {
+  margin: 0;
+  font-size: calc(12px * var(--text-scale));
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-chart {
+  display: block;
+  flex: none;
+  overflow: visible;
+}
+
+.usage-grid {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.usage-axis {
+  fill: var(--ink-muted);
+  font-size: calc(12px * var(--text-scale));
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-line {
+  fill: none;
+  stroke: var(--rank);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+.usage-area {
+  fill: var(--accent-wash);
+}
+
+.usage-types {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.usage-typebar {
+  display: flex;
+  gap: 2px;
+  height: 8px;
+}
+
+.usage-typebar > span {
+  flex-basis: 0;
+  min-width: 2px;
+  border-radius: 2px;
+}
+
+.usage-typebar > [data-part="0"],
+.usage-swatch[data-part="0"] {
+  background: var(--ink-secondary);
+}
+
+.usage-typebar > [data-part="1"],
+.usage-swatch[data-part="1"] {
+  background: var(--ink-muted);
+}
+
+.usage-typebar > [data-part="2"],
+.usage-swatch[data-part="2"] {
+  background: var(--ink-disabled);
+}
+
+.usage-typebar > [data-part="3"],
+.usage-swatch[data-part="3"] {
+  background: var(--line-strong);
+}
+
+.usage-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: calc(12px * var(--text-scale));
+  color: var(--ink-secondary);
+}
+
+.usage-legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.usage-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.usage-legend-value {
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-facts {
+  margin: 0;
+}
+
+.usage-facts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+}
+
+.usage-facts > div + div {
+  border-top: 1px solid var(--line);
+}
+
+.usage-facts dt {
+  color: var(--ink-muted);
+}
+
+.usage-facts dd {
+  margin: 0;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-facts-label {
+  margin: 0 0 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .usage-panel,
+  .usage-inspector-title {
+    animation-name: scrim-in;
+  }
+
+  .usage-row {
+    transition: none;
+  }
+
+  .usage-refresh[aria-busy="true"] > svg {
+    animation-duration: 2400ms;
+  }
+}

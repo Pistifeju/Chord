@@ -7,6 +7,7 @@ import { keepAwake, linksInDefaultBrowser, loadAppearance, muteNotifications } f
 import { loadPanes, resumeAgents } from "../features/panes/store";
 import { loadModelCatalogs, loadPaneHarnesses, refreshModelCatalogs } from "../features/chat/store";
 import { checkHarnesses } from "../features/harnesses/store";
+import { prefetchSpend } from "../features/usage/store";
 import { sidebar } from "../features/sidebar/store";
 import { loadSidePanels } from "../features/sidepanel/store";
 import { screenshotFolder } from "../features/ios/simulator/store";
@@ -55,6 +56,8 @@ export async function launch() {
     if (hasXcodeProject(projects.get())) commands.pruneBuildData().catch(console.error);
     // Settings › Agents opens with rows instead of a Checking row.
     void checkHarnesses();
+    // The Usage panel opens with its numbers instead of Loading.
+    prefetchSpend();
     // Listing takes a second or two and only checks the saved pick: the window does not wait for it.
     if (state.selected && worktreeAt(projects.get(), state.selected)?.xcode) refreshDestinations(state.selected).catch(console.error);
     await Promise.all([loadGitCounts(), resumed, views]);

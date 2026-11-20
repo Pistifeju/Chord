@@ -3,6 +3,7 @@
 mod commands;
 mod reader;
 mod records;
+pub(super) mod spend;
 #[cfg(test)]
 mod tests;
 

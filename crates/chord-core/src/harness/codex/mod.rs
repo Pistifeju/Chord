@@ -6,6 +6,7 @@ mod items;
 mod permissions;
 mod reader;
 mod requests;
+pub(super) mod spend;
 #[cfg(test)]
 mod tests;
 mod usage;

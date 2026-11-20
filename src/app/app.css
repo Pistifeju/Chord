@@ -93,6 +93,18 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-inset);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  white-space: inherit;
+  transition: color var(--t-fast) var(--ease-out);
+}
+
+.statusbar-harness-usage:hover {
+  color: var(--ink);
 }
 
 .statusbar-harness-usage > svg {

@@ -9,13 +9,14 @@ use serde_json::{Value, json};
 use super::asks::{self, Asks, Parsed};
 use super::blocks::{self, Streamed};
 use super::commands::{Change, Picks, Settings, commands, session_command};
-use super::{NAME, blocks::timestamp, requests, transcript};
+use super::{NAME, requests, transcript};
 use crate::Error;
 use crate::harness::calls::OpenCalls;
 use crate::harness::earlier::{Back, Earlier};
 use crate::harness::relaunch;
 use crate::harness::resume::{self, Resume};
 use crate::harness::subagents::Subagents;
+use crate::harness::timestamp;
 use crate::harness::{DialogAnswer, HarnessEvent, Image, SubagentState, UsageWindow, count, text};
 
 /// What one record leads to: events for the chat, lines to write Claude Code, and what a new process opens in place of this one.
@@ -547,7 +548,7 @@ impl Reader {
             let mut events = vec![HarnessEvent::UserMessageChunk {
                 text: blocks::user_text(content),
                 images: blocks::images(content),
-                at: blocks::timestamp(&record["timestamp"]),
+                at: timestamp(&record["timestamp"]),
             }];
             if sent.steer {
                 events.push(self.queue());

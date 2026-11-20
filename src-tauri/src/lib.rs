@@ -48,6 +48,7 @@ pub fn ipc() -> tauri_specta::Builder<tauri::Wry> {
             commands::chat::show_panes,
             commands::harnesses::check_harnesses,
             commands::harnesses::refresh_models,
+            commands::harnesses::read_spend,
             commands::files::list_folder,
             commands::files::list_files,
             commands::files::read_file,
