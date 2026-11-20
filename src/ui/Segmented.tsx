@@ -1,4 +1,4 @@
-// A segmented radio control: one button per option, the chosen one checked; a null value checks none. A sliding one moves a single thumb to the checked option.
+// A segmented radio control: one button per option, the chosen one checked; a null value checks none. A sliding one moves a single thumb to the checked option. Each label sits in a span so a press scales it and not the chip.
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 export const onOff = [
@@ -26,7 +26,7 @@ export function Segmented<T extends string | boolean>({ label, options, value, o
       {sliding && thumb && <span className="segmented-thumb" aria-hidden="true" data-jump={thumb.jump || undefined} style={{ width: thumb.width, transform: `translateX(${thumb.x}px)` }} />}
       {options.map((option) => (
         <button key={String(option.value)} type="button" role="radio" title={option.title} disabled={option.disabled} aria-checked={value === option.value} onClick={() => onChange(option.value)}>
-          {option.label}
+          <span className="segmented-label">{option.label}</span>
         </button>
       ))}
     </div>

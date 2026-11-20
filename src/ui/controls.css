@@ -587,6 +587,21 @@ button:focus-visible {
   color: var(--ink-secondary);
 }
 
+.segmented-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: inherit;
+  max-width: 100%;
+  transition: transform var(--t-fast) var(--ease-out);
+}
+
+/* A segment's label presses to 95%; text at 90% reads as a jump. */
+.segmented button:active:not(:disabled) > .segmented-label {
+  transform: scale(0.95);
+  transition-duration: 60ms;
+}
+
 .segmented button:disabled {
   color: var(--ink-disabled);
 }
@@ -636,6 +651,10 @@ button:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .segmented-thumb {
     transition: none;
+  }
+
+  .segmented button:active:not(:disabled) > .segmented-label {
+    transform: none;
   }
 }
 
