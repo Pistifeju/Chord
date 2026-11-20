@@ -989,8 +989,10 @@ export type ScreenButtons_Deserialize = {
 	/**  From the screen's bottom edge to the row's top; the row centers under the screen. */
 	gap: number | null,
 	colors: ButtonColors,
-	/**  The hairline pills the faces sit in: the capsule and the circle. */
+	/**  The hairline pills the faces sit in: the rail, or each group once a narrow view wraps it. */
 	outlines: Outline[],
+	/**  The hairlines between the rail's groups. */
+	dividers: Outline[],
 	faces: ButtonFace[],
 	/**  The recording's time, while the record pill shows. */
 	timer?: Timer | null,
@@ -1003,8 +1005,10 @@ export type ScreenButtons_Serialize = {
 	/**  From the screen's bottom edge to the row's top; the row centers under the screen. */
 	gap: number | null,
 	colors: ButtonColors,
-	/**  The hairline pills the faces sit in: the capsule and the circle. */
+	/**  The hairline pills the faces sit in: the rail, or each group once a narrow view wraps it. */
 	outlines: Outline[],
+	/**  The hairlines between the rail's groups. */
+	dividers: Outline[],
 	faces: ButtonFace[],
 	/**  The recording's time, while the record pill shows. */
 	timer: Timer | null,

@@ -1,4 +1,4 @@
-// The Simulator view in the side panel: Home, Lock, Shake, Screenshot, Record (a pill with the recording's time while it records) and the Appearance menu under the worktree's simulator screen, which the native view draws through the see-through hole; the screen takes clicks, drags, trackpad pinches and typing. The Preview view shows its preview simulator here with only Screenshot, Record and Appearance. Also its toolbar button.
+// The Simulator view in the side panel: one button rail of Home, Lock, Shake, Screenshot, Record (with the recording's time while it records) and the Appearance menu under the worktree's simulator screen, which the native view draws through the see-through hole; the screen takes clicks, drags, trackpad pinches and typing. The Preview view shows its preview simulator here with only Screenshot, Record and Appearance. Also its toolbar button.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { shortcutLabel, tooltip } from "../../../app/commands";
 import type { Bezel, Button, ButtonFace, FaceIcon, ScreenButtons } from "../../../ipc/bindings";
@@ -98,7 +98,9 @@ function measureButtons(row: HTMLElement, screen: Rect, colors: ScreenButtons["c
     height: box.height,
     gap: box.top - (screen.y + screen.height),
     colors,
-    outlines: [...row.querySelectorAll(".simulator-capsule")].map(from),
+    // The rail draws one outline; a narrow view drops it and outlines each group (simulator.css).
+    outlines: [row, ...row.querySelectorAll(".simulator-group")].filter((element) => getComputedStyle(element).getPropertyValue("--outlined").trim() === "1").map(from),
+    dividers: [...row.querySelectorAll(".simulator-divider")].map(from).filter((divider) => divider.width > 0),
     faces: [...row.querySelectorAll(".simulator-button")].map((element, i) => {
       const icon = from(element.querySelector("svg") ?? element);
       return { icon: faces[i].face, look: faces[i].look, ...from(element), iconX: icon.x, iconY: icon.y };
@@ -375,9 +377,10 @@ export function SimulatorView({ worktree, preview }: { worktree: string; preview
       <div className="simulator-area" ref={area}>
         {live && rect && rect.width > 0 && (
           <div ref={row} className="simulator-buttons" role="group" aria-label="Simulator Buttons" style={{ left: rect.x + rect.width / 2, top: rect.y + rect.height + ABOVE_ROW, maxWidth: (box?.width ?? 0) + 2 * ROW_OVERHANG }}>
-            {!previewing && <div className="simulator-capsule">{buttons(live.locked).map(({ button, label, icon }) => faceButton(button, label, icon, () => pressButton(worktree, button)))}</div>}
-            <div className="simulator-capsule simulator-capsule-round">{faceButton("screenshot", "Take Screenshot", <CameraIcon />, () => takeScreenshot(worktree, previewing))}</div>
-            <div className="simulator-capsule simulator-capsule-round">
+            {!previewing && <div className="simulator-group">{buttons(live.locked).map(({ button, label, icon }) => faceButton(button, label, icon, () => pressButton(worktree, button)))}</div>}
+            {!previewing && <span className="simulator-divider" />}
+            <div className="simulator-group">
+              {faceButton("screenshot", "Take Screenshot", <CameraIcon />, () => takeScreenshot(worktree, previewing))}
               <span
                 ref={timer}
                 className="simulator-timer"
@@ -391,7 +394,8 @@ export function SimulatorView({ worktree, preview }: { worktree: string; preview
               </span>
               {faceButton("record", recording ? "Stop Recording" : "Record Screen", recording ? <StopIcon /> : <RecordIcon />, () => toggleRecording(worktree, previewing), recording ? "Stop Recording" : "Record Screen")}
             </div>
-            <div className="simulator-capsule simulator-capsule-round">
+            <span className="simulator-divider" />
+            <div className="simulator-group">
               {faceButton("appearance", "Appearance", <AppearanceIcon />, (button) => void openAppearanceMenu(worktree, previewing, button).catch(fail), "Appearance")}
             </div>
           </div>

@@ -1,4 +1,4 @@
-//! The Simulator view's Home, Lock and Shake capsule and its screenshot, record and Appearance circles, the record circle grown into a pill with the recording's time, drawn natively under the screen so they move with it on a resize, with the lock's shackle turning and the phone shaking. The web lays them out and keeps clear buttons over them for clicks, focus and tooltips.
+//! The Simulator view's button rail (Home, Lock and Shake, then screenshot and record, then Appearance, split by hairlines), the record button grown into a pill with the recording's time, drawn natively under the screen so they move with it on a resize, with the lock's shackle turning and the phone shaking. The web lays them out and keeps clear buttons over them for clicks, focus and tooltips.
 
 use std::f64::consts::PI;
 
@@ -25,8 +25,10 @@ pub struct ScreenButtons {
     /// From the screen's bottom edge to the row's top; the row centers under the screen.
     pub gap: f64,
     pub colors: ButtonColors,
-    /// The hairline pills the faces sit in: the capsule and the circle.
+    /// The hairline pills the faces sit in: the rail, or each group once a narrow view wraps it.
     pub outlines: Vec<Outline>,
+    /// The hairlines between the rail's groups.
+    pub dividers: Vec<Outline>,
     pub faces: Vec<ButtonFace>,
     /// The recording's time, while the record pill shows.
     pub timer: Option<Timer>,
@@ -306,6 +308,18 @@ pub(crate) fn draw(row: &CALayer, spec: &ScreenButtons, scale: f64, motion: Moti
         edge.setBorderWidth(1.0);
         edge.setBorderColor(Some(&srgb(colors.line)));
         row.addSublayer(&edge);
+    }
+    for divider in &spec.dividers {
+        let line = CALayer::new();
+        line.setFrame(from_top(
+            height,
+            divider.x,
+            divider.y,
+            divider.width,
+            divider.height,
+        ));
+        line.setBackgroundColor(Some(&srgb(colors.line)));
+        row.addSublayer(&line);
     }
     if let Some(timer) = &spec.timer {
         row.addSublayer(&timer_layer(timer, height, colors.text, scale));

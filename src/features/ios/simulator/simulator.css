@@ -24,31 +24,62 @@
   outline: none;
 }
 
-/* Home, Lock and Shake in one hairline pill under the screen, the screenshot, record and Appearance buttons each in a hairline circle 8px after it, icons only. Each fill sits 1px inside the hairline, its radius concentric with the pill's. The native view draws them (screen_buttons.rs) so they move with the screen; these clear buttons lay them out and take clicks, focus and tooltips. */
+/* One hairline rail under the screen: Home, Lock and Shake, then screenshot and record, then Appearance, the groups split by 16px hairlines; icons only. Each fill sits 1px inside the hairline, its radius concentric with the rail's. The native view draws them (screen_buttons.rs) so they move with the screen; these clear buttons lay them out and take clicks, focus and tooltips. `--outlined` tells SimulatorView which boxes take a hairline. */
 .simulator-buttons {
+  --outlined: 1;
   position: fixed;
   display: flex;
-  /* A view too narrow for one line wraps the circles under the pill; SimulatorView caps its width. */
-  flex-wrap: wrap;
-  justify-content: center;
+  align-items: center;
   width: max-content;
-  gap: 8px;
-  transform: translateX(-50%);
-}
-
-.simulator-capsule {
-  display: flex;
   height: 32px;
   padding: 1px;
   border: 1px solid transparent;
   border-radius: 16px;
+  transform: translateX(-50%);
+}
+
+.simulator-group {
+  --outlined: 0;
+  display: flex;
+}
+
+.simulator-divider {
+  flex: none;
+  width: 1px;
+  height: 16px;
+  margin: 0 4px;
+}
+
+/* A view too narrow for the rail wraps it: each group takes its own hairline pill, the dividers go. SimulatorView caps the row's width. */
+@container simulator (width < 220px) {
+  .simulator-buttons {
+    --outlined: 0;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    height: auto;
+    padding: 0;
+    border: none;
+  }
+
+  .simulator-group {
+    --outlined: 1;
+    height: 32px;
+    padding: 1px;
+    border: 1px solid transparent;
+    border-radius: 16px;
+  }
+
+  .simulator-divider {
+    display: none;
+  }
 }
 
 .simulator-button {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
+  width: 36px;
   height: 28px;
   padding: 0;
   border: none;
@@ -57,12 +88,7 @@
   color: transparent;
 }
 
-/* The circles' buttons: 28px round. */
-.simulator-capsule-round .simulator-button {
-  width: 28px;
-}
-
-/* The recording's time, which the native view draws; the record circle grows into a pill to hold it. Fixed 13px, as the native row does not follow the text size. */
+/* The recording's time, which the native view draws; the rail grows to hold it before the record button. Fixed 13px, as the native row does not follow the text size. */
 .simulator-timer {
   display: flex;
   align-items: center;

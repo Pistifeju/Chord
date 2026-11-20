@@ -327,7 +327,7 @@ Popover and sheet shadows include a 1px ring: black at 8% in light, white at 10%
 - **Inset** (6px, `--radius-inset`): a segment inside the segmented track, the close button inside a tab, the sidebar's worktree cards.
 - **Check** (4px, `--radius-check`): the 14px checkbox of the Changes view and of a multi select dialog.
 
-No pills, except the Simulator view's button row, which copies the simulator's own hardware look. A circle appears only as the spinner, the status dot and orbit, the send button, the jump to latest button and the Simulator view's screenshot, record and Appearance buttons.
+No pills, except the Simulator view's button row, which copies the simulator's own hardware look. A circle appears only as the spinner, the status dot and orbit, the send button and the jump to latest button.
 
 ## Components
 
