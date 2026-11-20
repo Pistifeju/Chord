@@ -2,12 +2,11 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { Checks, HarnessCheck } from "../../ipc/bindings";
 import { CopyButton } from "../../ui/CopyButton";
-import { BranchIcon, CheckIcon, PiIcon } from "../../ui/icons";
+import { BranchIcon, CheckIcon } from "../../ui/icons";
+import { harnessMarks } from "./logos";
 import { neededCommand, shownHarnesses, stateLine } from "./harnessCheck";
 import { checkHarnesses, harnessChecks, pickHarness } from "./store";
 import "./harnesses.css";
-
-const logos: Record<string, () => ReactNode> = { pi: PiIcon };
 
 function Command({ text }: { text: string }) {
   const code = useRef<HTMLElement>(null);
@@ -77,7 +76,7 @@ export function HarnessRows({ checks, rows }: { checks: Checks | null; rows?: Ha
       <div className="harness-group" role="radiogroup" aria-label="Agent for new sessions">
         {(rows ?? shownHarnesses(checks)).map((harness) => {
           const chosen = harness.name === checks.defaultHarness;
-          const Logo = logos[harness.name];
+          const Logo = harnessMarks[harness.name]?.Logo;
           return (
             <Row
               key={harness.name}

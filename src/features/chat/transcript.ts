@@ -43,6 +43,8 @@ export type Chat = {
   dialog: OpenDialog | null;
   /** The model the agent runs; null until the agent tells. */
   model: ModelChoice | null;
+  /** The session's permission mode and whether it still asks; null for a harness that sends none. */
+  permissions: { mode: string; asks: boolean } | null;
   /** How full the context window is; null until the agent tells. */
   context: ContextFill | null;
   /** The commands the agent offers after a slash; none until it lists them. */
@@ -61,7 +63,7 @@ export type Chat = {
   historyLength: number;
 };
 
-export const emptyChat: Chat = { agent: "idle", items: [], running: false, since: null, capabilities: null, notice: null, dialog: null, model: null, context: null, commands: [], subagents: [], subagentsAt: null, queued: [], steerImages: [], report: null, historyLength: 0 };
+export const emptyChat: Chat = { agent: "idle", items: [], running: false, since: null, capabilities: null, notice: null, dialog: null, model: null, permissions: null, context: null, commands: [], subagents: [], subagentsAt: null, queued: [], steerImages: [], report: null, historyLength: 0 };
 
 export type SteerImages = { text: string; images: Image[] };
 
@@ -216,6 +218,8 @@ export function chatAfter(chat: Chat, event: HarnessEvent, now: number): Chat {
       return { ...chat, model: { name: event.name, thinking: event.thinking ?? null } };
     case "context":
       return { ...chat, context: event.window == null ? null : { tokens: event.tokens ?? null, window: event.window } };
+    case "permissions":
+      return { ...chat, permissions: { mode: event.mode, asks: event.asks } };
     case "commands":
       return { ...chat, commands: event.commands };
     case "subagents":
@@ -255,6 +259,6 @@ export function chatAfter(chat: Chat, event: HarnessEvent, now: number): Chat {
       return chat;
     case "exited":
       // Nobody is left to answer a dialog, a picker menu included.
-      return { ...chat, agent: "idle", running: false, queued: [], steerImages: [], context: null, subagents: [], subagentsAt: null, dialog: null, items: closed(chat.items) };
+      return { ...chat, agent: "idle", running: false, queued: [], steerImages: [], context: null, permissions: null, subagents: [], subagentsAt: null, dialog: null, items: closed(chat.items) };
   }
 }

@@ -368,7 +368,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
     closeBranchMenu();
     if (menu) answerDialog(pane, menu.dialog.id, { kind: "cancelled" });
   };
-  const togglePicker = (command: "/model" | "/thinking", title: string) => {
+  const togglePicker = (command: "/model" | "/thinking" | "/permissions", title: string) => {
     const click = pickerClick(menu?.dialog.title ?? null, title);
     closeMenus();
     if (click.open) openPicker(pane, command);
@@ -542,6 +542,19 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
                   <BranchIcon />
                   <span className="chat-branch-name">{branchLabel(branch)}</span>
                   <ChevronDownIcon />
+                </button>
+              )}
+              {chat.permissions && (
+                <button
+                  type="button"
+                  className="chat-picker chat-permissions"
+                  title="Permissions"
+                  disabled={!ready}
+                  data-menu-toggle
+                  data-asks={chat.permissions.asks || undefined}
+                  onClick={() => togglePicker("/permissions", "Permissions")}
+                >
+                  {chat.permissions.mode}
                 </button>
               )}
               {labels && (

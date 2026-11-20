@@ -77,6 +77,8 @@ pub(super) fn dialog_response(id: &str, answer: &DialogAnswer) -> Value {
     let mut response = json!({ "type": "extension_ui_response", "id": id });
     match answer {
         DialogAnswer::Value { value } => response["value"] = json!(value),
+        // pi opens no multi select, so this answer never reaches it.
+        DialogAnswer::Values { values } => response["value"] = json!(values.join(", ")),
         DialogAnswer::Confirmed { confirmed } => response["confirmed"] = json!(confirmed),
         DialogAnswer::Cancelled => response["cancelled"] = json!(true),
     }

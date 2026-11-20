@@ -1,9 +1,10 @@
-// The dialog an agent's extension opens, shown in place of the composer: a select with its filter row, a confirm or an input; the menu a composer bar picker floats above it; and the select itself, which the branch menu takes too.
+// The dialog an agent opens, shown in place of the composer: a select with its filter row, a confirm or an input; the menu a composer bar picker floats above it; and the select itself, which the branch menu takes too.
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import type { DialogAnswer } from "../../ipc/bindings";
 import { CheckIcon } from "../../ui/icons";
 import { useOutsidePointer } from "../../ui/outsidePointer";
 import { steppedPast } from "../../ui/listStep";
+import { openInDefaultBrowser } from "../browser/store";
 import { matchingOptions, startIndex, typedIndex } from "./dialog";
 import { answerDialog } from "./store";
 import type { OpenDialog } from "./transcript";
@@ -25,6 +26,10 @@ type SelectProps = {
   unavailable?: (at: number) => boolean;
   /** The right-click menu of the option at this index. */
   rowMenu?: (at: number, event: MouseEvent) => void;
+  /** One line per option, shown under its label. */
+  descriptions?: string[];
+  /** Each option takes a checkbox, and Submit answers with the checked ones. */
+  multi?: boolean;
 };
 
 const noneUnavailable = () => false;
@@ -32,14 +37,17 @@ const noneUnavailable = () => false;
 const openFrom = (at: number, shown: number[], unavailable: (at: number) => boolean) =>
   shown[at] !== undefined && unavailable(shown[at]) ? steppedPast(at, 1, shown.length, (i) => unavailable(shown[i])) : at;
 
-export function Select({ options, current, answer, filter = "field", meta, unavailable = noneUnavailable, rowMenu }: SelectProps) {
+export function Select({ options, current, answer, filter = "field", meta, unavailable = noneUnavailable, rowMenu, descriptions = [], multi = false }: SelectProps) {
   const [query, setQuery] = useState("");
+  const [checked, setChecked] = useState<ReadonlySet<number>>(new Set());
   const [active, setActive] = useState(() => openFrom(startIndex(options, current), matchingOptions(options, ""), unavailable));
   const root = useRef<HTMLDivElement>(null);
   const typed = useRef({ text: "", at: 0 });
   const list = useRef<HTMLDivElement>(null);
   const shown = matchingOptions(options, query);
-  const choose = (at: number) => !unavailable(at) && answer({ kind: "value", value: options[at] });
+  const toggle = (at: number) => setChecked((was) => (was.has(at) ? new Set([...was].filter((i) => i !== at)) : new Set([...was, at])));
+  const choose = (at: number) => !unavailable(at) && (multi ? toggle(at) : answer({ kind: "value", value: options[at] }));
+  const submit = () => answer({ kind: "values", values: options.filter((_, at) => checked.has(at)) });
   const narrow = (next: string) => {
     setQuery(next);
     setActive(openFrom(0, matchingOptions(options, next), unavailable));
@@ -77,6 +85,15 @@ export function Select({ options, current, answer, filter = "field", meta, unava
         {shown.map((at, i) => {
           const option = options[at];
           const isCurrent = option === current;
+          const description = descriptions[at];
+          const label = description ? (
+            <span className="chat-dialog-label">
+              {option}
+              <span className="chat-dialog-description">{description}</span>
+            </span>
+          ) : (
+            option
+          );
           const check = (
             <span className="chat-dialog-current" role={isCurrent ? "img" : undefined} aria-label={isCurrent ? "Current" : undefined}>
               {isCurrent && <CheckIcon />}
@@ -87,6 +104,7 @@ export function Select({ options, current, answer, filter = "field", meta, unava
               key={at}
               role="option"
               aria-selected={i === active}
+              aria-checked={multi ? checked.has(at) : undefined}
               aria-disabled={unavailable(at) || undefined}
               data-active={i === active || undefined}
               className="chat-dialog-option"
@@ -94,6 +112,11 @@ export function Select({ options, current, answer, filter = "field", meta, unava
               onClick={() => choose(at)}
               onContextMenu={rowMenu && ((e) => rowMenu(at, e))}
             >
+              {multi && (
+                <span className="checkbox" aria-hidden="true" aria-checked={checked.has(at)}>
+                  <CheckIcon size={12} />
+                </span>
+              )}
               {meta ? (
                 <>
                   <span className="chat-dialog-name">{option}</span>
@@ -104,7 +127,7 @@ export function Select({ options, current, answer, filter = "field", meta, unava
                 </>
               ) : (
                 <>
-                  {option}
+                  {label}
                   {isCurrent && check}
                 </>
               )}
@@ -113,6 +136,13 @@ export function Select({ options, current, answer, filter = "field", meta, unava
         })}
         {shown.length === 0 && <p className="chat-dialog-empty">No matches</p>}
       </div>
+      {multi && (
+        <div className="chat-dialog-buttons">
+          <button type="button" className="button-primary" onClick={submit}>
+            Submit
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -138,6 +168,32 @@ function Input({ placeholder, answer }: { placeholder: string; answer: (answer: 
         </button>
         <button type="button" className="button-primary" onClick={submit}>
           Submit
+        </button>
+      </div>
+    </>
+  );
+}
+
+// With a link, Open sends it to the default browser before it answers, whatever the link setting says.
+function Confirm({ message, url, answer }: { message: string; url: string | null; answer: (answer: DialogAnswer) => void }) {
+  const confirm = () => {
+    if (url) openInDefaultBrowser(url);
+    answer({ kind: "confirmed", confirmed: true });
+  };
+  return (
+    <>
+      {message && <p className="chat-dialog-message">{message}</p>}
+      {url && (
+        <p className="chat-dialog-message chat-dialog-link" data-selectable>
+          {url}
+        </p>
+      )}
+      <div className="chat-dialog-buttons">
+        <button type="button" className="button-secondary" onClick={() => answer({ kind: "confirmed", confirmed: false })}>
+          {url ? "Decline" : "No"}
+        </button>
+        <button type="button" className="button-primary" autoFocus onClick={confirm}>
+          {url ? "Open" : "Yes"}
         </button>
       </div>
     </>
@@ -170,21 +226,14 @@ export function DialogPanel({ pane, dialog }: { pane: string; dialog: OpenDialog
   return (
     <div className="chat-composer chat-dialog" role="dialog" aria-label={dialog.title} tabIndex={-1}>
       <h2 className="chat-dialog-title">{dialog.title}</h2>
-      {ask.kind === "select" && <Select options={ask.options} current={ask.current ?? null} answer={answer} />}
-      {ask.kind === "input" && <Input placeholder={ask.placeholder} answer={answer} />}
-      {ask.kind === "confirm" && (
-        <>
-          {ask.message && <p className="chat-dialog-message">{ask.message}</p>}
-          <div className="chat-dialog-buttons">
-            <button type="button" className="button-secondary" onClick={() => answer({ kind: "confirmed", confirmed: false })}>
-              No
-            </button>
-            <button type="button" className="button-primary" autoFocus onClick={() => answer({ kind: "confirmed", confirmed: true })}>
-              Yes
-            </button>
-          </div>
-        </>
+      {ask.kind === "select" && ask.detail && (
+        <pre className="chat-dialog-detail" data-selectable>
+          {ask.detail}
+        </pre>
       )}
+      {ask.kind === "select" && <Select options={ask.options} current={ask.current ?? null} answer={answer} descriptions={ask.descriptions} multi={ask.multi} />}
+      {ask.kind === "input" && <Input placeholder={ask.placeholder} answer={answer} />}
+      {ask.kind === "confirm" && <Confirm message={ask.message} url={ask.url ?? null} answer={answer} />}
     </div>
   );
 }

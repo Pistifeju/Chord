@@ -113,7 +113,7 @@
   }
 }
 
-.changes-item > .changes-check {
+.changes-item > .checkbox {
   position: absolute;
   top: 6px;
   left: 8px;
@@ -147,25 +147,6 @@
 /* The row's fill is raised on hover, so the More button steps up to selected as a tab's close button does. */
 .changes-more:hover {
   background: var(--selected);
-}
-
-.changes-check {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 14px;
-  height: 14px;
-  padding: 0;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-check);
-  background: var(--sheet);
-  color: var(--canvas);
-  transition: background-color var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out), transform var(--t-fast) var(--ease-out);
-}
-
-.changes-check:active:not(:disabled) {
-  transform: scale(0.9);
-  transition-duration: 60ms;
 }
 
 /* Stash Changes at the Changes heading's right end. */
@@ -211,32 +192,6 @@
   color: var(--ink-muted);
 }
 
-/* The check always renders, so it animates only when it changes, never when a row first shows. */
-.changes-check > svg {
-  opacity: 0;
-  transform: scale(0.8);
-  transition: opacity var(--t-fast) var(--ease-out), transform var(--t-fast) var(--ease-out);
-}
-
-.changes-check[aria-checked="true"] > svg {
-  opacity: 1;
-  transform: none;
-}
-
-.changes-check:hover:not(:disabled) {
-  border-color: var(--ink-muted);
-}
-
-.changes-check:disabled {
-  border-color: var(--line);
-  background: transparent;
-}
-
-.changes-check[aria-checked="true"] {
-  border-color: var(--ink);
-  background: var(--ink);
-}
-
 /* An empty group's line starts on the rows' name edge. */
 .changes-section > .files-empty {
   padding-left: 30px;
@@ -246,7 +201,7 @@
   padding-left: 8px;
 }
 
-.changes-group > .changes-check {
+.changes-group > .checkbox {
   margin-right: 2px;
 }
 
@@ -496,8 +451,6 @@
     animation-name: changes-fade;
   }
 
-  .changes-check:active:not(:disabled),
-  .changes-check > svg,
   .changes-toggle:active {
     transform: none;
   }

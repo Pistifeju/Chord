@@ -1,5 +1,7 @@
 //! What a harness tells the chat: the events every adapter emits.
 
+mod calls;
+pub mod codex;
 pub mod installed;
 pub mod pi;
 mod process;
@@ -40,19 +42,7 @@ pub struct SignIn {
 /// Every harness, in the order a new pane's default takes them.
 pub const HARNESSES: [Harness; 3] = [
     pi::HARNESS,
-    Harness {
-        name: "codex",
-        title: "Codex",
-        binary: "codex",
-        install: "npm install -g @openai/codex",
-        sign_in: Some(SignIn {
-            check: &["login", "status"],
-            step: "codex login",
-        }),
-        upgrade: "codex update",
-        oldest_tested: (0, 158, 0),
-        starts: false,
-    },
+    codex::HARNESS,
     Harness {
         name: "claude",
         title: "Claude Code",
@@ -95,6 +85,7 @@ pub fn start(
         pi::NAME => Ok(Box::new(pi::Session::start(
             dir, session, data_dir, tools, on_event,
         )?)),
+        codex::NAME => Ok(Box::new(codex::Session::start(dir, session, on_event)?)),
         other => Err(Error::Message(format!(
             "Chord cannot run the harness \"{other}\""
         ))),
@@ -187,10 +178,13 @@ pub struct SlashCommand {
 #[derive(Serialize, Type, Debug, Clone, PartialEq)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum DialogAsk {
-    /// `current` is the option now in effect, which the dialog marks.
+    /// `current` is the option now in effect, which the dialog marks. `detail` is the command or file the ask is about; `descriptions` holds one line per option, empty when the options have none; `multi` takes several options, answered with `Values`.
     Select {
         options: Vec<String>,
         current: Option<String>,
+        detail: Option<String>,
+        descriptions: Vec<String>,
+        multi: bool,
     },
     /// A select the user opened from the composer bar; it floats over the composer as a menu, with a filter row only when `filter`.
     Menu {
@@ -198,8 +192,10 @@ pub enum DialogAsk {
         current: Option<String>,
         filter: bool,
     },
+    /// With a `url`, the buttons read Open and Decline, and Open opens the link before it answers.
     Confirm {
         message: String,
+        url: Option<String>,
     },
     Input {
         placeholder: String,
@@ -213,6 +209,10 @@ pub enum DialogAnswer {
     /// The chosen option or the entered text.
     Value {
         value: String,
+    },
+    /// The options picked in a `multi` select.
+    Values {
+        values: Vec<String>,
     },
     Confirmed {
         confirmed: bool,
@@ -313,7 +313,9 @@ pub enum HarnessEvent {
         last_message: String,
         changed: bool,
     },
-    /// The agent went on past its open dialog. Core adds it, no adapter emits it.
+    /// The session's permission mode and whether it still asks before it acts; sent when a session starts and after each pick, as `Model` is.
+    Permissions { mode: String, asks: bool },
+    /// The agent went on past its open dialog. The adapter emits it.
     DialogClosed,
 }
 
@@ -346,10 +348,6 @@ pub struct StatusTracker {
 impl StatusTracker {
     pub fn last_message(&self) -> &str {
         &self.last_message
-    }
-
-    pub fn dialog_open(&self) -> bool {
-        self.dialog
     }
 
     fn current(&self) -> Option<Status> {
@@ -391,27 +389,22 @@ pub fn status_for(tracker: &mut StatusTracker, event: &HarnessEvent) -> Option<S
         HarnessEvent::State { running: true } => {
             tracker.running = true;
             tracker.ran = true;
-            tracker.dialog = false;
             tracker.failed = false;
         }
         HarnessEvent::State { running: false } => tracker.running = false,
         HarnessEvent::Dialog { .. } => tracker.dialog = true,
+        HarnessEvent::DialogClosed => tracker.dialog = false,
         HarnessEvent::MessageChunk { text } => {
             if !tracker.reply_open {
                 tracker.reply_open = true;
                 tracker.last_message.clear();
             }
             tracker.last_message.push_str(text);
-            tracker.dialog = false;
         }
         HarnessEvent::MessageEnd { failed, .. } => {
             tracker.reply_open = false;
             tracker.failed |= failed;
         }
-        HarnessEvent::ThoughtStart
-        | HarnessEvent::ThoughtChunk { .. }
-        | HarnessEvent::ToolStart { .. }
-        | HarnessEvent::ToolEnd { .. } => tracker.dialog = false,
         HarnessEvent::Exited { code } => tracker.exited = Some(*code),
         // Another session's runs are not this one's: the status starts over until it runs.
         HarnessEvent::HistoryStart => {
@@ -485,10 +478,12 @@ mod tests {
             HarnessEvent::Dialog {
                 id: "u1".into(),
                 title: "Pick".into(),
-                ask: DialogAsk::Confirm { message: "".into() },
+                ask: DialogAsk::Confirm {
+                    message: "".into(),
+                    url: None,
+                },
             },
         ];
-        assert_eq!(last_status(&events), Some(Status::Waiting));
         events.push(HarnessEvent::ToolEnd {
             id: "a".into(),
             outcome: ToolOutcome::Done,
@@ -496,6 +491,8 @@ mod tests {
             ms: None,
             changes: None,
         });
+        assert_eq!(last_status(&events), Some(Status::Waiting));
+        events.push(HarnessEvent::DialogClosed);
         assert_eq!(last_status(&events), Some(Status::Running));
     }
 
@@ -506,16 +503,19 @@ mod tests {
             HarnessEvent::Dialog {
                 id: "u1".into(),
                 title: "Clear".into(),
-                ask: DialogAsk::Confirm { message: "".into() },
+                ask: DialogAsk::Confirm {
+                    message: "".into(),
+                    url: None,
+                },
             },
             HarnessEvent::Queue { steering: vec![] },
             HarnessEvent::HistoryStart,
         ] {
             status_for(&mut tracker, &event);
         }
-        assert!(tracker.dialog_open());
-        status_for(&mut tracker, &HarnessEvent::ThoughtStart);
-        assert!(!tracker.dialog_open());
+        assert!(tracker.dialog);
+        status_for(&mut tracker, &HarnessEvent::DialogClosed);
+        assert!(!tracker.dialog);
     }
 
     #[test]

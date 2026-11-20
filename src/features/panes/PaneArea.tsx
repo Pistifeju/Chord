@@ -5,7 +5,8 @@ import { tooltip } from "../../app/commands";
 import { diffView, editorView } from "../../app/deferredViews";
 import { imageMime } from "../chat/attachments";
 import { ChatPane } from "../chat/ChatPane";
-import { chats, usePaneNames } from "../chat/store";
+import { chats, paneHarnesses, usePaneNames } from "../chat/store";
+import { harnessMarks } from "../harnesses/logos";
 import { shortcutChanges } from "../settings/store";
 import { seenDone, statusLabel } from "../status/status";
 import { StatusMark } from "../status/StatusMark";
@@ -15,7 +16,7 @@ import { SidePanel, type SideViewSlot } from "../sidepanel/SidePanel";
 import { sidebar } from "../sidebar/store";
 import { ImageView } from "../editor/ImageView";
 import { selectFile } from "../files/store";
-import { CloseIcon, DiffIcon, FileIcon, GlobeIcon, PiIcon, PlusIcon } from "../../ui/icons";
+import { ChatIcon, CloseIcon, DiffIcon, FileIcon, GlobeIcon, PlusIcon } from "../../ui/icons";
 import { BrowserView } from "../browser/BrowserView";
 import { usePointerDrag } from "../../ui/pointerDrag";
 import { chatPaneIds, dropEdge, dropPreview, edgeDirection, fitsSplit, groupOf, minExtent, paneIds, resizedSizes, type Box, type Group } from "./layout";
@@ -78,7 +79,13 @@ function useTabDrag(worktree: string) {
   return { tabDrag: { handlers: drag.handlers, clicked: drag.clicked, dragging }, drop, ghost: drag.ghost };
 }
 
-const tabIcon = (tab: Tab) => (tab.kind === "file" ? (tab.diff ? <DiffIcon /> : <FileIcon />) : tab.kind === "browser" ? <GlobeIcon /> : <PiIcon />);
+// A chat tab shows its pane's harness; a pane that never started has none yet.
+const tabIcon = (tab: Tab, harness: string | null) => {
+  if (tab.kind === "file") return tab.diff ? <DiffIcon /> : <FileIcon />;
+  if (tab.kind === "browser") return <GlobeIcon />;
+  const Logo = (harness && harnessMarks[harness]?.Logo) || ChatIcon;
+  return <Logo />;
+};
 
 const closeLabel = (tab: Tab) => (tab.kind === "file" ? "Close File" : tab.kind === "browser" ? "Close Page" : "Close Session");
 
@@ -88,6 +95,7 @@ function TabView({ tab, group, place, status }: { tab: Tab; group: Group; place:
   const file = tab.kind === "file";
   // A file or a page tab closes on purpose, so its close button always shows.
   const kept = tab.kind !== "chat";
+  const harness = paneHarnesses.usePart((all) => (tab.kind === "chat" ? (all[tab.id] ?? null) : null));
   const [fresh] = useState(() => !place.seen.has(tab.id));
   useEffect(() => void place.seen.add(tab.id), [place.seen, tab.id]);
   const show = () => {
@@ -102,13 +110,13 @@ function TabView({ tab, group, place, status }: { tab: Tab; group: Group; place:
         role="tab"
         className="tab-name"
         aria-selected={open}
-        title={file ? `${tab.path}${tab.diff ? diffTitle(tab.diff) : ""}` : tab.kind === "browser" ? tab.url : undefined}
+        title={file ? `${tab.path}${tab.diff ? diffTitle(tab.diff) : ""}` : tab.kind === "browser" ? tab.url : harness ? (harnessMarks[harness]?.title ?? harness) : undefined}
         {...drag.handlers(tab.id)}
         onClick={show}
         onDoubleClick={() => keepFilePane(worktree, tab.id)}
       >
         <span className="tab-status" data-status={status?.kind} title={status ? statusLabel(status) : undefined}>
-          {status ? <StatusMark kind={status.kind} /> : tabIcon(tab)}
+          {status ? <StatusMark kind={status.kind} /> : tabIcon(tab, harness)}
         </span>
         <span className="tab-label">{tabName(tab, place.names)}</span>
       </button>
@@ -283,9 +291,10 @@ function LayoutView({ layout, path, place, edges }: { layout: Layout; path: numb
 
 // The chip that follows the pointer while a tab drags: the tab's icon and name.
 function TabGhost({ tab, ghost, names }: { tab: Tab; ghost: (el: HTMLElement | null) => void; names: PaneNames }) {
+  const harness = paneHarnesses.usePart((all) => all[tab.id] ?? null);
   return (
     <div className="drag-ghost" ref={ghost}>
-      <span className="tab-status">{tabIcon(tab)}</span>
+      <span className="tab-status">{tabIcon(tab, harness)}</span>
       <span className="tab-label">{tabName(tab, names)}</span>
     </div>
   );

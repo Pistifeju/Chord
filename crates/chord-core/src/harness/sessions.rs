@@ -224,14 +224,10 @@ enum Delivery {
 }
 
 impl PaneWatch {
-    /// The event, `DialogClosed` when it closed the open dialog, then the status change and the `Status` event when a status is due.
+    /// The event, then the status change and the `Status` event when a status is due.
     fn deliver(&mut self, event: HarnessEvent) -> Vec<Delivery> {
-        let dialog_was_open = self.tracker.dialog_open();
         let report = self.observe(&event);
         let mut deliveries = vec![Delivery::Event(event)];
-        if dialog_was_open && !self.tracker.dialog_open() {
-            deliveries.push(Delivery::Event(HarnessEvent::DialogClosed));
-        }
         if let Some(StatusReport { status, changed }) = report {
             let last_message = self.tracker.last_message().to_string();
             if changed {
@@ -361,54 +357,6 @@ mod tests {
                 harness: None,
                 session: Some("/s/a.jsonl".into()),
             })
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn a_closed_dialog_reaches_the_chat_before_the_status_change() -> Result<(), Error> {
-        let root = std::env::temp_dir().join(format!("chord-deliver-{}", std::process::id()));
-        std::fs::create_dir_all(&root)?;
-        let mut watch = PaneWatch {
-            pane: "a".into(),
-            store: Arc::new(Store::open(root.join("state.json"))?),
-            awake: Arc::new(Awake::new(false)),
-            tracker: StatusTracker::default(),
-        };
-        let dialog = HarnessEvent::Dialog {
-            id: "u1".into(),
-            title: "Pick".into(),
-            ask: super::super::DialogAsk::Confirm { message: "".into() },
-        };
-
-        watch.deliver(HarnessEvent::State { running: true });
-        let opened = watch.deliver(dialog.clone());
-        let closed = watch.deliver(HarnessEvent::ThoughtStart);
-
-        let _ = std::fs::remove_dir_all(&root);
-        let status = |status, changed| {
-            Delivery::Event(HarnessEvent::Status {
-                status,
-                last_message: "".into(),
-                changed,
-            })
-        };
-        assert_eq!(
-            opened,
-            [
-                Delivery::Event(dialog),
-                Delivery::StatusChange(Status::Waiting, "".into()),
-                status(Status::Waiting, true),
-            ]
-        );
-        assert_eq!(
-            closed,
-            [
-                Delivery::Event(HarnessEvent::ThoughtStart),
-                Delivery::Event(HarnessEvent::DialogClosed),
-                Delivery::StatusChange(Status::Running, "".into()),
-                status(Status::Running, true),
-            ]
         );
         Ok(())
     }

@@ -7,11 +7,11 @@ Chord runs Codex over `codex app-server` and Claude Code over `claude -p` with s
 - [x] N1 core: one list describes every harness: its name, binary, install, sign-in and upgrade step, and oldest tested version. One check reads each harness's version and sign-in state on the login shell. A pane saves its harness; a new pane takes the default: the harness the user picked while it is installed and new enough (sign-in is a hint, as K2 says), else the first ready one in the list's order, pi, Codex, Claude Code.
 - [x] K2 Needs N1. Onboarding: the window with no project lists every harness Chord can start in the list's order (pi, then Codex, then Claude Code, each once its adapter lands) in one group, each row with its state: ready with its version, not installed, not signed in, or older than the tested version. A row that needs something shows the install, sign-in or upgrade command with a copy button. The checks run when the view shows and on window focus. The first ready harness becomes the default for new sessions; a click on another ready row changes it. Add Project adds the first project. A missing `git` shows its install step.
 - [x] K5 Needs K2. Settings section Agents: K2's rows and the default harness for new sessions. A chat pane whose harness is missing or too old shows its row in place of the Start button.
-- [ ] N2 **hard** Needs N1. Codex over `codex app-server`: chat, tool calls, thinking, stop, steer, attachments, approvals and questions as dialogs, model and thinking level, context meter, slash menu, resume with history, and the permission mode picker: a composer bar button with the session's approval and sandbox mode, next to the model picker, and a `/permissions` session command that opens the same picker. A chat tab shows its harness's logo.
+- [x] N2 **hard** Needs N1. Codex over `codex app-server`: chat, tool calls, thinking, stop, steer, attachments, approvals and questions as dialogs, model and thinking level, context meter, slash menu, resume with history, and the permission mode picker: a composer bar button with the session's approval and sandbox mode, next to the model picker, and a `/permissions` session command that opens the same picker. A chat tab shows its harness's logo.
 - [ ] N3 **hard** Needs N1. Claude Code over `claude -p` with stream-json in and out: N2's list, with the picker holding Claude Code's permission mode.
 - [ ] N4 Needs N2 or N3. Build and run tools for Codex and Claude Code through a stdio MCP server that Chord's own binary serves.
 - [ ] N5 Needs N2 or N3. Session commands for Codex and Claude Code: new, fork, clone, rewind, reload and compact.
-- [ ] N6 Needs N2 or N3. Usage and subagents for Codex and Claude Code, from what each CLI reports itself. The status bar shows the usage of the focused pane's harness.
+- [ ] N6 Needs N2 or N3. Usage and subagents for Codex and Claude Code, from what each CLI reports itself. The status bar shows the usage of every used harnesses. So we need to use the icons of the harnesses so set them apart.
 - [ ] N7 Needs N1. The oldest version of each harness Chord runs: step each harness back through its released versions, run Chord's feature list on each one, and set its `oldest_tested` to the oldest version where every feature works. pi now, Codex after N2, Claude Code after N3. Section 2's tested versions list each harness's oldest and newest passing versions.
 
 Edge cases:
@@ -83,18 +83,18 @@ Permission asks open as dialogs, and the card reports Waiting while one is open.
 
 | Where | Today | Change | Step |
 |---|---|---|---|
-| `harness/mod.rs:41` | `start` has one arm | one arm per harness | 3, 4 |
+| `harness/mod.rs`, `start` | arms for pi and Codex | an arm for Claude Code | 3, 4 |
 | `state.rs:122` | a new pane's harness is `pi` | the default harness: the user's pick while it is ready, else the first ready one | 1 |
-| `harness/mod.rs:335` | `status_for` closes the open dialog at each tool, thought and message event, and core adds `DialogClosed` | the adapter emits `DialogClosed`; the pi reader emits it where pi goes on past a dialog | 3 |
+| `harness/mod.rs`, `status_for` | closes the open dialog at `DialogClosed` alone, which the pi reader and the Codex adapter emit | the Claude Code adapter emits it after an answer, at `control_cancel_request` and at the run's end | 4 |
 | `harness/pi/mod.rs:29` | install step is `npm install -g` | `curl -fsSL https://pi.dev/install.sh \| sh` | 1 |
 | `harness/pi/mod.rs:332` | the version check and its parser are private to pi | one check and one parser for every harness | 1 |
-| `panes/PaneArea.tsx:81` | every chat tab shows pi's logo | the logo of the pane's harness; the harness name in the tab's tooltip | 3 |
+| `panes/PaneArea.tsx` | a chat tab shows its pane's harness logo from `harnesses/logos.tsx`, the harness name in its tooltip | a Claude Code entry in `logos.tsx` | 4 |
 | `usage/store.ts` | one usage list for the whole app | one per harness; the status bar shows the focused pane's | 6 |
 | `harness/pi/extension.ts` | the `build` and `run` tools exist only as a pi extension | one stdio MCP server in Chord's own binary | 5 |
 | `AGENTS.md` "New harness", `harness-contract.md` 3 "Version check", `ARCHITECTURE.md` 3.6 | a new harness is one `start` arm; pi checks its own version | a new harness is a list entry and a `start` arm; one check for every harness | 1 |
 | `PRODUCT.md`, `README.md:13`, `ARCHITECTURE.md` 1 and 3 | name pi as the one harness | name the three | 7 |
 
-Every adapter takes `/model` and `/thinking` as text, as the frontend sends them (`chat/store.ts:150`).
+Every adapter takes `/model`, `/thinking` and `/permissions` as text, as the frontend sends them (`openPicker` in `chat/store.ts`).
 
 ## 5. Onboarding view
 

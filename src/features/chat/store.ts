@@ -154,7 +154,7 @@ export function answerDialog(pane: string, id: string, answer: DialogAnswer) {
 }
 
 // The picker opens as a dialog; a refusal shows as a notice.
-export function openPicker(pane: string, command: "/model" | "/thinking") {
+export function openPicker(pane: string, command: "/model" | "/thinking" | "/permissions") {
   commands.sendMessage(pane, command, []).catch((error) => noticeOf(pane, error));
 }
 

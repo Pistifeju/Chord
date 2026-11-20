@@ -59,6 +59,14 @@ export const PiIcon = () => (
   </svg>
 );
 
+// Codex's logo: a prompt in a rounded window.
+export const CodexIcon = () => (
+  <Icon>
+    <rect x="1.75" y="2.25" width="12.5" height="11.5" rx="3" />
+    <path d="M5 6.25 7 8l-2 1.75M8.75 10h2.5" />
+  </Icon>
+);
+
 export const CloseIcon = ({ size }: { size?: number }) => (
   <Icon size={size}>
     <path d="M4 4l8 8M12 4l-8 8" />

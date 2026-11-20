@@ -684,13 +684,14 @@
 
 @container (max-width: 300px) {
   .chat-context-percent,
+  .chat-permissions,
   .chat-branch-name {
     display: none;
   }
 }
 
 @container (max-width: 240px) {
-  .chat-picker + .chat-picker {
+  :where(.chat-pickers) > .chat-picker + .chat-picker {
     display: none;
   }
 }
@@ -710,6 +711,20 @@
   display: flex;
   min-width: 0;
   margin-left: auto;
+}
+
+/* The permission mode sits before the model and takes the free space in its place; a mode that never asks reads in the warning color. */
+.chat-permissions {
+  margin-left: auto;
+}
+
+.chat-permissions + .chat-pickers {
+  margin-left: 0;
+}
+
+.chat-permissions:not([data-asks]),
+.chat-permissions:not([data-asks]):hover:not(:disabled) {
+  color: var(--status-waiting);
 }
 
 .chat-pickers + .chat-send {
@@ -733,7 +748,7 @@
     transform var(--t-fast) var(--ease-out);
 }
 
-.chat-picker + .chat-picker {
+:where(.chat-pickers) > .chat-picker + .chat-picker {
   flex: none;
   color: var(--ink-muted);
 }
@@ -743,7 +758,7 @@
   color: var(--ink);
 }
 
-.chat-picker + .chat-picker:hover:not(:disabled) {
+:where(.chat-pickers) > .chat-picker + .chat-picker:hover:not(:disabled) {
   color: var(--ink-secondary);
 }
 
@@ -977,6 +992,38 @@
 .chat-dialog-option[data-active] {
   background: var(--selected);
   color: var(--ink);
+}
+
+/* A multi select's row starts with its checkbox. */
+.chat-dialog-option[aria-checked] {
+  justify-content: flex-start;
+}
+
+.chat-dialog-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.chat-dialog-description {
+  font-size: calc(12px * var(--text-scale));
+  color: var(--ink-muted);
+}
+
+/* The command or the files an approval is about. */
+.chat-dialog-detail {
+  margin: 0;
+  max-height: 120px;
+  padding: 0 8px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: calc(12px * var(--text-scale));
+  color: var(--ink-secondary);
+}
+
+.chat-dialog-link {
+  font-size: calc(12px * var(--text-scale));
 }
 
 .chat-slash-menu {

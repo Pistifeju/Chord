@@ -26,6 +26,20 @@ pub fn read_only_title(command: &str) -> Option<&'static str> {
     title
 }
 
+/// The script of a `<shell> -c` or `-lc` command, as the agent wrote it, without the shell's quoting.
+pub fn shell_script(command: &str) -> Option<String> {
+    let mut parts = split_parts(command)?;
+    let [words] = parts.as_mut_slice() else {
+        return None;
+    };
+    match words.as_slice() {
+        [shell, flag, _] if shell.ends_with("sh") && matches!(flag.as_str(), "-c" | "-lc") => {
+            words.pop()
+        }
+        _ => None,
+    }
+}
+
 /// The words of each part between `|`, `&&`, `||` and `;`, split outside quotes. None when a redirect may write or a job runs in the background.
 fn split_parts(command: &str) -> Option<Vec<Vec<String>>> {
     let chars: Vec<char> = command.chars().collect();
@@ -259,7 +273,20 @@ fn git_title(args: &[&str]) -> Option<&'static str> {
 
 #[cfg(test)]
 mod tests {
-    use super::read_only_title as title;
+    use super::{read_only_title as title, shell_script};
+
+    #[test]
+    fn a_shell_wrapper_gives_the_script_it_runs() {
+        assert_eq!(
+            shell_script("/bin/zsh -lc 'cat a.txt | wc -c'").as_deref(),
+            Some("cat a.txt | wc -c")
+        );
+        assert_eq!(
+            shell_script(r#"/bin/zsh -lc "printf 'bye' > b.txt""#).as_deref(),
+            Some("printf 'bye' > b.txt")
+        );
+        assert_eq!(shell_script("cat a.txt"), None);
+    }
 
     #[test]
     fn a_reading_command_is_read() {

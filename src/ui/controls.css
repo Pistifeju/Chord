@@ -596,3 +596,56 @@ button:focus-visible {
   box-shadow: var(--shadow-control);
   color: var(--ink);
 }
+
+/* A 14px checkbox. */
+.checkbox {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-check);
+  background: var(--sheet);
+  color: var(--canvas);
+  transition: background-color var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out), transform var(--t-fast) var(--ease-out);
+}
+
+.checkbox:active:not(:disabled) {
+  transform: scale(0.9);
+  transition-duration: 60ms;
+}
+
+/* The check always renders, so it animates only when it changes, never when a row first shows. */
+.checkbox > svg {
+  opacity: 0;
+  transform: scale(0.8);
+  transition: opacity var(--t-fast) var(--ease-out), transform var(--t-fast) var(--ease-out);
+}
+
+.checkbox[aria-checked="true"] > svg {
+  opacity: 1;
+  transform: none;
+}
+
+.checkbox:hover:not(:disabled) {
+  border-color: var(--ink-muted);
+}
+
+.checkbox:disabled {
+  border-color: var(--line);
+  background: transparent;
+}
+
+.checkbox[aria-checked="true"] {
+  border-color: var(--ink);
+  background: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .checkbox:active:not(:disabled),
+  .checkbox > svg {
+    transform: none;
+  }
+}

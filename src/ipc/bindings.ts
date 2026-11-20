@@ -470,24 +470,30 @@ export type Destinations = {
 /**  The user's answer to a dialog. */
 export type DialogAnswer = 
 /**  The chosen option or the entered text. */
-{ kind: "value"; value: string } | { kind: "confirmed"; confirmed: boolean } | { kind: "cancelled" };
+{ kind: "value"; value: string } | 
+/**  The options picked in a `multi` select. */
+{ kind: "values"; values: string[] } | { kind: "confirmed"; confirmed: boolean } | { kind: "cancelled" };
 
 /**  What a dialog asks. */
 export type DialogAsk = DialogAsk_Serialize | DialogAsk_Deserialize;
 
 /**  What a dialog asks. */
 export type DialogAsk_Deserialize = 
-/**  `current` is the option now in effect, which the dialog marks. */
-{ kind: "select"; options: string[]; current?: string | null } | 
+/**  `current` is the option now in effect, which the dialog marks. `detail` is the command or file the ask is about; `descriptions` holds one line per option, empty when the options have none; `multi` takes several options, answered with `Values`. */
+{ kind: "select"; options: string[]; current?: string | null; detail?: string | null; descriptions: string[]; multi: boolean } | 
 /**  A select the user opened from the composer bar; it floats over the composer as a menu, with a filter row only when `filter`. */
-{ kind: "menu"; options: string[]; current?: string | null; filter: boolean } | { kind: "confirm"; message: string } | { kind: "input"; placeholder: string };
+{ kind: "menu"; options: string[]; current?: string | null; filter: boolean } | 
+/**  With a `url`, the buttons read Open and Decline, and Open opens the link before it answers. */
+{ kind: "confirm"; message: string; url?: string | null } | { kind: "input"; placeholder: string };
 
 /**  What a dialog asks. */
 export type DialogAsk_Serialize = 
-/**  `current` is the option now in effect, which the dialog marks. */
-{ kind: "select"; options: string[]; current: string | null } | 
+/**  `current` is the option now in effect, which the dialog marks. `detail` is the command or file the ask is about; `descriptions` holds one line per option, empty when the options have none; `multi` takes several options, answered with `Values`. */
+{ kind: "select"; options: string[]; current: string | null; detail: string | null; descriptions: string[]; multi: boolean } | 
 /**  A select the user opened from the composer bar; it floats over the composer as a menu, with a filter row only when `filter`. */
-{ kind: "menu"; options: string[]; current: string | null; filter: boolean } | { kind: "confirm"; message: string } | { kind: "input"; placeholder: string };
+{ kind: "menu"; options: string[]; current: string | null; filter: boolean } | 
+/**  With a `url`, the buttons read Open and Decline, and Open opens the link before it answers. */
+{ kind: "confirm"; message: string; url: string | null } | { kind: "input"; placeholder: string };
 
 export type DiffLine = DiffLine_Serialize | DiffLine_Deserialize;
 
@@ -653,7 +659,9 @@ export type HarnessEvent_Deserialize =
 { kind: "exited"; code?: number | null } | 
 /**  The pane's status changed or a reply ended; `last_message` is the text of the last reply; `changed` is false when a reply end repeats the status. Core adds it, no adapter emits it. */
 { kind: "status"; status: Status_Deserialize; last_message: string; changed: boolean } | 
-/**  The agent went on past its open dialog. Core adds it, no adapter emits it. */
+/**  The session's permission mode and whether it still asks before it acts; sent when a session starts and after each pick, as `Model` is. */
+{ kind: "permissions"; mode: string; asks: boolean } | 
+/**  The agent went on past its open dialog. The adapter emits it. */
 { kind: "dialog_closed" };
 
 export type HarnessEvent_Serialize = 
@@ -707,7 +715,9 @@ export type HarnessEvent_Serialize =
 { kind: "exited"; code: number | null } | 
 /**  The pane's status changed or a reply ended; `last_message` is the text of the last reply; `changed` is false when a reply end repeats the status. Core adds it, no adapter emits it. */
 { kind: "status"; status: Status_Serialize; last_message: string; changed: boolean } | 
-/**  The agent went on past its open dialog. Core adds it, no adapter emits it. */
+/**  The session's permission mode and whether it still asks before it acts; sent when a session starts and after each pick, as `Model` is. */
+{ kind: "permissions"; mode: string; asks: boolean } | 
+/**  The agent went on past its open dialog. The adapter emits it. */
 { kind: "dialog_closed" };
 
 export type Hunk = Hunk_Serialize | Hunk_Deserialize;

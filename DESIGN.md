@@ -318,14 +318,14 @@ Popover and sheet shadows include a 1px ring: black at 8% in light, white at 10%
 - In the welcome, a step change slides the new step in from 16px and 2px blur over 280ms with `--ease-out`; a harness row's state and command chip fade in and rise 4px over 200ms when a check changes them, and the default's check draws its stroke over 320ms. See `design/onboarding.md`.
 - In the Changes view, a row that a read brings after the view's first one, staged, unstaged or new on disk, fades in and rises 4px over 200ms with `--ease-out`. The rows the view opens with show still. A row's More button fades in and out over 120ms with `--ease-out`. A checkbox presses to 90% scale over 60ms, and its check fades in and grows from 80% scale over 120ms with `--ease-out`.
 - The toolbar's activity line slides its segment across the field every 1.4s while a build, an install or a launch goes on; under Reduce Motion the line fills the field's width and pulses to 35% opacity every 2.4s instead.
-- Under Reduce Motion the sheet, its backdrop, the lightbox, the chat drop card, scrim, toast, chevrons, the context ring, the usage bar and the onboarding check's stroke skip their animation, the welcome's sidebar loop stays on its first beat, the welcome's step slide, a harness row's state and command chip, chat items, the slash and picker menus, the chat drop card's content, a message's copy button and time, a session row's status, the run marker, a step summary's changed part, a new tab and a Changes view row only fade, the send button, the model and thinking level pickers, the jump button, a worktree card, a settings section and a Changes view checkbox and its check do not move or scale, the jump scrolls instantly and spinners and the orbit run at a third of their speed.
+- Under Reduce Motion the sheet, its backdrop, the lightbox, the chat drop card, scrim, toast, chevrons, the context ring, the usage bar and the onboarding check's stroke skip their animation, the welcome's sidebar loop stays on its first beat, the welcome's step slide, a harness row's state and command chip, chat items, the slash and picker menus, the chat drop card's content, a message's copy button and time, a session row's status, the run marker, a step summary's changed part, a new tab and a Changes view row only fade, the send button, the model and thinking level pickers, the jump button, a worktree card, a settings section and a checkbox and its check do not move or scale, the jump scrolls instantly and spinners and the orbit run at a third of their speed.
 
 ## Shapes
 
 - **Controls** (8px, `--radius-control`): buttons, icon buttons, inputs, the segmented track, the toast.
 - **Cards** (16px, `--radius-card`): the composer, the user's message, sheets, the drop target.
 - **Inset** (6px, `--radius-inset`): a segment inside the segmented track, the close button inside a tab, the sidebar's worktree cards.
-- **Check** (4px, `--radius-check`): the Changes view's 14px checkbox.
+- **Check** (4px, `--radius-check`): the 14px checkbox of the Changes view and of a multi select dialog.
 
 No pills, except the Simulator view's button row, which copies the simulator's own hardware look. A circle appears only as the spinner, the status dot and orbit, the send button, the jump to latest button and the Simulator view's screenshot, record and Appearance buttons.
 

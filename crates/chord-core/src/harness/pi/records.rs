@@ -3,6 +3,7 @@
 use serde_json::Value;
 
 use super::{EXTENSION_PREFIX, FORK_DIALOG, Picker, SESSION_COMMANDS, USAGE_STATUS};
+use crate::harness::calls::OpenCalls;
 use crate::harness::shell::read_only_title;
 use crate::harness::{
     DialogAsk, HarnessEvent, Image, LineChanges, SlashCommand, SlashKind, SubagentNode,
@@ -112,39 +113,6 @@ pub(super) fn capitalized(word: &str) -> String {
         .next()
         .map(|first| first.to_uppercase().chain(chars).collect())
         .unwrap_or_default()
-}
-
-// A run that settles or dies leaves calls pi never closed; they end as stopped so none shows as running.
-#[derive(Default)]
-pub(super) struct OpenCalls(Vec<String>);
-
-impl OpenCalls {
-    pub(super) fn track(&mut self, events: Vec<HarnessEvent>) -> Vec<HarnessEvent> {
-        let mut out = Vec::new();
-        for event in events {
-            match &event {
-                HarnessEvent::ToolStart { id, .. } => self.0.push(id.clone()),
-                HarnessEvent::ToolEnd { id, .. } => self.0.retain(|open| open != id),
-                HarnessEvent::State { running: false } => out.extend(self.stop()),
-                _ => {}
-            }
-            out.push(event);
-        }
-        out
-    }
-
-    pub(super) fn stop(&mut self) -> Vec<HarnessEvent> {
-        self.0
-            .drain(..)
-            .map(|id| HarnessEvent::ToolEnd {
-                id,
-                outcome: ToolOutcome::Stopped,
-                images: vec![],
-                ms: None,
-                changes: None,
-            })
-            .collect()
-    }
 }
 
 pub(super) fn events_from(record: &Value) -> Vec<HarnessEvent> {
@@ -371,6 +339,9 @@ fn fork_dialog(messages: &Value) -> HarnessEvent {
                 .map(|(i, (_, text))| format!("{}. {}", i + 1, first_line(text)))
                 .collect(),
             current: None,
+            detail: None,
+            descriptions: vec![],
+            multi: false,
         },
     }
 }
@@ -415,9 +386,13 @@ fn ui_request(record: &Value) -> Option<HarnessEvent> {
                 .filter_map(|option| option.as_str().map(String::from))
                 .collect(),
             current: None,
+            detail: None,
+            descriptions: vec![],
+            multi: false,
         },
         "confirm" => DialogAsk::Confirm {
             message: text("message"),
+            url: None,
         },
         "input" => DialogAsk::Input {
             placeholder: text("placeholder"),

@@ -1,4 +1,4 @@
-//! Reads an image file the user attached, as the base64 text a harness takes.
+//! Reads an image file, as the base64 text a harness takes.
 
 use std::path::Path;
 
@@ -9,4 +9,16 @@ use crate::Error;
 
 pub fn read_base64(path: &Path) -> Result<String, Error> {
     Ok(STANDARD.encode(std::fs::read(path)?))
+}
+
+/// The MIME type of an image file, read from its extension.
+pub fn mime_type(path: &Path) -> Option<&'static str> {
+    let extension = path.extension()?.to_str()?.to_ascii_lowercase();
+    match extension.as_str() {
+        "png" => Some("image/png"),
+        "jpg" | "jpeg" => Some("image/jpeg"),
+        "gif" => Some("image/gif"),
+        "webp" => Some("image/webp"),
+        _ => None,
+    }
 }

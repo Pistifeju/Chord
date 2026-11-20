@@ -6,10 +6,9 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::commands::session_requests;
-use super::records::{
-    OpenCalls, capitalized, events_from, message_update, newest_first, subagent_nodes,
-};
+use super::records::{capitalized, events_from, message_update, newest_first, subagent_nodes};
 use super::{Picker, SESSION_PROMPT, SUBAGENTS_PREFIX};
+use crate::harness::calls::OpenCalls;
 use crate::harness::{DialogAsk, HarnessEvent};
 
 #[derive(Deserialize)]
@@ -55,14 +54,34 @@ pub(super) struct Read {
 pub(super) struct Reader {
     shown: ShownSession,
     calls: OpenCalls,
+    dialog_open: bool,
 }
 
 impl Reader {
-    /// A run that settles closes the tool calls pi left open.
+    /// A run that settles closes the tool calls pi left open. pi never says a dialog closed, so the first sign of the agent going on closes it.
     pub(super) fn feed(&mut self, line: &[u8]) -> Read {
         let Read { events, requests } = read_line(line, &mut self.shown);
+        let mut out = Vec::new();
+        for event in self.calls.track(events) {
+            match event {
+                HarnessEvent::Dialog { .. } => self.dialog_open = true,
+                HarnessEvent::MessageChunk { .. }
+                | HarnessEvent::ThoughtStart
+                | HarnessEvent::ThoughtChunk { .. }
+                | HarnessEvent::ToolStart { .. }
+                | HarnessEvent::ToolEnd { .. }
+                | HarnessEvent::State { running: true }
+                    if self.dialog_open =>
+                {
+                    self.dialog_open = false;
+                    out.push(HarnessEvent::DialogClosed);
+                }
+                _ => {}
+            }
+            out.push(event);
+        }
         Read {
-            events: self.calls.track(events),
+            events: out,
             requests,
         }
     }

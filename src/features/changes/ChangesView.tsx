@@ -235,7 +235,7 @@ function StageBox({ worktree, list, staged, label, focusable = false }: { worktr
     <button
       type="button"
       role="checkbox"
-      className="changes-check"
+      className="checkbox"
       aria-checked={staged}
       aria-label={label}
       title={label}

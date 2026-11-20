@@ -6,7 +6,8 @@ use super::commands::{
     dialog_response, fork_command, model_command, prompt_command, session_command, thinking_command,
 };
 use super::reader::Reader;
-use super::records::{OpenCalls, collapse_skill, newest_first};
+use super::records::{collapse_skill, newest_first};
+use crate::harness::calls::OpenCalls;
 use crate::harness::{
     DialogAnswer, DialogAsk, HarnessEvent, Image, LineChanges, SlashCommand, SlashKind,
     SubagentNode, SubagentState, ToolOutcome, UsageWindow,
@@ -831,7 +832,10 @@ fn a_fork_asks_which_message_and_forks_from_the_picked_one() {
             title: "Fork From".into(),
             ask: DialogAsk::Select {
                 options: vec!["1. Fix the login".into(), "2. Fix the login".into()],
-                current: None
+                current: None,
+                detail: None,
+                descriptions: vec![],
+                multi: false,
             },
         }]
     );
@@ -896,11 +900,27 @@ fn a_select_request_opens_a_dialog_and_a_notify_does_not() {
             title: "Pick".into(),
             ask: DialogAsk::Select {
                 options: vec!["a".into()],
-                current: None
+                current: None,
+                detail: None,
+                descriptions: vec![],
+                multi: false,
             },
         }]
     );
     assert_eq!(events(notify), vec![]);
+}
+
+#[test]
+fn the_first_record_after_a_dialog_closes_it() {
+    let mut reader = Reader::default();
+    let dialog = r#"{"type":"extension_ui_request","id":"u1","method":"select","title":"Pick","options":["a"]}"#;
+    let tool = r#"{"type":"tool_execution_start","toolCallId":"c1","toolName":"read","args":{"path":"a.md"}}"#;
+    reader.feed(dialog.as_bytes());
+    let first = reader.feed(tool.as_bytes()).events;
+    let second = reader.feed(tool.as_bytes()).events;
+    assert_eq!(first.first(), Some(&HarnessEvent::DialogClosed));
+    assert_eq!(first.len(), 2);
+    assert_eq!(second.len(), 1);
 }
 
 #[test]
