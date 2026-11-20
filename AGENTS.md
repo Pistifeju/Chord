@@ -23,6 +23,7 @@ A macOS workspace for coding agents: one git worktree per task, each with its ow
 - Before you write new logic at any scale, search the repo for the same thing. Extend or generalize it instead of building a parallel version.
 - State rules live in a pure module outside React.
 - Every UI change follows `DESIGN.md` and the `design/` file of each component you touch. `DESIGN.md` lists the files under `Components`.
+- In a `design/` file, start each sentence on its own line, so a diff shows the one sentence that changed.
 - CSS variables from `src/ui/tokens.css`. No raw hex in components.
 - Name a file, folder or module after the domain concept it holds. Never `utils`, `helpers`, `common`, `misc` or `shared`. Reaching for one of those means the file holds two jobs: split it, or find the name in what its functions operate on.
 - Write a comment only where the code cannot say it: one line, the why, never the how.
