@@ -23,7 +23,6 @@
   border-radius: var(--radius-control);
   color: var(--ink-secondary);
   white-space: nowrap;
-  cursor: default;
 }
 
 .picker-sheet-row svg {

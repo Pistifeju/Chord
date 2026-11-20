@@ -362,6 +362,7 @@ Each component has a file of its own in `design/`. Read the file of every compon
 
 - **Do** use the four neutral steps in order: `canvas` for the work area, `panel` for the frame around it, `raised` for hover and resting controls, `selected` for the open item and pressed controls.
 - **Do** give a view one blue primary button.
+- **Do** show the pointing-hand cursor on anything you can click; a disabled control keeps the arrow.
 - **Do** keep controls at 8px and cards at 16px.
 - **Do** give every command a menu bar item and a keyboard shortcut.
 - **Do** put each new color in both the light and the dark block of `src/ui/tokens.css`.

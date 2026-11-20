@@ -5,7 +5,7 @@ import { CheckIcon } from "../../ui/icons";
 import { useOutsidePointer } from "../../ui/outsidePointer";
 import { steppedPast } from "../../ui/listStep";
 import { openInDefaultBrowser } from "../browser/store";
-import { matchingOptions, startIndex, typedIndex, TYPING_PAUSE_MS } from "./dialog";
+import { filtersOptions, matchingOptions, startIndex, typedIndex, TYPING_PAUSE_MS } from "./dialog";
 import { answerDialog } from "./store";
 import type { OpenDialog } from "./transcript";
 
@@ -243,7 +243,7 @@ export function DialogPanel({ pane, dialog }: { pane: string; dialog: OpenDialog
           {ask.detail}
         </pre>
       )}
-      {ask.kind === "select" && <Select options={ask.options} current={ask.current ?? null} answer={answer} descriptions={ask.descriptions} multi={ask.multi} />}
+      {ask.kind === "select" && <Select options={ask.options} current={ask.current ?? null} answer={answer} filter={!ask.detail && filtersOptions(ask.options.length) ? "field" : "typing"} descriptions={ask.descriptions} multi={ask.multi} />}
       {ask.kind === "input" && <Input placeholder={ask.placeholder} answer={answer} />}
       {ask.kind === "confirm" && <Confirm message={ask.message} url={ask.url ?? null} answer={answer} />}
     </div>

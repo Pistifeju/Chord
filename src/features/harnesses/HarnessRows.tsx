@@ -1,5 +1,5 @@
 // The harness rows: each harness Chord can start with its state, the command it needs, and the default's check; a click on a row that takes the pick makes it the default. Git's row follows while git is missing. Check Again runs the check.
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { Checks, HarnessCheck } from "../../ipc/bindings";
 import { CopyButton } from "../../ui/CopyButton";
 import { BranchIcon, CheckIcon } from "../../ui/icons";
@@ -56,14 +56,21 @@ function Row({ logo, title, state, side, pick, current }: { logo: ReactNode; tit
   );
 }
 
-function harnessSide(harness: HarnessCheck, chosen: boolean) {
-  if (chosen) return <span key={harness.name} className="harness-check" aria-hidden="true"><CheckIcon /></span>;
+function harnessSide(harness: HarnessCheck, chosen: boolean, drawCheck: boolean) {
+  if (chosen) return <span key={harness.name} className="harness-check" data-draw={drawCheck || undefined} aria-hidden="true"><CheckIcon /></span>;
   const command = neededCommand(harness);
   return command && <Command key={command} text={command} />;
 }
 
 /** Every row Chord can start, or only `rows`, which leaves out git's. */
 export function HarnessRows({ checks, rows }: { checks: Checks | null; rows?: HarnessCheck[] }) {
+  const defaultHarness = checks?.defaultHarness;
+  const previousDefault = useRef(defaultHarness);
+  const drawCheck = previousDefault.current !== undefined && previousDefault.current !== defaultHarness;
+  useEffect(() => {
+    previousDefault.current = defaultHarness;
+  }, [defaultHarness]);
+
   if (!checks) {
     return (
       <div className="harness-group" aria-busy="true">
@@ -83,7 +90,7 @@ export function HarnessRows({ checks, rows }: { checks: Checks | null; rows?: Ha
               logo={Logo && <Logo />}
               title={harness.title}
               state={stateLine(harness)}
-              side={harnessSide(harness, chosen)}
+              side={harnessSide(harness, chosen, drawCheck)}
               current={chosen}
               pick={!chosen && harness.takesPick ? () => pickHarness(harness.name) : undefined}
             />

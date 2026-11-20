@@ -2,7 +2,14 @@
 button {
   font: inherit;
   color: inherit;
-  cursor: default;
+}
+
+button:not(:disabled),
+select,
+a[href],
+[role="option"],
+[data-pickable] {
+  cursor: pointer;
 }
 
 button:focus-visible {

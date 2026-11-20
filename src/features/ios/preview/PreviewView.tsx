@@ -1,4 +1,4 @@
-// The Preview view in the side panel: the worktree's preview simulator screen under its header, the preview model's menu and the line while a rebuild runs, beside the worktree's `#Preview` list on the panel's outer edge, as a Files tree with its filter that ↑ and ↓ step through, and the compile error's bar, with the Simulator view's screen, bezel, input and Screenshot button, or the line that stands in for it. Also its toolbar button.
+// The Preview view in the side panel: the worktree's preview simulator screen under its header, the preview model's menu and the line while a rebuild runs, beside the worktree's `#Preview` list on the panel's outer edge, as a Files tree that ↑ and ↓ step through, with a filter from five previews, and the compile error's bar, with the Simulator view's screen, bezel, input and Screenshot button, or the line that stands in for it. Also its toolbar button.
 import { Menu } from "@tauri-apps/api/menu";
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import { tooltip } from "../../../app/commands";
@@ -17,6 +17,7 @@ import "../../files/files.css";
 import { issueLine, previewKey, previewLine, previewName, previewRows, rebuilding, shownError, steppedPreview, type PreviewRow } from "./preview";
 import "./preview.css";
 import { PanelEdge } from "../../../ui/PanelEdge";
+import { filtersOptions } from "../../chat/dialog";
 import { choosePreview, choosePreviewModel, closePreview, loadPreviewList, openPreview, previewListWidth, previewLists, previewPicks, previews, resizePreviewList, usePreviewModel } from "./store";
 
 export function PreviewToggle({ worktree }: { worktree: string }) {
@@ -113,7 +114,8 @@ function PreviewList({ worktree }: { worktree: string }) {
   const pick = previewPicks.usePart((picks) => picks[worktree] ?? null);
   const [query, setQuery] = useState("");
   const [closed, setClosed] = useState<string[]>([]);
-  const rows = previewRows(all ?? [], query, closed);
+  const filtering = filtersOptions(all?.length ?? 0);
+  const rows = previewRows(all ?? [], filtering ? query : "", closed);
   const list = useRef<HTMLDivElement>(null);
   const width = previewListWidth.use();
   const toggle = (file: string) => setClosed((files) => (files.includes(file) ? files.filter((f) => f !== file) : [...files, file]));
@@ -144,9 +146,11 @@ function PreviewList({ worktree }: { worktree: string }) {
       }}
     >
       <PanelEdge side="left" onResize={resizePreviewList} onEnd={() => {}} />
-      <div className="files-filter">
-        <input className="input" placeholder="Filter" aria-label="Filter Previews" value={query} onChange={(e) => setQuery(e.target.value)} />
-      </div>
+      {filtering && (
+        <div className="files-filter">
+          <input className="input" placeholder="Filter" aria-label="Filter Previews" value={query} onChange={(e) => setQuery(e.target.value)} />
+        </div>
+      )}
       <div
         ref={list}
         className="files-tree"

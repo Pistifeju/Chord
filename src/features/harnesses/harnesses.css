@@ -90,8 +90,8 @@
   color: var(--ink-muted);
 }
 
-/* The default's check draws itself when it lands on a row. */
-.harness-check path {
+/* The default's check draws itself only after the user picks a different agent. */
+.harness-check[data-draw] path {
   stroke-dasharray: 16;
   stroke-dashoffset: 16;
   animation: harness-check-draw 320ms var(--ease-out) 60ms forwards;
@@ -156,7 +156,7 @@
     animation-name: harness-fade;
   }
 
-  .harness-check path {
+  .harness-check[data-draw] path {
     animation: none;
     stroke-dashoffset: 0;
   }

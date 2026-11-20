@@ -5,6 +5,7 @@ import { commands, type LocalBranch } from "../../ipc/bindings";
 import { fail } from "../../ui/alert";
 import { BranchIcon, ChevronDownIcon } from "../../ui/icons";
 import { MenuCard, Select } from "../chat/DialogPanel";
+import { filtersOptions } from "../chat/dialog";
 import { chats } from "../chat/store";
 import { anyRunning } from "../chat/transcript";
 import { allPaneIds } from "../panes/agents";
@@ -12,7 +13,7 @@ import { panes } from "../panes/store";
 import { switchBranch } from "../worktrees/branchSwitch";
 import { worktreeAt } from "../worktrees/projects";
 import { projects } from "../worktrees/store";
-import { branchHint, branchLabel, branchMenuOpen, closeBranchMenu, filtersBranches, openBranchMenu } from "./branch";
+import { branchHint, branchLabel, branchMenuOpen, closeBranchMenu, openBranchMenu } from "./branch";
 
 export function BranchLine({ worktree }: { worktree: string }) {
   const branch = projects.usePart((p) => worktreeAt(p, worktree)?.branch ?? null);
@@ -70,7 +71,7 @@ function BranchMenu({ worktree, current }: { worktree: string; current: string |
         stacked
         options={branches.map((b) => b.name)}
         current={current}
-        filter={filtersBranches(branches.length) ? "field" : "typing"}
+        filter={filtersOptions(branches.length) ? "field" : "typing"}
         descriptions={branches.map((b) => branchHint(b, now))}
         unavailable={(at) => !!branches[at].heldBy}
         rowMenu={(at, e) => {

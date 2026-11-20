@@ -3,6 +3,9 @@
 /** A pause this long between keys starts a new typed name, as in a Mac menu. */
 export const TYPING_PAUSE_MS = 1000;
 
+/** A short list reads at a glance; from five options a select adds a Filter field. */
+export const filtersOptions = (count: number): boolean => count > 4;
+
 /** The indexes of the options that contain the query, ignoring case, in their order. */
 export function matchingOptions(options: string[], query: string): number[] {
   const needle = query.trim().toLowerCase();
