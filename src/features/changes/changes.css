@@ -392,11 +392,9 @@
 }
 
 .changes-subject-length {
-  height: 14px;
-  padding: 0 10px;
-  text-align: right;
+  min-width: 0;
+  padding: 0 6px;
   font-size: calc(11px * var(--text-scale));
-  line-height: 14px;
   font-variant-numeric: tabular-nums;
   color: var(--ink-muted);
 }
@@ -412,46 +410,115 @@
   padding: 4px;
 }
 
-.changes-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 24px;
-  padding: 0 8px 0 6px;
-  border: none;
-  border-radius: var(--radius-inset);
-  background: none;
-  font-size: calc(12px * var(--text-scale));
-  font-weight: 500;
-  white-space: nowrap;
-  color: var(--ink-muted);
-  transition: background var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out), transform var(--t-fast) var(--ease-out);
-}
-
-.changes-toggle:active {
-  transform: scale(0.97);
-}
-
-.changes-toggle:hover {
-  background: var(--raised);
-  color: var(--ink);
-}
-
-.changes-toggle[aria-pressed="true"] {
-  background: var(--selected);
-  color: var(--ink);
-}
-
-.changes-toggle:focus-visible {
-  outline-offset: -2px;
+/* Commit and its mode chevron read as one 24px control. */
+.changes-commit-split {
+  position: relative;
+  display: flex;
+  flex: none;
+  margin-left: auto;
 }
 
 .button-primary.changes-commit-button {
-  flex: none;
   height: 24px;
-  margin-left: auto;
   padding: 0 10px;
   border-radius: var(--radius-inset);
+}
+
+.changes-commit-button:has(+ .changes-commit-more) {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.button-primary.changes-commit-more {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 24px;
+  padding: 0;
+  border-left: 1px solid var(--accent-pressed);
+  border-radius: 0 var(--radius-inset) var(--radius-inset) 0;
+}
+
+/* While Commit cannot run, Push holds the view's blue, so the chevron goes gray but still opens. */
+.button-primary.changes-commit-more[data-quiet] {
+  border-left-color: var(--line);
+  background: var(--raised);
+  color: var(--ink-secondary);
+}
+
+.changes-commit-more > svg {
+  transition: transform var(--t-fast) var(--ease-out);
+}
+
+.changes-commit-more[aria-expanded="true"] > svg {
+  transform: rotate(180deg);
+}
+
+.changes-commit-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 6px);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 248px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--sheet);
+  box-shadow: var(--shadow-popover);
+  transform-origin: 100% 100%;
+  animation: changes-menu-open var(--t-med) var(--ease-out);
+}
+
+@keyframes changes-menu-open {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.96);
+  }
+}
+
+.changes-commit-mode {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 6px 8px 6px 6px;
+  border: none;
+  border-radius: var(--radius-inset);
+  background: none;
+  text-align: left;
+  color: var(--ink);
+}
+
+.changes-commit-mode:hover {
+  background: var(--raised);
+}
+
+.changes-commit-mode:focus-visible {
+  outline-offset: -2px;
+}
+
+.changes-commit-check {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 14px;
+  height: 19px;
+}
+
+.changes-commit-mode-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.changes-commit-hint {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: calc(12px * var(--text-scale));
+  color: var(--ink-muted);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -459,7 +526,11 @@
     animation-name: changes-fade;
   }
 
-  .changes-toggle:active {
-    transform: none;
+  .changes-commit-menu {
+    animation-name: changes-fade;
+  }
+
+  .changes-commit-more > svg {
+    transition: none;
   }
 }

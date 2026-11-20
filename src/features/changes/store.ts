@@ -1,4 +1,4 @@
-// Connects the Changes view to IPC: each worktree's changed files read from git with its branch against its base and the repository's stashes, one read at a time, a failed read leaving the last list, the scope and base each worktree shows, whether its Stashes group is open, the files of an opened commit or stash, a change's diff opened in a tab, the stage, unstage and discard of files and hunks, each followed by a read, the commit message with its options, commit, amend and push, and the stash of the changes, a stash's apply, pop and drop, each followed by a read and the git counts.
+// Connects the Changes view to IPC: each worktree's changed files read from git with its branch against its base and the repository's stashes, one read at a time, a failed read leaving the last list, the scope and base each worktree shows, whether its Stashes group is open, the files of an opened commit or stash, a change's diff opened in a tab, the stage, unstage and discard of files and hunks, each followed by a read, the commit message with its mode and the saved push default, commit, amend and push, and the stash of the changes, a stash's apply, pop and drop, each followed by a read and the git counts.
 import { commands, type BranchChanges_Serialize as BranchChanges, type Change, type CommitTarget_Serialize as CommitTarget, type CommittedFile_Serialize as CommittedFile, type Hunk, type HunkAction, type Stash, type StashAction } from "../../ipc/bindings";
 import { closeSheet, openSheet, sheet, sheetOf } from "../../app/sheet";
 import { externalStore } from "../../ui/externalStore";
@@ -61,12 +61,17 @@ export const toggleStashGroup = (worktree: string) => openStashGroups.set({ ...o
 /** Each worktree's commit message as typed. */
 export const commitMessages = externalStore<Record<string, string>>({});
 
-/** Each worktree's commit options: push right after the commit, amend the last commit with the last message it filled in. */
+/** Each worktree's commit mode as picked: amend the last commit with the last message it filled in, push right after the commit. */
 export type CommitOptions = { pushAfter: boolean; amend: boolean; amendedMessage?: string };
 export const commitOptions = externalStore<Record<string, CommitOptions>>({});
-// One object for every worktree without options, since a store hook re-renders on each new object it reads.
-const noOptions: CommitOptions = { pushAfter: false, amend: false };
-export const optionsOf = (all: Record<string, CommitOptions>, worktree: string): CommitOptions => all[worktree] ?? noOptions;
+
+/** Whether the last commit without Amend pushed after it; a worktree without a pick of its own opens in that mode. Saved through Rust. */
+export const pushAfterCommit = externalStore(false);
+
+// One object per default, since a store hook re-renders on each new object it reads.
+const defaults: Record<"push" | "stay", CommitOptions> = { push: { pushAfter: true, amend: false }, stay: { pushAfter: false, amend: false } };
+export const optionsOf = (all: Record<string, CommitOptions>, worktree: string, push: boolean): CommitOptions => all[worktree] ?? defaults[push ? "push" : "stay"];
+const currentOptions = (worktree: string) => optionsOf(commitOptions.get(), worktree, pushAfterCommit.get());
 const setOptions = (worktree: string, options: CommitOptions) => commitOptions.set({ ...commitOptions.get(), [worktree]: options });
 
 /** The commit or push that runs in each worktree, which takes no second click. */
@@ -167,13 +172,19 @@ async function runGit(worktree: string, kind: "commit" | "push", run: () => Prom
 
 export function commitStaged(worktree: string) {
   const message = commitMessages.get()[worktree] ?? "";
-  const options = optionsOf(commitOptions.get(), worktree);
+  const options = currentOptions(worktree);
   if (!canCommit(message, options.amend, !!changes.get()[worktree]?.some((c) => c.staged))) return;
   return runGit(worktree, "commit", async () => {
     await commands.commitStaged(worktree, message, options.amend);
     // Text typed while the commit ran stays.
     if (commitMessages.get()[worktree] === message) typeCommitMessage(worktree, "");
-    setOptions(worktree, { pushAfter: options.pushAfter, amend: false });
+    // Amend is never the mode the box opens with; a plain commit makes its mode the one it opens with.
+    if (!options.amend && options.pushAfter !== pushAfterCommit.get()) {
+      pushAfterCommit.set(options.pushAfter);
+      commands.changeState({ pushAfterCommit: options.pushAfter }).catch(console.error);
+    }
+    const { [worktree]: _, ...rest } = commitOptions.get();
+    commitOptions.set(rest);
     if (!options.pushAfter || !commitTargets.get()[worktree]?.pushTo) return;
     running.set({ ...running.get(), [worktree]: "push" });
     await commands.pushBranch(worktree);
@@ -182,26 +193,21 @@ export function commitStaged(worktree: string) {
 
 export const pushBranch = (worktree: string) => runGit(worktree, "push", () => commands.pushBranch(worktree));
 
-export const togglePushAfter = (worktree: string) => {
-  const options = optionsOf(commitOptions.get(), worktree);
-  setOptions(worktree, { ...options, pushAfter: !options.pushAfter });
-};
-
-/** Amend fills an empty field with the last commit's message, and taking it off empties the field while that message stands unchanged. */
-export async function toggleAmend(worktree: string) {
-  const options = optionsOf(commitOptions.get(), worktree);
+/** Amend fills an empty field with the last commit's message, and leaving it empties the field while that message stands unchanged. */
+export async function pickCommitMode(worktree: string, amend: boolean, pushAfter: boolean) {
+  const options = currentOptions(worktree);
   const message = commitMessages.get()[worktree] ?? "";
-  if (options.amend) {
-    if (message === options.amendedMessage) typeCommitMessage(worktree, "");
-    return setOptions(worktree, { pushAfter: options.pushAfter, amend: false });
+  if (!amend) {
+    if (options.amend && message === options.amendedMessage) typeCommitMessage(worktree, "");
+    return setOptions(worktree, { pushAfter, amend: false });
   }
-  setOptions(worktree, { ...options, amend: true });
-  if (message.trim()) return;
+  setOptions(worktree, { ...options, amend: true, pushAfter });
+  if (options.amend || message.trim()) return;
   try {
     const last = await commands.lastCommitMessage(worktree);
-    if (!optionsOf(commitOptions.get(), worktree).amend || (commitMessages.get()[worktree] ?? "") !== message) return;
+    if (!currentOptions(worktree).amend || (commitMessages.get()[worktree] ?? "") !== message) return;
     typeCommitMessage(worktree, last);
-    setOptions(worktree, { ...optionsOf(commitOptions.get(), worktree), amendedMessage: last });
+    setOptions(worktree, { ...currentOptions(worktree), amendedMessage: last });
   } catch (error) {
     fail(error);
   }

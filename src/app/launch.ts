@@ -14,6 +14,7 @@ import { loadRunDestinations, refreshDestinations } from "../features/ios/build/
 import { loadSchemePicks } from "../features/ios/build/schemeStore";
 import { loadPreviewChoices } from "../features/ios/preview/store";
 import { loadBottomPanels } from "../features/bottompanel/store";
+import { pushAfterCommit } from "../features/changes/store";
 import { loadGitCounts } from "../features/worktrees/gitCountsRefresh";
 import { hasXcodeProject, worktreeAt } from "../features/worktrees/projects";
 import { loadProjects, projects, welcomed } from "../features/worktrees/store";
@@ -33,6 +34,7 @@ export async function launch() {
     keepAwake.set(state.keepAwake);
     muteNotifications.set(state.muteNotifications);
     linksInDefaultBrowser.set(state.linksInDefaultBrowser);
+    pushAfterCommit.set(state.pushAfterCommit);
     screenshotFolder.set(state.screenshotFolder);
     loadShortcutChanges(state.shortcuts);
     sidebar.set(state.sidebar);

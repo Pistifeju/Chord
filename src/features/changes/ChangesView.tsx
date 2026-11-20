@@ -1,8 +1,9 @@
-// The Changes view: its scope control, Uncommitted or Branch while the worktree has a base (see BranchList), then under Uncommitted the worktree's changed files under Staged and Changes, Stash Changes on the Changes heading, the repository's stashes under them (see StashList), with the commit area under them: the push line while the branch has commits to push, then the message card with Amend, Push After and Commit in its foot; each row with its name, folder, line counts and status; a click opens its diff. A checkbox on each row and group heading stages or unstages, and a row's More button and right-click menu hold its Stage or Unstage, and Discard.
+// The Changes view: its scope control, Uncommitted or Branch while the worktree has a base (see BranchList), then under Uncommitted the worktree's changed files under Staged and Changes, Stash Changes on the Changes heading, the repository's stashes under them (see StashList), with the commit area under them: the push line while the branch has commits to push, then the message card with the subject length and Commit with its mode menu in its foot; each row with its name, folder, line counts and status; a click opens its diff. A checkbox on each row and group heading stages or unstages, and a row's More button and right-click menu hold its Stage or Unstage, and Discard.
 import { memo, useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from "react";
 import type { Change } from "../../ipc/bindings";
 import { showMenu } from "../../app/commands";
-import { AmendIcon, ArrowUpIcon, CheckIcon, MoreIcon, StashIcon } from "../../ui/icons";
+import { CheckIcon, ChevronDownIcon, MoreIcon, StashIcon } from "../../ui/icons";
+import { useOutsidePointer } from "../../ui/outsidePointer";
 import { panes } from "../panes/store";
 import { gitCounts } from "../worktrees/gitCountsRefresh";
 import { Segmented } from "../../ui/Segmented";
@@ -11,7 +12,7 @@ import { BaseControl, BranchList } from "./BranchList";
 import { ChangeParts } from "./ChangeParts";
 import { StashList } from "./StashList";
 import { changesTarget } from "./commands";
-import { branches, changes, commitMessages, commitOptions, commitStaged, commitTargets, followsAct, optionsOf, pushBranch, readChanges, running, scopes, setScope, showDiff, stageChanges, stashChanges, toggleAmend, togglePushAfter, typeCommitMessage, unstageChanges, type Scope } from "./store";
+import { branches, changes, commitMessages, commitOptions, commitStaged, commitTargets, followsAct, optionsOf, pickCommitMode, pushAfterCommit, pushBranch, readChanges, running, scopes, setScope, showDiff, stageChanges, stashChanges, typeCommitMessage, unstageChanges, type Scope } from "./store";
 import "./changes.css";
 
 const scopeOptions: { value: Scope; label: string }[] = [
@@ -160,7 +161,8 @@ function UncommittedList({ worktree }: { worktree: string }) {
 function CommitBox({ worktree, staged }: { worktree: string; staged: boolean }) {
   const message = commitMessages.usePart((all) => all[worktree] ?? "");
   const target = commitTargets.usePart((all) => all[worktree]);
-  const options = commitOptions.usePart((all) => optionsOf(all, worktree));
+  const savedPush = pushAfterCommit.use();
+  const options = commitOptions.usePart((all) => optionsOf(all, worktree, savedPush));
   const busy = running.usePart((all) => all[worktree]);
   const ready = canCommit(message, options.amend, staged);
   // With nothing to commit, Push is the one action left, so it takes the blue.
@@ -201,28 +203,87 @@ function CommitBox({ worktree, staged }: { worktree: string; staged: boolean }) 
             if (!e.repeat) void commitStaged(worktree);
           }}
         />
-        <div className={subject > 50 ? "changes-subject-length changes-subject-long" : "changes-subject-length"} title="Subject length">
-          {subject > 0 && `${subject}/50`}
-        </div>
         <div className="changes-card-foot">
-          {target?.amendable && (
-            <button type="button" className="changes-toggle" aria-pressed={options.amend} title="Amend Last Commit" onClick={() => void toggleAmend(worktree)}>
-              <AmendIcon size={14} />
-              Amend
-            </button>
-          )}
-          {target?.pushTo && (
-            <button type="button" className="changes-toggle" aria-pressed={options.pushAfter} title={`Push to ${target.pushTo} after the commit`} onClick={() => togglePushAfter(worktree)}>
-              <ArrowUpIcon size={14} />
-              Push After
-            </button>
-          )}
-          <button type="button" className="button-primary changes-commit-button" title="Commit (⌘Return)" disabled={!ready && busy !== "commit"} aria-busy={busy === "commit"} onClick={() => void commitStaged(worktree)}>
-            <span className="button-label">{options.amend ? "Amend" : "Commit"}</span>
-            {busy === "commit" && <span className="spinner" aria-label="Committing" />}
-          </button>
+          <div className={subject > 50 ? "changes-subject-length changes-subject-long" : "changes-subject-length"} title="Subject length">
+            {subject > 0 && `${subject}/50`}
+          </div>
+          <CommitButton worktree={worktree} amend={options.amend} push={options.pushAfter && !!target?.pushTo} ready={ready} busy={busy} />
         </div>
       </div>
+    </div>
+  );
+}
+
+const commitModes = [
+  { amend: false, push: false, label: "Commit" },
+  { amend: false, push: true, label: "Commit & Push" },
+  { amend: true, push: false, label: "Amend" },
+  { amend: true, push: true, label: "Amend & Push" },
+];
+
+// Commit with its mode on a chevron: Amend only while HEAD has a commit, Push only while the branch has a remote.
+function CommitButton({ worktree, amend, push, ready, busy }: { worktree: string; amend: boolean; push: boolean; ready: boolean; busy: "commit" | "push" | undefined }) {
+  const target = commitTargets.usePart((all) => all[worktree]);
+  const [open, setOpen] = useState(false);
+  const menu = useRef<HTMLDivElement>(null);
+  useOutsidePointer(menu, () => setOpen(false));
+  useEffect(() => {
+    if (open) menu.current?.querySelector<HTMLElement>("[aria-checked=true]")?.focus();
+  }, [open]);
+  const pushTo = target?.pushTo;
+  const hints = { Commit: "Record the staged files", "Commit & Push": `Then push to ${pushTo}`, Amend: "Rewrite the last commit", "Amend & Push": `Rewrite it, then push to ${pushTo}` };
+  const modes = commitModes.filter((mode) => (!mode.amend || target?.amendable) && (!mode.push || pushTo));
+  const label = commitModes.find((mode) => mode.amend === amend && mode.push === push)!.label;
+  const disabled = !ready && busy !== "commit";
+  return (
+    <div className="changes-commit-split">
+      <button type="button" className="button-primary changes-commit-button" title="Commit (⌘Return)" disabled={disabled} aria-busy={busy === "commit"} onClick={() => void commitStaged(worktree)}>
+        <span className="button-label">{label}</span>
+        {busy === "commit" && <span className="spinner" aria-label="Committing" />}
+      </button>
+      {modes.length > 1 && (
+        <button type="button" className="button-primary changes-commit-more" data-menu-toggle data-quiet={disabled || undefined} title="Commit Mode" aria-haspopup="menu" aria-expanded={open} disabled={!!busy} onClick={() => setOpen(!open)}>
+          <ChevronDownIcon />
+        </button>
+      )}
+      {open && (
+        <div
+          ref={menu}
+          className="changes-commit-menu"
+          role="menu"
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setOpen(false);
+            if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+            e.preventDefault();
+            const items = [...e.currentTarget.querySelectorAll<HTMLElement>("[role=menuitemradio]")];
+            const at = items.indexOf(document.activeElement as HTMLElement);
+            items[(at + (e.key === "ArrowDown" ? 1 : items.length - 1)) % items.length]?.focus();
+          }}
+        >
+          {modes.map((mode) => {
+            const on = mode.amend === amend && mode.push === push;
+            return (
+              <button
+                key={mode.label}
+                type="button"
+                role="menuitemradio"
+                aria-checked={on}
+                className="changes-commit-mode"
+                onClick={() => {
+                  setOpen(false);
+                  void pickCommitMode(worktree, mode.amend, mode.push);
+                }}
+              >
+                <span className="changes-commit-check">{on && <CheckIcon size={12} />}</span>
+                <span className="changes-commit-mode-text">
+                  {mode.label}
+                  <span className="changes-commit-hint">{hints[mode.label as keyof typeof hints]}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

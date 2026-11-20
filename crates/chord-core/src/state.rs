@@ -24,6 +24,8 @@ pub struct State {
     pub mute_notifications: bool,
     /// Web links open in the default browser instead of a browser tab.
     pub links_in_default_browser: bool,
+    /// The last commit without Amend pushed after it, so Commit & Push is the mode the commit box opens with.
+    pub push_after_commit: bool,
     /// Shortcuts the user changed, by command id. `None` means the command lost its key.
     #[serde(deserialize_with = "valid_shortcuts")]
     #[specta(type = BTreeMap<String, Option<Shortcut>>)]
@@ -133,6 +135,7 @@ pub enum StateChange {
     EditorFontSize(u8),
     MuteNotifications(bool),
     LinksInDefaultBrowser(bool),
+    PushAfterCommit(bool),
     DefaultHarness(String),
     Shortcuts(BTreeMap<String, Option<Shortcut>>),
     /// `None` forgets the worktree's layouts.
@@ -192,6 +195,7 @@ impl State {
             StateChange::EditorFontSize(size) => self.appearance.editor_font_size = size,
             StateChange::MuteNotifications(mute) => self.mute_notifications = mute,
             StateChange::LinksInDefaultBrowser(outside) => self.links_in_default_browser = outside,
+            StateChange::PushAfterCommit(push) => self.push_after_commit = push,
             StateChange::Shortcuts(shortcuts) => self.shortcuts = shortcuts,
             StateChange::DefaultHarness(harness) => self.default_harness = Some(harness),
             StateChange::SidePanel { worktree, panel } => {
