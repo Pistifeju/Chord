@@ -238,19 +238,78 @@ button:focus-visible {
   }
 }
 
+/* Borderless on raised; the focused field takes sheet and a border. */
 .input {
   width: 100%;
   height: 30px;
   padding: 0 10px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid transparent;
   border-radius: var(--radius-control);
-  background: var(--sheet);
+  background: var(--raised);
   font: inherit;
   color: inherit;
+  transition:
+    background-color var(--t-fast) var(--ease-out),
+    border-color var(--t-fast) var(--ease-out),
+    padding var(--t-fast) var(--ease-out);
 }
 
 .input:focus-visible {
   outline: none;
+  border-color: var(--line-strong);
+  background: var(--sheet);
+}
+
+/* A field with icon buttons inside its right end, shown while you hover it or work in it. */
+.input-row {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: 0;
+}
+
+.input-row:hover > .input,
+.input-row:focus-within > .input {
+  padding-right: 52px;
+}
+
+.input-actions {
+  position: absolute;
+  right: 3px;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity var(--t-fast) var(--ease-out);
+}
+
+.input-row:hover > .input-actions,
+.input-row:focus-within > .input-actions {
+  opacity: 1;
+}
+
+.input-actions .icon-button {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-inset);
+  color: var(--ink-muted);
+}
+
+.input-actions .icon-button:hover {
+  background: var(--selected);
+  color: var(--ink);
+}
+
+.input-actions .icon-button:disabled {
+  background: transparent;
+  color: var(--ink-disabled);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .input,
+  .input-actions {
+    transition: none;
+  }
 }
 
 .input::placeholder {

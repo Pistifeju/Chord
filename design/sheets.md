@@ -8,7 +8,7 @@
   Return triggers the primary button, Escape cancels.
 - **Focus after a sheet:** when a sheet or Settings closes, the focus goes back to the control that held it before, unless the sheet's action moved it or that control is gone.
 - **Help sheet:** 440px wide, 20px between blocks.
-  A form sheet header titled "Help", then three blocks, each under a field label: Basics (project, worktree, session: the name at 500, a line in `ink-secondary` under it), Statuses (each `StatusMark` with its word in the status color, the line under it) and Shortcuts (a command title on the left, its keys in `ink-muted` on the right; a command with no key is left out).
+  A form sheet header titled "Help", then two blocks, each under a field label: Basics (project, worktree, session, agent, slash commands: the name at 500, a line in `ink-secondary` under it) and Statuses (each `StatusMark` with its word in the status color, the line under it).
   A secondary "All Shortcuts" button in the footer opens Settings on Shortcuts.
 - **Confirm sheet:** title, one centered `ink-secondary` line (`.sheet-description`) and an optional detail in meta text, 4px apart as one block; 20px below it two equal 32px buttons: secondary "Cancel" and the destructive or primary action.
   Focus starts on the action, Escape cancels, and a long name or path wraps inside the sheet.

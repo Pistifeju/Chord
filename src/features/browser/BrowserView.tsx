@@ -1,4 +1,4 @@
-// A browser tab's view: back, forward, reload, the address field and Open in Browser over the page, which Rust shows as a web view of its own in the space below and hides while a sheet, Settings or a tab drag covers the window.
+// A browser tab's view: back, forward and the address field with Reload and Open in Browser in its right end over the page, which Rust shows as a web view of its own in the space below and hides while a sheet, Settings or a tab drag covers the window.
 import { useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { BrowserRect } from "../../ipc/bindings";
 import { sheet } from "../../app/sheet";
@@ -67,23 +67,27 @@ export function BrowserView({ tab, url, dragging }: { tab: string; url: string; 
         <button type="button" className="icon-button" title="Forward" aria-label="Forward" onClick={() => browse(tab, { kind: "forward" })}>
           <ArrowRightIcon />
         </button>
-        <button type="button" className="icon-button" title="Reload" aria-label="Reload" aria-busy={busy} onClick={() => browse(tab, { kind: "reload" })}>
-          <ReloadIcon />
-        </button>
-        <input
-          className="input browser-address"
-          aria-label="Address"
-          spellCheck={false}
-          value={draft ?? url}
-          onChange={(e) => setDraft(e.target.value)}
-          onFocus={(e) => e.target.select()}
-          onBlur={() => setDraft(null)}
-          onKeyDown={onKeyDown}
-          data-selectable
-        />
-        <button type="button" className="icon-button" title="Open in Default Browser" aria-label="Open in Default Browser" onClick={() => openInDefaultBrowser(url)}>
-          <OpenOutsideIcon />
-        </button>
+        <div className="input-row browser-address">
+          <input
+            className="input"
+            aria-label="Address"
+            spellCheck={false}
+            value={draft ?? url}
+            onChange={(e) => setDraft(e.target.value)}
+            onFocus={(e) => e.target.select()}
+            onBlur={() => setDraft(null)}
+            onKeyDown={onKeyDown}
+            data-selectable
+          />
+          <span className="input-actions">
+            <button type="button" className="icon-button" title="Reload" aria-label="Reload" aria-busy={busy} onClick={() => browse(tab, { kind: "reload" })}>
+              <ReloadIcon />
+            </button>
+            <button type="button" className="icon-button" title="Open in Default Browser" aria-label="Open in Default Browser" onClick={() => openInDefaultBrowser(url)}>
+              <OpenOutsideIcon />
+            </button>
+          </span>
+        </div>
       </div>
       <div className="browser-page" ref={area} />
     </div>

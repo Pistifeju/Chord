@@ -1,6 +1,6 @@
-// The Help sheet: what a project, a worktree, a session and an agent are, the slash commands, what each agent status means, and the shortcuts used most.
+// The Help sheet: what a project, a worktree, a session and an agent are, the slash commands, and what each agent status means.
 import type { Status } from "../../ipc/bindings";
-import { commandTitles, shortcutLabel, tooltip } from "../../app/commands";
+import { tooltip } from "../../app/commands";
 import { closeSheet, sheet } from "../../app/sheet";
 import { CloseIcon } from "../../ui/icons";
 import { openShortcuts } from "../settings/store";
@@ -23,8 +23,6 @@ const statuses: { status: Status; text: string }[] = [
   { status: { kind: "error" }, text: "The agent stopped on an error." },
   { status: { kind: "exited" }, text: "The agent's process ended." },
 ];
-
-const shortcuts = ["worktree.new", "session.new", "agent.next", "chat.stop", "pane.splitRight", "files.openByName", "sidebar.toggle", "navigator.workspaces", "navigator.files", "navigator.changes", "terminal.toggle", "usage.open", "settings.open"];
 
 function showAllShortcuts() {
   closeSheet("help");
@@ -67,21 +65,6 @@ export function HelpSheet() {
                 <dd>{text}</dd>
               </div>
             ))}
-          </dl>
-        </section>
-        <section className="help-section" aria-label="Shortcuts">
-          <h3 className="field-label">Shortcuts</h3>
-          <dl className="help-list">
-            {shortcuts.map((id) => {
-              const keys = shortcutLabel(id);
-              if (!keys) return null;
-              return (
-                <div key={id} className="help-shortcut">
-                  <dt>{commandTitles.find((c) => c.id === id)?.title}</dt>
-                  <dd>{keys}</dd>
-                </div>
-              );
-            })}
           </dl>
         </section>
         <footer className="sheet-footer">

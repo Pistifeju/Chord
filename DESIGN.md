@@ -217,12 +217,12 @@ Every value comes from Tailwind's zinc, blue, emerald, amber and red. In dark, `
 
 - **Canvas** (`canvas`): the main area, the tab bar and the status bar.
 - **Panel** (`panel`): the sidebar, code blocks, table headers, the Settings section list and cards.
-- **Raised** (`raised`): the open tab, hovered rows, tabs and icon buttons, the segmented track, the Changes view's group headings.
+- **Raised** (`raised`): input fields, the open tab, hovered rows, tabs and icon buttons, the segmented track, the Changes view's group headings.
 - **Bubble** (`bubble`): the user's message.
 - **Selected** (`selected`): the open worktree's card and every pressed neutral control.
-- **Sheet** (`sheet`): the composer, the slash and picker menus, inputs, secondary buttons, sheets, the toast, the drop label.
+- **Sheet** (`sheet`): the composer, the slash and picker menus, a focused input, secondary buttons, sheets, the toast, the drop label.
 - **Line** (`line`): the sidebar's edge and the rules between Settings rows, the border of a Settings group.
-- **Strong Line** (`line-strong`): the border of an input, the composer and a secondary button.
+- **Strong Line** (`line-strong`): the border of a focused input, the composer and a secondary button.
 - **Ink** (`ink`): titles, message text, selected labels.
 - **Secondary Ink** (`ink-secondary`): the open worktree card's meta text, sheet descriptions, field labels, unselected segments, resting icon buttons.
 - **Muted Ink** (`ink-muted`): meta lines, hints, placeholders.
@@ -311,7 +311,7 @@ Popover and sheet shadows include a 1px ring: black at 8% in light, white at 10%
 - A worktree card's hover fill, its open fill and ring change over 120ms with `--ease-out`, and pressing its head or a session row scales it to 98.5%.
 - A Settings section's hover fill and ink change over 120ms with `--ease-out`, and pressing it scales it to 98.5%.
 - The Usage panel rises like a sheet. Its inspector title fades in and rises 4px over 200ms with `--ease-out` when the pick changes, a list row's hover fill changes over 120ms, and the refresh icon turns while a read runs. Its chart and bars do not animate.
-- The Files filter's Collapse All and Reload fade in over 120ms with `--ease-out` while you hover the filter row or work in it, and the field's text makes room for them over the same 120ms.
+- A field takes its focus fill and border over 120ms with `--ease-out`. A field's buttons (the Files filter's, the address field's) fade in over 120ms with `--ease-out` while you hover the field or work in it, and the field's text makes room for them over the same 120ms.
 - The project chevron, a step group's chevron and a Files folder's chevron turn in 120ms.
 - In the chat, a message, a step row, the Working row, the find bar and the notice fade in and rise 4px over 200ms with `--ease-out` when they arrive. A chat that opens with history shows it still. Each part of a step group's summary whose text changes fades in and unblurs from 2px over 400ms with a plain ease-out.
 - The slash menu and a composer picker menu fade in and rise 4px over 200ms with `--ease-out` when they open. An extension's dialog in place of the composer fades in over 120ms.
@@ -327,7 +327,7 @@ Popover and sheet shadows include a 1px ring: black at 8% in light, white at 10%
 - The toolbar's error list fades in, drops 4px and grows from 96% over 200ms with `--ease-out`, out of the error count's corner.
 - The toolbar's Stop glyph changes color over 120ms with `--ease-out` when it enables or disables.
 - The toolbar's activity line slides its segment across the field every 1.4s while a build, an install or a launch goes on; under Reduce Motion the line fills the field's width and pulses to 35% opacity every 2.4s instead.
-- Under Reduce Motion the sheet, its backdrop, the lightbox, the chat drop card, scrim, toast, chevrons, the context ring, the usage bar and the onboarding check's stroke skip their animation, the toolbar's error list only fades, the welcome's sidebar loop stays on its first beat, the Files filter's buttons and field padding change at once, the welcome's step slide, a harness row's state and command chip, chat items, the slash, picker and agent menus, the chat drop card's content, a message's copy button and time, a session row's status, the run marker, a step summary's changed part, a new tab, a Changes view row, the commit mode menu, the Usage panel and its inspector title only fade, the send button, the agent button, a sliding Segmented control's thumb, the jump button, a worktree card, a settings section and a checkbox and its check do not move or scale, the jump scrolls instantly and spinners and the orbit run at a third of their speed.
+- Under Reduce Motion the sheet, its backdrop, the lightbox, the chat drop card, scrim, toast, chevrons, the context ring, the usage bar and the onboarding check's stroke skip their animation, the toolbar's error list only fades, the welcome's sidebar loop stays on its first beat, a field's focus, its buttons and its padding change at once, the welcome's step slide, a harness row's state and command chip, chat items, the slash, picker and agent menus, the chat drop card's content, a message's copy button and time, a session row's status, the run marker, a step summary's changed part, a new tab, a Changes view row, the commit mode menu, the Usage panel and its inspector title only fade, the send button, the agent button, a sliding Segmented control's thumb, the jump button, a worktree card, a settings section and a checkbox and its check do not move or scale, the jump scrolls instantly and spinners and the orbit run at a third of their speed.
 
 ## Shapes
 

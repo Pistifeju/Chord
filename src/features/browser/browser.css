@@ -19,10 +19,11 @@
 }
 
 .browser-address {
-  flex: 1;
-  min-width: 0;
-  height: 28px;
   margin: 0 4px;
+}
+
+.browser-address > .input {
+  height: 28px;
 }
 
 .browser-page {

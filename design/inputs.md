@@ -1,11 +1,13 @@
 # Inputs
 
-- **Field** (`.input`): 30px tall, `sheet` fill, 1px `line-strong` border, `ink-muted` placeholder.
+- **Field** (`.input`): 30px tall, `raised` fill, no visible border, `ink-muted` placeholder.
   The label sits above at 12px/500; the hint sits below at 12px muted and reserves its line so the sheet keeps its height.
   A hint that holds an error (a branch git refuses, a failed create) takes `danger`.
-- **Focus:** no visual change.
-  The caret shows where you type.
+- **Focus:** the field takes `sheet` and a 1px `line-strong` border over 120ms with `--ease-out`; under Reduce Motion it changes at once.
   No outline, no blue border, no halo.
+- **Field with buttons** (`.input-row`, `.input-actions`): a field's own icon buttons sit inside its right end, 3px from the edge: 22px icon buttons, Inset radius, 2px apart, `ink-muted` (`ink` on `selected` on hover).
+  They fade in over 120ms with `--ease-out` while you hover the field or the focus is in it, and the field's text then stops 52px short of its end.
+  The Files filter and the browser's address field use it.
 - **Segmented control** (`.segmented`): a `raised` track with 2px padding.
   The selected segment is a `control-selected` chip with the control shadow.
   A sliding one (the agent menu's agent and thinking bars) draws that chip once, as a thumb under the segments that slides to the checked one.

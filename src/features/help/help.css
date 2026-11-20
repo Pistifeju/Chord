@@ -1,4 +1,4 @@
-/* The Help sheet: basics, statuses and shortcuts as short labeled lists. Rules: design/sheets.md. */
+/* The Help sheet: basics and statuses as short labeled lists. Rules: design/sheets.md. */
 .help {
   width: min(440px, calc(100vw - 40px));
   gap: 20px;
@@ -42,15 +42,4 @@
 
 .help-status .status-dot {
   margin: 0 1px;
-}
-
-.help-shortcut {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.help-shortcut dd {
-  color: var(--ink-muted);
-  font-variant-numeric: tabular-nums;
 }

@@ -4,7 +4,7 @@
   While any agent in the worktree runs it takes `ink-disabled`, no click and the tooltip "Switch branches after the agent stops", and an open branch menu closes.
   A click opens the branch menu under it, 2px down and 8px in from both panel edges: the picker menu's card (see `design/chat.md` › Picker menu), fading in and dropping 4px from 96% scale over 200ms with `--ease-out` (a fade under Reduce Motion).
   It lists the worktree's local branches, newest commit first, each a commit mode row: a 14px check column marking the current branch, then the name in `ink`, which truncates, over a 12px `ink-muted` line, "Last commit 3h ago" ("Last commit just now" in the first minute), or "In harbor-flaky · 5h" for a branch another worktree holds, which shows in `ink-disabled` and takes no highlight or pick; 6px 8px 6px 6px padding, Inset radius, the highlighted row `selected` with its line in `ink-secondary`.
-  Up to four branches it moves the highlight by typing, as the model picker; from five it starts with the Files filter field (placeholder "Filter", 30px tall) that takes the focus and narrows the rows, reading "No matches" when none is left.
+  Up to four branches it moves the highlight by typing, as the model picker; from five it starts with a Field (placeholder "Filter", 30px tall) that takes the focus and narrows the rows, reading "No matches" when none is left.
   ↑ and ↓ or the pointer move the highlight, Return or a click picks; Esc, a click outside the card or a second click on the button closes it.
   A pick switches the worktree to the branch; git's refusal shows in a failure toast.
   Right-click on a branch row opens Rename Branch and, for a branch no worktree or the main checkout holds, Delete Branch; either one closes the branch menu.

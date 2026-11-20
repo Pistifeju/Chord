@@ -35,15 +35,17 @@ export const FilesView = memo(function FilesView({ worktree }: { worktree: strin
   return (
     <div className="files">
       <div className="files-filter">
-        <input className="files-filter-field" placeholder="Filter" aria-label="Filter Files" value={tree.filter} onChange={(e) => setFilter(worktree, e.target.value)} />
-        <span className="files-filter-actions">
-          <button type="button" className="icon-button collapse-all" title="Collapse All" aria-label="Collapse All" disabled={tree.open.length === 0} onClick={() => collapseAll(worktree)}>
-            <CollapseAllIcon />
-          </button>
-          <button type="button" className="icon-button" title="Reload" aria-label="Reload" onClick={() => void reloadFiles(worktree)}>
-            <ReloadIcon />
-          </button>
-        </span>
+        <div className="input-row">
+          <input className="input" placeholder="Filter" aria-label="Filter Files" value={tree.filter} onChange={(e) => setFilter(worktree, e.target.value)} />
+          <span className="input-actions">
+            <button type="button" className="icon-button collapse-all" title="Collapse All" aria-label="Collapse All" disabled={tree.open.length === 0} onClick={() => collapseAll(worktree)}>
+              <CollapseAllIcon />
+            </button>
+            <button type="button" className="icon-button" title="Reload" aria-label="Reload" onClick={() => void reloadFiles(worktree)}>
+              <ReloadIcon />
+            </button>
+          </span>
+        </div>
       </div>
       <div
         ref={list}

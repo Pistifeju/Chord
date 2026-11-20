@@ -34,7 +34,7 @@
   It reads again with each read of the Changes view and keeps its scroll.
   A binary file reads "Binary file", a diff with no hunk left "No changes", and a failed first read "No diff to show" after its failure toast, as a centered meta line at 40% of the pane's height.
 - **Browser tab:** a web link opens as a tab of the focused group with a 16px globe icon, the page title (its host while it has none; the address is the tooltip) and an always visible close button, as a file tab.
-  Its pane holds a 40px bar on `canvas` with a 1px `line` bottom edge: Back, Forward and Reload icon buttons, a 28px address field that fills the row (Return opens what it holds, a bare host over https, a local one over http; Esc puts the page's address back), and Open in Default Browser.
+  Its pane holds a 40px bar on `canvas` with a 1px `line` bottom edge: Back and Forward icon buttons, then a 28px address field that fills the row (Return opens what it holds, a bare host over https, a local one over http; Esc puts the page's address back), a Field with buttons (see Inputs) holding Reload and Open in Default Browser.
   The page is a web view of its own over the rest of the pane; it hides while a sheet, Settings or a tab drag covers the window, since nothing the window draws can sit above it.
 - **Tab drag:** a tab dragged over a group's tab bar marks the whole group, and dropping adds the tab to the end of that bar.
   Dragged over a group's pane, it picks the pane edge nearest the pointer and shows that half of the pane, and dropping opens a new group there with the tab.
