@@ -44,6 +44,7 @@
   display: flex;
   flex: 0 1 auto;
   align-items: center;
+  position: relative;
   min-width: 0;
   overflow: hidden;
   align-self: stretch;
@@ -100,7 +101,7 @@
   gap: 8px;
   min-width: 0;
   height: 100%;
-  padding: 0 6px 0 10px;
+  padding: 0 10px;
   border: none;
   border-radius: inherit;
   background: none;
@@ -108,8 +109,9 @@
   white-space: nowrap;
 }
 
-.tab-name:last-child {
-  padding-right: 10px;
+/* The close button overlays the name's end, so the tab keeps the width its name sets at rest. */
+.tab:is(:hover, :focus-within, :has(> .tab-close[data-always])) .tab-name {
+  max-width: calc(100% - 20px);
 }
 
 .tab-name:focus-visible {
@@ -140,7 +142,8 @@
   flex: none;
   width: 20px;
   height: 20px;
-  margin-right: 4px;
+  position: absolute;
+  right: 4px;
   padding: 0;
   border: none;
   border-radius: var(--radius-inset);
@@ -151,7 +154,6 @@
 
 .tab:hover .tab-close,
 .tab:focus-within .tab-close,
-.tab[data-selected="true"] .tab-close,
 .tab-close[data-always] {
   opacity: 1;
 }
