@@ -94,9 +94,16 @@ export default function (pi: ExtensionAPI) {
   // RPC drops the usage bar's TUI component, so the windows travel as a status text the adapter reads.
   const usage: Record<string, UsageWindow> = {};
   let ui: { setStatus(key: string, text: string | undefined): void } | undefined;
+  let queued = false;
+  // The usage is the account's, so a new chat that has not read it yet leaves the bar as it is; both windows of one update go out together.
   const showUsage = () => {
-    const windows = usageIds.flatMap((id) => (usage[id] ? [usage[id]] : []));
-    ui?.setStatus(USAGE_STATUS, windows.length > 0 ? JSON.stringify(windows) : undefined);
+    if (queued) return;
+    queued = true;
+    queueMicrotask(() => {
+      queued = false;
+      const windows = usageIds.flatMap((id) => (usage[id] ? [usage[id]] : []));
+      if (windows.length > 0) ui?.setStatus(USAGE_STATUS, JSON.stringify(windows));
+    });
   };
   pi.events.on("powerbar:update", (update: any) => {
     if (!usageIds.includes(update?.id)) return;
