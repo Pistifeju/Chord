@@ -1,4 +1,4 @@
-// Rules for a worktree's build: how Rust's events change it, how the card's marker reads it, and where an error's file lies and how its place reads.
+// Rules for a worktree's build: how Rust's events change it, how the card's marker reads it, which failed build the toolbar counts, and where an error's file lies, how its place reads and how errors group by file.
 import type { BuildEvent_Deserialize, BuildIssue_Deserialize } from "../../../ipc/bindings";
 import type { BottomViewSlot } from "../../bottompanel/BottomPanel";
 import type { BottomView } from "../../../ipc/bindings";
@@ -185,4 +185,21 @@ export function issuePlace(issue: BuildIssue_Deserialize): string | null {
 // An error's file as a path inside the worktree, or null for a file outside it.
 export function pathInWorktree(worktree: string, file: string): string | null {
   return file.startsWith(`${worktree}/`) ? file.slice(worktree.length + 1) : null;
+}
+
+/** The failed build whose errors the toolbar counts, as the activity field picks it: the build beside a running app first, then the last build. */
+export function failedBuild(build: Build | undefined): Build | null {
+  if (!build || (build.side && isStarting(build.side))) return null;
+  if (build.side?.phase === "failed") return build.side;
+  return build.phase === "failed" ? build : null;
+}
+
+/** A build's errors grouped by file in the order they came; `file` is null for the errors without one. */
+export function issueGroups(issues: BuildIssue_Deserialize[]): { file: string | null; issues: BuildIssue_Deserialize[] }[] {
+  const groups = new Map<string | null, BuildIssue_Deserialize[]>();
+  for (const issue of issues) {
+    const file = issue.file ?? null;
+    groups.set(file, [...(groups.get(file) ?? []), issue]);
+  }
+  return [...groups].map(([file, grouped]) => ({ file, issues: grouped }));
 }

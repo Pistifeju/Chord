@@ -1,11 +1,11 @@
-// The menu bar's Product menu, as Xcode's: Run, Build, Clean Build Folder and Stop, each enabled while its command can run, with the user's shortcuts.
+// The menu bar's Product menu, as Xcode's: Run, Build, Clean Build Folder, Stop and Show Build Errors, each enabled while its command can run, with the user's shortcuts.
 import { MenuItem, PredefinedMenuItem, Submenu } from "@tauri-apps/api/menu";
 import { commandEnabled, menuItem } from "../../../app/commands";
 import { settingsOpen, shortcutChanges } from "../../settings/store";
 import { projects } from "../../worktrees/store";
 import { builds } from "./store";
 
-const groups = [["build.run", "build.start"], ["build.clean"], ["build.stop"]];
+const groups = [["build.run", "build.start"], ["build.clean"], ["build.stop"], ["build.showErrors"]];
 
 export async function productMenu(): Promise<Submenu> {
   const ids = groups.flat();

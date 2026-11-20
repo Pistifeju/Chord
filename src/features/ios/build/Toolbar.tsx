@@ -1,7 +1,7 @@
-// The window toolbar over the panes in a worktree with an Xcode project: Run and Stop, the activity field with the run target (the scheme button with its scheme and build configuration menu, the run destination button with the run menu), the build's status and error count, and the side panel's view buttons.
+// The window toolbar over the panes in a worktree with an Xcode project: Run and Stop, the activity field with the run target (the scheme button with its scheme and build configuration menu, the run destination button with the run menu), the build's status and error count with its error list, and the side panel's view buttons.
 import { CheckMenuItem, Menu, MenuItem, PredefinedMenuItem } from "@tauri-apps/api/menu";
 import { LogicalPosition } from "@tauri-apps/api/dpi";
-import { useEffect, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useRef, type MouseEvent, type ReactNode } from "react";
 import type { RunDestination, SchemePick_Serialize as SchemePick } from "../../../ipc/bindings";
 import { menuItem, tooltip } from "../../../app/commands";
 import { openContextMenu } from "../../../app/contextMenu";
@@ -11,10 +11,12 @@ import { ChevronIcon, PhoneIcon, PlayIcon, SchemeIcon, StopIcon, WarningIcon } f
 import { sidebar } from "../../sidebar/store";
 import { sameDestination } from "./destination";
 import { chooseRunDestination, destinations, refreshDestinations, runDestinationOf, useFallbackSimulator, useRunDestination } from "./destinationStore";
-import { activityOf, isRunning, isStarting } from "./run";
+import { closeErrorList, errorList, toggleErrorList } from "./errorListStore";
+import { ErrorList } from "./ErrorList";
+import { activityOf, failedBuild, isRunning, isStarting } from "./run";
 import { shownPick } from "./scheme";
 import { chooseSchemePick, refreshSchemes, schemeListings, schemePickOf, useSchemePick } from "./schemeStore";
-import { builds, runApp, showBuildLog, stopBuild } from "./store";
+import { builds, runApp, stopBuild } from "./store";
 import { messageTime } from "../../chat/messageTime";
 import "./toolbar.css";
 
@@ -110,6 +112,13 @@ function Activity({ worktree, scheme, destination, target }: { worktree: string;
   const build = builds.usePart((all) => all[worktree]);
   const activity = activityOf(build, scheme, destination, endTime);
   const text = activity.detail ? `${activity.lead} ${activity.detail}` : activity.lead;
+  const count = useRef<HTMLButtonElement>(null);
+  const failed = failedBuild(build);
+  const open = errorList.usePart((shown) => shown === worktree);
+  // A new build takes the errors away, so their list closes.
+  useEffect(() => {
+    if (open && !failed) closeErrorList();
+  }, [open, failed]);
   return (
     <div className="toolbar-activity" data-tone={activity.tone}>
       {target}
@@ -118,11 +127,22 @@ function Activity({ worktree, scheme, destination, target }: { worktree: string;
         {activity.detail && ` ${activity.detail}`}
       </span>
       {activity.errors > 0 && (
-        <button type="button" className="toolbar-errors" title="Show Build Log" aria-label={`${activity.errors} errors, Show Build Log`} onClick={() => showBuildLog(worktree)}>
+        <button
+          ref={count}
+          type="button"
+          className="toolbar-errors"
+          data-menu-toggle
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          title={tooltip("build.showErrors")}
+          aria-label={`${activity.errors} errors, Show Build Errors`}
+          onClick={() => toggleErrorList(worktree)}
+        >
           <WarningIcon />
           {activity.errors}
         </button>
       )}
+      {open && failed && <ErrorList worktree={worktree} build={failed} anchor={count} />}
       {activity.tone === "busy" && <span className="toolbar-progress" aria-hidden="true" />}
     </div>
   );

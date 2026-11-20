@@ -228,13 +228,176 @@
   font-variant-numeric: tabular-nums;
 }
 
-.toolbar-errors:hover {
+.toolbar-errors:hover,
+.toolbar-errors[aria-expanded="true"] {
   background: var(--selected);
+}
+
+.toolbar-errors:focus-visible {
+  outline-offset: -2px;
 }
 
 .toolbar-errors > svg {
   width: 12px;
   height: 12px;
+}
+
+/* The error list under the count: errors grouped by file, the highlighted row on `raised`. It opens as the commit mode menu does, out of the count's corner. */
+.error-list {
+  position: fixed;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  width: min(480px, calc(100vw - 16px));
+  max-height: 320px;
+  overflow: hidden;
+  border-radius: var(--radius-control);
+  background: var(--sheet);
+  box-shadow: var(--shadow-popover);
+  outline: none;
+  transform-origin: 100% 0;
+  animation: error-list-open var(--t-med) var(--ease-out);
+}
+
+@keyframes error-list-open {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.96);
+  }
+}
+
+@keyframes error-list-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .error-list {
+    animation-name: error-list-fade;
+  }
+}
+
+.error-list-rows {
+  min-height: 0;
+  padding: 0 4px 4px;
+  overflow-y: auto;
+  scroll-padding: 28px 0 4px;
+}
+
+.error-list-group {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 8px;
+  background: var(--sheet);
+  font-size: calc(11px * var(--text-scale));
+  font-weight: 600;
+  color: var(--ink-secondary);
+}
+
+.error-list-count {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+}
+
+.error-list-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+  padding: 0 8px 0 20px;
+  border-radius: var(--radius-inset);
+  font-size: calc(12px * var(--text-scale));
+  color: var(--ink);
+}
+
+.error-list-row[data-active] {
+  background: var(--raised);
+}
+
+.error-list-row[aria-disabled] {
+  color: var(--ink-secondary);
+}
+
+.error-list-icon {
+  display: grid;
+  flex: none;
+  color: var(--danger);
+}
+
+.error-list-icon > svg {
+  width: 12px;
+  height: 12px;
+}
+
+.error-list-message {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.error-list-line {
+  flex: none;
+  font-size: calc(11px * var(--text-scale));
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+}
+
+.error-list-row[data-active] .error-list-line {
+  color: var(--ink-secondary);
+}
+
+.error-list-more {
+  margin: 0;
+  padding: 8px;
+  font-size: calc(12px * var(--text-scale));
+  color: var(--ink-muted);
+}
+
+.error-list-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 4px 4px 12px;
+  border-top: 1px solid var(--line);
+}
+
+.error-list-hint {
+  font-size: calc(11px * var(--text-scale));
+  color: var(--ink-muted);
+}
+
+.error-list-log {
+  height: 24px;
+  padding: 0 8px;
+  border: none;
+  border-radius: var(--radius-inset);
+  background: none;
+  font-size: calc(12px * var(--text-scale));
+  font-weight: 500;
+  color: var(--ink-secondary);
+  transition: background-color var(--t-fast) var(--ease-out);
+}
+
+.error-list-log:hover {
+  background: var(--raised);
+  color: var(--ink);
+}
+
+.error-list-log:active {
+  background: var(--selected);
+}
+
+.error-list-log:focus-visible {
+  outline-offset: -2px;
 }
 
 /* A narrow toolbar hides the iOS version, then the scheme's name and configuration. */

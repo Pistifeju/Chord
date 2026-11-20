@@ -295,7 +295,7 @@ Tonal steps carry depth inside the window: canvas, panel, raised, selected. Bord
 
 - **Control** (`--shadow-control`): the selected segment in a segmented control, secondary buttons.
 - **Composer** (`--shadow-composer`): a soft lift under the composer card in light; none in dark.
-- **Popover** (`--shadow-popover`): the toast, the window's drop label and the chip of a dragged tab, card or project.
+- **Popover** (`--shadow-popover`): the toast, the toolbar's error list, the window's drop label and the chip of a dragged tab, card or project.
 - **Sheet** (`--shadow-sheet`): sheets.
 
 Popover and sheet shadows include a 1px ring: black at 8% in light, white at 10% in dark. The ring keeps a floating surface's edge visible on a dark canvas.
@@ -317,9 +317,10 @@ Popover and sheet shadows include a 1px ring: black at 8% in light, white at 10%
 - The lightbox and its scrim animate like a sheet.
 - In the welcome, a step change slides the new step in from 16px and 2px blur over 280ms with `--ease-out`; a harness row's state and command chip fade in and rise 4px over 200ms when a check changes them, and the default's check draws its stroke over 320ms. See `design/onboarding.md`.
 - In the Changes view, a row that a read brings after the view's first one, staged, unstaged or new on disk, fades in and rises 4px over 200ms with `--ease-out`. The rows the view opens with show still. A row's More button fades in and out over 120ms with `--ease-out`. The commit mode menu fades in, rises 4px and scales from 96% over 200ms with `--ease-out`, and its chevron turns in 120ms. A checkbox presses to 90% scale over 60ms, and its check fades in and grows from 80% scale over 120ms with `--ease-out`.
+- The toolbar's error list fades in, drops 4px and grows from 96% over 200ms with `--ease-out`, out of the error count's corner.
 - The toolbar's Stop glyph changes color over 120ms with `--ease-out` when it enables or disables.
 - The toolbar's activity line slides its segment across the field every 1.4s while a build, an install or a launch goes on; under Reduce Motion the line fills the field's width and pulses to 35% opacity every 2.4s instead.
-- Under Reduce Motion the sheet, its backdrop, the lightbox, the chat drop card, scrim, toast, chevrons, the context ring, the usage bar and the onboarding check's stroke skip their animation, the welcome's sidebar loop stays on its first beat, the welcome's step slide, a harness row's state and command chip, chat items, the slash, picker and agent menus, the chat drop card's content, a message's copy button and time, a session row's status, the run marker, a step summary's changed part, a new tab and a Changes view row and the commit mode menu only fade, the send button, the agent button, a sliding Segmented control's thumb, the jump button, a worktree card, a settings section and a checkbox and its check do not move or scale, the jump scrolls instantly and spinners and the orbit run at a third of their speed.
+- Under Reduce Motion the sheet, its backdrop, the lightbox, the chat drop card, scrim, toast, chevrons, the context ring, the usage bar and the onboarding check's stroke skip their animation, the toolbar's error list only fades, the welcome's sidebar loop stays on its first beat, the welcome's step slide, a harness row's state and command chip, chat items, the slash, picker and agent menus, the chat drop card's content, a message's copy button and time, a session row's status, the run marker, a step summary's changed part, a new tab and a Changes view row and the commit mode menu only fade, the send button, the agent button, a sliding Segmented control's thumb, the jump button, a worktree card, a settings section and a checkbox and its check do not move or scale, the jump scrolls instantly and spinners and the orbit run at a third of their speed.
 
 ## Shapes
 
