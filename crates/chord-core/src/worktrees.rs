@@ -86,7 +86,7 @@ pub fn check_branch(project: &Project, name: &str) -> Result<Option<String>, Err
     if let Some(reason) = branch_problem(project, name, None)? {
         return Ok(Some(reason));
     }
-    Ok(folder(project, name)
+    Ok(folder(project, name)?
         .exists()
         .then(|| "A folder with this name exists".into()))
 }
@@ -157,12 +157,12 @@ fn branch_problem(
     Ok(taken.then(|| "A branch with this name exists".into()))
 }
 
-/// Adds a worktree on a new branch in `<project>-worktrees/<branch>` beside the project.
+/// Adds a worktree on a new branch in `~/.chord/worktrees/<project>/<branch>`.
 pub fn create(project: &Project, branch: &str) -> Result<Worktree, Error> {
     if let Some(reason) = check_branch(project, branch)? {
         return Err(Error::Message(reason));
     }
-    let path = folder(project, branch);
+    let path = folder(project, branch)?;
     let path_arg = path.to_string_lossy();
     git::run(&project.path, &["worktree", "add", "-b", branch, &path_arg])?;
     copy_ignored_files(&project.path, &path);
@@ -348,7 +348,17 @@ pub fn remove_folder(
     }
     args.push(&path_arg);
     match git::run(&project.path, &args) {
-        Ok(_) => Ok(Ok(branch)),
+        Ok(_) => {
+            // The project's worktrees folder goes with its last worktree; `remove_dir` refuses a folder that still holds one.
+            if let Some(parent) = real.parent()
+                && worktrees_folders(project)
+                    .iter()
+                    .any(|folder| folder.canonicalize().is_ok_and(|f| f == parent))
+            {
+                let _ = std::fs::remove_dir(parent);
+            }
+            Ok(Ok(branch))
+        }
         Err(Error::Message(reason)) if !force && force_helps(&reason) => {
             Ok(Err(Removal::NeedsForce { reason }))
         }
@@ -370,15 +380,39 @@ fn force_helps(refusal: &str) -> bool {
     refusal.contains("modified or untracked files") || refusal.contains("locked")
 }
 
-/// The folder beside the project that holds its created worktrees.
-pub fn worktrees_folder(project: &Project) -> PathBuf {
-    project
-        .path
-        .with_file_name(format!("{}-worktrees", project.name))
+/// The folder that holds the project's new worktrees: `~/.chord/worktrees/<project>`.
+// shortcut: two projects with one folder name share this folder and git refuses a branch folder the other made, add a path hash once that bites.
+fn worktrees_folder(project: &Project) -> Result<PathBuf, Error> {
+    let home = home(project).ok_or_else(|| {
+        Error::Message("HOME is not set, so Chord cannot place the worktree.".into())
+    })?;
+    Ok(home.join(".chord/worktrees").join(&project.name))
 }
 
-fn folder(project: &Project, branch: &str) -> PathBuf {
-    worktrees_folder(project).join(branch.replace('/', "-"))
+/// Every folder that holds worktrees Chord created: `~/.chord/worktrees/<project>`, and the `<project>-worktrees` folder beside the project that earlier versions used.
+pub fn worktrees_folders(project: &Project) -> Vec<PathBuf> {
+    let legacy = project
+        .path
+        .with_file_name(format!("{}-worktrees", project.name));
+    worktrees_folder(project)
+        .into_iter()
+        .chain([legacy])
+        .collect()
+}
+
+#[cfg(not(test))]
+fn home(_: &Project) -> Option<PathBuf> {
+    std::env::var_os("HOME").map(PathBuf::from)
+}
+
+// Tests keep their worktrees beside the repo they made, never in the real home folder.
+#[cfg(test)]
+fn home(project: &Project) -> Option<PathBuf> {
+    project.path.parent().map(Path::to_path_buf)
+}
+
+fn folder(project: &Project, branch: &str) -> Result<PathBuf, Error> {
+    Ok(worktrees_folder(project)?.join(branch.replace('/', "-")))
 }
 
 pub(crate) fn entries(dir: &Path) -> Result<Vec<Entry>, Error> {
@@ -560,6 +594,7 @@ mod tests {
             }
         );
         assert!(!made.path.exists());
+        assert!(!root.join(".chord/worktrees/app").exists());
         assert!(matches!(remove(&project, &repo), Err(Error::Message(_))));
         assert!(
             git::run(
@@ -571,7 +606,7 @@ mod tests {
         assert_eq!(bad.as_deref(), Some("Not a valid branch name"));
         assert_eq!(taken.as_deref(), Some("A branch with this name exists"));
         assert_eq!(clash.as_deref(), Some("A folder with this name exists"));
-        assert_eq!(made.path, root.join("app-worktrees").join("feature-x"));
+        assert_eq!(made.path, root.join(".chord/worktrees/app/feature-x"));
         assert!(
             listed
                 .iter()

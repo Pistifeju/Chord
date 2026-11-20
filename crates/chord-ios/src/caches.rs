@@ -124,7 +124,8 @@ pub fn prune(projects: &[Project]) -> Result<(), Error> {
     let live = live_worktrees(projects, true)?;
     let folders: Vec<PathBuf> = projects
         .iter()
-        .map(|project| resolved(&worktrees::worktrees_folder(project)))
+        .flat_map(worktrees::worktrees_folders)
+        .map(|folder| resolved(&folder))
         .collect();
     remove_derived_data(|project| {
         !project.exists() && {
