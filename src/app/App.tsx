@@ -60,7 +60,8 @@ export default function App() {
   const state = projects.use();
   const { list, selected } = state;
   const empty = list.length === 0;
-  const welcoming = empty && !welcomed.use();
+  const welcome = welcomed.use();
+  const welcoming = empty && !welcome;
   const shownAlert = alert.use();
   const { hidden } = sidebar.use();
   const settings = settingsOpen.use();

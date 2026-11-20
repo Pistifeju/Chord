@@ -6,6 +6,7 @@ import { loadDeferredViews } from "./deferredViews";
 import { keepAwake, linksInDefaultBrowser, loadAppearance, muteNotifications } from "../features/settings/store";
 import { loadPanes, resumeAgents } from "../features/panes/store";
 import { loadPaneHarnesses } from "../features/chat/store";
+import { checkHarnesses } from "../features/harnesses/store";
 import { sidebar } from "../features/sidebar/store";
 import { loadSidePanels } from "../features/sidepanel/store";
 import { screenshotFolder } from "../features/ios/simulator/store";
@@ -48,6 +49,8 @@ export async function launch() {
     await loadProjects(state.projects, state.selected);
     // Build data of worktrees deleted elsewhere goes in the background.
     if (hasXcodeProject(projects.get())) commands.pruneBuildData().catch(console.error);
+    // Settings › Agents opens with rows instead of a Checking row.
+    void checkHarnesses();
     // Listing takes a second or two and only checks the saved pick: the window does not wait for it.
     if (state.selected && worktreeAt(projects.get(), state.selected)?.xcode) refreshDestinations(state.selected).catch(console.error);
     await Promise.all([loadGitCounts(), resumed, views]);
