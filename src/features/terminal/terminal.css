@@ -27,6 +27,10 @@
   min-height: 0;
 }
 
+.terminal-host[data-top] {
+  justify-content: flex-start;
+}
+
 /* xterm.css paints the viewport black; the strip the fit leaves takes the canvas instead. */
 .terminal-body .xterm,
 .terminal-body .xterm-viewport {

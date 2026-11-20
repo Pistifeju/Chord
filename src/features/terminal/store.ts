@@ -63,8 +63,10 @@ export const endTerminalFind = (worktree: string) => shells.get(worktree)?.searc
 
 export const focusTerminal = (worktree: string) => shells.get(worktree)?.term.focus();
 
-function fitNow({ term, fit }: Shell) {
+function fitNow({ term, fit, host }: Shell) {
   fit.fit();
+  // A screen with no scrollback that the cursor has not filled grows and shrinks at its bottom, so its text holds to the top edge, which moves with the drag.
+  host.toggleAttribute("data-top", term.buffer.active.baseY === 0 && term.buffer.active.cursorY < term.rows - 1);
   paintNow(term);
 }
 
@@ -177,12 +179,8 @@ export function showTerminal(worktree: string, container: HTMLElement): () => vo
   const themed = new MutationObserver(applyAppearance);
   themed.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
   const unsubscribe = appearance.subscribe(applyAppearance);
-  // One fit per frame: each fit reflows the scrollback and resizes the shell's terminal.
-  let frame = 0;
-  const resized = new ResizeObserver(() => {
-    cancelAnimationFrame(frame);
-    frame = requestAnimationFrame(() => fitNow(shown));
-  });
+  // The observer runs after layout and before paint, at most once a frame, so the fit lands in the frame the panel resized in.
+  const resized = new ResizeObserver(() => fitNow(shown));
   resized.observe(container);
   const unlistenDrop = getCurrentWebview().onDragDropEvent(({ payload }) => {
     if (payload.type !== "drop" || payload.paths.length === 0) return;
@@ -193,7 +191,6 @@ export function showTerminal(worktree: string, container: HTMLElement): () => vo
   });
   if (takesFocusOnShow(worktree)) term.focus();
   return () => {
-    cancelAnimationFrame(frame);
     resized.disconnect();
     void unlistenDrop.then((stop) => stop());
     themed.disconnect();

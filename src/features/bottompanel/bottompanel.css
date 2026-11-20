@@ -10,6 +10,15 @@
   background: var(--canvas);
 }
 
+/* Snapped shut mid-drag: the views keep their height, so the terminal does not refit to one row. */
+.bottom-panel[data-snapped] {
+  overflow: hidden;
+}
+
+.bottom-panel[data-snapped] > .bottom-main {
+  height: var(--panel-height);
+}
+
 .bottom-main {
   display: flex;
   flex-direction: column;

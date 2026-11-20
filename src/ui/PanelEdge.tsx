@@ -7,11 +7,13 @@ type Drag = { panel: HTMLElement; start: number; startSize: number; size: number
 type Props = {
   side: "left" | "right" | "top";
   onResize: (size: number) => void;
-  /** Runs once when a drag ends, so the size saves once. */
-  onEnd: () => void;
+  /** Runs once when a drag ends, with the size it ended at, so the size saves once. */
+  onEnd: (size: number) => void;
+  /** Below this size the drag keeps counting past the panel's limit, so the panel can snap shut and open again under the pointer. */
+  shrinksBelow?: number;
 };
 
-export function PanelEdge({ side, onResize, onEnd }: Props) {
+export function PanelEdge({ side, onResize, onEnd, shrinksBelow = 0 }: Props) {
   const drag = useRef<Drag | null>(null);
   const across = side !== "top";
   const along = (e: PointerEvent) => (side === "right" ? -e.clientX : across ? e.clientX : e.clientY);
@@ -28,7 +30,8 @@ export function PanelEdge({ side, onResize, onEnd }: Props) {
     if (!d) return;
     // A size the panel stopped at (its limits, the room the window leaves) drops the overshoot, so dragging back moves it at once.
     const shown = shownSize(d.panel);
-    if (d.size !== null && !d.frame && Math.abs(d.size - shown) > 1) d.startSize += shown - d.size;
+    const keepsOvershoot = d.size !== null && shrinksBelow > 0 && d.size < Math.max(shown, shrinksBelow);
+    if (d.size !== null && !keepsOvershoot && !d.frame && Math.abs(d.size - shown) > 1) d.startSize += shown - d.size;
     d.size = d.startSize + d.start - along(e);
     // At most one layout per frame; the panel below may be a terminal that refits on each.
     d.frame ||= requestAnimationFrame(() => {
@@ -43,7 +46,7 @@ export function PanelEdge({ side, onResize, onEnd }: Props) {
     if (!d || d.size === null) return;
     cancelAnimationFrame(d.frame);
     onResize(d.size);
-    onEnd();
+    onEnd(d.size);
   };
 
   return (
