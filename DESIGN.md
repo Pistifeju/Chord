@@ -213,7 +213,7 @@ Every value comes from Tailwind's zinc, blue, emerald, amber and red. In dark, `
 
 - **Canvas** (`canvas`): the main area, the tab bar and the status bar.
 - **Panel** (`panel`): the sidebar, code blocks, table headers, the Settings section list and cards.
-- **Raised** (`raised`): the open tab, hovered rows, tabs and icon buttons, the segmented track.
+- **Raised** (`raised`): the open tab, hovered rows, tabs and icon buttons, the segmented track, the Changes view's group headings.
 - **Bubble** (`bubble`): the user's message.
 - **Selected** (`selected`): the open worktree's card and every pressed neutral control.
 - **Sheet** (`sheet`): the composer, the slash and picker menus, inputs, secondary buttons, sheets, the toast, the drop label.

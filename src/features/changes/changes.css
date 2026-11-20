@@ -65,28 +65,30 @@
 }
 
 .changes-section + .changes-section {
-  margin-top: 12px;
+  margin-top: 8px;
 }
 
-/* Sticks while its group scrolls under it, until the next group's heading pushes it out. */
+/* A band across the tree's full width, so each group starts where the eye can find it. It sticks while its group scrolls under it, until the next group's heading pushes it out. */
 .changes-group {
   position: sticky;
   top: 0;
   z-index: 1;
-  background: var(--canvas);
-  /* Covers the tree's 4px top padding, where the rows would scroll past above it. */
-  box-shadow: 0 -4px 0 var(--canvas);
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 26px;
-  padding: 0 4px 0 8px;
+  height: 28px;
+  margin: 0 -8px 4px;
+  padding: 0 12px 0 16px;
+  background: linear-gradient(var(--raised), var(--raised)), var(--canvas);
+  /* The last shadow covers the tree's 4px top padding, where the rows would scroll past above it. */
+  box-shadow: inset 0 1px 0 var(--line), inset 0 -1px 0 var(--line), 0 -4px 0 var(--canvas);
   font-size: calc(12px * var(--text-scale));
-  font-weight: 500;
-  color: var(--ink-secondary);
+  font-weight: 600;
+  color: var(--ink);
 }
 
 .changes-count {
+  font-weight: 500;
   color: var(--ink-muted);
   font-variant-numeric: tabular-nums;
 }
@@ -132,6 +134,12 @@
   transition: opacity var(--t-fast) var(--ease-out), visibility 0s var(--t-fast);
 }
 
+/* Hidden, the More button takes no room; the row's end moves in to make room for it. */
+.files-tree:not([data-keys]) .changes-item:hover .changes-row,
+.changes-item:focus-within .changes-row {
+  padding-right: 28px;
+}
+
 .files-tree:not([data-keys]) .changes-item:hover .changes-more,
 .changes-item:focus-within .changes-more {
   opacity: 1;
@@ -159,15 +167,15 @@
 
 /* The Stashes heading opens and closes its group; its chevron sits where the other headings have their checkbox. */
 .changes-group.changes-group-toggle {
-  width: 100%;
+  width: calc(100% + 16px);
   border: none;
-  border-radius: var(--radius-control);
+  border-radius: 0;
   text-align: left;
   transition: background-color var(--t-fast) var(--ease-out);
 }
 
 .files-tree:not([data-keys]) .changes-group-toggle:hover {
-  background: var(--raised);
+  background: linear-gradient(var(--selected), var(--selected)), var(--canvas);
 }
 
 .changes-group-toggle:focus-visible {
@@ -208,7 +216,7 @@
 /* Two classes, so the row's own spacing wins over the Files row whichever stylesheet loads last. */
 .files-row.changes-row {
   gap: 6px;
-  padding: 0 28px 0 30px;
+  padding: 0 8px 0 30px;
 }
 
 /* A committed file has no checkbox or More button; inside a commit it starts on the commit's subject. */
@@ -383,7 +391,7 @@
   color: var(--ink-muted);
 }
 
-.changes-subject {
+.changes-subject-length {
   height: 14px;
   padding: 0 10px;
   text-align: right;

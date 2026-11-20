@@ -201,7 +201,7 @@ function CommitBox({ worktree, staged }: { worktree: string; staged: boolean }) 
             if (!e.repeat) void commitStaged(worktree);
           }}
         />
-        <div className={subject > 50 ? "changes-subject changes-subject-long" : "changes-subject"} title="Subject length">
+        <div className={subject > 50 ? "changes-subject-length changes-subject-long" : "changes-subject-length"} title="Subject length">
           {subject > 0 && `${subject}/50`}
         </div>
         <div className="changes-card-foot">
