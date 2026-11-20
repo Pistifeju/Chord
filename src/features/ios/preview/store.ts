@@ -11,7 +11,7 @@ export const previews = externalStore<Record<string, Preview>>({});
 /** Each worktree's pick; it never follows the editor. */
 export const previewPicks = externalStore<Record<string, PreviewPick>>({});
 
-/** Each project's preview model; a project without one previews on the newest iPhone. */
+/** Each project's preview model; a project without one previews on the listing's fallback simulator. */
 const previewModels = projectPicks<RunDestination>((project, model) => commands.changeState({ previewModel: { project, model } }));
 
 /** Each worktree's previews; a worktree is missing while its first list loads. */

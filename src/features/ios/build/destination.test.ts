@@ -9,12 +9,12 @@ const old: RunDestination = { kind: "simulator", model: "p17", runtime: "ios-26"
 const device: RunDestination = { kind: "device", id: "U1", name: "Ada's iPhone" };
 
 test("a pick that is still listed stays", () => {
-  const all: Destinations = { devices: [device], simulators: [{ os: "iOS 27.0", models: [phone] }] };
+  const all: Destinations = { devices: [device], simulators: [{ os: "iOS 27.0", models: [phone] }], fallback: null };
   assert.deepEqual(pickAfterListing(device, all), { pick: device });
 });
 
 test("a pick that is gone falls back to the first simulator and the notice names both", () => {
-  const all: Destinations = { devices: [], simulators: [{ os: "iOS 27.0", models: [phone] }] };
+  const all: Destinations = { devices: [], simulators: [{ os: "iOS 27.0", models: [phone] }], fallback: null };
   assert.deepEqual(pickAfterListing(old, all), { pick: phone, notice: "iPhone 17, iOS 26.4 is not available. Using iPhone 18, iOS 27.0." });
   assert.deepEqual(pickAfterListing(device, { devices: [], simulators: [] }), { pick: null, notice: "Ada's iPhone is not available." });
 });

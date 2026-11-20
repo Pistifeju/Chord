@@ -8,7 +8,7 @@ use std::sync::mpsc::{self, RecvTimeoutError};
 use std::thread;
 use std::time::Duration;
 
-use chord_core::{Error, login_shell};
+use chord_core::{Error, RunDestination, login_shell};
 use serde_json::Value;
 
 use crate::console::{self, ConsoleTone};
@@ -272,12 +272,15 @@ pub(crate) fn find_or_create(
         Some((model, runtime)) => (model.to_string(), runtime.to_string()),
         None => {
             let runtimes = simctl(DeviceSet::Run, &["list", "runtimes", "--json"], register)?;
-            newest_ios_model(&serde_json::from_str(&runtimes)?).ok_or_else(|| {
-                Error::Message(
-                    "No iOS simulator runtime is installed. Add one in Xcode > Settings > Components."
-                        .into(),
-                )
-            })?
+            match newest_ios_model(&serde_json::from_str(&runtimes)?) {
+                Some(RunDestination::Simulator { model, runtime, .. }) => (model, runtime),
+                _ => {
+                    return Err(Error::Message(
+                        "No iOS simulator runtime is installed. Add one in Xcode > Settings > Components."
+                            .into(),
+                    ));
+                }
+            }
         }
     };
     let udid = simctl(
@@ -305,8 +308,8 @@ pub(crate) fn dotted_version(text: &str) -> Vec<u32> {
         .collect()
 }
 
-/// The newest available iOS runtime and its iPhone model: a Pro that is not a Max, else the last iPhone it lists. Returns the model's and the runtime's identifiers.
-fn newest_ios_model(listed: &Value) -> Option<(String, String)> {
+/// The newest available iOS runtime and its iPhone model: a Pro that is not a Max, else the last iPhone it lists. A worktree without a picked model gets a simulator of it.
+pub(crate) fn newest_ios_model(listed: &Value) -> Option<RunDestination> {
     let runtime = listed["runtimes"]
         .as_array()?
         .iter()
@@ -326,10 +329,12 @@ fn newest_ios_model(listed: &Value) -> Option<(String, String)> {
             name.contains("Pro") && !name.contains("Max")
         })
         .or(phones.last())?;
-    Some((
-        model["identifier"].as_str()?.into(),
-        runtime["identifier"].as_str()?.into(),
-    ))
+    Some(RunDestination::Simulator {
+        model: model["identifier"].as_str()?.into(),
+        runtime: runtime["identifier"].as_str()?.into(),
+        name: model["name"].as_str()?.into(),
+        os: runtime["name"].as_str()?.into(),
+    })
 }
 
 /// Boots the simulator and waits until it reports Booted. A device that does not fails with its state; a boot past `BOOT_LIMIT` is ended and fails.
@@ -697,7 +702,7 @@ mod tests {
         let listed: Value = serde_json::from_str(
             r#"{"runtimes":[
               {"platform":"iOS","isAvailable":true,"version":"26.4.1","identifier":"ios-26-4","supportedDeviceTypes":[]},
-              {"platform":"iOS","isAvailable":true,"version":"27.1","identifier":"ios-27-1","supportedDeviceTypes":[
+              {"platform":"iOS","isAvailable":true,"version":"27.1","identifier":"ios-27-1","name":"iOS 27.1","supportedDeviceTypes":[
                 {"productFamily":"iPhone","name":"iPhone 18","identifier":"p18"},
                 {"productFamily":"iPhone","name":"iPhone 18 Pro","identifier":"p18pro"},
                 {"productFamily":"iPhone","name":"iPhone 18 Pro Max","identifier":"p18max"},
@@ -708,7 +713,12 @@ mod tests {
         .unwrap();
         assert_eq!(
             newest_ios_model(&listed),
-            Some(("p18pro".into(), "ios-27-1".into()))
+            Some(RunDestination::Simulator {
+                model: "p18pro".into(),
+                runtime: "ios-27-1".into(),
+                name: "iPhone 18 Pro".into(),
+                os: "iOS 27.1".into(),
+            })
         );
     }
 

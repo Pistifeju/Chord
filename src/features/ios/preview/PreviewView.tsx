@@ -1,19 +1,20 @@
-// The Preview view in the side panel: its header with the preview model's menu and the line while a rebuild runs, over the worktree's `#Preview` list, as a Files tree with its filter, beside the worktree's preview simulator screen and the compile error's bar, with the Simulator view's screen, bezel, input and Screenshot button, or the line that stands in for it. Also its toolbar button.
+// The Preview view in the side panel: the worktree's preview simulator screen under its header, the preview model's menu and the line while a rebuild runs, beside the worktree's `#Preview` list on the panel's outer edge, as a Files tree with its filter that ↑ and ↓ step through, and the compile error's bar, with the Simulator view's screen, bezel, input and Screenshot button, or the line that stands in for it. Also its toolbar button.
 import { Menu } from "@tauri-apps/api/menu";
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import { tooltip } from "../../../app/commands";
 import type { BuildIssue_Deserialize } from "../../../ipc/bindings";
-import { ChevronIcon, EyeIcon, FileIcon, FilterIcon, PhoneIcon, WarningIcon } from "../../../ui/icons";
+import { ChevronDownIcon, ChevronIcon, EyeIcon, FileIcon, FilterIcon, PhoneIcon, WarningIcon } from "../../../ui/icons";
 import { showFileAt } from "../../editor/showing";
 import { fail } from "../../../ui/alert";
 import { popUpUnder, simulatorItems } from "../build/Toolbar";
+import { useFallbackSimulator } from "../build/destinationStore";
 import { issuePlace, pathInWorktree } from "../build/run";
 import { shortcutChanges } from "../../settings/store";
 import { showsSideView, sidePanels, toggleSideView } from "../../sidepanel/store";
 import { SimulatorView } from "../simulator/SimulatorView";
 import { treeKeyAction } from "../../files/tree";
 import "../../files/files.css";
-import { issueLine, previewKey, previewLine, previewRows, rebuilding, shownError, type PreviewRow } from "./preview";
+import { issueLine, previewKey, previewLine, previewName, previewRows, rebuilding, shownError, steppedPreview, type PreviewRow } from "./preview";
 import "./preview.css";
 import { PanelEdge } from "../../../ui/PanelEdge";
 import { choosePreview, choosePreviewModel, closePreview, loadPreviewList, openPreview, previewListWidth, previewLists, previewPicks, previews, resizePreviewList, usePreviewModel } from "./store";
@@ -66,6 +67,7 @@ export function PreviewView({ worktree }: { worktree: string }) {
   const error = previews.usePart((all) => shownError(all[worktree]));
   const pick = previewPicks.usePart((all) => all[worktree] ?? null);
   const model = usePreviewModel(worktree);
+  const fallback = useFallbackSimulator(worktree);
   const picked = pick !== null;
   useEffect(() => {
     const number = openPreview(worktree);
@@ -75,15 +77,8 @@ export function PreviewView({ worktree }: { worktree: string }) {
   return (
     <div className="preview">
       <div className="preview-body">
-        <PreviewList worktree={worktree} />
         <div className="preview-main">
           <div className="preview-header">
-            {building && (
-              <span className="preview-rebuilding" role="status">
-                <span className="spinner" aria-hidden="true" />
-                Rebuilding
-              </span>
-            )}
             <button
               type="button"
               className="preview-button preview-model"
@@ -91,18 +86,28 @@ export function PreviewView({ worktree }: { worktree: string }) {
               onClick={(e: MouseEvent<HTMLButtonElement>) => popUpUnder(worktree, e.currentTarget, modelMenu).catch(fail)}
             >
               <PhoneIcon />
-              <span className="preview-file">{model?.name ?? "Newest iPhone"}</span>
+              <span className="preview-file">{(model ?? fallback)?.name}</span>
+              <span className="preview-model-chevron">
+                <ChevronDownIcon />
+              </span>
             </button>
+            {building && (
+              <span className="preview-rebuilding" role="status">
+                <span className="spinner" aria-hidden="true" />
+                Rebuilding
+              </span>
+            )}
           </div>
           <SimulatorView worktree={worktree} preview={line} />
         </div>
+        <PreviewList worktree={worktree} />
       </div>
       {error && <ErrorBar worktree={worktree} issue={error} />}
     </div>
   );
 }
 
-// Focusing a preview's row shows it, so ↑ and ↓ step through the previews.
+// Focusing a preview's row shows it. ↑ and ↓ show the next preview from a row or the filter field, past file rows, and ⌥ jumps a file.
 function PreviewList({ worktree }: { worktree: string }) {
   const all = previewLists.usePart((lists) => lists[worktree] ?? null);
   const pick = previewPicks.usePart((picks) => picks[worktree] ?? null);
@@ -119,8 +124,26 @@ function PreviewList({ worktree }: { worktree: string }) {
     return () => window.removeEventListener("focus", onFocus);
   }, [worktree]);
   return (
-    <div className="preview-list" style={{ width }}>
-      <PanelEdge side="right" onResize={resizePreviewList} onEnd={() => {}} />
+    <div
+      className="preview-list"
+      style={{ width }}
+      onKeyDown={(e) => {
+        if ((e.key !== "ArrowDown" && e.key !== "ArrowUp") || e.metaKey || e.ctrlKey || e.shiftKey) return;
+        e.preventDefault();
+        const row = (e.target as HTMLElement).dataset.path;
+        const next = steppedPreview(rows, row ?? (pick && previewKey(pick)), e.key === "ArrowDown", e.altKey);
+        if (!next) return;
+        if (list.current) list.current.dataset.keys = "";
+        const element = list.current?.querySelector<HTMLElement>(`[data-path="${CSS.escape(previewKey(next))}"]`);
+        // A row hands the focus on, which shows the preview; the field keeps it, so typing goes on.
+        if (row !== undefined) element?.focus();
+        else {
+          element?.scrollIntoView({ block: "nearest" });
+          choosePreview(worktree, next);
+        }
+      }}
+    >
+      <PanelEdge side="left" onResize={resizePreviewList} onEnd={() => {}} />
       <div className="files-filter">
         <FilterIcon />
         <input className="input" placeholder="Filter" aria-label="Filter Previews" value={query} onChange={(e) => setQuery(e.target.value)} />
@@ -132,7 +155,7 @@ function PreviewList({ worktree }: { worktree: string }) {
         aria-label="Previews"
         onKeyDown={(e) => {
           const path = (e.target as HTMLElement).dataset.path;
-          const action = path === undefined || e.metaKey || e.altKey || e.ctrlKey || e.shiftKey ? null : treeKeyAction(rows, path, e.key);
+          const action = path === undefined || (e.key !== "ArrowLeft" && e.key !== "ArrowRight") || e.metaKey || e.altKey || e.ctrlKey || e.shiftKey ? null : treeKeyAction(rows, path, e.key);
           if (!action) return;
           e.preventDefault();
           e.currentTarget.dataset.keys = "";
@@ -159,7 +182,7 @@ function ListRow({ row, selected, onToggle, onPick }: { row: PreviewRow; selecte
       role="treeitem"
       className="files-row"
       style={{ "--depth": depth } as CSSProperties}
-      title={pick ? `${entry.name} · ${pick.file}` : entry.path}
+      title={pick ? `${previewName(pick)} · ${pick.file}` : entry.path}
       data-path={entry.path}
       aria-level={depth + 1}
       aria-expanded={pick ? undefined : open}

@@ -16,6 +16,8 @@ pub struct Destinations {
     pub devices: Vec<RunDestination>,
     /// Newest iOS version first.
     pub simulators: Vec<SimulatorModels>,
+    /// The simulator a run or preview without a picked destination uses; None without an iOS runtime.
+    pub fallback: Option<RunDestination>,
 }
 
 #[derive(Serialize, Type, Clone, Debug, PartialEq)]
@@ -29,13 +31,22 @@ pub struct SimulatorModels {
 pub fn list() -> Result<Destinations, Error> {
     let simulators = simctl(
         DeviceSet::Run,
-        &["list", "devicetypes", "devices", "available", "--json"],
+        &[
+            "list",
+            "devicetypes",
+            "devices",
+            "runtimes",
+            "available",
+            "--json",
+        ],
         &|_| {},
     )?;
+    let listed: Value = serde_json::from_str(&simulators)?;
     Ok(Destinations {
         // Older Xcode has no devicectl: no devices.
         devices: connected_devices().unwrap_or_default(),
-        simulators: simulators_in(&serde_json::from_str(&simulators)?),
+        simulators: simulators_in(&listed),
+        fallback: simulator::newest_ios_model(&listed),
     })
 }
 

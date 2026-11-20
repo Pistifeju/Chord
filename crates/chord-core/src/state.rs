@@ -46,9 +46,9 @@ pub struct State {
     pub welcomed: bool,
     /// The switches of the simulator service subgroups, by subgroup id or group id: `true` keeps it on, `false` lets a boot switch it off. A group id covers the group's subgroups without a switch of their own; with neither, the group's default applies.
     pub kept_services: BTreeMap<String, bool>,
-    /// Each project's run destination; a project without one runs on the newest iPhone simulator.
+    /// Each project's run destination; a project without one runs on the listing's fallback simulator.
     pub run_destinations: BTreeMap<PathBuf, RunDestination>,
-    /// Each project's preview simulator model; a project without one previews on the newest iPhone.
+    /// Each project's preview simulator model; a project without one previews on the listing's fallback simulator.
     pub preview_models: BTreeMap<PathBuf, RunDestination>,
     /// Each project's scheme and build configuration for ⌘R and ⌘B; a project without one builds the default scheme in its default configuration.
     pub scheme_picks: BTreeMap<PathBuf, SchemePick>,

@@ -1,4 +1,4 @@
-// Rules for the Preview view: whether the preview simulator's screen shows, the centered line in its place, whether its header says a rebuild runs, the compile error its bar shows, how a `#Preview` reads, which ones the list's filter matches and the list's rows.
+// Rules for the Preview view: whether the preview simulator's screen shows, the centered line in its place, whether its header says a rebuild runs, the compile error its bar shows, how a `#Preview` reads, which ones the list's filter matches, the list's rows and the preview ↑ or ↓ goes to.
 import type { BuildIssue_Deserialize, PreviewPick, PreviewState } from "../../../ipc/bindings";
 import { issuePlace } from "../build/run.ts";
 import type { Row } from "../../files/tree.ts";
@@ -52,7 +52,7 @@ export function previewLine(preview: Preview | undefined): string | null {
 }
 
 /** The macro's name, an unnamed one by its place in its file. */
-const previewName = (pick: PreviewPick): string => pick.name ?? `Preview ${pick.index + 1}`;
+export const previewName = (pick: PreviewPick): string => pick.name ?? `Preview ${pick.index + 1}`;
 
 /** `Views/ContentView.swift#1`: the list row's path. */
 export const previewKey = (pick: PreviewPick): string => `${pick.file}#${pick.index}`;
@@ -66,8 +66,23 @@ function matchingPreviews(all: PreviewPick[], query: string): PreviewPick[] {
   return all.filter((pick) => `${previewName(pick)} ${pick.file}`.toLowerCase().includes(needle));
 }
 
+/** A row's name: the file's previews drop the "Symptoms — " prefix all of them share, under the file's row that already says it. */
+function rowNames(all: PreviewPick[]): Map<PreviewPick, string> {
+  const names = new Map<PreviewPick, string>();
+  const byFile = new Map<string, PreviewPick[]>();
+  for (const pick of all) byFile.set(pick.file, [...(byFile.get(pick.file) ?? []), pick]);
+  for (const picks of byFile.values()) {
+    const full = picks.map(previewName);
+    const prefix = /^.+? — /.exec(full[0])?.[0];
+    const shared = prefix !== undefined && full.every((name) => name.startsWith(prefix) && name.length > prefix.length);
+    picks.forEach((pick, i) => names.set(pick, shared ? full[i].charAt(prefix.length).toUpperCase() + full[i].slice(prefix.length + 1) : full[i]));
+  }
+  return names;
+}
+
 /** Each file with a matching preview, then its previews unless the file is closed; a filter opens every file. */
 export function previewRows(all: PreviewPick[], query: string, closed: string[]): PreviewRow[] {
+  const names = rowNames(all);
   const rows: PreviewRow[] = [];
   let file: string | null = null;
   let open = true;
@@ -77,7 +92,25 @@ export function previewRows(all: PreviewPick[], query: string, closed: string[])
       open = query.trim() !== "" || !closed.includes(file);
       rows.push({ entry: { name: fileName(file), path: file, isDir: true }, depth: 0, open, pick: null });
     }
-    if (open) rows.push({ entry: { name: previewName(pick), path: previewKey(pick), isDir: false }, depth: 1, open: false, pick });
+    if (open) rows.push({ entry: { name: names.get(pick) ?? previewName(pick), path: previewKey(pick), isDir: false }, depth: 1, open: false, pick });
   }
   return rows;
+}
+
+/** The preview ↑ or ↓ goes to from the row at `from`, past file rows; with ⌥, the first preview of the previous or next file. From no row, the first or the last preview. */
+export function steppedPreview(rows: PreviewRow[], from: string | null, down: boolean, byFile: boolean): PreviewPick | null {
+  const at = rows.findIndex((row) => row.entry.path === from);
+  if (!byFile) {
+    const ahead = down ? rows.slice(at + 1) : rows.slice(0, at < 0 ? rows.length : at).reverse();
+    return ahead.find((row) => row.pick)?.pick ?? null;
+  }
+  const files = rows.flatMap((row, i) => (row.pick ? [] : [i]));
+  // The file the row sits in: the last file row at or above it.
+  const current = files.filter((i) => i <= at).length - 1;
+  const targets = down ? files.slice(current + 1) : files.slice(0, Math.max(current, 0)).reverse();
+  for (const i of targets) {
+    const pick = rows[i + 1]?.pick;
+    if (pick) return pick;
+  }
+  return null;
 }

@@ -198,36 +198,6 @@
   color: var(--ink);
 }
 
-/* With two or more views the buttons share one capsule: a 1px `line` edge, a 1px `line` between them. */
-.side-view-toggles:has(> .icon-button + .icon-button) {
-  gap: 0;
-  height: 28px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-}
-
-.side-view-toggles:has(> .icon-button + .icon-button) > .icon-button {
-  width: 30px;
-  height: 26px;
-  border-radius: 0;
-}
-
-.side-view-toggles:has(> .icon-button + .icon-button) > .icon-button + .icon-button {
-  box-shadow: inset 1px 0 var(--line);
-}
-
-.side-view-toggles:has(> .icon-button + .icon-button) > .icon-button:first-child {
-  border-radius: 7px 0 0 7px;
-}
-
-.side-view-toggles:has(> .icon-button + .icon-button) > .icon-button:last-child {
-  border-radius: 0 7px 7px 0;
-}
-
-.side-view-toggles:has(> .icon-button + .icon-button) > .icon-button:focus-visible {
-  outline-offset: -2px;
-}
-
 .pane-layout {
   display: flex;
   flex: 1;

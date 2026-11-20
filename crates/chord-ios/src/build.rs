@@ -127,7 +127,7 @@ struct Inner {
 }
 
 impl Builds {
-    /// Starts a build of the worktree's project in the scheme and configuration of `pick`, and with `run` the app's install and launch, and returns. The app runs on the `destination`: a connected device, or a simulator of that model that is the worktree's own; without one, the worktree's own simulator of the newest iPhone model. `kept_services` are the user's switches of the service groups a boot keeps on. `on_event` hears its phases, log and end from a thread of its own. A build already running there stops first. A build that cannot start, such as a missing `xcodebuild` with its install step, ends as a failed one.
+    /// Starts a build of the worktree's project in the scheme and configuration of `pick`, and with `run` the app's install and launch, and returns. The app runs on the `destination`: a connected device, or a simulator of that model that is the worktree's own; without one, the worktree's own simulator of `Destinations::fallback`. `kept_services` are the user's switches of the service groups a boot keeps on. `on_event` hears its phases, log and end from a thread of its own. A build already running there stops first. A build that cannot start, such as a missing `xcodebuild` with its install step, ends as a failed one.
     pub fn start(
         &self,
         worktree: PathBuf,

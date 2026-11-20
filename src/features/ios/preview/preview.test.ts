@@ -1,7 +1,7 @@
 // Tests for the Preview view's rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { appliedState, previewLine, previewRows, rebuilding, shownError } from "./preview.ts";
+import { appliedState, previewLine, previewRows, rebuilding, shownError, steppedPreview } from "./preview.ts";
 
 test("a rebuild keeps the shown preview, a new boot hides it", () => {
   const live = appliedState(undefined, { state: "live" });
@@ -45,4 +45,35 @@ test("the list groups previews under their file, hides a closed file's and opens
   const paths = (query: string, closed: string[]) => previewRows(all, query, closed).map((row) => row.entry.path);
   assert.deepEqual(paths("", ["A.swift"]), ["A.swift", "B.swift", "B.swift#0"]);
   assert.deepEqual(paths("preview 2", ["A.swift"]), ["A.swift", "A.swift#1"]);
+});
+
+test("a file's previews drop the prefix all of them share", () => {
+  const all = [
+    { file: "Symptoms.swift", index: 0, name: "Symptoms — first use" },
+    { file: "Symptoms.swift", index: 1, name: "Symptoms — load error" },
+    { file: "Trends.swift", index: 0, name: "Trends — loaded" },
+    { file: "Trends.swift", index: 1, name: "Loading" },
+  ];
+  assert.deepEqual(
+    previewRows(all, "", []).map((row) => row.entry.name),
+    ["Symptoms.swift", "First use", "Load error", "Trends.swift", "Trends — loaded", "Loading"],
+  );
+});
+
+test("↑ and ↓ step over file rows, ⌥ jumps between files", () => {
+  const all = [
+    { file: "A.swift", index: 0, name: "One" },
+    { file: "A.swift", index: 1, name: "Two" },
+    { file: "B.swift", index: 0, name: "Three" },
+    { file: "C.swift", index: 0, name: "Four" },
+  ];
+  const rows = previewRows(all, "", ["B.swift"]);
+  const step = (from: string | null, down: boolean, byFile = false) => steppedPreview(rows, from, down, byFile)?.name ?? null;
+  assert.equal(step("A.swift#1", true), "Four");
+  assert.equal(step("C.swift#0", false), "Two");
+  assert.equal(step(null, true), "One");
+  assert.equal(step(null, false), "Four");
+  assert.equal(step("C.swift#0", true), null);
+  assert.equal(step("A.swift#1", true, true), "Four");
+  assert.equal(step("C.swift#0", false, true), "One");
 });

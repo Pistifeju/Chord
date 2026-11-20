@@ -1,4 +1,4 @@
-/* The Preview view: the `#Preview` list beside a column of its header with the model button over the Simulator view's screen, and the compile error's bar. Rules: design/preview-view.md. */
+/* The Preview view: a column of its header with the model button over the Simulator view's screen, beside the `#Preview` list on the panel's outer edge, and the compile error's bar. Rules: design/preview-view.md. */
 .preview {
   display: flex;
   flex-direction: column;
@@ -9,8 +9,9 @@
   display: flex;
   align-items: center;
   flex: none;
+  justify-content: center;
   height: 30px;
-  padding: 4px 6px 4px 12px;
+  padding: 4px 12px;
   gap: 8px;
   box-sizing: content-box;
 }
@@ -28,7 +29,7 @@
   flex-direction: column;
   /* A narrowed side panel still leaves the screen half the view. */
   max-width: 50%;
-  border-right: 1px solid var(--line);
+  border-left: 1px solid var(--line);
 }
 
 .preview-main {
@@ -66,7 +67,32 @@
 }
 
 .preview-model {
-  margin-left: auto;
+  gap: 6px;
+  color: var(--ink-secondary);
+  font-size: calc(12px * var(--text-scale));
+}
+
+/* The chevron folds in at rest, so the name centers over the screen; it opens on hover. */
+.preview-model-chevron {
+  display: grid;
+  width: 0;
+  margin-left: -6px;
+  overflow: hidden;
+  opacity: 0;
+  transition: width var(--t-fast) var(--ease-out), margin var(--t-fast) var(--ease-out), opacity var(--t-fast) var(--ease-out);
+}
+
+.preview-model:hover .preview-model-chevron,
+.preview-model:focus-visible .preview-model-chevron {
+  width: 12px;
+  margin-left: 0;
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .preview-model-chevron {
+    transition: none;
+  }
 }
 
 .preview-file,
@@ -77,7 +103,7 @@
 }
 
 .preview-file {
-  color: var(--ink);
+  color: inherit;
 }
 
 .preview-muted {
