@@ -8,8 +8,11 @@ export type Rect = { x: number; y: number; width: number; height: number };
 const BOTTOM_EDGE = 0.97;
 /** Half the distance between a trackpad gesture's two fingers before it scales. */
 const GESTURE_REACH = 0.1;
-/** The screen's corner as a share of its width, close to an iPhone's display. */
-const CORNER = 0.12;
+/** The screen's corner as a share of its short side: close to an iPhone's display, and to an iPad's, which rounds far less. */
+const PHONE_CORNER = 0.12;
+const TABLET_CORNER = 0.022;
+/** Long side over short side above which a screen is an iPhone's (iPhones run 1.78 to 2.17, iPads 1.33 to 1.56). */
+const PHONE_SHAPE = 1.7;
 
 /** The screen, `width` × `height` pixels, as large as fits in `box` and centered, keeping its shape. */
 export function fit(box: Rect, { width, height }: { width: number; height: number }): Rect {
@@ -19,7 +22,11 @@ export function fit(box: Rect, { width, height }: { width: number; height: numbe
   return { x: Math.round(box.x + (box.width - fitted.width) / 2), y: Math.round(box.y + (box.height - fitted.height) / 2), ...fitted };
 }
 
-export const cornerRadius = (rect: Rect) => Math.round(rect.width * CORNER);
+export function cornerRadius({ width, height }: Rect): number {
+  const short = Math.min(width, height);
+  if (short <= 0) return 0;
+  return Math.round(short * (Math.max(width, height) / short > PHONE_SHAPE ? PHONE_CORNER : TABLET_CORNER));
+}
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 

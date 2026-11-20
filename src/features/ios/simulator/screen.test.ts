@@ -1,7 +1,7 @@
 // Tests for the Simulator view's screen rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { clampToScreen, fingersFor, fit, fromBottom, gestureFingers, secondFinger, toScreen } from "./screen.ts";
+import { clampToScreen, cornerRadius, fingersFor, fit, fromBottom, gestureFingers, secondFinger, toScreen } from "./screen.ts";
 
 const rect = { x: 10, y: 20, width: 100, height: 200 };
 
@@ -9,6 +9,12 @@ test("the screen fits the view, centered, keeping its shape", () => {
   assert.deepEqual(fit({ x: 0, y: 40, width: 400, height: 200 }, { width: 1000, height: 2000 }), { x: 150, y: 40, width: 100, height: 200 });
   assert.deepEqual(fit({ x: 0, y: 0, width: 100, height: 400 }, { width: 1000, height: 2000 }), { x: 0, y: 100, width: 100, height: 200 });
   assert.deepEqual(fit({ x: 5, y: 6, width: 100, height: 100 }, { width: 0, height: 0 }), { x: 5, y: 6, width: 0, height: 0 });
+});
+
+test("an iPhone's screen rounds its corners far more than an iPad's", () => {
+  assert.equal(cornerRadius({ x: 0, y: 0, width: 393, height: 852 }), 47);
+  assert.equal(cornerRadius({ x: 0, y: 0, width: 820, height: 1180 }), 18);
+  assert.equal(cornerRadius({ x: 0, y: 0, width: 1180, height: 820 }), 18);
 });
 
 test("a pointer on the screen reads from its top left; outside it reads null or pins to the edge", () => {
