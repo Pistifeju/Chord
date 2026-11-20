@@ -3,7 +3,7 @@ import { Fragment, memo, useEffect, useRef, useState, type CSSProperties } from 
 import { addPathToDraft, focusComposer, pathDropPane } from "../chat/store";
 import { showMenu } from "../../app/commands";
 import { usePointerDrag } from "../../ui/pointerDrag";
-import { ChevronIcon, CollapseAllIcon, FileIcon, FilterIcon, FolderIcon, ReloadIcon } from "../../ui/icons";
+import { ChevronIcon, CollapseAllIcon, FileIcon, FolderIcon, ReloadIcon } from "../../ui/icons";
 import { showFile } from "../editor/showing";
 import { finishNameEdit } from "./entries";
 import { fileName, parentFolder } from "./paths";
@@ -46,7 +46,6 @@ export const FilesView = memo(function FilesView({ worktree }: { worktree: strin
         </button>
       </div>
       <div className="files-filter">
-        <FilterIcon />
         <input className="input" placeholder="Filter" aria-label="Filter Files" value={tree.filter} onChange={(e) => setFilter(worktree, e.target.value)} />
       </div>
       <div

@@ -3,7 +3,7 @@ import { Menu } from "@tauri-apps/api/menu";
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import { tooltip } from "../../../app/commands";
 import type { BuildIssue_Deserialize } from "../../../ipc/bindings";
-import { ChevronDownIcon, ChevronIcon, EyeIcon, FileIcon, FilterIcon, PhoneIcon, WarningIcon } from "../../../ui/icons";
+import { ChevronDownIcon, ChevronIcon, EyeIcon, FileIcon, PhoneIcon, WarningIcon } from "../../../ui/icons";
 import { showFileAt } from "../../editor/showing";
 import { fail } from "../../../ui/alert";
 import { popUpUnder, simulatorItems } from "../build/Toolbar";
@@ -145,7 +145,6 @@ function PreviewList({ worktree }: { worktree: string }) {
     >
       <PanelEdge side="left" onResize={resizePreviewList} onEnd={() => {}} />
       <div className="files-filter">
-        <FilterIcon />
         <input className="input" placeholder="Filter" aria-label="Filter Previews" value={query} onChange={(e) => setQuery(e.target.value)} />
       </div>
       <div
