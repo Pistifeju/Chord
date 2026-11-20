@@ -66,13 +66,12 @@
   white-space: nowrap;
 }
 
-/* The run target, as in Xcode: the scheme, then the destination, a rule after them; long names truncate so the status keeps room. */
+/* The run target, as in Xcode: the scheme, then the destination, a rule after them; fixed slots so a pick or a loading listing never moves the rule or the status. */
 .toolbar-target {
   display: flex;
-  flex: 0 1 auto;
+  flex: none;
   align-items: center;
-  min-width: 0;
-  max-width: 60%;
+  width: 55%;
   height: 100%;
   box-shadow: inset -1px 0 var(--line-strong);
 }
@@ -80,8 +79,10 @@
 .toolbar-scheme-part {
   display: flex;
   align-items: center;
+  flex: 1 1 0;
   gap: 6px;
   min-width: 0;
+  overflow: hidden;
   height: 100%;
   padding: 0 4px 0 10px;
   border: none;
@@ -247,5 +248,9 @@
   .toolbar-scheme-name,
   .toolbar-configuration {
     display: none;
+  }
+
+  .toolbar-scheme-part:first-child {
+    flex: none;
   }
 }
