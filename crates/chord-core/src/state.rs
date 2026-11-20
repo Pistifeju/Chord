@@ -56,6 +56,8 @@ pub struct State {
     pub preview_models: BTreeMap<PathBuf, RunDestination>,
     /// Each project's scheme and build configuration for ⌘R and ⌘B; a project without one builds the default scheme in its default configuration.
     pub scheme_picks: BTreeMap<PathBuf, SchemePick>,
+    /// The scheme and configuration each project builds without a pick, from its last listing, so the toolbar shows them while `xcodebuild -list` runs.
+    pub scheme_defaults: BTreeMap<PathBuf, SchemePick>,
     /// The `#Preview` each worktree's Preview view shows.
     pub preview_picks: BTreeMap<PathBuf, PreviewPick>,
     /// Where the Simulator view's screenshots and recordings go; none puts them on the Desktop.
@@ -184,6 +186,10 @@ pub enum StateChange {
         project: PathBuf,
         pick: SchemePick,
     },
+    SchemeDefault {
+        project: PathBuf,
+        pick: SchemePick,
+    },
 }
 
 impl State {
@@ -246,6 +252,9 @@ impl State {
                 } else {
                     self.scheme_picks.insert(project, pick);
                 }
+            }
+            StateChange::SchemeDefault { project, pick } => {
+                self.scheme_defaults.insert(project, pick);
             }
             StateChange::Panes { worktree, panes } => match panes {
                 Some(panes) => {

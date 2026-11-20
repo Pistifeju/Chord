@@ -79,7 +79,7 @@
 .toolbar-scheme-part {
   display: flex;
   align-items: center;
-  flex: 1 1 0;
+  flex: 0 1 auto;
   gap: 6px;
   min-width: 0;
   overflow: hidden;
@@ -92,7 +92,9 @@
   transition: background-color var(--t-fast) var(--ease-out);
 }
 
+/* The destination takes the room the scheme leaves, so no gap opens after a short scheme name. */
 .toolbar-scheme-part:last-child {
+  flex: 1 1 auto;
   padding: 0 8px 0 4px;
 }
 

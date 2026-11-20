@@ -45,7 +45,7 @@ export async function launch() {
     loadSidePanels(state.sidePanels);
     loadBottomPanels(state.bottomPanels);
     loadRunDestinations(state.runDestinations);
-    loadSchemePicks(state.schemePicks);
+    loadSchemePicks(state.schemePicks, state.schemeDefaults);
     loadPreviewChoices(state.previewPicks, state.previewModels);
     welcomed.set(state.welcomed);
     // A pi that never sends its history must not keep the window hidden; its chat fills in once it does.

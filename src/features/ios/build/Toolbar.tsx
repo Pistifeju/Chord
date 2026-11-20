@@ -15,7 +15,7 @@ import { closeErrorList, errorList, toggleErrorList } from "./errorListStore";
 import { ErrorList } from "./ErrorList";
 import { activityOf, failedBuild, isRunning, isStarting } from "./run";
 import { shownPick } from "./scheme";
-import { chooseSchemePick, refreshSchemes, schemeListings, schemePickOf, useSchemePick } from "./schemeStore";
+import { chooseSchemePick, refreshSchemes, schemeListings, schemePickOf, useSavedShownPick, useSchemePick } from "./schemeStore";
 import { builds, runApp, stopBuild } from "./store";
 import { messageTime } from "../../chat/messageTime";
 import "./toolbar.css";
@@ -91,14 +91,15 @@ export function popUpUnder(worktree: string, button: HTMLElement, menu: () => Pr
   return popUp(button, menu, Promise.all([destinations.get() ? null : refreshing, loading]));
 }
 
-// The saved pick shows at once; without one, the scheme a build uses shows once the listing came.
+// The saved pick, else the last listing's defaults, show at once; the new listing replaces them once it came.
 function useShownPick(worktree: string): SchemePick {
   const listing = schemeListings.usePart((all) => all[worktree]);
   const pick = useSchemePick(worktree);
+  const saved = useSavedShownPick(worktree);
   useEffect(() => {
     if (!schemeListings.get()[worktree]) refreshSchemes(worktree).catch(console.error);
   }, [worktree]);
-  return listing ? shownPick(pick, listing) : pick;
+  return listing ? shownPick(pick, listing) : saved;
 }
 
 // Today's time reads "today at 10:32", the way a message's older times read.
