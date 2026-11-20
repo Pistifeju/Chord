@@ -127,7 +127,7 @@ Contract additions, each with its frontend half in `DialogPanel.tsx` and `design
 
 ## 5. Stage 4: commands
 
-`Commands` lists `model`, `thinking`, `permissions` and `resume` as `Session`, then each enabled skill of `skills/list { cwds: [dir] }` as `Skill`. `skills/changed` reads the list again.
+`Commands` lists `model`, `thinking`, `permissions`, `new`, `resume`, `fork`, `clone`, `rewind`, `reload` and `compact` as `Session`, then each enabled skill of `skills/list { cwds: [dir] }` as `Skill`. `skills/changed` reads the list again.
 
 | Typed | The adapter |
 |---|---|
@@ -135,8 +135,16 @@ Contract additions, each with its frontend half in `DialogPanel.tsx` and `design
 | `/model` | opens a `Menu` titled "Model" from the held `model/list`; the pick rides the next `turn/start` as `model`, and `Model` goes out at once |
 | `/thinking` | opens a `Menu` titled "Thinking Level" from the model's `supportedReasoningEfforts`; the pick rides as `effort` |
 | `/permissions` | opens a `Menu` titled "Permissions"; the pick rides as `approvalPolicy` and `sandboxPolicy`, and `Permissions` goes out at once |
+| `/new` | starts a new process with the config's model, effort and mode; works mid-turn and ends the turn |
+| `/reload` | starts a new process on the same thread with the user's picks; works mid-turn and ends the turn |
+| `/fork` | opens a numbered select of the thread's user messages from `thread/turns/list`; the pick sends `thread/fork` with `lastTurnId` the turn before it, or opens a new thread for the first message, and puts the message in the composer |
+| `/clone` | sends `thread/fork` without `lastTurnId` |
+| `/rewind` | the same select; the pick sends `thread/revert` with `beforeTurnId`, then `thread/resume` for the shortened history, and puts the message in the composer |
+| `/compact` | sends `thread/compact/start` |
 
 A picked model that lacks the current effort takes its `defaultReasoningEffort`.
+
+`/resume`, `/fork`, `/clone`, `/rewind` and `/compact` refuse while a turn runs. Every session command refuses with images attached.
 
 ### Permission modes
 

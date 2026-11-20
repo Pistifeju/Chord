@@ -31,6 +31,28 @@ pub(super) fn thread_resume(id: u64, thread: &str, cwd: &str) -> Value {
     json!({ "id": id, "method": "thread/resume", "params": { "threadId": thread, "cwd": cwd } })
 }
 
+/// A new thread with the turns of `thread` through `last_turn`, or with all of them without one.
+pub(super) fn thread_fork(id: u64, thread: &str, last_turn: Option<&str>, cwd: &str) -> Value {
+    json!({ "id": id, "method": "thread/fork", "params": { "threadId": thread, "lastTurnId": last_turn, "cwd": cwd } })
+}
+
+/// Drops `turn` and every later turn from the thread.
+pub(super) fn thread_revert(id: u64, thread: &str, turn: &str) -> Value {
+    json!({ "id": id, "method": "thread/revert", "params": { "threadId": thread, "beforeTurnId": turn } })
+}
+
+/// The thread's newest turns, newest first, each with its user message.
+pub(super) fn thread_turns(id: u64, thread: &str) -> Value {
+    json!({ "id": id, "method": "thread/turns/list", "params": { "threadId": thread, "sortDirection": "desc", "limit": TURNS_LISTED } })
+}
+
+pub(super) fn thread_compact(id: u64, thread: &str) -> Value {
+    json!({ "id": id, "method": "thread/compact/start", "params": { "threadId": thread } })
+}
+
+// shortcut: fork and rewind offer the newest 200 turns alone; page with the cursor once a session outgrows them.
+const TURNS_LISTED: u32 = 200;
+
 /// The worktree's threads, the last updated first.
 pub(super) fn thread_list(id: u64, cwd: &str) -> Value {
     json!({ "id": id, "method": "thread/list", "params": { "cwd": cwd, "sortKey": "updated_at", "limit": 50 } })

@@ -9,7 +9,8 @@ mod requests;
 #[cfg(test)]
 mod tests;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
 use serde_json::{Value, json};
@@ -20,7 +21,7 @@ use super::{
     Agent, Capability, DialogAnswer, Harness, HarnessEvent, Image, OnEvent, SignIn, agent_tools,
 };
 use crate::{Error, lock};
-use reader::{Read, Reader};
+use reader::{Read, Reader, Relaunch};
 
 /// The harness name a pane saves.
 pub const NAME: &str = "codex";
@@ -42,10 +43,20 @@ pub const HARNESS: Harness = Harness {
 /// Codex's 60 s tool timeout would end a cold build's call.
 const TOOL_TIMEOUT_SEC: u32 = 3600;
 
-/// One running `codex app-server` process, on one thread.
-pub struct Session {
-    process: Mutex<Process>,
+/// One running `codex app-server` process, with the reader of its stdout.
+struct Running {
+    process: Process,
     reader: Arc<Mutex<Reader>>,
+    /// Cleared when a relaunch replaces the process.
+    current: Arc<AtomicBool>,
+}
+
+/// The pane's Codex; `/new` and `/reload` swap its process for another.
+pub struct Session {
+    dir: PathBuf,
+    /// The socket of the build and run tools, for a new process.
+    tools: Option<PathBuf>,
+    running: Mutex<Running>,
     on_event: OnEvent,
 }
 
@@ -59,54 +70,40 @@ impl Session {
     ) -> Result<Session, Error> {
         require(&HARNESS)?;
         let on_event: OnEvent = Arc::new(Mutex::new(on_event));
-        let reader = Arc::new(Mutex::new(Reader::new(dir, session)));
-        let mut args = vec!["app-server".to_string()];
-        if let Some((command, server_args)) =
-            tools.and_then(|socket| agent_tools::command(socket, dir))
-        {
-            let overrides = [
-                ("command", json!(command).to_string()),
-                ("args", json!(server_args).to_string()),
-                ("tool_timeout_sec", TOOL_TIMEOUT_SEC.to_string()),
-                ("default_tools_approval_mode", r#""approve""#.into()),
-            ];
-            for (key, value) in overrides {
-                args.extend(["-c".into(), format!("mcp_servers.chord.{key}={value}")]);
-            }
-        }
-        let args: Vec<&str> = args.iter().map(String::as_str).collect();
-        let mut command = login_shell(HARNESS.binary, &args);
-        command.current_dir(dir);
-        let (records, emit) = (Arc::clone(&reader), Arc::clone(&on_event));
-        let process = Process::start(command, move |output, stdin| {
-            let Read { events, lines } = match output {
-                Output::Line(line) => lock(&records).feed(line),
-                Output::Closed { exited } => {
-                    let mut events = lock(&records).end();
-                    events.extend(exited.map(|code| HarnessEvent::Exited { code }));
-                    Read {
-                        events,
-                        lines: vec![],
-                    }
-                }
-            };
-            for line in lines {
-                let _ = stdin.write(&line);
-            }
-            events.into_iter().for_each(|event| (lock(&emit))(event));
-        })
-        .map_err(|error| Error::start_failed(HARNESS.binary, HARNESS.install, error))?;
-        let initialize = lock(&reader).initialize();
-        process.write(&initialize)?;
+        let open = Relaunch {
+            thread: session.map(String::from),
+            ..Relaunch::default()
+        };
+        let running = launch(dir, open, tools, &on_event)?;
         Ok(Session {
-            process: Mutex::new(process),
-            reader,
+            dir: dir.to_path_buf(),
+            tools: tools.map(Path::to_path_buf),
+            running: Mutex::new(running),
             on_event,
         })
     }
 
+    // The old process ends after the new one started, so a failed start leaves the pane on its thread; a turn the old one ran ends with it.
+    fn relaunch(&self, open: Relaunch) -> Result<(), Error> {
+        // Holding the channel keeps the new process's events behind the old one's last ones.
+        let emit = lock(&self.on_event);
+        let new = launch(&self.dir, open, self.tools.as_deref(), &self.on_event)?;
+        let old = std::mem::replace(&mut *lock(&self.running), new);
+        old.current.store(false, Ordering::SeqCst);
+        let ended = lock(&old.reader).end();
+        ended.into_iter().for_each(&*emit);
+        emit(HarnessEvent::State { running: false });
+        drop(emit);
+        drop(old);
+        Ok(())
+    }
+
+    fn reader(&self) -> Arc<Mutex<Reader>> {
+        Arc::clone(&lock(&self.running).reader)
+    }
+
     fn write(&self, line: &Value) -> Result<(), Error> {
-        lock(&self.process).write(line)
+        lock(&self.running).process.write(line)
     }
 
     // The events go out before the lines, so a steer's queue lands before the steer's echo, which empties it.
@@ -116,6 +113,69 @@ impl Session {
             .for_each(|event| (lock(&self.on_event))(event));
         lines.iter().try_for_each(|line| self.write(line))
     }
+}
+
+fn launch(
+    dir: &Path,
+    open: Relaunch,
+    tools: Option<&Path>,
+    on_event: &OnEvent,
+) -> Result<Running, Error> {
+    let reader = Arc::new(Mutex::new(Reader::new(
+        dir,
+        open.thread.as_deref(),
+        open.picks,
+    )));
+    let mut args = vec!["app-server".to_string()];
+    if let Some((command, server_args)) = tools.and_then(|socket| agent_tools::command(socket, dir))
+    {
+        let overrides = [
+            ("command", json!(command).to_string()),
+            ("args", json!(server_args).to_string()),
+            ("tool_timeout_sec", TOOL_TIMEOUT_SEC.to_string()),
+            ("default_tools_approval_mode", r#""approve""#.into()),
+        ];
+        for (key, value) in overrides {
+            args.extend(["-c".into(), format!("mcp_servers.chord.{key}={value}")]);
+        }
+    }
+    let args: Vec<&str> = args.iter().map(String::as_str).collect();
+    let mut command = login_shell(HARNESS.binary, &args);
+    command.current_dir(dir);
+    let current = Arc::new(AtomicBool::new(true));
+    let (records, emit, live) = (
+        Arc::clone(&reader),
+        Arc::clone(on_event),
+        Arc::clone(&current),
+    );
+    let process = Process::start(command, move |output, stdin| {
+        let Read { events, lines } = match output {
+            Output::Line(line) => lock(&records).feed(line),
+            Output::Closed { exited } => {
+                let mut events = lock(&records).end();
+                events.extend(exited.map(|code| HarnessEvent::Exited { code }));
+                Read {
+                    events,
+                    lines: vec![],
+                }
+            }
+        };
+        for line in lines {
+            let _ = stdin.write(&line);
+        }
+        let emit = lock(&emit);
+        if live.load(Ordering::SeqCst) {
+            events.into_iter().for_each(&*emit);
+        }
+    })
+    .map_err(|error| Error::start_failed(HARNESS.binary, HARNESS.install, error))?;
+    let initialize = lock(&reader).initialize();
+    process.write(&initialize)?;
+    Ok(Running {
+        process,
+        reader,
+        current,
+    })
 }
 
 impl Agent for Session {
@@ -129,27 +189,36 @@ impl Agent for Session {
         ]
     }
 
-    /// Starts a turn, or steers the running one.
+    /// Starts a turn, steers the running one, or runs a session command.
     fn send(&self, text: &str, images: &[Image], held_elsewhere: &[String]) -> Result<(), Error> {
-        let read = lock(&self.reader).send(text, images, held_elsewhere)?;
+        let reader = self.reader();
+        let relaunch = images
+            .is_empty()
+            .then(|| lock(&reader).relaunch(text))
+            .flatten();
+        if let Some(open) = relaunch {
+            return self.relaunch(open);
+        }
+        let read = lock(&reader).send(text, images, held_elsewhere)?;
         self.deliver(read)
     }
 
     fn abort(&self) -> Result<(), Error> {
-        let interrupt = lock(&self.reader).interrupt();
+        let interrupt = lock(&self.reader()).interrupt();
         interrupt.map_or(Ok(()), |line| self.write(&line))
     }
 
     fn answer_dialog(&self, id: &str, answer: &DialogAnswer) -> Result<(), Error> {
-        let read = lock(&self.reader).answer(id, answer)?;
+        let read = lock(&self.reader()).answer(id, answer)?;
         self.deliver(read)
     }
 
     fn end_reported(self: Box<Self>) {
-        let Session { process, .. } = *self;
-        process
+        let Session { running, .. } = *self;
+        running
             .into_inner()
             .unwrap_or_else(PoisonError::into_inner)
+            .process
             .end_reported();
     }
 }

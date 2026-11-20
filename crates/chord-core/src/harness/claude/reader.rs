@@ -7,10 +7,11 @@ use serde_json::{Value, json};
 
 use super::asks::{self, Asks, Parsed};
 use super::blocks::{self, Streamed};
-use super::commands::{Change, Settings, commands};
+use super::commands::{Change, Picks, Settings, commands, session_command};
 use super::{requests, transcript};
 use crate::Error;
 use crate::harness::calls::OpenCalls;
+use crate::harness::earlier::{Back, Earlier};
 use crate::harness::resume::{self, Resume};
 use crate::harness::{DialogAnswer, HarnessEvent, Image, count, text};
 
@@ -19,8 +20,21 @@ use crate::harness::{DialogAnswer, HarnessEvent, Image, count, text};
 pub(super) struct Read {
     pub(super) events: Vec<HarnessEvent>,
     pub(super) lines: Vec<Value>,
-    /// The session the user picked to resume, which a new process opens.
-    pub(super) resume: Option<String>,
+    /// What a new process opens in place of this one.
+    pub(super) relaunch: Option<Open>,
+}
+
+/// What a Claude Code process opens.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(super) struct Open {
+    /// The session to resume; none for a new one.
+    pub(super) session: Option<String>,
+    /// The resumed session's turns go into a new session, which Claude Code names at the first message.
+    pub(super) fork: bool,
+    /// The last reply the resumed session keeps; the later turns leave it.
+    pub(super) at: Option<String>,
+    /// The user's picks the process starts with, in place of the config's.
+    pub(super) picks: Picks,
 }
 
 /// A control request the adapter wrote, waiting for its answer.
@@ -50,9 +64,10 @@ pub(super) struct Reader {
     cwd: PathBuf,
     /// The worktree's folder of session files.
     folder: Option<PathBuf>,
-    /// The session `--resume` opened, until its history goes out.
-    resumed: Option<String>,
+    /// What the process opened, until its first message: Claude Code writes a fork's session and a rewind's branch only with it.
+    opened: Open,
     resume: Resume,
+    earlier: Earlier,
     session: Option<String>,
     running: bool,
     requests: u64,
@@ -74,19 +89,21 @@ pub(super) struct Reader {
 }
 
 impl Reader {
-    pub(super) fn new(cwd: &Path, folder: Option<PathBuf>, resumed: Option<String>) -> Self {
+    pub(super) fn new(cwd: &Path, folder: Option<PathBuf>, opened: Open) -> Self {
+        let settings = Settings::with_picks(opened.picks.clone());
         Reader {
             cwd: cwd.to_path_buf(),
             folder,
-            resumed,
+            opened,
             resume: Resume::default(),
+            earlier: Earlier::default(),
             session: None,
             running: false,
             requests: 0,
             pending: HashMap::new(),
             messages: 0,
             sent: vec![],
-            settings: Settings::default(),
+            settings,
             window: None,
             text_streamed: false,
             thought_started: false,
@@ -109,16 +126,68 @@ impl Reader {
         images: &[Image],
         held_elsewhere: &[String],
     ) -> Result<Read, Error> {
-        if images.is_empty() && text.trim() == "/resume" {
+        let command = session_command(text);
+        if command.is_some() && !images.is_empty() {
+            return Err(Error::Message(
+                "Remove the images, then change the session".into(),
+            ));
+        }
+        if let Some(command @ ("new" | "reload")) = command {
+            // A reload keeps the session and the user's picks; a new session takes the config's.
+            let open = match command {
+                "reload" => self.standing(),
+                _ => Open::default(),
+            };
+            return Ok(Read {
+                relaunch: Some(open),
+                ..Read::default()
+            });
+        }
+        if let Some(command @ ("resume" | "fork" | "rewind" | "clone" | "compact")) = command {
             if self.running {
                 return Err(Error::Message(
                     "Wait for the agent to finish, then change the session".into(),
                 ));
             }
-            let sessions = self.folder.as_deref().map_or_else(Vec::new, |folder| {
-                transcript::sessions(folder, self.session.as_deref(), held_elsewhere)
-            });
-            return Ok(events(vec![self.resume.offer(sessions)]));
+            let event = match command {
+                "resume" => {
+                    let sessions = self.folder.as_deref().map_or_else(Vec::new, |folder| {
+                        transcript::sessions(folder, self.session.as_deref(), held_elsewhere)
+                    });
+                    self.resume.offer(sessions)
+                }
+                "clone" => {
+                    let standing = self.standing();
+                    if standing.session.is_none() {
+                        return Err(Error::Message("The session has no message to copy".into()));
+                    }
+                    return Ok(Read {
+                        relaunch: Some(Open {
+                            fork: true,
+                            ..standing
+                        }),
+                        ..Read::default()
+                    });
+                }
+                // Claude Code runs it from the message text.
+                "compact" => return Ok(self.message(text, images)),
+                _ => {
+                    let back = if command == "fork" {
+                        Back::Fork
+                    } else {
+                        Back::Rewind
+                    };
+                    let standing = self.standing();
+                    let file = self.folder.as_deref().zip(standing.session.as_deref());
+                    let file = file.and_then(|(folder, id)| {
+                        std::fs::read_to_string(transcript::file(folder, id)).ok()
+                    });
+                    let prompts =
+                        transcript::prompts(&file.unwrap_or_default(), standing.at.as_deref());
+                    self.earlier.offer(back, prompts)
+                }
+            };
+            return Ok(events(vec![event]));
         }
         if let Some(event) = images
             .is_empty()
@@ -127,6 +196,26 @@ impl Reader {
         {
             return Ok(events(vec![event]));
         }
+        Ok(self.message(text, images))
+    }
+
+    /// What the process stands on, with the user's picks: what it opened until its first message, then its session.
+    fn standing(&self) -> Open {
+        let picks = self.settings.picks().clone();
+        match &self.opened.session {
+            Some(_) => Open {
+                picks,
+                ..self.opened.clone()
+            },
+            None => Open {
+                session: self.session.clone(),
+                picks,
+                ..Open::default()
+            },
+        }
+    }
+
+    fn message(&mut self, text: &str, images: &[Image]) -> Read {
         self.messages += 1;
         let uuid = requests::uuid(self.messages);
         let line = requests::user(&uuid, text, images);
@@ -135,11 +224,11 @@ impl Reader {
             text: text.into(),
             steer: self.running,
         });
-        Ok(Read {
+        Read {
             events: self.running.then(|| self.queue()).into_iter().collect(),
             lines: vec![line],
-            resume: None,
-        })
+            relaunch: None,
+        }
     }
 
     /// The user's answer to an open ask, and the line that answers Claude Code.
@@ -147,9 +236,33 @@ impl Reader {
         if id == resume::DIALOG {
             return Read {
                 events: vec![HarnessEvent::DialogClosed],
-                lines: vec![],
-                resume: self.resume.pick(answer),
+                relaunch: self.resume.pick(answer).map(|session| Open {
+                    session: Some(session),
+                    ..Open::default()
+                }),
+                ..Read::default()
             };
+        }
+        if Earlier::owns(id) {
+            let mut read = events(vec![HarnessEvent::DialogClosed]);
+            if let Some((back, message)) = self.earlier.pick(answer) {
+                read.events.push(HarnessEvent::Draft { text: message.text });
+                // Before the first reply nothing stays, so a new session opens.
+                let standing = self.standing();
+                read.relaunch = Some(match message.before {
+                    // A rewind of a fork that has no message yet stays a fork, so the old session keeps its turns.
+                    Some(at) => Open {
+                        fork: back == Back::Fork || standing.fork,
+                        at: Some(at),
+                        ..standing
+                    },
+                    None => Open {
+                        picks: self.settings.picks().clone(),
+                        ..Open::default()
+                    },
+                });
+            }
+            return read;
         }
         if Settings::owns(id) {
             let line = self.settings.pick(id, answer).map(|change| match change {
@@ -174,14 +287,14 @@ impl Reader {
             return Read {
                 events: vec![HarnessEvent::DialogClosed],
                 lines: line.into_iter().collect(),
-                resume: None,
+                relaunch: None,
             };
         }
         let (events, line) = asks::answer(&mut self.asks, id, answer);
         Read {
             events,
             lines: line.into_iter().collect(),
-            resume: None,
+            relaunch: None,
         }
     }
 
@@ -196,9 +309,11 @@ impl Reader {
         })
     }
 
-    /// Stdout closed: the calls still open end as stopped.
+    /// Stdout closed: the calls still open end as stopped, and the open ask closes.
     pub(super) fn end(&mut self) -> Vec<HarnessEvent> {
-        self.calls.stop()
+        let mut events = self.asks.withdraw(|_| true);
+        events.extend(self.calls.stop());
+        events
     }
 
     pub(super) fn feed(&mut self, line: &[u8]) -> Read {
@@ -213,7 +328,7 @@ impl Reader {
                 Parsed::Refused { line, notice } => Read {
                     events: vec![HarnessEvent::Notice { text: notice }],
                     lines: vec![line],
-                    resume: None,
+                    relaunch: None,
                 },
             },
             Some("control_cancel_request") => {
@@ -257,6 +372,7 @@ impl Reader {
                 self.running = true;
                 let mut events = vec![HarnessEvent::State { running: true }];
                 let id = record["session_id"].as_str().unwrap_or_default();
+                self.opened = Open::default();
                 if !id.is_empty() && self.session.as_deref() != Some(id) {
                     self.session = Some(id.into());
                     events.push(HarnessEvent::SessionInfo { id: id.into() });
@@ -395,7 +511,7 @@ impl Reader {
         Read {
             events,
             lines: vec![self.request(Pending::Context, "get_context_usage", json!({}))],
-            resume: None,
+            relaunch: None,
         }
     }
 
@@ -423,17 +539,23 @@ impl Reader {
             Pending::Initialize => {
                 // Claude Code replays nothing on a resume, so the turns come from its file.
                 read.events.push(HarnessEvent::HistoryStart);
-                if let Some(id) = self.resumed.take() {
-                    read.events
-                        .push(HarnessEvent::SessionInfo { id: id.clone() });
+                let opened = self.opened.clone();
+                if let Some(id) = opened.session {
+                    if !opened.fork {
+                        read.events
+                            .push(HarnessEvent::SessionInfo { id: id.clone() });
+                        self.session = Some(id.clone());
+                    }
                     let file = self
                         .folder
                         .as_deref()
                         .map(|folder| transcript::file(folder, &id));
                     let file = file.and_then(|file| std::fs::read_to_string(file).ok());
-                    read.events
-                        .extend(transcript::history(&file.unwrap_or_default(), &self.cwd));
-                    self.session = Some(id);
+                    read.events.extend(transcript::history(
+                        &file.unwrap_or_default(),
+                        opened.at.as_deref(),
+                        &self.cwd,
+                    ));
                 }
                 read.events.push(HarnessEvent::HistoryEnd);
                 if error.is_none() {
@@ -481,6 +603,6 @@ fn events(events: Vec<HarnessEvent>) -> Read {
     Read {
         events,
         lines: vec![],
-        resume: None,
+        relaunch: None,
     }
 }

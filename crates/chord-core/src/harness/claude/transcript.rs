@@ -1,4 +1,4 @@
-//! Claude Code's session files: the folder of a worktree, one session's turns as history, and the worktree's other sessions.
+//! Claude Code's session files: the folder of a worktree, one session's turns as history and its prompts, and the worktree's other sessions.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -9,6 +9,7 @@ use serde_json::Value;
 
 use super::HARNESS;
 use super::blocks::{self, Streamed};
+use crate::harness::earlier::Message;
 use crate::harness::resume::Session;
 use crate::harness::{HarnessEvent, count, login_shell};
 
@@ -53,19 +54,59 @@ pub(super) fn file(folder: &Path, id: &str) -> PathBuf {
     folder.join(format!("{id}.jsonl"))
 }
 
-/// The turns of a session file as the events a live session sends: the chain from the last line back through each `parentUuid`, oldest first. A branch a rewind left behind is off the chain; a compaction's boundary goes on through its `logicalParentUuid`.
-pub(super) fn history(file: &str, cwd: &Path) -> Vec<HarnessEvent> {
-    let lines: Vec<Value> = file
-        .lines()
+/// The turns of a session file as the events a live session sends: the chain back from the line `tip` names, else from the last line, oldest first. A branch a rewind left behind is off the chain; a compaction's boundary goes on through its `logicalParentUuid`.
+pub(super) fn history(file: &str, tip: Option<&str>, cwd: &Path) -> Vec<HarnessEvent> {
+    let lines = lines(file);
+    let mut tools = HashMap::new();
+    chain(&lines, tip)
+        .into_iter()
+        .filter(|line| {
+            line["isSidechain"] != true
+                && line["isMeta"] != true
+                && line["isCompactSummary"] != true
+        })
+        .flat_map(|line| line_events(line, &mut tools, cwd))
+        .collect()
+}
+
+/// The prompts on the chain back from the line `tip` names, else from the last line, oldest first, each with the last reply before it, which `--resume-session-at` goes back to.
+pub(super) fn prompts(file: &str, tip: Option<&str>) -> Vec<Message> {
+    let lines = lines(file);
+    let mut reply = None;
+    let mut prompts = vec![];
+    for line in chain(&lines, tip) {
+        if line["type"] == "assistant" && line["isSidechain"] != true {
+            reply = line["uuid"].as_str().map(String::from);
+        }
+        if line["type"] == "user" && line["promptSource"].is_string() {
+            prompts.extend(line["uuid"].as_str().map(|id| Message {
+                id: id.into(),
+                before: reply.clone(),
+                text: blocks::user_text(&line["message"]["content"]),
+            }));
+        }
+    }
+    prompts
+}
+
+fn lines(file: &str) -> Vec<Value> {
+    file.lines()
         .filter_map(|line| serde_json::from_str::<Value>(line).ok())
         .filter(|line| line["uuid"].is_string())
-        .collect();
+        .collect()
+}
+
+// The lines from the first back to `tip`, else to the last line, following each `parentUuid`.
+fn chain<'a>(lines: &'a [Value], tip: Option<&str>) -> Vec<&'a Value> {
     let by_id: HashMap<&str, &Value> = lines
         .iter()
         .filter_map(|line| Some((line["uuid"].as_str()?, line)))
         .collect();
     let mut chain = vec![];
-    let mut next = lines.last();
+    let mut next = match tip {
+        Some(tip) => by_id.get(tip).copied(),
+        None => lines.last(),
+    };
     // The chain is no longer than the file, so a loop in it ends.
     while let Some(line) = next.filter(|_| chain.len() < lines.len()) {
         chain.push(line);
@@ -74,17 +115,8 @@ pub(super) fn history(file: &str, cwd: &Path) -> Vec<HarnessEvent> {
             .or(line["logicalParentUuid"].as_str());
         next = parent.and_then(|parent| by_id.get(parent).copied());
     }
-    let mut tools = HashMap::new();
+    chain.reverse();
     chain
-        .into_iter()
-        .rev()
-        .filter(|line| {
-            line["isSidechain"] != true
-                && line["isMeta"] != true
-                && line["isCompactSummary"] != true
-        })
-        .flat_map(|line| line_events(line, &mut tools, cwd))
-        .collect()
 }
 
 /// The worktree's sessions in `folder`, newest first, without `own` and those in `held`, each labelled by its last prompt. A file without a prompt is left out.

@@ -12,15 +12,37 @@ const THINKING_DIALOG: &str = "claude-thinking";
 const PERMISSIONS_DIALOG: &str = "claude-permissions";
 
 /// Chord's commands that act on the session: each name and its description.
-const SESSION_COMMANDS: [(&str, &str); 4] = [
+const SESSION_COMMANDS: [(&str, &str); 10] = [
     ("model", "Pick the model"),
     ("thinking", "Pick the thinking level"),
     ("permissions", "Pick what Claude Code may do without asking"),
+    ("new", "Start a new session"),
     ("resume", "Open another session of this worktree"),
+    ("fork", "Start a new session from an earlier message"),
+    ("clone", "Copy this session into a new one"),
+    ("rewind", "Go back to an earlier message of this session"),
+    (
+        "reload",
+        "Restart Claude Code on this session, with its settings, skills and MCP servers read again",
+    ),
+    // Claude Code runs it from the message text.
+    (
+        "compact",
+        "Summarize the session to free the context, optionally with what to keep",
+    ),
 ];
 
-/// Claude Code's own commands the menu leaves out: Chord's `model` and `thinking` stand in for the first two.
+/// Claude Code's own commands the menu leaves out: Chord's `model`, `thinking` and `new` stand in for them.
 const LEFT_OUT: [&str; 3] = ["model", "effort", "clear"];
+
+/// The name of the Chord session command `typed` starts with; none for any other text.
+pub(super) fn session_command(typed: &str) -> Option<&'static str> {
+    let name = typed.split_whitespace().next()?.strip_prefix('/')?;
+    SESSION_COMMANDS
+        .iter()
+        .map(|(command, _)| *command)
+        .find(|command| *command == name)
+}
 
 /// What a picker's answer asks Claude Code to change.
 pub(super) enum Change {
@@ -30,8 +52,17 @@ pub(super) enum Change {
     Mode(String),
 }
 
+/// The user's picks, which a reload's new process starts with: the model entry's `value`, the effort and the permission mode.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(super) struct Picks {
+    pub(super) model: Option<String>,
+    pub(super) effort: Option<String>,
+    pub(super) mode: Option<String>,
+}
+
 #[derive(Default)]
 pub(super) struct Settings {
+    picks: Picks,
     models: Vec<Value>,
     /// The `value` of the model entry the user picked, whose name the label shows.
     picked: Option<String>,
@@ -42,6 +73,19 @@ pub(super) struct Settings {
 }
 
 impl Settings {
+    /// Settings for a process started with `picks`, the user's picks of an earlier process on the session.
+    pub(super) fn with_picks(picks: Picks) -> Self {
+        Settings {
+            picked: picks.model.clone(),
+            picks,
+            ..Settings::default()
+        }
+    }
+
+    pub(super) fn picks(&self) -> &Picks {
+        &self.picks
+    }
+
     /// The `initialize` answer: the models, the commands and the permission mode.
     pub(super) fn initialized(&mut self, answer: &Value) -> Vec<HarnessEvent> {
         self.models = answer["models"].as_array().cloned().unwrap_or_default();
@@ -143,8 +187,20 @@ impl Settings {
         [MODEL_DIALOG, THINKING_DIALOG, PERMISSIONS_DIALOG].contains(&id)
     }
 
-    /// What a picker's answer changes; none for a cancel.
-    pub(super) fn pick(&self, id: &str, answer: &DialogAnswer) -> Option<Change> {
+    /// What a picker's answer changes, kept as the user's pick; none for a cancel.
+    pub(super) fn pick(&mut self, id: &str, answer: &DialogAnswer) -> Option<Change> {
+        let change = self.change(id, answer)?;
+        let (Change::Model(pick) | Change::Effort(pick) | Change::Mode(pick)) = &change;
+        let kept = match change {
+            Change::Model(_) => &mut self.picks.model,
+            Change::Effort(_) => &mut self.picks.effort,
+            Change::Mode(_) => &mut self.picks.mode,
+        };
+        *kept = Some(pick.clone());
+        Some(change)
+    }
+
+    fn change(&self, id: &str, answer: &DialogAnswer) -> Option<Change> {
         let DialogAnswer::Value { value } = answer else {
             return None;
         };

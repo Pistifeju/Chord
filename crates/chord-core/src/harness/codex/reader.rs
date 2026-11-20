@@ -4,13 +4,14 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use serde_json::Value;
+use serde_json::{Map, Value};
 
 use super::asks::{self, Answered, Asks, Parsed};
 use super::commands::{Command, Settings};
 use super::{items, requests};
 use crate::Error;
 use crate::harness::calls::OpenCalls;
+use crate::harness::earlier::{Back, Earlier, Message};
 use crate::harness::resume::{self, Resume, Session};
 use crate::harness::{DialogAnswer, HarnessEvent, Image};
 
@@ -19,6 +20,14 @@ use crate::harness::{DialogAnswer, HarnessEvent, Image};
 pub(super) struct Read {
     pub(super) events: Vec<HarnessEvent>,
     pub(super) lines: Vec<Value>,
+}
+
+/// What a new process opens in place of this one.
+#[derive(Default)]
+pub(super) struct Relaunch {
+    pub(super) thread: Option<String>,
+    /// The user's picks, which the new process keeps.
+    pub(super) picks: Map<String, Value>,
 }
 
 /// A request the adapter wrote, waiting for its answer.
@@ -36,6 +45,15 @@ enum Pending {
         held: Vec<String>,
     },
     Turn,
+    /// A fork, a clone, or a new thread for a fork from the first message; a refusal leaves the pane on its thread.
+    Fork,
+    /// The thread's turns, for the fork or rewind select.
+    Turns {
+        back: Back,
+    },
+    /// A rewind, after which the thread opens again without the dropped turns.
+    Revert,
+    Compact,
     /// A steer, with its text and input to send again as a turn when the turn ended first.
     Steer {
         text: String,
@@ -50,6 +68,7 @@ pub(super) struct Reader {
     /// The pane's saved thread, until the handshake asks Codex to open it.
     saved: Option<String>,
     resume: Resume,
+    earlier: Earlier,
     thread: Option<String>,
     /// Why Codex started no thread, so a send says it.
     thread_error: Option<String>,
@@ -70,17 +89,19 @@ pub(super) struct Reader {
 }
 
 impl Reader {
-    pub(super) fn new(cwd: &Path, saved: Option<&str>) -> Self {
+    /// `picks` are the user's picks an earlier process on the thread held.
+    pub(super) fn new(cwd: &Path, saved: Option<&str>, picks: Map<String, Value>) -> Self {
         Reader {
             cwd: cwd.to_path_buf(),
             saved: saved.map(String::from),
             resume: Resume::default(),
+            earlier: Earlier::default(),
             thread: None,
             thread_error: None,
             turn: None,
             next_id: 0,
             pending: HashMap::new(),
-            settings: Settings::default(),
+            settings: Settings::with_picks(picks),
             window: None,
             streamed: HashSet::new(),
             steers: vec![],
@@ -93,6 +114,18 @@ impl Reader {
     /// The first line Codex hears.
     pub(super) fn initialize(&mut self) -> Value {
         requests::initialize(self.request(Pending::Initialize))
+    }
+
+    /// What a new Codex process opens for `/new` (a new thread with the config's settings) and `/reload` (the pane's thread with the user's picks); none for any other text. Either one ends a running turn with the old process.
+    pub(super) fn relaunch(&self, text: &str) -> Option<Relaunch> {
+        match self.settings.command(text) {
+            Some(Command::New) => Some(Relaunch::default()),
+            Some(Command::Reload) => Some(Relaunch {
+                thread: self.thread.clone().or_else(|| self.saved.clone()),
+                picks: self.settings.picks().clone(),
+            }),
+            _ => None,
+        }
     }
 
     /// The user's message: a new turn, or a steer of the running one. A session command opens its picker, and a skill's command sends the skill.
@@ -114,23 +147,41 @@ impl Reader {
                     lines: vec![],
                 });
             }
-            Some(Command::Resume) if images.is_empty() && self.turn.is_none() => {
-                let cwd = self.cwd.to_string_lossy().into_owned();
-                let held = held_elsewhere.to_vec();
-                return Ok(Read {
-                    events: vec![],
-                    lines: vec![requests::thread_list(
-                        self.request(Pending::Threads { held }),
-                        &cwd,
-                    )],
-                });
-            }
-            Some(Command::Resume) if images.is_empty() => {
+            Some(Command::Resume | Command::Back(_) | Command::Clone | Command::Compact)
+                if images.is_empty() && self.turn.is_some() =>
+            {
                 return Err(Error::Message(
                     "Wait for the agent to finish, then change the session".into(),
                 ));
             }
-            Some(Command::Menu(_) | Command::Resume) => {
+            Some(Command::Resume) if images.is_empty() => {
+                let cwd = self.cwd.to_string_lossy().into_owned();
+                let held = held_elsewhere.to_vec();
+                let id = self.request(Pending::Threads { held });
+                return Ok(lines(requests::thread_list(id, &cwd)));
+            }
+            Some(Command::Back(back)) if images.is_empty() => {
+                let id = self.request(Pending::Turns { back });
+                return Ok(lines(requests::thread_turns(id, &thread)));
+            }
+            Some(Command::Clone) if images.is_empty() => {
+                let cwd = self.cwd.to_string_lossy().into_owned();
+                let id = self.request(Pending::Fork);
+                return Ok(lines(requests::thread_fork(id, &thread, None, &cwd)));
+            }
+            Some(Command::Compact) if images.is_empty() => {
+                let id = self.request(Pending::Compact);
+                return Ok(lines(requests::thread_compact(id, &thread)));
+            }
+            Some(
+                Command::Menu(_)
+                | Command::Resume
+                | Command::New
+                | Command::Reload
+                | Command::Back(_)
+                | Command::Clone
+                | Command::Compact,
+            ) => {
                 return Err(Error::Message(
                     "Remove the images, then change the session".into(),
                 ));
@@ -179,6 +230,21 @@ impl Reader {
                 lines: lines.into_iter().collect(),
             });
         }
+        if Earlier::owns(id) {
+            let mut read = Read {
+                events: vec![HarnessEvent::DialogClosed],
+                lines: vec![],
+            };
+            if let (Some((back, message)), Some(thread)) =
+                (self.earlier.pick(answer), self.thread.clone())
+            {
+                read.events.push(HarnessEvent::Draft {
+                    text: message.text.clone(),
+                });
+                read.lines.push(self.go_back(back, message, &thread));
+            }
+            return Ok(read);
+        }
         if let Some(picked) = self.settings.pick(id, answer) {
             let mut events = vec![HarnessEvent::DialogClosed];
             events.extend(picked);
@@ -210,9 +276,11 @@ impl Reader {
         ))
     }
 
-    /// Stdout closed: the calls still open end as stopped.
+    /// Stdout closed: the calls still open end as stopped, and the open ask closes.
     pub(super) fn end(&mut self) -> Vec<HarnessEvent> {
-        self.calls.stop()
+        let mut events = self.asks.withdraw(|_| true);
+        events.extend(self.calls.stop());
+        events
     }
 
     pub(super) fn feed(&mut self, line: &[u8]) -> Read {
@@ -277,6 +345,52 @@ impl Reader {
             .collect();
         Read {
             events: vec![self.resume.offer(threads)],
+            lines: vec![],
+        }
+    }
+
+    // A fork goes through the turn before the message, or starts empty at the first one; a rewind drops the message's turn and the later ones.
+    fn go_back(&mut self, back: Back, message: Message, thread: &str) -> Value {
+        let cwd = self.cwd.to_string_lossy().into_owned();
+        match (back, message.before) {
+            (Back::Fork, Some(before)) => {
+                requests::thread_fork(self.request(Pending::Fork), thread, Some(&before), &cwd)
+            }
+            (Back::Fork, None) => requests::thread_start(self.request(Pending::Fork), &cwd),
+            (Back::Rewind, _) => {
+                requests::thread_revert(self.request(Pending::Revert), thread, &message.id)
+            }
+        }
+    }
+
+    // The thread's user messages, oldest first; a turn without one, as a compaction's, is no message.
+    fn earlier_dialog(&mut self, back: Back, result: &Value) -> Read {
+        let turns: Vec<&Value> = result["data"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .rev()
+            .collect();
+        let messages = turns
+            .iter()
+            .enumerate()
+            .filter_map(|(at, turn)| {
+                let item = turn["items"]
+                    .as_array()?
+                    .iter()
+                    .find(|item| item["type"] == "userMessage")?;
+                Some(Message {
+                    id: turn["id"].as_str()?.into(),
+                    before: at
+                        .checked_sub(1)
+                        .and_then(|before| turns[before]["id"].as_str())
+                        .map(String::from),
+                    text: items::user_text(item),
+                })
+            })
+            .collect();
+        Read {
+            events: vec![self.earlier.offer(back, messages)],
             lines: vec![],
         }
     }
@@ -357,14 +471,28 @@ impl Reader {
                 lines: vec![self.thread_start()],
             },
             // The pane stays on its thread when Codex cannot open the picked one.
-            Pending::Resume { saved: false } if error.is_some() => {
+            Pending::Resume { saved: false } | Pending::Fork if error.is_some() => {
                 notice(error.unwrap_or_default())
             }
+            Pending::Turns { back } => match error {
+                Some(error) => notice(error),
+                None => self.earlier_dialog(back, result),
+            },
+            // Codex sends the shortened thread without its turns, so it opens again to show them.
+            Pending::Revert => match (error, self.thread.clone()) {
+                (None, Some(thread)) => {
+                    let cwd = self.cwd.to_string_lossy().into_owned();
+                    let id = self.request(Pending::Resume { saved: false });
+                    lines(requests::thread_resume(id, &thread, &cwd))
+                }
+                (error, _) => notice(error.unwrap_or_default()),
+            },
+            Pending::Compact => error.map_or_else(Read::default, notice),
             Pending::Threads { held } => match error {
                 Some(error) => notice(error),
                 None => self.resume_dialog(result, &held),
             },
-            Pending::Thread | Pending::Resume { .. } => {
+            Pending::Thread | Pending::Fork | Pending::Resume { .. } => {
                 let mut events = vec![HarnessEvent::HistoryStart];
                 match (error, result["thread"]["id"].as_str()) {
                     (None, Some(thread)) => {
@@ -554,5 +682,12 @@ impl Reader {
             events.push(HarnessEvent::Aborted);
         }
         events
+    }
+}
+
+fn lines(line: Value) -> Read {
+    Read {
+        events: vec![],
+        lines: vec![line],
     }
 }

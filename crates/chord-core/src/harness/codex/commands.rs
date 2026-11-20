@@ -3,6 +3,7 @@
 use serde_json::{Map, Value, json};
 
 use super::permissions;
+use crate::harness::earlier::Back;
 use crate::harness::{DialogAnswer, DialogAsk, HarnessEvent, SlashCommand, SlashKind, capitalized};
 
 const MODEL_DIALOG: &str = "codex-model";
@@ -10,11 +11,20 @@ const THINKING_DIALOG: &str = "codex-thinking";
 const PERMISSIONS_DIALOG: &str = "codex-permissions";
 
 /// The commands of Codex itself that act on the thread: each name and its description.
-const SESSION_COMMANDS: [(&str, &str); 4] = [
+const SESSION_COMMANDS: [(&str, &str); 10] = [
     ("model", "Pick the model"),
     ("thinking", "Pick the thinking level"),
     ("permissions", "Pick what Codex may do without asking"),
+    ("new", "Start a new session"),
     ("resume", "Open another session of this worktree"),
+    ("fork", "Start a new session from an earlier message"),
+    ("clone", "Copy this session into a new one"),
+    ("rewind", "Go back to an earlier message of this session"),
+    (
+        "reload",
+        "Restart Codex on this session, with its config, skills and MCP servers read again",
+    ),
+    ("compact", "Summarize the session to free the context"),
 ];
 
 struct Model {
@@ -36,8 +46,19 @@ pub(super) enum Command {
     Menu(HarnessEvent),
     /// The user picks another thread of the worktree to open.
     Resume,
+    /// A new Codex process opens a new thread.
+    New,
+    /// A new Codex process opens the same thread.
+    Reload,
+    /// The user picks an earlier message to go back to.
+    Back(Back),
+    Clone,
+    Compact,
     /// A skill runs: the text Codex reads and the skill's input.
-    Skill { text: String, skill: Value },
+    Skill {
+        text: String,
+        skill: Value,
+    },
 }
 
 #[derive(Default)]
@@ -106,14 +127,22 @@ impl Settings {
         }
     }
 
-    /// The thread's answer, whether started or resumed.
+    /// Settings that carry `picks`, the user's picks of an earlier process on the thread.
+    pub(super) fn with_picks(picks: Map<String, Value>) -> Self {
+        Settings {
+            picks,
+            ..Settings::default()
+        }
+    }
+
+    /// The thread's answer, whether started or resumed; the user's picks override it.
     pub(super) fn opened(&mut self, result: &Value) -> Vec<HarnessEvent> {
-        self.read(
-            &result["model"],
-            &result["reasoningEffort"],
-            &result["approvalPolicy"],
-            &result["sandbox"],
-        )
+        let picked = |key: &str, opened: &Value| self.picks.get(key).unwrap_or(opened).clone();
+        let model = picked("model", &result["model"]);
+        let effort = picked("effort", &result["reasoningEffort"]);
+        let approval = picked("approvalPolicy", &result["approvalPolicy"]);
+        let sandbox = picked("sandboxPolicy", &result["sandbox"]);
+        self.read(&model, &effort, &approval, &sandbox)
     }
 
     /// `thread/settings/updated`.
@@ -174,6 +203,12 @@ impl Settings {
                 ))
             }
             "resume" => Some(Command::Resume),
+            "new" => Some(Command::New),
+            "reload" => Some(Command::Reload),
+            "fork" => Some(Command::Back(Back::Fork)),
+            "rewind" => Some(Command::Back(Back::Rewind)),
+            "clone" => Some(Command::Clone),
+            "compact" => Some(Command::Compact),
             "permissions" => Some(menu(
                 PERMISSIONS_DIALOG,
                 "Permissions",

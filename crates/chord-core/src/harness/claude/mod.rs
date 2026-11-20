@@ -11,6 +11,7 @@ mod tests;
 mod transcript;
 
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
 use serde_json::{Value, json};
@@ -21,7 +22,7 @@ use super::{
     Agent, Capability, DialogAnswer, Harness, HarnessEvent, Image, OnEvent, SignIn, agent_tools,
 };
 use crate::{Error, lock};
-use reader::{Read, Reader};
+use reader::{Open, Read, Reader};
 
 /// The harness name a pane saves.
 pub const NAME: &str = "claude";
@@ -58,9 +59,11 @@ const ARGS: [&str; 10] = [
 struct Running {
     process: Process,
     reader: Arc<Mutex<Reader>>,
+    /// Cleared when a relaunch replaces the process.
+    current: Arc<AtomicBool>,
 }
 
-/// The pane's Claude Code; a resume swaps its process for one on the picked session.
+/// The pane's Claude Code; a session command that opens another session, or the same one again, swaps its process.
 pub struct Session {
     dir: PathBuf,
     /// The worktree's folder of session files.
@@ -82,7 +85,11 @@ impl Session {
         require(&HARNESS)?;
         let on_event: OnEvent = Arc::new(Mutex::new(on_event));
         let folder = transcript::folder(dir);
-        let running = launch(dir, folder.as_deref(), session, tools, &on_event)?;
+        let open = Open {
+            session: session.map(String::from),
+            ..Open::default()
+        };
+        let running = launch(dir, folder.as_deref(), open, tools, &on_event)?;
         Ok(Session {
             dir: dir.to_path_buf(),
             folder,
@@ -92,16 +99,23 @@ impl Session {
         })
     }
 
-    // The old process ends after the new one started, so a failed start leaves the pane on its session.
-    fn resume(&self, session: &str) -> Result<(), Error> {
+    // The old process ends after the new one started, so a failed start leaves the pane on its session; a turn the old one ran ends with it.
+    fn relaunch(&self, open: Open) -> Result<(), Error> {
+        // Holding the channel keeps the new process's events behind the old one's last ones.
+        let emit = lock(&self.on_event);
         let new = launch(
             &self.dir,
             self.folder.as_deref(),
-            Some(session),
+            open,
             self.tools.as_deref(),
             &self.on_event,
         )?;
         let old = std::mem::replace(&mut *lock(&self.running), new);
+        old.current.store(false, Ordering::SeqCst);
+        let ended = lock(&old.reader).end();
+        ended.into_iter().for_each(&*emit);
+        emit(HarnessEvent::State { running: false });
+        drop(emit);
         drop(old);
         Ok(())
     }
@@ -120,7 +134,7 @@ impl Session {
             .into_iter()
             .for_each(|event| (lock(&self.on_event))(event));
         read.lines.iter().try_for_each(|line| self.write(line))?;
-        read.resume.map_or(Ok(()), |session| self.resume(&session))
+        read.relaunch.map_or(Ok(()), |open| self.relaunch(open))
     }
 }
 
@@ -128,16 +142,38 @@ impl Session {
 fn launch(
     dir: &Path,
     folder: Option<&Path>,
-    session: Option<&str>,
+    open: Open,
     tools: Option<&Path>,
     on_event: &OnEvent,
 ) -> Result<Running, Error> {
-    let resumed = session
-        .filter(|id| folder.is_some_and(|folder| transcript::file(folder, id).is_file()))
-        .map(String::from);
+    let found = |id: &String| folder.is_some_and(|folder| transcript::file(folder, id).is_file());
+    let open = match open.session {
+        Some(id) if found(&id) => Open {
+            session: Some(id),
+            ..open
+        },
+        _ => Open {
+            picks: open.picks,
+            ..Open::default()
+        },
+    };
     let mut args: Vec<String> = ARGS.map(String::from).to_vec();
-    if let Some(id) = &resumed {
+    if let Some(id) = &open.session {
         args.extend(["--resume".into(), id.clone()]);
+    }
+    if open.fork {
+        args.push("--fork-session".into());
+    }
+    if let Some(at) = &open.at {
+        args.extend(["--resume-session-at".into(), at.clone()]);
+    }
+    let picks = [
+        ("--model", &open.picks.model),
+        ("--effort", &open.picks.effort),
+        ("--permission-mode", &open.picks.mode),
+    ];
+    for (flag, pick) in picks {
+        args.extend(pick.iter().flat_map(|pick| [flag.into(), pick.clone()]));
     }
     // The tools are Chord's own, so they ask no permission, as in pi.
     if let Some((command, server_args)) = tools.and_then(|socket| agent_tools::command(socket, dir))
@@ -155,11 +191,16 @@ fn launch(
     let reader = Arc::new(Mutex::new(Reader::new(
         dir,
         folder.map(Path::to_path_buf),
-        resumed.clone(),
+        open,
     )));
     let mut command = login_shell(HARNESS.binary, &args);
     command.current_dir(dir);
-    let (records, emit) = (Arc::clone(&reader), Arc::clone(on_event));
+    let current = Arc::new(AtomicBool::new(true));
+    let (records, emit, live) = (
+        Arc::clone(&reader),
+        Arc::clone(on_event),
+        Arc::clone(&current),
+    );
     let process = Process::start(command, move |output, stdin| {
         let read = match output {
             Output::Line(line) => lock(&records).feed(line),
@@ -175,14 +216,19 @@ fn launch(
         for line in read.lines {
             let _ = stdin.write(&line);
         }
-        read.events
-            .into_iter()
-            .for_each(|event| (lock(&emit))(event));
+        let emit = lock(&emit);
+        if live.load(Ordering::SeqCst) {
+            read.events.into_iter().for_each(&*emit);
+        }
     })
     .map_err(|error| Error::start_failed(HARNESS.binary, HARNESS.install, error))?;
     let initialize = lock(&reader).initialize();
     process.write(&initialize)?;
-    Ok(Running { process, reader })
+    Ok(Running {
+        process,
+        reader,
+        current,
+    })
 }
 
 impl Agent for Session {

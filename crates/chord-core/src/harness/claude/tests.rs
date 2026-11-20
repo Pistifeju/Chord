@@ -4,8 +4,9 @@ use std::path::Path;
 
 use serde_json::json;
 
-use super::reader::Reader;
+use super::reader::{Open, Reader};
 use super::transcript;
+use crate::harness::earlier::Message;
 use crate::harness::{DialogAnswer, DialogAsk, HarnessEvent};
 
 fn events(reader: &mut Reader, records: &[&str]) -> Vec<HarnessEvent> {
@@ -17,7 +18,7 @@ fn events(reader: &mut Reader, records: &[&str]) -> Vec<HarnessEvent> {
 
 #[test]
 fn a_streamed_turn_runs_says_its_reply_and_settles() {
-    let mut reader = Reader::new(Path::new("/w"), None, None);
+    let mut reader = Reader::new(Path::new("/w"), None, Open::default());
     let records = [
         r#"{"type":"system","subtype":"init"}"#,
         r#"{"type":"stream_event","parent_tool_use_id":null,"event":{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}}"#,
@@ -43,7 +44,7 @@ fn a_streamed_turn_runs_says_its_reply_and_settles() {
 
 #[test]
 fn a_reply_that_failed_at_the_api_says_its_text_as_failed() {
-    let mut reader = Reader::new(Path::new("/w"), None, None);
+    let mut reader = Reader::new(Path::new("/w"), None, Open::default());
     let record = r#"{"type":"assistant","parent_tool_use_id":null,"error":"authentication_failed","message":{"content":[{"type":"text","text":"Not logged in"}]}}"#;
     assert_eq!(
         events(&mut reader, &[record]),
@@ -61,7 +62,7 @@ fn a_reply_that_failed_at_the_api_says_its_text_as_failed() {
 
 #[test]
 fn an_echo_of_a_message_the_adapter_did_not_send_gives_nothing() {
-    let mut reader = Reader::new(Path::new("/w"), None, None);
+    let mut reader = Reader::new(Path::new("/w"), None, Open::default());
     let _ = reader.send("Hi", &[], &[]);
     let record = r#"{"type":"user","isReplay":true,"uuid":"00000000-0000-4000-8000-000000000000","parent_tool_use_id":null,"message":{"role":"user","content":"<local-command-stdout>Set model</local-command-stdout>"}}"#;
     assert_eq!(events(&mut reader, &[record]), []);
@@ -69,7 +70,7 @@ fn an_echo_of_a_message_the_adapter_did_not_send_gives_nothing() {
 
 #[test]
 fn an_interrupted_turn_settles_as_aborted_without_a_notice() {
-    let mut reader = Reader::new(Path::new("/w"), None, None);
+    let mut reader = Reader::new(Path::new("/w"), None, Open::default());
     let records = [
         r#"{"type":"system","subtype":"init"}"#,
         r#"{"type":"result","subtype":"error_during_execution","is_error":true,"terminal_reason":"aborted_tools","errors":["Interrupted"]}"#,
@@ -86,7 +87,7 @@ fn an_interrupted_turn_settles_as_aborted_without_a_notice() {
 
 #[test]
 fn an_always_allow_answers_with_its_one_rule() {
-    let mut reader = Reader::new(Path::new("/w"), None, None);
+    let mut reader = Reader::new(Path::new("/w"), None, Open::default());
     let ask = r#"{"type":"control_request","request_id":"r1","request":{"subtype":"can_use_tool","tool_name":"Bash","input":{"command":"touch notes.txt"},"permission_suggestions":[{"type":"addRules","rules":[{"toolName":"Bash","ruleContent":"touch notes.txt"}],"behavior":"allow","destination":"localSettings"},{"type":"addDirectories","directories":["/w"],"destination":"session"}]}}"#;
     let shown = events(&mut reader, &[ask]);
     assert_eq!(
@@ -122,7 +123,7 @@ fn an_always_allow_answers_with_its_one_rule() {
 
 #[test]
 fn questions_answer_once_after_the_last_under_their_texts() {
-    let mut reader = Reader::new(Path::new("/w"), None, None);
+    let mut reader = Reader::new(Path::new("/w"), None, Open::default());
     let ask = r#"{"type":"control_request","request_id":"r1","request":{"subtype":"can_use_tool","tool_name":"AskUserQuestion","input":{"questions":[{"question":"Which color?","header":"Color","options":[{"label":"Red","description":""},{"label":"Blue","description":""}],"multiSelect":false},{"question":"Which sizes?","header":"Size","options":[{"label":"S","description":""},{"label":"M","description":""}],"multiSelect":true}]}}}"#;
     events(&mut reader, &[ask]);
     let first = reader.answer(
@@ -158,7 +159,7 @@ fn a_transcript_gives_the_last_lines_chain_alone() {
     ]
     .join("\n");
     assert_eq!(
-        transcript::history(&file, Path::new("/w")),
+        transcript::history(&file, None, Path::new("/w")),
         [
             HarnessEvent::UserMessageChunk {
                 text: "First".into(),
@@ -191,7 +192,7 @@ fn a_compaction_on_the_chain_keeps_the_turns_before_it() {
         at: None,
     };
     assert_eq!(
-        transcript::history(&file, Path::new("/w")),
+        transcript::history(&file, None, Path::new("/w")),
         [
             user("Before"),
             HarnessEvent::Compaction {
@@ -204,9 +205,62 @@ fn a_compaction_on_the_chain_keeps_the_turns_before_it() {
 }
 
 #[test]
+fn a_prompt_goes_back_to_the_last_reply_before_it() {
+    let file = [
+        r#"{"type":"user","uuid":"u1","parentUuid":null,"promptSource":"sdk","message":{"role":"user","content":"First"}}"#,
+        r#"{"type":"assistant","uuid":"a1","parentUuid":"u1","message":{"content":[{"type":"text","text":"One"}]}}"#,
+        r#"{"type":"system","uuid":"s1","parentUuid":"a1"}"#,
+        r#"{"type":"user","uuid":"u2","parentUuid":"s1","promptSource":"sdk","message":{"role":"user","content":"Second"}}"#,
+    ]
+    .join("\n");
+    assert_eq!(
+        transcript::prompts(&file, None),
+        [
+            Message {
+                id: "u1".into(),
+                before: None,
+                text: "First".into()
+            },
+            Message {
+                id: "u2".into(),
+                before: Some("a1".into()),
+                text: "Second".into()
+            },
+        ]
+    );
+}
+
+#[test]
 fn a_worktree_path_names_its_folder() {
     assert_eq!(
         transcript::folder_name("/work/my app/feature.one"),
         "-work-my-app-feature-one"
+    );
+}
+
+#[test]
+fn a_reload_reopens_a_fork_until_its_first_message_names_the_new_session() {
+    let fork = Open {
+        session: Some("s1".into()),
+        fork: true,
+        at: Some("a1".into()),
+        ..Open::default()
+    };
+    let mut reader = Reader::new(Path::new("/w"), None, fork.clone());
+    let reload = |reader: &mut Reader| reader.send("/reload", &[], &[]).unwrap().relaunch;
+    assert_eq!(reload(&mut reader), Some(fork));
+    events(
+        &mut reader,
+        &[
+            r#"{"type":"system","subtype":"init","session_id":"s2"}"#,
+            r#"{"type":"result","subtype":"success","is_error":false,"terminal_reason":"completed"}"#,
+        ],
+    );
+    assert_eq!(
+        reload(&mut reader),
+        Some(Open {
+            session: Some("s2".into()),
+            ..Open::default()
+        })
     );
 }

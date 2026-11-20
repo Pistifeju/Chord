@@ -10,7 +10,7 @@ Chord runs Codex over `codex app-server` and Claude Code over `claude -p` with s
 - [x] N2 **hard** Needs N1. Codex over `codex app-server`: chat, tool calls, thinking, stop, steer, attachments, approvals and questions as dialogs, model and thinking level, context meter, slash menu, resume with history, and the permission mode picker: a composer bar button with the session's approval and sandbox mode, next to the model picker, and a `/permissions` session command that opens the same picker. A chat tab shows its harness's logo.
 - [x] N3 **hard** Needs N1. Claude Code over `claude -p` with stream-json in and out: N2's list, with the picker holding Claude Code's permission mode.
 - [x] N4 Needs N2 or N3. Build and run tools for Codex and Claude Code through a stdio MCP server that Chord's own binary serves.
-- [ ] N5 Needs N2 or N3. Session commands for Codex and Claude Code: new, fork, clone, rewind, reload and compact.
+- [x] N5 Needs N2 or N3. Session commands for Codex and Claude Code: new, fork, clone, rewind, reload and compact.
 - [ ] N6 Needs N2 or N3. Usage and subagents for Codex and Claude Code, from what each CLI reports itself. The status bar shows the usage of every used harnesses. So we need to use the icons of the harnesses so set them apart.
 - [ ] N7 Needs N1. The oldest version of each harness Chord runs: step each harness back through its released versions, run Chord's feature list on each one, and set its `oldest_tested` to the oldest version where every feature works. pi now, Codex after N2, Claude Code after N3. Section 2's tested versions list each harness's oldest and newest passing versions.
 
@@ -35,7 +35,9 @@ Edge cases:
 - N3: `AskUserQuestion` and `ExitPlanMode` open dialogs.
 - N2: a Codex question arrives as a server request or as a notification; a notification gets its answer as a new user message.
 - N4: a tool call outlasts a cold build; Codex's 60 s tool timeout is raised for the server.
-- N5: rewind drops the turns after the picked message; fork keeps both. pi's `/tree` keeps its name.
+- N5: rewind drops the picked message and the turns after it; fork keeps both. Both put the picked message in the composer. pi's `/tree` keeps its name.
+- N5: `/new` and `/reload` start a new process, so they work mid-run and end the run; fork, clone, rewind and compact wait for the run to end. `/new` takes the model, thinking level and mode from the user's config; `/reload`, fork, clone and rewind keep what the user picked in the session. A pick never changes the config.
+- N5: a Claude Code fork takes its new session id at its first message; until then the pane keeps the old session. A rewind before any new message shows the full session again after a restart, since Claude Code writes the branch only with that message.
 - N6: usage shows only for a subscription login; an API key has no window.
 
 ## 2. How each CLI runs
@@ -69,10 +71,10 @@ Tested versions: pi 1.5.2, Claude Code 2.1.328, codex-cli 0.158.0.
 | Usage | `get_usage`, `rate_limit_event` (`five_hour`, `seven_day`) | `account/rateLimits/read` and `/updated` (`primary`, `secondary`: `usedPercent`, `resetsAt`) |
 | Subagents | `task_started`, `task_progress`, `task_notification`, `parent_tool_use_id` | `collabAgentToolCall`, `subAgentActivity` items |
 | Resume, history | `--resume <id>` on a new process; list and history from the transcript files, since Claude Code replays nothing | `thread/list` by cwd, `thread/resume` returns the turns |
-| New | a new process | `thread/start` |
-| Fork, clone | `--resume <id> --fork-session`, with `--resume-session-at` for an earlier message | `thread/fork`, with `lastTurnId` |
-| Rewind | `/rewind`: back to an earlier message, later turns leave the context | `/rewind` through `thread/revert` |
-| Reload | restart the process on the same session | restart on the same thread |
+| New | a new process | a new process |
+| Fork, clone | `--resume <id> --fork-session`, with `--resume-session-at` at the last reply before the picked message | `thread/fork`, with `lastTurnId` the turn before the picked message |
+| Rewind | `--resume <id> --resume-session-at` the last reply before the picked message; later turns leave the context | `thread/revert` with `beforeTurnId`, then `thread/resume` for the shortened history |
+| Reload | restart the process on the same session | restart the process on the same thread |
 | Compact | `/compact` sent as a message, then `compact_boundary` | `thread/compact/start`, then a `contextCompaction` item |
 | Export | Chord writes the transcript it holds as Markdown | same |
 | Build, run tools | stdio MCP server through `--mcp-config` | stdio MCP server through a `mcp_servers.chord` config override |

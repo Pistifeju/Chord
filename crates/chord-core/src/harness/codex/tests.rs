@@ -10,7 +10,7 @@ use crate::harness::{DialogAnswer, DialogAsk, HarnessEvent};
 
 // A reader past the handshake, on thread "t1".
 fn started() -> Reader {
-    let mut reader = Reader::new(Path::new("/w"), None);
+    let mut reader = Reader::new(Path::new("/w"), None, Default::default());
     reader.initialize();
     for answer in [
         r#"{"id":1,"result":{}}"#,
@@ -147,7 +147,7 @@ fn a_second_ask_opens_after_the_first_one_closes() {
 }
 
 fn reopened() -> Reader {
-    let mut reader = Reader::new(Path::new("/w"), Some("t1"));
+    let mut reader = Reader::new(Path::new("/w"), Some("t1"), Default::default());
     reader.initialize();
     reader.feed(br#"{"id":1,"result":{}}"#);
     reader.feed(br#"{"id":2,"result":{"data":[]}}"#);
@@ -191,6 +191,34 @@ fn a_saved_thread_opens_again_with_its_turns() {
                 at: None
             },
             HarnessEvent::HistoryEnd,
+        ]
+    );
+}
+
+#[test]
+fn a_reload_shows_and_sends_the_users_picks_over_the_threads_settings() {
+    let picks = json!({ "model": "m2", "effort": "low" });
+    let mut reader = Reader::new(
+        Path::new("/w"),
+        Some("t1"),
+        picks.as_object().cloned().unwrap_or_default(),
+    );
+    reader.initialize();
+    reader.feed(br#"{"id":1,"result":{}}"#);
+    reader.feed(br#"{"id":2,"result":{"data":[]}}"#);
+    reader.feed(br#"{"id":3,"result":{"data":[]}}"#);
+    let resumed = r#"{"id":4,"result":{"model":"m1","reasoningEffort":"high","thread":{"id":"t1","turns":[]}}}"#;
+    let opened = events(&mut reader, &[resumed]);
+    assert!(opened.contains(&HarnessEvent::Model {
+        name: "m2".into(),
+        thinking: Some("low".into())
+    }));
+    let turn = reader.send("Hi", &[], &[]).map(|read| read.lines);
+    let input = json!([{ "type": "text", "text": "Hi", "text_elements": [] }]);
+    assert_eq!(
+        turn.unwrap_or_default(),
+        [
+            json!({ "id": 5, "method": "turn/start", "params": { "model": "m2", "effort": "low", "threadId": "t1", "input": input } })
         ]
     );
 }
@@ -305,6 +333,61 @@ fn resume_lists_the_threads_no_other_pane_holds_and_opens_the_pick() {
         resumed.unwrap_or_default(),
         [
             json!({ "id": 6, "method": "thread/resume", "params": { "threadId": "t2", "cwd": "/w" } })
+        ]
+    );
+}
+
+// The select `command` opens on a thread whose turns are "u1" (a message), "c1" (a compaction) and "u2" (a message), and what picking the second message writes.
+fn go_back(command: &str) -> (Vec<String>, Vec<HarnessEvent>, Vec<serde_json::Value>) {
+    let mut reader = started();
+    reader.send(command, &[], &[]).ok();
+    let turns = r#"{"id":5,"result":{"data":[{"id":"u2","items":[{"type":"userMessage","content":[{"type":"text","text":"Second"}]}]},{"id":"c1","items":[]},{"id":"u1","items":[{"type":"userMessage","content":[{"type":"text","text":"First"}]}]}]}}"#;
+    let opened = events(&mut reader, &[turns]);
+    let [
+        HarnessEvent::Dialog {
+            id,
+            ask: DialogAsk::Select { options, .. },
+            ..
+        },
+    ] = opened.as_slice()
+    else {
+        panic!("no dialog: {opened:?}");
+    };
+    let picked = DialogAnswer::Value {
+        value: options[1].clone(),
+    };
+    let read = reader.answer(id, &picked).unwrap_or_default();
+    (options.clone(), read.events, read.lines)
+}
+
+#[test]
+fn fork_goes_through_the_turn_before_the_picked_message() {
+    let (options, events, lines) = go_back("/fork");
+    assert_eq!(options, ["1. First", "2. Second"]);
+    assert_eq!(
+        events,
+        [
+            HarnessEvent::DialogClosed,
+            HarnessEvent::Draft {
+                text: "Second".into()
+            }
+        ]
+    );
+    assert_eq!(
+        lines,
+        [
+            json!({ "id": 6, "method": "thread/fork", "params": { "threadId": "t1", "lastTurnId": "c1", "cwd": "/w" } })
+        ]
+    );
+}
+
+#[test]
+fn rewind_drops_the_picked_messages_turn_and_opens_the_thread_again() {
+    let (_, _, lines) = go_back("/rewind");
+    assert_eq!(
+        lines,
+        [
+            json!({ "id": 6, "method": "thread/revert", "params": { "threadId": "t1", "beforeTurnId": "u2" } })
         ]
     );
 }
@@ -432,7 +515,7 @@ fn other_opens_an_input_whose_text_is_the_answer() {
 
 #[test]
 fn a_picked_model_without_the_level_takes_its_default() {
-    let mut reader = Reader::new(Path::new("/w"), None);
+    let mut reader = Reader::new(Path::new("/w"), None, Default::default());
     reader.initialize();
     for answer in [
         r#"{"id":1,"result":{}}"#,

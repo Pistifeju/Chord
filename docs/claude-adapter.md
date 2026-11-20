@@ -177,7 +177,7 @@ A form whose schema `form_steps` cannot read gets `cancel` and a `Notice`.
 
 `harness/claude/commands.rs` holds the models, the model and effort in effect, the commands and the picker menus.
 
-`Commands` lists `model`, `thinking`, `permissions` and `resume` as `Session`, then the `commands` of `initialize`: one with `builtin` as `Session`, the rest as `Skill` with `origin` the part of the name before a colon. Left out: Claude Code's own `model` and `effort`, which Chord's `model` and `thinking` stand in for, its `thinking`, `permissions` and `resume`, which would show twice next to Chord's, and `clear`, which is N5. A `commands_changed` record holds the list again, and `Commands` goes out from it.
+`Commands` lists `model`, `thinking`, `permissions`, `new`, `resume`, `fork`, `clone`, `rewind`, `reload` and `compact` as `Session`, then the `commands` of `initialize`: one with `builtin` as `Session`, the rest as `Skill` with `origin` the part of the name before a colon. Left out: Claude Code's own `model` and `effort`, which Chord's `model` and `thinking` stand in for, its `thinking`, `permissions` and `resume`, which would show twice next to Chord's, and `clear`, which Chord's `new` stands in for. Chord's `new`, `fork`, `clone`, `rewind` and `reload` start a new process; `compact` goes out as the message text. `resume`, `fork`, `clone`, `rewind` and `compact` refuse while a turn runs, and every session command refuses with images attached. Until a fork or rewind's first message, `reload`, `clone`, `fork` and `rewind` start from the session and message that fork or rewind opened, since Claude Code writes the new session or branch only with that message. A `commands_changed` record holds the list again, and `Commands` goes out from it.
 
 | Typed | The adapter |
 |---|---|
@@ -220,7 +220,7 @@ The frontend does not change: the composer's Permissions button, `openPicker("/p
 - A session's file is `<projectsDirectory>/<folder>/<session id>.jsonl`. `<folder>` is the worktree's canonical path with each character outside `A-Z`, `a-z` and `0-9` as `-`. Claude Code cuts a name over 200 characters and adds a hash; for such a path the adapter takes the folder whose name starts with those 200 characters.
 - A start with a saved session id whose file exists adds `--resume <id>` to the start line. Without the file it starts a new session: `--resume` on an unknown id prints a `result` with `errors` and exits.
 - Claude Code replays nothing on a resume. The turns come from the file, between `HistoryStart` and `HistoryEnd`, after `SessionInfo`.
-- The walk starts at the file's last line with a `uuid` and goes back through `parentUuid`, then sends oldest first. It follows each line with a `uuid`: the chain runs through `attachment` and `system` lines too. A branch a rewind left behind is off the chain.
+- The walk starts at the line `--resume-session-at` named after a fork or rewind, else at the file's last line with a `uuid`, and goes back through `parentUuid`, then sends oldest first. It follows each line with a `uuid`: the chain runs through `attachment` and `system` lines too. A branch a rewind left behind is off the chain.
 - A `compact_boundary` line has no `parentUuid`. It sends `Compaction` with `tokens_before` from `compactMetadata.preTokens`, and the walk goes on through its `logicalParentUuid`, so the turns before a compaction stay in the history.
 
 | Line on the chain | Events |

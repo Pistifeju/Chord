@@ -1,6 +1,6 @@
 //! `/resume`: the numbered select of a worktree's other sessions, and the session a pick names.
 
-use super::{DialogAnswer, DialogAsk, HarnessEvent};
+use super::{DialogAnswer, HarnessEvent, numbered};
 
 pub(crate) const DIALOG: &str = "chord-resume";
 
@@ -19,40 +19,22 @@ pub(crate) struct Resume(Vec<String>);
 impl Resume {
     /// The select of `sessions`, newest first; a notice when there is none.
     pub(crate) fn offer(&mut self, sessions: Vec<Session>) -> HarnessEvent {
-        if sessions.is_empty() {
-            return HarnessEvent::Notice {
-                text: "This worktree has no other session to resume".into(),
-            };
-        }
-        let options = sessions
+        let labels: Vec<String> = sessions
             .iter()
-            .enumerate()
-            .map(|(at, session)| format!("{}. {} · {}", at + 1, session.label, age(session.age)))
+            .map(|session| format!("{} · {}", session.label, age(session.age)))
             .collect();
         self.0 = sessions.into_iter().map(|session| session.id).collect();
-        HarnessEvent::Dialog {
-            id: DIALOG.into(),
-            title: "Resume Session".into(),
-            ask: DialogAsk::Select {
-                options,
-                current: None,
-                detail: None,
-                descriptions: vec![],
-                multi: false,
-            },
-        }
+        numbered::select(
+            DIALOG,
+            "Resume Session",
+            &labels,
+            "This worktree has no other session to resume",
+        )
     }
 
     /// The session the answer picked; none after a cancel.
     pub(crate) fn pick(&mut self, answer: &DialogAnswer) -> Option<String> {
-        let sessions = std::mem::take(&mut self.0);
-        let DialogAnswer::Value { value } = answer else {
-            return None;
-        };
-        let (number, _) = value.split_once('.')?;
-        sessions
-            .get(number.parse::<usize>().ok()?.checked_sub(1)?)
-            .cloned()
+        numbered::pick(std::mem::take(&mut self.0), answer)
     }
 }
 
