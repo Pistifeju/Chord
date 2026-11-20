@@ -4,15 +4,15 @@ Chord runs Codex over `codex app-server` and Claude Code over `claude -p` with s
 
 ## 1. What to build
 
-- [x] N1 core: one list describes every harness: its name, binary, install, sign-in and upgrade step, and oldest tested version. One check reads each harness's version and sign-in state on the login shell. A pane saves its harness; a new pane takes the default: the harness the user picked while it is installed and new enough (sign-in is a hint, as K2 says), else the first ready one in the list's order, pi, Codex, Claude Code.
+- [x] N1 core: one list describes every harness: its name, binary, install, sign-in and upgrade step, and oldest tested version. One check reads each harness's version and sign-in state on the login shell. A pane saves its harness; a new pane takes the default: the harness the user picked while it is installed (sign-in is a hint, as K2 says), else the first signed-in one in the list's order, pi, Codex, Claude Code, older than the tested version or not.
 - [x] K2 Needs N1. Onboarding: the window with no project lists every harness Chord can start in the list's order (pi, then Codex, then Claude Code, each once its adapter lands) in one group, each row with its state: ready with its version, not installed, not signed in, or older than the tested version. A row that needs something shows the install, sign-in or upgrade command with a copy button. The checks run when the view shows and on window focus. The first ready harness becomes the default for new sessions; a click on another ready row changes it. Add Project adds the first project. A missing `git` shows its install step.
-- [x] K5 Needs K2. Settings section Agents: K2's rows and the default harness for new sessions. A chat pane whose harness is missing or too old shows its row in place of the Start button.
+- [x] K5 Needs K2. Settings section Agents: K2's rows and the default harness for new sessions. A chat pane whose harness is missing shows its row in place of the Start button.
 - [x] N2 **hard** Needs N1. Codex over `codex app-server`: chat, tool calls, thinking, stop, steer, attachments, approvals and questions as dialogs, model and thinking level, context meter, slash menu, resume with history, and the permission mode picker: a composer bar button with the session's approval and sandbox mode, next to the model picker, and a `/permissions` session command that opens the same picker. A chat tab shows its harness's logo.
 - [x] N3 **hard** Needs N1. Claude Code over `claude -p` with stream-json in and out: N2's list, with the picker holding Claude Code's permission mode.
 - [x] N4 Needs N2 or N3. Build and run tools for Codex and Claude Code through a stdio MCP server that Chord's own binary serves.
 - [x] N5 Needs N2 or N3. Session commands for Codex and Claude Code: new, fork, clone, rewind, reload and compact.
 - [x] N6 Needs N2 or N3. Usage and subagents for Codex and Claude Code, from what each CLI reports itself. The status bar shows the usage of every used harnesses. So we need to use the icons of the harnesses so set them apart.
-- [ ] N7 Needs N1. The oldest version of each harness Chord runs: step each harness back through its released versions, run Chord's feature list on each one, and set its `oldest_tested` to the oldest version where every feature works. pi now, Codex after N2, Claude Code after N3. Section 2's tested versions list each harness's oldest and newest passing versions.
+- [x] N7 Needs N1. The oldest version of each harness Chord runs: step each harness back through its released versions, run Chord's feature list on each one, and set its `oldest_tested` to the oldest version where every feature works. pi now, Codex after N2, Claude Code after N3. Section 2's tested versions list each harness's oldest and newest passing versions.
 
 Edge cases:
 - K2: Chord never asks for a credential and never runs a sign-in or an install; it shows the command.
@@ -21,7 +21,7 @@ Edge cases:
 - K2: Add Project works while no harness is ready.
 - N1: the check opens no session. It runs `--version` and the sign-in status command only.
 - N1: while no harness is ready a new pane has no harness. It shows every row in place of the Start button and takes the default at its first start.
-- N2, N3: Chord runs the user's own binary under their own login, and refuses one older than the tested version with the upgrade step.
+- N2, N3: Chord runs the user's own binary under their own login. One older than the tested version starts, and the chat shows a notice with the upgrade step. A request it refuses shows its error as a notice.
 - N2, N3: an approval's answer goes back as the option id the harness sent, never as its label.
 - N2, N3: an ask stays open until its answer or until the harness withdraws it. A tool call that ends meanwhile leaves the dialog open and the card Waiting.
 - N2, N3: asks that arrive while one is open wait in the adapter and open one at a time, oldest first. An ask that arrives while a picker menu is open takes the menu's place.

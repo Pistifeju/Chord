@@ -12,7 +12,7 @@ export function stateLine({ installState: state }: HarnessCheck): string {
     case "signed_out":
       return "Installed, not signed in";
     case "outdated":
-      return `Version ${state.version}, Chord needs ${state.oldest}`;
+      return `Version ${state.version}, tested from ${state.oldest}`;
   }
 }
 

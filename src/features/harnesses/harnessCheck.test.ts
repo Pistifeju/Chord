@@ -25,7 +25,7 @@ test("a row needs the install, sign-in or upgrade command, and none when ready",
 test("a pane shows its harness's row while it cannot start, and every row while it has none and no default exists", () => {
   const pi = harness("pi", { kind: "missing" });
   const codex = harness("codex", { kind: "signed_out", version: "1.0.0" }, true, true);
-  const claude = harness("claude", { kind: "outdated", version: "1.0.0", oldest: "2.0.0" });
+  const claude = harness("claude", { kind: "missing" });
   const checks: Checks = { harnesses: [pi, codex, claude], gitInstall: null, defaultHarness: null };
   assert.deepEqual(blockingRows(null, "pi"), []);
   assert.deepEqual(blockingRows(checks, "pi"), [pi]);

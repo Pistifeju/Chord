@@ -145,7 +145,9 @@ impl Session {
         tools: Option<&Path>,
         on_event: impl Fn(HarnessEvent) + Send + 'static,
     ) -> Result<Session, Error> {
-        require(&HARNESS)?;
+        if let Some(text) = require(&HARNESS)? {
+            on_event(HarnessEvent::Notice { text });
+        }
         let extension = installed_extension(extension_dir)?;
         let extension = extension.to_string_lossy().into_owned();
         let running = Arc::new(AtomicBool::new(false));

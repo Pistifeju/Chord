@@ -22,9 +22,9 @@ pub enum Install {
 }
 
 impl Install {
-    // Sign-in is only a hint: a signed-out harness still starts.
+    // Sign-in is only a hint, and an older version starts with a warning.
     fn takes_pick(&self) -> bool {
-        matches!(self, Install::Ready { .. } | Install::SignedOut { .. })
+        !matches!(self, Install::Missing)
     }
 }
 
@@ -119,12 +119,19 @@ pub fn default_for_new_pane(pick: Option<&str>) -> Result<String, Error> {
     }
 }
 
-/// The pick while it is installed and new enough, since sign-in is only a hint; else the first ready harness Chord can start.
+/// The pick while it is installed, since sign-in is only a hint; else the first signed-in harness Chord can start, older than tested or not.
 pub fn default_harness<'a>(pick: Option<&str>, checks: &'a [HarnessCheck]) -> Option<&'a str> {
     let starting = || checks.iter().filter(|check| check.starts);
     starting()
         .find(|check| Some(check.name.as_str()) == pick && check.takes_pick)
-        .or_else(|| starting().find(|check| matches!(check.install_state, Install::Ready { .. })))
+        .or_else(|| {
+            starting().find(|check| {
+                matches!(
+                    check.install_state,
+                    Install::Ready { .. } | Install::Outdated { .. }
+                )
+            })
+        })
         .map(|check| check.name.as_str())
 }
 
@@ -177,13 +184,13 @@ fn install_state(harness: &Harness) -> Install {
 
 static PASSED: Mutex<Vec<&str>> = Mutex::new(Vec::new());
 
-/// Refuses a harness that is missing or older than the tested version, with the step that fixes it. One that passed is not asked again while the app runs: each ask costs a login shell and a start of the harness.
-pub fn require(harness: &Harness) -> Result<(), Error> {
+/// Refuses a missing harness with its install step; one older than the tested version starts, with the warning to show. A tested one is not asked again while the app runs: each ask costs a login shell and a start of the harness.
+pub fn require(harness: &Harness) -> Result<Option<String>, Error> {
     if lock(&PASSED).contains(&harness.name) {
-        return Ok(());
+        return Ok(None);
     }
     match version(harness)? {
-        Some(found) if found < harness.oldest_tested => Err(Error::Message(format!(
+        Some(found) if found < harness.oldest_tested => Ok(Some(format!(
             "{} {} is older than the tested {}. Upgrade it with: {}",
             harness.title,
             dotted(found),
@@ -193,7 +200,7 @@ pub fn require(harness: &Harness) -> Result<(), Error> {
         // A version Chord cannot read does not stop the harness.
         _ => {
             lock(&PASSED).push(harness.name);
-            Ok(())
+            Ok(None)
         }
     }
 }
@@ -295,5 +302,14 @@ mod tests {
         assert_eq!(default_harness(Some("claude"), &checks), Some("claude"));
         assert_eq!(default_harness(Some("pi"), &checks), Some("other"));
         assert_eq!(default_harness(None, &checks[..3]), None);
+        let outdated = Install::Outdated {
+            version: "1.0.0".into(),
+            oldest: "2.0.0".into(),
+        };
+        let checks = [
+            harness("pi", true, outdated),
+            harness("other", true, ready()),
+        ];
+        assert_eq!(default_harness(None, &checks), Some("pi"));
     }
 }

@@ -69,7 +69,9 @@ impl Session {
         tools: Option<&Path>,
         on_event: impl Fn(HarnessEvent) + Send + 'static,
     ) -> Result<Session, Error> {
-        require(&HARNESS)?;
+        if let Some(text) = require(&HARNESS)? {
+            on_event(HarnessEvent::Notice { text });
+        }
         let on_event: OnEvent = Arc::new(Mutex::new(on_event));
         let open = Relaunch {
             thread: session.map(String::from),
