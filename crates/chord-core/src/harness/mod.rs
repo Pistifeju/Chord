@@ -10,6 +10,7 @@ pub mod installed;
 mod numbered;
 pub mod pi;
 mod process;
+mod relaunch;
 mod resume;
 pub mod sessions;
 mod shell;

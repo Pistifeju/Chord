@@ -12,6 +12,7 @@ use super::{NAME, items, requests, usage};
 use crate::Error;
 use crate::harness::calls::OpenCalls;
 use crate::harness::earlier::{Back, Earlier, Message};
+use crate::harness::relaunch;
 use crate::harness::resume::{self, Resume, Session};
 use crate::harness::subagents::Subagents;
 use crate::harness::{DialogAnswer, HarnessEvent, Image, SubagentState};
@@ -762,5 +763,31 @@ fn lines(line: Value) -> Read {
     Read {
         events: vec![],
         lines: vec![line],
+    }
+}
+
+impl From<Read> for relaunch::Read<Relaunch> {
+    fn from(Read { events, lines }: Read) -> Self {
+        relaunch::Read {
+            events,
+            lines,
+            relaunch: None,
+        }
+    }
+}
+
+impl relaunch::Reader for Reader {
+    type Open = Relaunch;
+
+    fn initialize(&mut self) -> Value {
+        Reader::initialize(self)
+    }
+
+    fn feed(&mut self, line: &[u8]) -> relaunch::Read<Relaunch> {
+        Reader::feed(self, line).into()
+    }
+
+    fn end(&mut self) -> Vec<HarnessEvent> {
+        Reader::end(self)
     }
 }

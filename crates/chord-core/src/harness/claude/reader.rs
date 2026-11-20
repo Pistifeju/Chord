@@ -13,18 +13,13 @@ use super::{NAME, blocks::timestamp, requests, transcript};
 use crate::Error;
 use crate::harness::calls::OpenCalls;
 use crate::harness::earlier::{Back, Earlier};
+use crate::harness::relaunch;
 use crate::harness::resume::{self, Resume};
 use crate::harness::subagents::Subagents;
 use crate::harness::{DialogAnswer, HarnessEvent, Image, SubagentState, UsageWindow, count, text};
 
-/// What one record leads to: events for the chat and lines to write Claude Code.
-#[derive(Default)]
-pub(super) struct Read {
-    pub(super) events: Vec<HarnessEvent>,
-    pub(super) lines: Vec<Value>,
-    /// What a new process opens in place of this one.
-    pub(super) relaunch: Option<Open>,
-}
+/// What one record leads to: events for the chat, lines to write Claude Code, and what a new process opens in place of this one.
+pub(super) type Read = relaunch::Read<Open>;
 
 /// What a Claude Code process opens.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -700,5 +695,21 @@ fn events(events: Vec<HarnessEvent>) -> Read {
         events,
         lines: vec![],
         relaunch: None,
+    }
+}
+
+impl relaunch::Reader for Reader {
+    type Open = Open;
+
+    fn initialize(&mut self) -> Value {
+        Reader::initialize(self)
+    }
+
+    fn feed(&mut self, line: &[u8]) -> Read {
+        Reader::feed(self, line)
+    }
+
+    fn end(&mut self) -> Vec<HarnessEvent> {
+        Reader::end(self)
     }
 }
