@@ -6,10 +6,10 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::commands::session_requests;
-use super::records::{capitalized, events_from, message_update, newest_first, subagent_nodes};
+use super::records::{events_from, message_update, newest_first, subagent_nodes};
 use super::{Picker, SESSION_PROMPT, SUBAGENTS_PREFIX};
 use crate::harness::calls::OpenCalls;
-use crate::harness::{DialogAsk, HarnessEvent};
+use crate::harness::{DialogAsk, HarnessEvent, capitalized};
 
 #[derive(Deserialize)]
 struct Kind {

@@ -5,7 +5,7 @@ use std::path::Path;
 use serde_json::Value;
 
 use crate::harness::shell::{read_only_title, shell_script};
-use crate::harness::{HarnessEvent, Image, LineChanges, ToolOutcome};
+use crate::harness::{HarnessEvent, Image, LineChanges, ToolOutcome, relative, text};
 use crate::images;
 
 /// The events of an item that started; `at` is when, in epoch milliseconds.
@@ -192,15 +192,4 @@ fn line_changes(changes: &[Value]) -> LineChanges {
         }
     }
     counted
-}
-
-fn relative(path: &str, cwd: &Path) -> String {
-    Path::new(path).strip_prefix(cwd).map_or_else(
-        |_| path.into(),
-        |inside| inside.to_string_lossy().into_owned(),
-    )
-}
-
-fn text(value: &Value) -> String {
-    value.as_str().unwrap_or_default().into()
 }

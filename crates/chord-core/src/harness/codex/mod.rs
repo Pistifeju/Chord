@@ -16,7 +16,7 @@ use serde_json::Value;
 
 use super::installed::require;
 use super::process::{Output, Process, login_shell};
-use super::{Agent, Capability, DialogAnswer, Harness, HarnessEvent, Image, SignIn};
+use super::{Agent, Capability, DialogAnswer, Harness, HarnessEvent, Image, OnEvent, SignIn};
 use crate::{Error, lock};
 use reader::{Read, Reader};
 
@@ -36,8 +36,6 @@ pub const HARNESS: Harness = Harness {
     oldest_tested: (0, 158, 0),
     starts: true,
 };
-
-type OnEvent = Arc<Mutex<dyn Fn(HarnessEvent) + Send>>;
 
 /// One running `codex app-server` process, on one thread.
 pub struct Session {

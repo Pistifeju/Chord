@@ -8,7 +8,7 @@ Chord runs Codex over `codex app-server` and Claude Code over `claude -p` with s
 - [x] K2 Needs N1. Onboarding: the window with no project lists every harness Chord can start in the list's order (pi, then Codex, then Claude Code, each once its adapter lands) in one group, each row with its state: ready with its version, not installed, not signed in, or older than the tested version. A row that needs something shows the install, sign-in or upgrade command with a copy button. The checks run when the view shows and on window focus. The first ready harness becomes the default for new sessions; a click on another ready row changes it. Add Project adds the first project. A missing `git` shows its install step.
 - [x] K5 Needs K2. Settings section Agents: K2's rows and the default harness for new sessions. A chat pane whose harness is missing or too old shows its row in place of the Start button.
 - [x] N2 **hard** Needs N1. Codex over `codex app-server`: chat, tool calls, thinking, stop, steer, attachments, approvals and questions as dialogs, model and thinking level, context meter, slash menu, resume with history, and the permission mode picker: a composer bar button with the session's approval and sandbox mode, next to the model picker, and a `/permissions` session command that opens the same picker. A chat tab shows its harness's logo.
-- [ ] N3 **hard** Needs N1. Claude Code over `claude -p` with stream-json in and out: N2's list, with the picker holding Claude Code's permission mode.
+- [x] N3 **hard** Needs N1. Claude Code over `claude -p` with stream-json in and out: N2's list, with the picker holding Claude Code's permission mode.
 - [ ] N4 Needs N2 or N3. Build and run tools for Codex and Claude Code through a stdio MCP server that Chord's own binary serves.
 - [ ] N5 Needs N2 or N3. Session commands for Codex and Claude Code: new, fork, clone, rewind, reload and compact.
 - [ ] N6 Needs N2 or N3. Usage and subagents for Codex and Claude Code, from what each CLI reports itself. The status bar shows the usage of every used harnesses. So we need to use the icons of the harnesses so set them apart.
@@ -44,7 +44,7 @@ Tested versions: pi 1.5.2, Claude Code 2.1.328, codex-cli 0.158.0.
 
 | | Claude Code | Codex | pi |
 |---|---|---|---|
-| Start | `claude -p --input-format stream-json --output-format stream-json --verbose --include-partial-messages --permission-prompt-tool stdio` | `codex app-server`, then `initialize` | as today |
+| Start | `claude -p --input-format stream-json --output-format stream-json --verbose --include-partial-messages --replay-user-messages --permission-prompt-tool stdio`, then the control request `initialize` | `codex app-server`, then `initialize` | as today |
 | Version | `claude --version`: "2.1.328 (Claude Code)" | `codex --version`: "codex-cli 0.158.0" | `pi --version` |
 | Sign-in check | `claude auth status` (JSON, `loggedIn`) | `codex login status` | none: `pi auth check` needs a provider |
 | Sign-in step | `claude auth login` | `codex login` | none |
@@ -58,17 +58,17 @@ Tested versions: pi 1.5.2, Claude Code 2.1.328, codex-cli 0.158.0.
 |---|---|---|
 | Stream | `stream_event` deltas, `assistant`, `result` | `item/agentMessage/delta`, `turn/completed` |
 | Stop | control `interrupt` | `turn/interrupt` |
-| Steer | a user message on stdin mid-run; Claude reads it after the running tool calls | `turn/steer` |
-| Tools, thinking | `tool_use` and `tool_result` blocks, thinking deltas | `item/started` and `item/completed` for `commandExecution`, `fileChange`, `mcpToolCall`, `webSearch`; `item/reasoning/*Delta` |
+| Steer | a user message on stdin mid-run; Claude Code takes it in after the running tool call, in the same turn, and its `--replay-user-messages` echo takes it off the queue | `turn/steer` |
+| Tools, thinking | `tool_use` and `tool_result` blocks, thinking deltas after `set_max_thinking_tokens` with `thinking_display: "summarized"` | `item/started` and `item/completed` for `commandExecution`, `fileChange`, `mcpToolCall`, `webSearch`; `item/reasoning/*Delta` |
 | Attachments | base64 image blocks in the user message | `image` input with a data URL |
 | Tool images | image blocks in a `tool_result` | `imageView` items, MCP results |
 | Dialogs, Waiting status | control `can_use_tool` (permission asks and `AskUserQuestion`), `elicitation` | `item/*/requestApproval`, `item/tool/requestUserInput`, `mcpServer/elicitation/request` |
-| Slash menu | `initialize` commands | `skills/list`; a pick goes out as a `skill` input |
-| Model, thinking level | `initialize` models, `set_model`, effort | `model/list`, `model` and `effort` on `turn/start` |
+| Slash menu | `initialize` commands, `commands_changed`; a command goes out as the message text | `skills/list`; a pick goes out as a `skill` input |
+| Model, thinking level | `initialize` models, `set_model`, `apply_flag_settings` with `effortLevel`, then `get_settings` | `model/list`, `model` and `effort` on `turn/start` |
 | Context | `get_context_usage` (`totalTokens`, `maxTokens`) | `thread/tokenUsage/updated` (`modelContextWindow`) |
 | Usage | `get_usage`, `rate_limit_event` (`five_hour`, `seven_day`) | `account/rateLimits/read` and `/updated` (`primary`, `secondary`: `usedPercent`, `resetsAt`) |
 | Subagents | `task_started`, `task_progress`, `task_notification`, `parent_tool_use_id` | `collabAgentToolCall`, `subAgentActivity` items |
-| Resume, history | `--resume <id>`; list and history from the transcript files | `thread/list` by cwd, `thread/resume` returns the turns |
+| Resume, history | `--resume <id>` on a new process; list and history from the transcript files, since Claude Code replays nothing | `thread/list` by cwd, `thread/resume` returns the turns |
 | New | a new process | `thread/start` |
 | Fork, clone | `--resume <id> --fork-session`, with `--resume-session-at` for an earlier message | `thread/fork`, with `lastTurnId` |
 | Rewind | `/rewind`: back to an earlier message, later turns leave the context | `/rewind` through `thread/revert` |
@@ -83,12 +83,12 @@ Permission asks open as dialogs, and the card reports Waiting while one is open.
 
 | Where | Today | Change | Step |
 |---|---|---|---|
-| `harness/mod.rs`, `start` | arms for pi and Codex | an arm for Claude Code | 3, 4 |
+| `harness/mod.rs`, `start` | arms for pi, Codex and Claude Code | none | 3, 4 |
 | `state.rs:122` | a new pane's harness is `pi` | the default harness: the user's pick while it is ready, else the first ready one | 1 |
-| `harness/mod.rs`, `status_for` | closes the open dialog at `DialogClosed` alone, which the pi reader and the Codex adapter emit | the Claude Code adapter emits it after an answer, at `control_cancel_request` and at the run's end | 4 |
+| `harness/mod.rs`, `status_for` | closes the open dialog at `DialogClosed` alone, which the pi reader and the Codex and Claude Code adapters emit; Claude Code's after an answer, at `control_cancel_request` and at the run's end | none | 4 |
 | `harness/pi/mod.rs:29` | install step is `npm install -g` | `curl -fsSL https://pi.dev/install.sh \| sh` | 1 |
 | `harness/pi/mod.rs:332` | the version check and its parser are private to pi | one check and one parser for every harness | 1 |
-| `panes/PaneArea.tsx` | a chat tab shows its pane's harness logo from `harnesses/logos.tsx`, the harness name in its tooltip | a Claude Code entry in `logos.tsx` | 4 |
+| `panes/PaneArea.tsx` | a chat tab shows its pane's harness logo from `harnesses/logos.tsx`, the harness name in its tooltip; `logos.tsx` has pi, Codex and Claude Code | none | 4 |
 | `usage/store.ts` | one usage list for the whole app | one per harness; the status bar shows the focused pane's | 6 |
 | `harness/pi/extension.ts` | the `build` and `run` tools exist only as a pi extension | one stdio MCP server in Chord's own binary | 5 |
 | `AGENTS.md` "New harness", `harness-contract.md` 3 "Version check", `ARCHITECTURE.md` 3.6 | a new harness is one `start` arm; pi checks its own version | a new harness is a list entry and a `start` arm; one check for every harness | 1 |

@@ -3,7 +3,7 @@
 use serde_json::{Map, Value, json};
 
 use super::permissions;
-use crate::harness::{DialogAnswer, DialogAsk, HarnessEvent, SlashCommand, SlashKind};
+use crate::harness::{DialogAnswer, DialogAsk, HarnessEvent, SlashCommand, SlashKind, capitalized};
 
 const MODEL_DIALOG: &str = "codex-model";
 const THINKING_DIALOG: &str = "codex-thinking";
@@ -282,12 +282,4 @@ impl Settings {
 
 fn list(value: &Value) -> impl Iterator<Item = &Value> {
     value.as_array().into_iter().flatten()
-}
-
-fn capitalized(word: &str) -> String {
-    let mut chars = word.chars();
-    chars
-        .next()
-        .map(|first| first.to_uppercase().chain(chars).collect())
-        .unwrap_or_default()
 }

@@ -67,6 +67,13 @@ export const CodexIcon = () => (
   </Icon>
 );
 
+// Claude Code's logo: a burst of ten rays.
+export const ClaudeIcon = () => (
+  <Icon>
+    <path d="M8 5.75V1.75M9.32 6.18l2.35-3.24M10.14 7.3l3.8-1.23M10.14 8.7l3.8 1.23M9.32 9.82l2.35 3.24M8 10.25v4M6.68 9.82l-2.35 3.24M5.86 8.7l-3.8 1.23M5.86 7.3l-3.8-1.23M6.68 6.18 4.33 2.94" />
+  </Icon>
+);
+
 export const CloseIcon = ({ size }: { size?: number }) => (
   <Icon size={size}>
     <path d="M4 4l8 8M12 4l-8 8" />

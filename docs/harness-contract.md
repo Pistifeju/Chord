@@ -53,7 +53,7 @@ The `Agent` trait and `start` in `crates/chord-core/src/harness/mod.rs`, one imp
 - **Dialogs**: the adapter emits `dialog_closed` when the agent goes on past its open dialog: after the user's answer, when the harness withdraws the ask, and when the run ends. An adapter holds one open dialog per pane; asks that arrive meanwhile wait in it and open oldest first. An approval answers with the option id the harness sent, never the label.
 - **Permissions**: an adapter whose harness has a permission mode sends `permissions` with the mode's name and whether it still asks, when a session starts, when the harness changes it and after a pick. The composer bar shows its button only once one arrives.
 - **Capabilities**: `capabilities()` returns the list at start; the UI hides a control whose capability is missing.
-- **Status**: `status_for` folds the events into the card status; an adapter only emits events. The pi and Codex adapters read the facts from their harness's stdout (`ARCHITECTURE.md`, section 3).
+- **Status**: `status_for` folds the events into the card status; an adapter only emits events. The pi, Codex and Claude Code adapters read the facts from their harness's stdout (`ARCHITECTURE.md`, section 3).
 - **Process**: `harness/process.rs` starts the binary through the user's login shell on pipes, hands each stdout line to the adapter and reports the exit. An adapter that speaks over stdio builds on it.
 - **Harness list**: `HARNESSES` in `harness/mod.rs` describes each harness: name, title, binary, install, sign-in and upgrade step, oldest tested version, and whether Chord has its adapter. The order decides a new pane's default.
 - **Version check**: `harness/installed.rs` runs each binary's `--version` and sign-in check on the login shell and opens no session. An adapter calls `installed::require` at start, which refuses a harness older than the tested one, with the upgrade command.
@@ -68,7 +68,7 @@ The `Agent` trait and `start` in `crates/chord-core/src/harness/mod.rs`, one imp
 
 ## 5. Not verified
 
-- Claude Code's stream JSON has no record-by-record mapping yet. Codex's lives in `docs/codex-adapter.md`, whose section 9 lists the records nobody has seen live.
+- The record-by-record mappings live in `docs/codex-adapter.md` and `docs/claude-adapter.md`; section 9 of each lists the records nobody has seen live.
 - The ACP column comes from the docs index and the v2 pages.
 - Three of the four pi ACP adapters.
 - Status from pi's stdout: a recorded pi 1.5.0 RPC run had `agent_start` and `agent_settled`; the session file and the dialog records come from pi's docs only.

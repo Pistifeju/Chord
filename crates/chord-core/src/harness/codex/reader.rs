@@ -11,9 +11,8 @@ use super::commands::{Command, Settings};
 use super::{items, requests};
 use crate::Error;
 use crate::harness::calls::OpenCalls;
-use crate::harness::{DialogAnswer, DialogAsk, HarnessEvent, Image};
-
-const RESUME_DIALOG: &str = "codex-resume";
+use crate::harness::resume::{self, Resume, Session};
+use crate::harness::{DialogAnswer, HarnessEvent, Image};
 
 /// What one record leads to: events for the chat and lines to write Codex.
 #[derive(Default)]
@@ -50,8 +49,7 @@ pub(super) struct Reader {
     cwd: PathBuf,
     /// The pane's saved thread, until the handshake asks Codex to open it.
     saved: Option<String>,
-    /// The threads the open resume dialog lists, in its order.
-    resumable: Vec<String>,
+    resume: Resume,
     thread: Option<String>,
     /// Why Codex started no thread, so a send says it.
     thread_error: Option<String>,
@@ -76,7 +74,7 @@ impl Reader {
         Reader {
             cwd: cwd.to_path_buf(),
             saved: saved.map(String::from),
-            resumable: vec![],
+            resume: Resume::default(),
             thread: None,
             thread_error: None,
             turn: None,
@@ -169,15 +167,8 @@ impl Reader {
 
     /// The user's answer to an open ask: the line that answers Codex, or a new turn with the answers.
     pub(super) fn answer(&mut self, id: &str, answer: &DialogAnswer) -> Result<Read, Error> {
-        if id == RESUME_DIALOG {
-            let picked = match answer {
-                DialogAnswer::Value { value } => value
-                    .split_once('.')
-                    .and_then(|(number, _)| number.parse::<usize>().ok())
-                    .and_then(|number| self.resumable.get(number.checked_sub(1)?).cloned()),
-                _ => None,
-            };
-            self.resumable.clear();
+        if id == resume::DIALOG {
+            let picked = self.resume.pick(answer);
             let cwd = self.cwd.to_string_lossy().into_owned();
             let lines = picked.map(|thread| {
                 let id = self.request(Pending::Resume { saved: false });
@@ -196,7 +187,7 @@ impl Reader {
                 lines: vec![],
             });
         }
-        let Answered { events, line, text } = self.asks.answer(id, answer);
+        let Answered { events, line, text } = asks::answer(&mut self.asks, id, answer);
         let mut read = Read {
             events,
             lines: line.into_iter().collect(),
@@ -259,12 +250,12 @@ impl Reader {
         read
     }
 
-    // The worktree's other threads, newest first, as a numbered select: each one's first line and age.
+    // The worktree's other threads, newest first: each one's first line and age.
     fn resume_dialog(&mut self, result: &Value, held: &[String]) -> Read {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_or(0, |since| since.as_secs());
-        let threads: Vec<(String, String)> = result["data"]
+        let threads = result["data"]
             .as_array()
             .into_iter()
             .flatten()
@@ -276,36 +267,16 @@ impl Reader {
                     .find(|line| !line.trim().is_empty())?;
                 let free =
                     Some(id) != self.thread.as_deref() && !held.iter().any(|other| other == id);
-                let age = age(now.saturating_sub(thread["updatedAt"].as_u64().unwrap_or(now)));
-                free.then(|| (id.into(), format!("{} · {age}", preview.trim())))
+                let seconds = now.saturating_sub(thread["updatedAt"].as_u64().unwrap_or(now));
+                free.then(|| Session {
+                    id: id.into(),
+                    label: preview.trim().into(),
+                    age: seconds,
+                })
             })
             .collect();
-        if threads.is_empty() {
-            return Read {
-                events: vec![HarnessEvent::Notice {
-                    text: "This worktree has no other session to resume".into(),
-                }],
-                lines: vec![],
-            };
-        }
-        let options = threads
-            .iter()
-            .enumerate()
-            .map(|(at, (_, label))| format!("{}. {label}", at + 1))
-            .collect();
-        self.resumable = threads.into_iter().map(|(id, _)| id).collect();
         Read {
-            events: vec![HarnessEvent::Dialog {
-                id: RESUME_DIALOG.into(),
-                title: "Resume Session".into(),
-                ask: DialogAsk::Select {
-                    options,
-                    current: None,
-                    detail: None,
-                    descriptions: vec![],
-                    multi: false,
-                },
-            }],
+            events: vec![self.resume.offer(threads)],
             lines: vec![],
         }
     }
@@ -458,7 +429,10 @@ impl Reader {
     fn notification(&mut self, method: &str, params: &Value) -> Vec<HarnessEvent> {
         // A request id is the process's own, so a withdrawn ask is found whichever thread asked.
         if method == "serverRequest/resolved" {
-            return self.asks.resolved(&params["requestId"]);
+            let request = &params["requestId"];
+            return self
+                .asks
+                .withdraw(|reply| reply.request.as_ref() == Some(request));
         }
         // A subagent's thread and a thread the pane left speak on the same process.
         if self.thread.is_none() || params["threadId"].as_str() != self.thread.as_deref() {
@@ -556,7 +530,8 @@ impl Reader {
         self.turn = None;
         self.streamed.clear();
         self.files.clear();
-        let mut events = self.asks.turn_ended();
+        // Codex withdrew its requests; an agent message's questions stay.
+        let mut events = self.asks.withdraw(|reply| reply.request.is_some());
         events.extend(self.calls.stop());
         if turn["status"] == "failed" {
             events.push(HarnessEvent::MessageEnd {
@@ -579,15 +554,5 @@ impl Reader {
             events.push(HarnessEvent::Aborted);
         }
         events
-    }
-}
-
-// How long ago, as the sidebar says it: "now", "5m", "3h", "2d".
-fn age(seconds: u64) -> String {
-    match seconds / 60 {
-        0 => "now".into(),
-        minutes @ 1..60 => format!("{minutes}m"),
-        minutes @ 60..1440 => format!("{}h", minutes / 60),
-        minutes => format!("{}d", minutes / 1440),
     }
 }

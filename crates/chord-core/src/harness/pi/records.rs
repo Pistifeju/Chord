@@ -7,14 +7,10 @@ use crate::harness::calls::OpenCalls;
 use crate::harness::shell::read_only_title;
 use crate::harness::{
     DialogAsk, HarnessEvent, Image, LineChanges, SlashCommand, SlashKind, SubagentNode,
-    SubagentState, ToolOutcome, UsageWindow,
+    SubagentState, ToolOutcome, UsageWindow, capitalized, count,
 };
 
 // The model label shows pi's name for the model; the thinking level shows only for a model that reasons.
-fn count(value: &Value) -> Option<u32> {
-    value.as_u64().and_then(|number| u32::try_from(number).ok())
-}
-
 fn chosen_model(state: &Value) -> Option<HarnessEvent> {
     let model = &state["model"];
     let name = model["name"].as_str().or_else(|| model["id"].as_str())?;
@@ -105,14 +101,6 @@ fn picker_dialog(picker: Picker, options: Vec<String>, nothing_to_pick: &str) ->
             filter: matches!(picker, Picker::Model),
         },
     }
-}
-
-pub(super) fn capitalized(word: &str) -> String {
-    let mut chars = word.chars();
-    chars
-        .next()
-        .map(|first| first.to_uppercase().chain(chars).collect())
-        .unwrap_or_default()
 }
 
 pub(super) fn events_from(record: &Value) -> Vec<HarnessEvent> {

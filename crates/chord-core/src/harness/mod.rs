@@ -1,18 +1,23 @@
 //! What a harness tells the chat: the events every adapter emits.
 
+mod asks;
 mod calls;
+pub mod claude;
 pub mod codex;
 pub mod installed;
 pub mod pi;
 mod process;
+mod resume;
 pub mod sessions;
 mod shell;
 
 pub use process::login_shell;
 
 use std::path::Path;
+use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use specta::Type;
 
 use crate::Error;
@@ -40,23 +45,7 @@ pub struct SignIn {
 }
 
 /// Every harness, in the order a new pane's default takes them.
-pub const HARNESSES: [Harness; 3] = [
-    pi::HARNESS,
-    codex::HARNESS,
-    Harness {
-        name: "claude",
-        title: "Claude Code",
-        binary: "claude",
-        install: "curl -fsSL https://claude.ai/install.sh | bash",
-        sign_in: Some(SignIn {
-            check: &["auth", "status"],
-            step: "claude auth login",
-        }),
-        upgrade: "claude update",
-        oldest_tested: (2, 1, 328),
-        starts: false,
-    },
-];
+pub const HARNESSES: [Harness; 3] = [pi::HARNESS, codex::HARNESS, claude::HARNESS];
 
 /// One running agent of a pane. Each harness adapter implements it in `harness/<name>/`, emits `HarnessEvent`s and keeps its own records private; `start` names it. Dropping the agent ends its process and returns once it has ended.
 pub trait Agent: Send {
@@ -86,6 +75,7 @@ pub fn start(
             dir, session, data_dir, tools, on_event,
         )?)),
         codex::NAME => Ok(Box::new(codex::Session::start(dir, session, on_event)?)),
+        claude::NAME => Ok(Box::new(claude::Session::start(dir, session, on_event)?)),
         other => Err(Error::Message(format!(
             "Chord cannot run the harness \"{other}\""
         ))),
@@ -424,6 +414,36 @@ pub fn status_for(tracker: &mut StatusTracker, event: &HarnessEvent) -> Option<S
     current
         .filter(|_| report)
         .map(|status| StatusReport { status, changed })
+}
+
+/// `path` inside `cwd` as relative to it; any other path as it is.
+pub(crate) fn relative(path: &str, cwd: &Path) -> String {
+    Path::new(path).strip_prefix(cwd).map_or_else(
+        |_| path.into(),
+        |inside| inside.to_string_lossy().into_owned(),
+    )
+}
+
+/// A JSON string as it is; any other value as an empty string.
+pub(crate) fn text(value: &Value) -> String {
+    value.as_str().unwrap_or_default().into()
+}
+
+/// A JSON count that fits a `u32`.
+pub(crate) fn count(value: &Value) -> Option<u32> {
+    value.as_u64().and_then(|count| u32::try_from(count).ok())
+}
+
+/// The callback an adapter's reader thread hands its events to.
+pub(crate) type OnEvent = Arc<Mutex<dyn Fn(HarnessEvent) + Send>>;
+
+/// A level as its menu label shows it: "high" reads "High".
+pub(crate) fn capitalized(word: &str) -> String {
+    let mut chars = word.chars();
+    chars
+        .next()
+        .map(|first| first.to_uppercase().chain(chars).collect())
+        .unwrap_or_default()
 }
 
 #[cfg(test)]
