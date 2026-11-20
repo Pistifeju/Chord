@@ -1,4 +1,4 @@
-// The Help sheet: what a project, a worktree and a session are, what each agent status means, and the shortcuts used most.
+// The Help sheet: what a project, a worktree, a session and an agent are, the slash commands, what each agent status means, and the shortcuts used most.
 import type { Status } from "../../ipc/bindings";
 import { commandTitles, shortcutLabel, tooltip } from "../../app/commands";
 import { closeSheet, sheet } from "../../app/sheet";
@@ -12,6 +12,8 @@ const terms = [
   { name: "Project", text: "A git repository or a plain folder you added." },
   { name: "Worktree", text: "A checkout of the project on its own branch. Give each task its own, and its agents never touch another task's files." },
   { name: "Session", text: "An agent chat inside a worktree. A worktree holds as many as you open." },
+  { name: "Agent", text: "The coding agent a session talks to: pi, Codex or Claude Code. Pick the agent, its model and its thinking level from the agent menu in the composer." },
+  { name: "Slash commands", text: "Type / in the composer to list the session's commands, such as fork, clone and compact." },
 ];
 
 const statuses: { status: Status; text: string }[] = [
@@ -22,7 +24,7 @@ const statuses: { status: Status; text: string }[] = [
   { status: { kind: "exited" }, text: "The agent's process ended." },
 ];
 
-const shortcuts = ["worktree.new", "session.new", "agent.next", "sidebar.toggle", "files.toggle", "terminal.toggle", "settings.open"];
+const shortcuts = ["worktree.new", "session.new", "agent.next", "chat.stop", "pane.splitRight", "files.openByName", "sidebar.toggle", "navigator.workspaces", "navigator.files", "navigator.changes", "terminal.toggle", "usage.open", "settings.open"];
 
 function showAllShortcuts() {
   closeSheet("help");
