@@ -150,6 +150,9 @@ pub fn run() {
         .setup(move |app| {
             ipc.mount_events(app);
             chord_ios::set_cache_folder(&app.path().app_cache_dir()?);
+            if app.config().identifier.ends_with(".dev") {
+                chord_ios::use_dev_simulator_names();
+            }
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;
             let store = Arc::new(Store::open(dir.join("state.json"))?);

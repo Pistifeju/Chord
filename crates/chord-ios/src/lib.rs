@@ -36,7 +36,7 @@ pub use appearance::{
 };
 pub use build::{BuildEvent, BuildPhase, Builds};
 pub use caches::{
-    RunningSimulator, build_data_size, prune, running_simulators, shut_down_others,
+    RunningSimulator, build_data_size, prune, running_simulators, shut_down_all, shut_down_others,
     watch_simulators,
 };
 pub use console::ConsoleTone;
@@ -55,6 +55,6 @@ pub use screen_view::{
 };
 pub use screenshot::{Screenshot, take_screenshot};
 pub use service_groups::{ServiceRow, SubgroupRow};
-pub use simulator::open_app;
+pub use simulator::{open_app, use_dev_simulator_names};
 pub use slim::service_rows;
 pub use xcode::{Scheme, Schemes, list_schemes};

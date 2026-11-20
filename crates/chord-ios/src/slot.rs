@@ -163,13 +163,9 @@ impl Slots {
         }
     }
 
-    /// The worktrees whose run holds a running app; a build beside it does not count.
-    pub fn running_worktrees(&self) -> Vec<PathBuf> {
-        self.runs
-            .iter()
-            .filter(|(_, run)| run.app)
-            .map(|(worktree, _)| worktree.clone())
-            .collect()
+    /// The worktrees with a ⌘R or ⌘B build or a running app: a run that still builds installs on its simulator next.
+    pub fn held_worktrees(&self) -> Vec<PathBuf> {
+        self.runs.keys().cloned().collect()
     }
 
     pub fn is_current(&mut self, worktree: &Path, id: u64) -> bool {
@@ -240,6 +236,16 @@ mod tests {
 
     fn set_pid(slots: &mut Slots, worktree: &Path, id: u64, pid: u32) {
         slots.register(worktree, id, pid);
+    }
+
+    #[test]
+    fn a_run_holds_its_worktree_before_its_app_launches() {
+        let mut slots = Slots::default();
+        let w = Path::new("/w");
+        let id = slots.ask(w, true).id;
+        assert_eq!(slots.held_worktrees(), vec![PathBuf::from("/w")]);
+        slots.finished(w, id);
+        assert!(slots.held_worktrees().is_empty());
     }
 
     #[test]

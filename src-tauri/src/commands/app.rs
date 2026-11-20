@@ -7,12 +7,13 @@ use tauri::{AppHandle, Manager};
 use super::blocking;
 use crate::running::Running;
 
-/// Stops every agent, shell and build and ends the app once the user confirmed the quit. Panes stay saved as running, so they start again on launch.
+/// Stops every agent, shell and build, starts the shutdown of Chord's booted simulators and ends the app once the user confirmed the quit. Panes stay saved as running, so they start again on launch.
 #[tauri::command]
 #[specta::specta]
 pub async fn quit_app(app: AppHandle) -> Result<(), String> {
     blocking(app, |app, _| {
         Running::of(app).stop_all();
+        chord_ios::shut_down_all();
         app.exit(0);
         Ok(())
     })

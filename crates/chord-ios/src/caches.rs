@@ -95,6 +95,15 @@ pub fn shut_down_others(keep: &Path) -> Result<(), Error> {
     Ok(())
 }
 
+/// Starts the shutdown of every booted simulator Chord created and does not wait for them: the app is quitting.
+pub fn shut_down_all() {
+    for set in [DeviceSet::Run, DeviceSet::Preview] {
+        for device in owned_in(set).iter().filter(|device| device.booted) {
+            simulator::start_shut_down(set, &device.udid);
+        }
+    }
+}
+
 /// The worktree is already gone from disk, so the DerivedData folder is found by its recorded path, not hashed. Best effort: what stays goes at the next prune.
 pub fn forget(worktree: &Path) {
     let real = resolved(worktree);

@@ -551,9 +551,7 @@ impl Screen {
             return;
         }
         let set = shown.set;
-        let booted = kit
-            .device_named(set, &shown.name)
-            .filter(|device| is_booted(Retained::as_ptr(device) as *mut AnyObject));
+        let booted = kit.booted_device_named(set, &shown.name);
         let udid = booted
             .as_ref()
             .and_then(|device| udid_of(Retained::as_ptr(device) as *mut AnyObject));

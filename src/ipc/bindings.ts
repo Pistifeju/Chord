@@ -118,7 +118,7 @@ export const commands = {
 	pickScreenshotFolder: () => __TAURI_INVOKE<string | null>("pick_screenshot_folder"),
 	/**  Starts a native drag of a file, shown as `preview`, out of the window: Finder and other apps take it, and so does a chat pane. */
 	dragFileOut: (file: string, preview: string) => __TAURI_INVOKE<null>("drag_file_out", { file, preview }),
-	/**  Stops every agent, shell and build and ends the app once the user confirmed the quit. Panes stay saved as running, so they start again on launch. */
+	/**  Stops every agent, shell and build, starts the shutdown of Chord's booted simulators and ends the app once the user confirmed the quit. Panes stay saved as running, so they start again on launch. */
 	quitApp: () => __TAURI_INVOKE<null>("quit_app"),
 	/**  Saves the setting and applies it; a missing `caffeinate` fails before anything is saved, even with no agent working. */
 	setKeepAwake: (enabled: boolean) => __TAURI_INVOKE<null>("set_keep_awake", { enabled }),

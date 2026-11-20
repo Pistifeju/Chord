@@ -226,10 +226,10 @@ impl Builds {
         lock(&self.0.opened).insert(simulator::name_of(worktree), Instant::now());
     }
 
-    /// When each worktree's simulator (by name) was last opened, and the names of those whose app runs.
+    /// When each worktree's simulator (by name) was last opened, and the names of those with a build or a running app.
     fn opened_and_running(&self) -> (HashMap<String, Instant>, HashSet<String>) {
         let busy = lock(&self.0.slots)
-            .running_worktrees()
+            .held_worktrees()
             .iter()
             .map(|worktree| simulator::name_of(worktree))
             .collect();
@@ -434,28 +434,43 @@ impl Build {
         }
     }
 
-    /// What the build targets: a device; the worktree's own simulator, created by a run in the destination's model; a build that finds none builds for any simulator.
+    /// What the build targets: a device; the worktree's own simulator, created in the destination's model; a build without a run that can create none builds for any simulator.
     fn target(&self) -> Result<Target, Error> {
         if let Some(RunDestination::Device { id, .. }) = &self.destination {
             return Ok(Target::Device(id.clone()));
         }
-        let _lookup = lock(&self.builds.0.simulators);
         if !self.run {
-            return Ok(simulator::find(DeviceSet::Run, &self.worktree)
-                .ok()
-                .flatten()
+            return Ok(self
+                .build_simulator()
                 .map_or(Target::AnySimulator, Target::Simulator));
         }
-        let wanted = match &self.destination {
+        let _lookup = lock(&self.builds.0.simulators);
+        self.step(|register| {
+            simulator::find_or_create(DeviceSet::Run, &self.worktree, self.wanted(), register)
+        })
+        .map(Target::Simulator)
+    }
+
+    /// The destination's model and runtime identifiers.
+    fn wanted(&self) -> Option<(&str, &str)> {
+        match &self.destination {
             Some(RunDestination::Simulator { model, runtime, .. }) => {
                 Some((model.as_str(), runtime.as_str()))
             }
             _ => None,
-        };
+        }
+    }
+
+    /// The worktree's run simulator for a build that boots none, created shut down when the worktree has none: a build for any simulator compiles every architecture and differs from ⌘R's. It leaves the simulator that exists as it is, whatever its model.
+    fn build_simulator(&self) -> Option<Simulator> {
+        let _lookup = lock(&self.builds.0.simulators);
+        if let Ok(Some(device)) = simulator::find(DeviceSet::Run, &self.worktree) {
+            return Some(device);
+        }
         self.step(|register| {
-            simulator::find_or_create(DeviceSet::Run, &self.worktree, wanted, register)
+            simulator::find_or_create(DeviceSet::Run, &self.worktree, self.wanted(), register)
         })
-        .map(Target::Simulator)
+        .ok()
     }
 
     /// Runs `step` with the way to register its process group in the slot, so a stop ends it.

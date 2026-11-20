@@ -137,10 +137,10 @@ impl Kit {
         }
     }
 
-    /// The device of the set named `name`, read from CoreSimulator's live list (no simctl call).
-    pub fn device_named(&self, set: DeviceSet, name: &str) -> Option<Retained<AnyObject>> {
+    /// The booted device of the set named `name`, read from CoreSimulator's live list (no simctl call). A worktree's other simulators of the name are shut down.
+    pub fn booted_device_named(&self, set: DeviceSet, name: &str) -> Option<Retained<AnyObject>> {
         self.device_where(set, |device| {
-            text(get(device, sel!(name))).as_deref() == Some(name)
+            is_booted(device) && text(get(device, sel!(name))).as_deref() == Some(name)
         })
     }
 

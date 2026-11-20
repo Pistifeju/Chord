@@ -2,11 +2,13 @@
 
 use chord_core::lock;
 use std::collections::hash_map::DefaultHasher;
+use std::collections::{HashSet, VecDeque};
 use std::hash::{Hash, Hasher};
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, OnceLock, mpsc};
+use std::sync::mpsc::{self, RecvTimeoutError};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use chord_core::{Error, PreviewPick, login_shell};
@@ -22,6 +24,10 @@ use crate::simulator::{self, DeviceSet};
 
 const SOURCE: &str = include_str!("ChordPreview.swift");
 const MAX_BOOTED: usize = 2;
+/// How long a launched preview app may take to open its socket: a first launch on a simulator that just booted, beside a build, takes many seconds.
+const HELPER_START: Duration = Duration::from_secs(60);
+/// The lines of the app's output kept for the reason it ended.
+const KEPT_LINES: usize = 50;
 
 static CACHE_FOLDER: OnceLock<PathBuf> = OnceLock::new();
 
@@ -93,10 +99,11 @@ pub(crate) enum Booted {
 // shortcut: a second worktree's Preview view waits for the first one's boot, up to 30 s; count booting devices instead if that shows.
 static BOOTING: Mutex<()> = Mutex::new(());
 
-/// The worktree's preview simulator of the `wanted` model, booting unless two other preview simulators run. Returns once the boot started; the build needs no booted preview simulator. `on_state` hears Starting before this returns and Failed as soon as the boot fails.
+/// The worktree's preview simulator of the `wanted` model, booting unless two other preview simulators run; one whose name is not in `open`, its Preview view closed, shuts down for it. Returns once the boot started; the build needs no booted preview simulator. `on_state` hears Starting before this returns and Failed as soon as the boot fails.
 pub(crate) fn boot(
     worktree: &Path,
     wanted: Option<(&str, &str)>,
+    open: HashSet<String>,
     on_state: Arc<dyn Fn(PreviewState) + Send + Sync>,
 ) -> Result<Booted, Error> {
     let worktree = worktree.to_path_buf();
@@ -112,14 +119,22 @@ pub(crate) fn boot(
             if device.booted {
                 return Ok(Booted::Ready { udid: device.udid });
             }
-            let mut others: Vec<String> = simulator::owned(DeviceSet::Preview)?
+            let mut others: Vec<simulator::Simulator> = simulator::owned(DeviceSet::Preview)?
                 .into_iter()
                 .filter(|other| other.booted && other.name != device.name)
-                .filter_map(|other| simulator::worktree_folder(&other.name).map(String::from))
                 .collect();
+            while others.len() >= MAX_BOOTED
+                && let Some(at) = others.iter().position(|other| !open.contains(&other.name))
+            {
+                simulator::shut_down(DeviceSet::Preview, &others.swap_remove(at).udid);
+            }
             if others.len() >= MAX_BOOTED {
-                others.sort();
-                return Ok(Booted::Full(others));
+                let mut folders: Vec<String> = others
+                    .iter()
+                    .filter_map(|other| simulator::worktree_folder(&other.name).map(String::from))
+                    .collect();
+                folders.sort();
+                return Ok(Booted::Full(folders));
             }
             Ok(Booted::Booting {
                 udid: device.udid,
@@ -154,12 +169,13 @@ pub(crate) fn boot(
     })
 }
 
-/// Installs the app on the worktree's preview simulator and launches it with the helper in place of its entry point.
+/// Installs the app on the worktree's preview simulator, launches it with the helper in place of its entry point and returns once the helper's socket is there. The launch stays attached: `on_exit` hears why the app ended, from a thread of its own.
 pub(crate) fn launch(
     worktree: &Path,
     udid: &str,
     app: &Path,
     register: &dyn Fn(u32),
+    on_exit: impl FnOnce(String) + Send + 'static,
 ) -> Result<(), Error> {
     let executable = simulator::plist_text(app, "CFBundleExecutable", register)?;
     if !app.join(format!("{executable}.debug.dylib")).exists() {
@@ -170,9 +186,16 @@ pub(crate) fn launch(
     let helper = helper()?;
     let bundle = simulator::plist_text(app, "CFBundleIdentifier", register)?;
     simulator::install(DeviceSet::Preview, udid, app, register)?;
+    // --console-pty keeps simctl running until the app ends, with the app's output.
     let mut command = simulator::simctl_command(
         DeviceSet::Preview,
-        &["launch", "--terminate-running-process", udid, &bundle],
+        &[
+            "launch",
+            "--console-pty",
+            "--terminate-running-process",
+            udid,
+            &bundle,
+        ],
     )?;
     let socket = socket(worktree);
     let _ = std::fs::remove_file(&socket);
@@ -180,14 +203,57 @@ pub(crate) fn launch(
     command
         .env("SIMCTL_CHILD_DYLD_INSERT_LIBRARIES", &helper)
         .env("SIMCTL_CHILD_CHORD_PREVIEW_SOCKET", &socket);
-    let output = process::captured(command, register)?;
-    if output.status.success() {
-        Ok(())
-    } else {
-        Err(Error::Message(format!(
-            "The preview did not launch: {}",
-            String::from_utf8_lossy(&output.stderr).trim()
-        )))
+    let (mut child, reader) = process::merged_on_terminal(command, None)?;
+    register(child.id());
+    let lines = process::read_lines(reader);
+    let pid_line = format!("{bundle}: ");
+    let mut said = VecDeque::new();
+    let keep = move |line: Vec<u8>, said: &mut VecDeque<String>| {
+        let text = String::from_utf8_lossy(&line).trim().to_string();
+        if !text.is_empty() && !text.starts_with(&pid_line) {
+            if said.len() == KEPT_LINES {
+                said.pop_front();
+            }
+            said.push_back(text);
+        }
+    };
+    let until = Instant::now() + HELPER_START;
+    while !socket.exists() {
+        if Instant::now() > until {
+            std::thread::spawn(move || child.wait());
+            return Err(Error::Message(format!(
+                "The preview app did not start within {} s.",
+                HELPER_START.as_secs()
+            )));
+        }
+        match lines.recv_timeout(Duration::from_millis(100)) {
+            Ok(line) => keep(line, &mut said),
+            Err(RecvTimeoutError::Timeout) => {}
+            Err(RecvTimeoutError::Disconnected) => {
+                let _ = child.wait();
+                return Err(Error::Message(end_reason(said.make_contiguous())));
+            }
+        }
+    }
+    std::thread::spawn(move || {
+        for line in lines {
+            keep(line, &mut said);
+        }
+        let _ = child.wait();
+        on_exit(end_reason(said.make_contiguous()));
+    });
+    Ok(())
+}
+
+/// Why the preview app ended, from its last output: the crash line when it printed one, else its last line.
+fn end_reason(said: &[String]) -> String {
+    let crash = said
+        .iter()
+        .rev()
+        .find(|line| line.contains("Fatal error") || line.contains("Terminating app due to"));
+    match crash.or(said.last()) {
+        Some(line) => format!("The preview app ended: {line}"),
+        None => "The preview app ended.".into(),
     }
 }
 
@@ -332,4 +398,31 @@ fn xcode_build() -> &'static str {
             .trim()
             .to_string()
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn names_the_crash_line_else_the_last_line_as_the_end_reason() {
+        let said = |lines: &[&str]| {
+            lines
+                .iter()
+                .map(|line| line.to_string())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            end_reason(&said(&[
+                "App/Row.swift:12: Fatal error: No Observable object of type Store found",
+                "note after the crash"
+            ])),
+            "The preview app ended: App/Row.swift:12: Fatal error: No Observable object of type Store found"
+        );
+        assert_eq!(
+            end_reason(&said(&["first", "last"])),
+            "The preview app ended: last"
+        );
+        assert_eq!(end_reason(&[]), "The preview app ended.");
+    }
 }

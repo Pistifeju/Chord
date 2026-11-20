@@ -2,8 +2,9 @@
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command};
-use std::sync::mpsc;
+use std::process::{Child, Command, Stdio};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::mpsc::{self, RecvTimeoutError};
 use std::thread;
 use std::time::Duration;
 
@@ -21,6 +22,30 @@ pub(crate) const PLUTIL: &str = "/usr/bin/plutil";
 pub(crate) const OPEN: &str = "/usr/bin/open";
 /// How long the launch waits for the log stream to start; it takes about a second.
 const STREAM_START: Duration = Duration::from_secs(3);
+/// How long a boot may take: a first boot takes about 30 s alone and a few times that beside cold builds; past this it hangs.
+const BOOT_LIMIT: Duration = Duration::from_secs(180);
+
+const PREFIX: &str = "Chord ";
+const DEV_PREFIX: &str = "ChordDev ";
+static DEV_NAMES: AtomicBool = AtomicBool::new(false);
+
+/// Call once at launch from the dev build: its simulators get names of their own, so neither build prunes the other's.
+pub fn use_dev_simulator_names() {
+    DEV_NAMES.store(true, Ordering::Relaxed);
+}
+
+fn prefix() -> &'static str {
+    if DEV_NAMES.load(Ordering::Relaxed) {
+        DEV_PREFIX
+    } else {
+        PREFIX
+    }
+}
+
+/// Whether either build of Chord named the simulator.
+pub(crate) fn is_chord_name(name: &str) -> bool {
+    name.starts_with(PREFIX) || name.starts_with(DEV_PREFIX)
+}
 
 /// Where a simulator lives: the default device set, which `xcodebuild`, Simulator and DeviceHub see, or Chord's own set of preview simulators, which they do not.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -88,17 +113,21 @@ pub(crate) struct Simulator {
     pub runtime: String,
 }
 
-/// `Chord <worktree folder> <6 letters of the path hash>`: the name is the only link between a worktree and its simulator.
+/// `Chord <worktree folder> <6 letters of the path hash>`, `ChordDev …` in the dev build: the name is the only link between a worktree and its simulators.
 pub(crate) fn name_of(worktree: &Path) -> String {
     let folder = worktree
         .file_name()
         .map(|name| name.to_string_lossy().into_owned())
         .unwrap_or_default();
     let hash = derived_data::path_hash(&worktree.to_string_lossy());
-    format!("Chord {folder} {}", &hash[..6])
+    format!("{}{folder} {}", prefix(), &hash[..6])
 }
 
-/// The available devices of the list that `matches`.
+fn available(device: &Value) -> bool {
+    device["isAvailable"] == true
+}
+
+/// The devices of the list that `matches`, those of a removed runtime too.
 fn devices_where<'a>(
     listed: &'a Value,
     matches: impl Fn(&Value) -> bool + 'a,
@@ -114,7 +143,7 @@ fn devices_where<'a>(
                 .flatten()
                 .map(move |device| (runtime, device))
         })
-        .filter(move |(_, device)| device["isAvailable"] == true && matches(device))
+        .filter(move |(_, device)| matches(device))
         .map(|(runtime, device)| Simulator {
             udid: device["udid"].as_str().unwrap_or_default().into(),
             name: device["name"].as_str().unwrap_or_default().into(),
@@ -128,10 +157,10 @@ fn devices_where<'a>(
 }
 
 fn device_where(listed: &Value, matches: impl Fn(&Value) -> bool) -> Option<Simulator> {
-    devices_where(listed, matches).next()
+    devices_where(listed, |device| available(device) && matches(device)).next()
 }
 
-/// The simulators Chord created in the set, by their name's shape: `Chord <folder> <6 letters>`.
+/// The simulators this build of Chord created in the set, by their name's shape: `Chord <folder> <6 letters>`. Those of a removed runtime count, so a delete and the build data's size reach them.
 pub(crate) fn owned(set: DeviceSet) -> Result<Vec<Simulator>, Error> {
     Ok(devices_where(&list_devices(set)?, |device| {
         device["name"].as_str().and_then(worktree_folder).is_some()
@@ -141,7 +170,7 @@ pub(crate) fn owned(set: DeviceSet) -> Result<Vec<Simulator>, Error> {
 
 /// The worktree folder a Chord simulator's name holds; None for any other name.
 pub(crate) fn worktree_folder(name: &str) -> Option<&str> {
-    let (folder, hash) = name.strip_prefix("Chord ")?.rsplit_once(' ')?;
+    let (folder, hash) = name.strip_prefix(prefix())?.rsplit_once(' ')?;
     let is_hash = hash.len() == 6 && hash.bytes().all(|byte| byte.is_ascii_lowercase());
     (is_hash && !folder.is_empty()).then_some(folder)
 }
@@ -168,8 +197,30 @@ pub(crate) fn delete(set: DeviceSet, udid: &str) -> Result<(), Error> {
     simctl(set, &["delete", udid], &|_| {}).map(drop)
 }
 
+/// Starts the simulator's shutdown and does not wait for it.
+pub(crate) fn start_shut_down(set: DeviceSet, udid: &str) {
+    let Ok(mut command) = simctl_command(set, &["shutdown", udid]) else {
+        return;
+    };
+    let spawned = command
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn();
+    if let Ok(mut child) = spawned {
+        thread::spawn(move || child.wait());
+    }
+}
+
+fn devices_named(listed: &Value, name: &str) -> Vec<Simulator> {
+    devices_where(listed, |device| available(device) && device["name"] == name).collect()
+}
+
+/// A worktree has one run simulator per model it ran on: the booted one, else the first.
 fn device_named(listed: &Value, name: &str) -> Option<Simulator> {
-    device_where(listed, |device| device["name"] == name)
+    let mut named = devices_named(listed, name);
+    let at = named.iter().position(|device| device.booted).unwrap_or(0);
+    (!named.is_empty()).then(|| named.swap_remove(at))
 }
 
 fn list_devices(set: DeviceSet) -> Result<Value, Error> {
@@ -190,20 +241,32 @@ pub(crate) fn is_booted(set: DeviceSet, udid: &str) -> bool {
         .is_some_and(|device| device.booted)
 }
 
-/// The worktree's simulator in the set, created on first use: `wanted` (model and runtime identifiers), else the newest iOS runtime and the model it lists that reads best. A simulator of another model or runtime is deleted and created again; it is Chord's own.
+/// The worktree's simulator in the set, created on first use: `wanted` (model and runtime identifiers), else the newest iOS runtime and the model it lists that reads best. The worktree's run simulators of another model or runtime shut down and keep their apps' data; a preview simulator of another one holds none and is deleted.
 pub(crate) fn find_or_create(
     set: DeviceSet,
     worktree: &Path,
     wanted: Option<(&str, &str)>,
     register: &dyn Fn(u32),
 ) -> Result<Simulator, Error> {
-    if let Some(device) = find(set, worktree)? {
-        if wanted.is_none_or(|(model, runtime)| device.model == model && device.runtime == runtime)
-        {
-            return Ok(device);
+    let (mut fitting, others): (Vec<Simulator>, Vec<Simulator>) =
+        devices_named(&list_devices(set)?, &name_of(worktree))
+            .into_iter()
+            .partition(|device| {
+                wanted.is_none_or(|(model, runtime)| {
+                    device.model == model && device.runtime == runtime
+                })
+            });
+    for other in others {
+        if other.booted || set == DeviceSet::Preview {
+            let _ = simctl(set, &["shutdown", &other.udid], register);
         }
-        let _ = simctl(set, &["shutdown", &device.udid], register);
-        simctl(set, &["delete", &device.udid], register)?;
+        if set == DeviceSet::Preview {
+            simctl(set, &["delete", &other.udid], register)?;
+        }
+    }
+    if !fitting.is_empty() {
+        let at = fitting.iter().position(|device| device.booted).unwrap_or(0);
+        return Ok(fitting.swap_remove(at));
     }
     let (device_type, runtime) = match wanted {
         Some((model, runtime)) => (model.to_string(), runtime.to_string()),
@@ -269,9 +332,36 @@ fn newest_ios_model(listed: &Value) -> Option<(String, String)> {
     ))
 }
 
-/// Boots the simulator and waits until it reports Booted. A device that does not fails with its state.
+/// Boots the simulator and waits until it reports Booted. A device that does not fails with its state; a boot past `BOOT_LIMIT` is ended and fails.
 pub(crate) fn boot(set: DeviceSet, udid: &str) -> Result<(), Error> {
-    simctl(set, &["bootstatus", udid, "-b"], &|_| {})?;
+    let group = AtomicU32::new(0);
+    let (done, waits) = mpsc::channel::<()>();
+    let late = thread::scope(|scope| {
+        let group = &group;
+        let watchdog = scope.spawn(move || {
+            let late = waits.recv_timeout(BOOT_LIMIT) == Err(RecvTimeoutError::Timeout);
+            let pid = group.load(Ordering::Relaxed);
+            if late && pid != 0 {
+                end_group(pid);
+            }
+            late
+        });
+        let booted = simctl(set, &["bootstatus", udid, "-b"], &|pid| {
+            group.store(pid, Ordering::Relaxed)
+        });
+        drop(done);
+        match watchdog.join() {
+            Ok(true) => Ok(true),
+            _ => booted.map(|_| false),
+        }
+    })?;
+    if late {
+        start_shut_down(set, udid);
+        return Err(Error::Message(format!(
+            "The simulator did not boot within {} minutes. Chord shut it down; run again.",
+            BOOT_LIMIT.as_secs() / 60
+        )));
+    }
     if is_booted(set, udid) {
         Ok(())
     } else {

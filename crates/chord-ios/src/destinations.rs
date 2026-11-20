@@ -9,7 +9,7 @@ use serde_json::Value;
 use specta::Type;
 
 use crate::process::xcrun;
-use crate::simulator::{DeviceSet, simctl};
+use crate::simulator::{self, DeviceSet, simctl};
 
 #[derive(Serialize, Type, Clone, Debug, PartialEq)]
 pub struct Destinations {
@@ -124,7 +124,7 @@ fn simulators_in(listed: &Value) -> Vec<SimulatorModels> {
                 name: type_name(model).unwrap_or(name).into(),
                 os: os.clone(),
             };
-            if !name.starts_with("Chord ") && !models.contains(&destination) {
+            if !simulator::is_chord_name(name) && !models.contains(&destination) {
                 models.push(destination);
             }
         }

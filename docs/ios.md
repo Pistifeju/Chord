@@ -89,8 +89,9 @@ Chord finds the folder with the path hash, a pure function. Its test hardcodes t
 
 ### 3.4 One simulator per worktree
 
-- The simulator lives in the default device set, so `xcodebuild`, Simulator and DeviceHub see it. Its name is `Chord <worktree folder> <6 letters of the path hash>`; Chord finds it by name, model and runtime.
-- Chord creates it on the first ⌘R with `simctl create` and boots it while the build runs. The first boot (27.5 s) hides inside a cold build (48.3 s).
+- The simulator lives in the default device set, so `xcodebuild`, Simulator and DeviceHub see it. Its name is `Chord <worktree folder> <6 letters of the path hash>`; Chord finds it by name, model and runtime. The dev build names its own `ChordDev …`, so neither build prunes the other's.
+- Chord creates it on the worktree's first build with `simctl create`, so every build names its destination by id, and boots it on the first ⌘R while the build runs. The first boot (27.5 s) hides inside a cold build (48.3 s). A boot that takes over 3 minutes is ended and fails the run.
+- A run on another model or iOS version creates a second simulator and shuts the first one down; the first keeps its apps' data.
 - A run destination is a model and iOS version that exist together among the user's simulators, so `create` cannot hit "Incompatible device". Chord's own simulators stay out of the run menu.
 - After `bootstatus` Chord checks that the device reports Booted; one that does not fails the run with that reason before the install.
 - An install or launch that fails with "SBMainWorkspace Busy" means a wedged simulator. The run fails and its message names the fix: erase the worktree's simulator. Chord erases nothing by itself, because the app's data goes with it.
@@ -151,7 +152,7 @@ Where each control sits and how it looks: `design/build-and-run.md`. The run con
 | Resource | Cost per worktree | What bounds it |
 |----------|-------------------|----------------|
 | Disk, build | about 690 MB after a cold build | Nothing exists before the first build. Deleting a worktree deletes its folder. Prune deletes the folders of worktrees that are gone |
-| Disk, simulator | 1.1 GB after the first boot | Created on the first ⌘R. Deleted with the worktree |
+| Disk, simulator | 1.1 GB after the first boot, per model the worktree ran on | Created on the first build. Deleted with the worktree |
 | Disk, hot reload | the driver lines, each previewed module's commands and module map, the reload objects since the preview's launch | Deleted with the worktree; prune deletes the folders whose name matches no worktree; counted in the build data size |
 | Memory | 2.2 GB per booted simulator | The cap of section 3.4; the status bar lists the running ones |
 | CPU | one build takes every core | One build per worktree; see section 3.3 for the queue |

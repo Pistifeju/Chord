@@ -46,7 +46,10 @@ fn change(worktree: &Path, path: &Path) -> Option<Change> {
     }
     match path.extension().and_then(|extension| extension.to_str()) {
         Some("swift") => Some(Change::Swift),
-        Some("xcstrings" | "m" | "mm" | "c" | "h" | "pbxproj" | "resolved") => Some(Change::Other),
+        Some(
+            "xcstrings" | "strings" | "stringsdict" | "xcconfig" | "storyboard" | "xib"
+            | "entitlements" | "m" | "mm" | "c" | "h" | "pbxproj" | "resolved",
+        ) => Some(Change::Other),
         _ if names.last() == Some(&"Info.plist")
             || names.iter().any(|name| name.ends_with(".xcassets")) =>
         {
