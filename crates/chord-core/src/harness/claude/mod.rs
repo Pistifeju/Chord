@@ -14,9 +14,13 @@ use std::path::Path;
 
 use serde_json::json;
 
+use super::models::{self, Step, listed};
 use super::relaunch::Relaunchable;
-use super::{Agent, Capability, DialogAnswer, Harness, HarnessEvent, Image, SignIn, agent_tools};
+use super::{
+    Agent, Capability, DialogAnswer, Harness, HarnessEvent, Image, ModelOption, SignIn, agent_tools,
+};
 use crate::{Error, lock};
+use commands::Settings;
 use reader::{Open, Reader};
 
 /// The harness name a pane saves.
@@ -49,6 +53,31 @@ const ARGS: [&str; 10] = [
     "--permission-prompt-tool",
     "stdio",
 ];
+
+/// The request id of the handshake that lists the models.
+const MODELS_REQUEST: &str = "chord-models";
+
+/// Claude Code's models, from the handshake of a process that saves no session and gets no message.
+pub(crate) fn models() -> Result<Vec<ModelOption>, Error> {
+    let mut settings = Settings::default();
+    let args = &ARGS[..7];
+    models::ask(
+        &HARNESS,
+        &[args, &["--no-session-persistence"]].concat(),
+        &[requests::control(MODELS_REQUEST, "initialize", json!({}))],
+        move |record| {
+            let response = &record["response"];
+            if record["type"] != "control_response" || response["request_id"] != MODELS_REQUEST {
+                return Step::Wait;
+            }
+            let events = settings.initialized(&response["response"]);
+            let models = events
+                .into_iter()
+                .find(|event| matches!(event, HarnessEvent::Models { .. }));
+            models.map_or(Step::Wait, listed)
+        },
+    )
+}
 
 /// The pane's Claude Code; a session command that opens another session, or the same one again, swaps its process.
 pub struct Session(Relaunchable<Reader>);
@@ -137,9 +166,11 @@ impl Agent for Session {
     }
 
     /// Sends a message, or runs a session command; `/resume` leaves out `held_elsewhere`, the sessions other panes hold.
-    fn send(&self, text: &str, images: &[Image], held_elsewhere: &[String]) -> Result<(), Error> {
+    fn send(&self, text: &str, images: &[Image], held_elsewhere: &[String]) -> Result<bool, Error> {
+        let took = commands::session_command(text).is_none();
+        let images = if took { images } else { &[] };
         let read = lock(&self.0.reader()).send(text, images, held_elsewhere)?;
-        self.0.deliver(read)
+        self.0.deliver(read).map(|()| took)
     }
 
     fn abort(&self) -> Result<(), Error> {
@@ -149,6 +180,11 @@ impl Agent for Session {
 
     fn answer_dialog(&self, id: &str, answer: &DialogAnswer) -> Result<(), Error> {
         let read = lock(&self.0.reader()).answer(id, answer);
+        self.0.deliver(read)
+    }
+
+    fn pick_model(&self, id: &str, level: Option<&str>) -> Result<(), Error> {
+        let read = lock(&self.0.reader()).pick_model(id, level);
         self.0.deliver(read)
     }
 

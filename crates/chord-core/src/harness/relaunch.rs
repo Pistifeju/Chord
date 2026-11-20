@@ -91,6 +91,8 @@ impl<R: Reader> Relaunchable<R> {
         let ended = lock(&old.reader).end();
         ended.into_iter().for_each(&*emit);
         emit(HarnessEvent::State { running: false });
+        // The chat takes no message until the new process's history ends.
+        emit(HarnessEvent::HistoryStart);
         drop(emit);
         drop(old);
         Ok(())

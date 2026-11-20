@@ -5,15 +5,13 @@ import { CheckIcon } from "../../ui/icons";
 import { useOutsidePointer } from "../../ui/outsidePointer";
 import { steppedPast } from "../../ui/listStep";
 import { openInDefaultBrowser } from "../browser/store";
-import { matchingOptions, startIndex, typedIndex } from "./dialog";
+import { matchingOptions, startIndex, typedIndex, TYPING_PAUSE_MS } from "./dialog";
 import { answerDialog } from "./store";
 import type { OpenDialog } from "./transcript";
 
 // "field" filters through a Filter field, "typing" moves the highlight to what the user types (as a Mac menu does), "none" does neither.
 type Filter = "field" | "typing" | "none";
 
-// A pause this long starts a new typed name, as in a Mac menu.
-const TYPING_PAUSE_MS = 1000;
 
 type SelectProps = {
   options: string[];

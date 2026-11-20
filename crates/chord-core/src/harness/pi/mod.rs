@@ -14,14 +14,16 @@ use std::sync::{Arc, Mutex, PoisonError};
 use serde_json::{Value, json};
 
 use super::installed::require;
+use super::models::{self, Step, listed};
 use super::process::{Output, Process, login_shell};
-use super::{Agent, Capability, DialogAnswer, Harness, HarnessEvent, Image};
+use super::{Agent, Capability, DialogAnswer, Harness, HarnessEvent, Image, ModelOption};
 use crate::Error;
 use commands::{
     command_name, dialog_response, fork_command, model_command, prompt_command, session_command,
     session_requests, thinking_command,
 };
 use reader::{Read, Reader};
+use records::{models_event, newest_first};
 
 /// The harness name a pane saves.
 pub const NAME: &str = "pi";
@@ -59,6 +61,8 @@ const FORK_DIALOG: &str = "chord-fork:";
 const MODEL_DIALOG: &str = "chord-model";
 /// The id of the thinking level dialog; its options are the levels, capitalized.
 const THINKING_DIALOG: &str = "chord-thinking";
+/// The request id of the model list the agent picker shows, so its response is no model dialog.
+const MODELS_REQUEST: &str = "chord-models";
 
 /// A dialog the adapter opens to change the session's model or thinking level.
 #[derive(Clone, Copy)]
@@ -114,14 +118,36 @@ const SESSION_COMMANDS: [(&str, &str); 10] = [
     ),
 ];
 
+/// pi's models, read from a pi that saves no session.
+pub(crate) fn models() -> Result<Vec<ModelOption>, Error> {
+    let request = json!({ "id": MODELS_REQUEST, "type": "get_available_models" });
+    let mut models = models::ask(
+        &HARNESS,
+        &["--mode", "rpc", "--no-session"],
+        &[request],
+        |record| {
+            if record["id"] != MODELS_REQUEST {
+                return Step::Wait;
+            }
+            listed(models_event(&record["data"]["models"]))
+        },
+    )?;
+    newest_first(&mut models, None, |model| &model.id);
+    Ok(models)
+}
+
 /// One running `pi --mode rpc` process.
 pub struct Session {
     process: Mutex<Process>,
     running: Arc<AtomicBool>,
+    /// The session file pi holds, from its last `SessionInfo`.
+    file: Arc<Mutex<Option<String>>>,
     on_event: Arc<Mutex<dyn Fn(HarnessEvent) + Send>>,
-    /// Starts another pi with the same setup on a new session.
-    launch_new: Box<dyn Fn() -> Result<Process, Error> + Send>,
+    /// Starts another pi with the same setup on the given session file, or on a new session without one.
+    launch: Box<Launch>,
 }
+
+type Launch = dyn Fn(Option<&str>) -> Result<Process, Error> + Send;
 
 static EXTENSION_WRITE: Mutex<()> = Mutex::new(());
 
@@ -151,10 +177,15 @@ impl Session {
         let extension = installed_extension(extension_dir)?;
         let extension = extension.to_string_lossy().into_owned();
         let running = Arc::new(AtomicBool::new(false));
+        let file = Arc::new(Mutex::new(None));
         let on_event = Arc::new(Mutex::new(on_event));
         let launch = {
             let (dir, tools) = (dir.to_path_buf(), tools.map(Path::to_path_buf));
-            let (running, on_event) = (Arc::clone(&running), Arc::clone(&on_event));
+            let (running, file, on_event) = (
+                Arc::clone(&running),
+                Arc::clone(&file),
+                Arc::clone(&on_event),
+            );
             move |session: Option<&str>| {
                 launch(
                     &dir,
@@ -162,6 +193,7 @@ impl Session {
                     session,
                     tools.as_deref(),
                     &running,
+                    &file,
                     &on_event,
                 )
             }
@@ -170,16 +202,17 @@ impl Session {
         let session = Session {
             process: Mutex::new(process),
             running,
+            file,
             on_event,
-            launch_new: Box::new(move || launch(None)),
+            launch: Box::new(launch),
         };
         session.read_session();
         Ok(session)
     }
 
-    // pi's own `/new` first waits for the run to settle, which a hung tool never does; a new pi starts at once and the old one is killed.
-    fn restart(&self) -> Result<(), Error> {
-        let new = (self.launch_new)()?;
+    // pi's own `/new` first waits for the run to settle, which a hung tool never does, and pi refuses `/reload` mid-run; a new pi on `session`, or on a new session, starts at once and the old one is killed.
+    fn restart(&self, session: Option<&str>) -> Result<(), Error> {
+        let new = (self.launch)(session)?;
         let old = std::mem::replace(&mut *lock(&self.process), new);
         drop(old);
         self.running.store(false, Ordering::SeqCst);
@@ -191,6 +224,7 @@ impl Session {
     fn read_session(&self) {
         // Without the list the slash menu stays hidden; the agent works without it.
         let _ = self.write(&json!({ "type": "get_commands" }));
+        let _ = self.write(&json!({ "id": MODELS_REQUEST, "type": "get_available_models" }));
         // The session file may hold earlier messages; they come back as history.
         for request in session_requests() {
             let _ = self.write(&request);
@@ -219,34 +253,44 @@ impl Agent for Session {
     }
 
     /// Sends a message; while the agent runs, pi queues it as a steer. A session command runs instead of being sent; `/resume` leaves out `held_elsewhere`, the session files other panes hold, so no two agents write one file.
-    fn send(&self, text: &str, images: &[Image], held_elsewhere: &[String]) -> Result<(), Error> {
+    fn send(&self, text: &str, images: &[Image], held_elsewhere: &[String]) -> Result<bool, Error> {
         let Some(command) = session_command(text.trim(), held_elsewhere) else {
-            return self.write(&prompt_command(text, images));
+            return self.write(&prompt_command(text, images)).map(|()| true);
         };
         // A new session mid-run replaces pi; pi aborts the run to open another session; `/tree` mid-run it refuses itself and `/export` leaves the run alone; `/model` and `/thinking` only open a picker, and pi's refusal of the pick shows as a notice.
         let keeps_run = matches!(
             command_name(text.trim()),
             "/tree" | "/export" | "/model" | "/thinking"
         );
-        if !images.is_empty() {
-            return Err(Error::Message(
-                "Remove the images, then change the session".into(),
-            ));
+        if self.running.load(Ordering::SeqCst) {
+            let file = lock(&self.file).clone();
+            match (command_name(text.trim()), file) {
+                ("/new", _) => return self.restart(None).map(|()| false),
+                ("/reload", Some(file)) => return self.restart(Some(&file)).map(|()| false),
+                _ if !keeps_run => {
+                    return Err(Error::Message(
+                        "Wait for the agent to finish, then change the session".into(),
+                    ));
+                }
+                _ => {}
+            }
         }
-        let running = self.running.load(Ordering::SeqCst);
-        if running && command_name(text.trim()) == "/new" {
-            return self.restart();
-        }
-        if running && !keeps_run {
-            return Err(Error::Message(
-                "Wait for the agent to finish, then change the session".into(),
-            ));
-        }
-        self.write(&command)
+        self.write(&command).map(|()| false)
     }
 
     fn abort(&self) -> Result<(), Error> {
         self.write(&json!({ "type": "abort" }))
+    }
+
+    /// `id` is `provider/model`; pi clamps the level it keeps to the new model, so a picked level follows the model.
+    fn pick_model(&self, id: &str, level: Option<&str>) -> Result<(), Error> {
+        let (provider, model) = id
+            .split_once('/')
+            .ok_or_else(|| Error::Message(format!("pi has no model \"{id}\"")))?;
+        self.write(&json!({ "type": "set_model", "provider": provider, "modelId": model }))?;
+        level.map_or(Ok(()), |level| {
+            self.write(&json!({ "type": "set_thinking_level", "level": level }))
+        })
     }
 
     /// Answers the dialog pi asked with `id`; a fork dialog is the adapter's own, so its answer becomes the fork.
@@ -279,6 +323,7 @@ fn launch(
     session: Option<&str>,
     tools: Option<&Path>,
     running: &Arc<AtomicBool>,
+    file: &Arc<Mutex<Option<String>>>,
     on_event: &Arc<Mutex<impl Fn(HarnessEvent) + Send + 'static>>,
 ) -> Result<Process, Error> {
     let mut args = vec!["--mode", "rpc", "--extension", extension];
@@ -287,6 +332,7 @@ fn launch(
         args.extend(["--session", file]);
     }
     let reader_running = Arc::clone(running);
+    let file = Arc::clone(file);
     let on_event = Arc::clone(on_event);
     let emit = move |event| (lock(&on_event))(event);
     let mut records = Reader::default();
@@ -302,8 +348,12 @@ fn launch(
         Output::Line(line) => {
             let Read { events, requests } = records.feed(line);
             for event in events {
-                if let HarnessEvent::State { running } = event {
-                    reader_running.store(running, Ordering::SeqCst);
+                match &event {
+                    HarnessEvent::State { running } => {
+                        reader_running.store(*running, Ordering::SeqCst);
+                    }
+                    HarnessEvent::SessionInfo { id } => *lock(&file) = Some(id.clone()),
+                    _ => {}
                 }
                 emit(event);
             }

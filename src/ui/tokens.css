@@ -39,6 +39,15 @@
   --diff-added: rgba(0, 122, 85, 0.1);
   --diff-removed: rgba(231, 0, 11, 0.08);
 
+  /* The harness logos keep their brand colors in both themes. */
+  --brand-pi-coral: #e48a7a;
+  --brand-pi-blue: #4f8eb3;
+  --brand-pi-yellow: #eab65d;
+  --brand-codex-top: #b1a7ff;
+  --brand-codex-middle: #7a9dff;
+  --brand-codex-bottom: #3941ff;
+  --brand-claude: #d97757;
+
   --shadow-control: 0 1px 2px rgba(0, 0, 0, 0.08);
   --shadow-composer: 0 1px 2px rgba(0, 0, 0, 0.03), 0 4px 16px rgba(0, 0, 0, 0.04);
   --shadow-popover: 0 0 0 1px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.1);

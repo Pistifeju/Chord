@@ -8,6 +8,7 @@ import { projects, shownPanes } from "../worktrees/store";
 import { sheet } from "../../app/sheet";
 import { closeFind, finds, openFind } from "./find";
 import { closeLightbox, lightboxes, stepLightbox } from "./viewing";
+import { agentPickerPane, closeAgentPicker } from "./agentPicker";
 import { branchMenuPane, closeBranchMenu } from "./branch";
 import { slashMenu } from "./slash";
 import { abortRun, answerDialog, chatOf, chats, closeSlash, drafts, pickAttachments, slashClosed } from "./store";
@@ -52,6 +53,11 @@ const branchMenuOpenPane = (): string | null => {
   return pane && branchMenuPane.get() === pane ? pane : null;
 };
 
+const agentPickerOpenPane = (): string | null => {
+  const pane = focusedPane();
+  return pane && agentPickerPane.get() === pane ? pane : null;
+};
+
 const lightboxPane = (): string | null => {
   const pane = focusedPane();
   return pane && lightboxes.get()[pane] ? pane : null;
@@ -83,5 +89,6 @@ export const chatCommands: AppCommand[] = [
   { id: "branch.rename", title: "Rename Branch", run: onBranch(startBranchRename) },
   { id: "branch.delete", title: "Delete Branch", run: onBranch(requestDeleteBranch) },
   { id: "chat.branchMenuClose", title: "Close Branch Menu", shortcut: { key: "escape" }, ...onTarget(branchMenuOpenPane, closeBranchMenu) },
+  { id: "chat.agentPickerClose", title: "Close Agent Picker", shortcut: { key: "escape" }, ...onTarget(agentPickerOpenPane, closeAgentPicker) },
   { id: "chat.stop", title: "Stop Agent", shortcut: { key: "escape" }, ...onTarget(runningPane, abortRun) },
 ];

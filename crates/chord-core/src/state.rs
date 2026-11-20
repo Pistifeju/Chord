@@ -10,7 +10,7 @@ use std::sync::Mutex;
 use serde::{Deserialize, Deserializer, Serialize};
 use specta::Type;
 
-use crate::{Error, Project, WorktreePanes};
+use crate::{Error, ModelOption, Project, WorktreePanes};
 
 #[derive(Serialize, Deserialize, Type, Clone, Debug, Default, PartialEq)]
 #[serde(default, rename_all = "camelCase")]
@@ -44,6 +44,8 @@ pub struct State {
     pub agents: BTreeMap<String, PaneAgent>,
     /// The harness the user picked for new panes; none until a pick.
     pub default_harness: Option<String>,
+    /// The models each harness listed when it last ran, by harness name, so the agent picker shows them while another harness runs.
+    pub models: BTreeMap<String, Vec<ModelOption>>,
     /// A project was added once, so a window without projects shows no welcome. A removal sets it too, for projects added before this flag existed.
     pub welcomed: bool,
     /// The switches of the simulator service subgroups, by subgroup id or group id: `true` keeps it on, `false` lets a boot switch it off. A group id covers the group's subgroups without a switch of their own; with neither, the group's default applies.

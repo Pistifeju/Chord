@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 
 use chord_core::harness::sessions::{Sessions, Started};
-use chord_core::{DialogAnswer, Error, HarnessEvent, Image, images};
+use chord_core::{DialogAnswer, Error, HarnessEvent, Image, ModelPick, images};
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::DialogExt;
@@ -11,12 +11,15 @@ use tauri_plugin_dialog::DialogExt;
 use super::blocking;
 use crate::notifications::{self, ShownPanes};
 
+/// Starts the pane's agent; `switch_to` names another harness the pane takes on a new session, at the model `pick`.
 #[tauri::command]
 #[specta::specta]
 pub async fn start_chat(
     app: AppHandle,
     worktree: PathBuf,
     pane: String,
+    switch_to: Option<String>,
+    pick: Option<ModelPick>,
     on_event: Channel<HarnessEvent>,
 ) -> Result<Started, String> {
     blocking(app, move |app, _| {
@@ -24,6 +27,8 @@ pub async fn start_chat(
         app.state::<Sessions>().start(
             worktree,
             pane,
+            switch_to,
+            pick,
             move |event| {
                 let _ = on_event.send(event);
             },
@@ -51,7 +56,7 @@ pub async fn send_message(
     pane: String,
     text: String,
     images: Vec<Image>,
-) -> Result<(), String> {
+) -> Result<bool, String> {
     blocking(app, move |app, _| {
         app.state::<Sessions>().send(&pane, &text, &images)
     })
@@ -68,6 +73,21 @@ pub async fn answer_dialog(
 ) -> Result<(), String> {
     blocking(app, move |app, _| {
         app.state::<Sessions>().answer_dialog(&pane, &id, &answer)
+    })
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn pick_model(
+    app: AppHandle,
+    pane: String,
+    id: String,
+    level: Option<String>,
+) -> Result<(), String> {
+    blocking(app, move |app, _| {
+        app.state::<Sessions>()
+            .pick_model(&pane, &id, level.as_deref())
     })
     .await
 }

@@ -2,9 +2,12 @@
 
 use serde_json::{Map, Value, json};
 
+use super::NAME;
 use super::permissions;
 use crate::harness::earlier::Back;
-use crate::harness::{DialogAnswer, DialogAsk, HarnessEvent, SlashCommand, SlashKind, capitalized};
+use crate::harness::{
+    DialogAnswer, DialogAsk, HarnessEvent, ModelOption, SlashCommand, SlashKind, capitalized,
+};
 
 const MODEL_DIALOG: &str = "codex-model";
 const THINKING_DIALOG: &str = "codex-thinking";
@@ -77,7 +80,7 @@ pub(super) struct Settings {
 
 impl Settings {
     /// Reads `model/list`; without it a model shows its id.
-    pub(super) fn read_models(&mut self, result: &Value) {
+    pub(super) fn read_models(&mut self, result: &Value) -> HarnessEvent {
         self.models = list(&result["data"])
             .filter_map(|model| {
                 let id = model["id"].as_str()?;
@@ -91,6 +94,40 @@ impl Settings {
                 })
             })
             .collect();
+        HarnessEvent::Models {
+            harness: NAME,
+            models: self
+                .models
+                .iter()
+                .map(|model| ModelOption {
+                    id: model.id.clone(),
+                    name: model.name.clone(),
+                    provider: None,
+                    levels: model.efforts.clone(),
+                    default_level: model.default_effort.clone(),
+                })
+                .collect(),
+        }
+    }
+
+    /// Switches to the model `id` for the next turn, at `level`, else at the current effort when the model has it, else at its default. Before `model/list` answers, the effort stays.
+    pub(super) fn choose(&mut self, id: &str, level: Option<&str>) -> HarnessEvent {
+        let model = self.models.iter().find(|model| model.id == id);
+        let effort = match (level, model) {
+            (Some(level), _) => Some(level.to_string()),
+            (None, Some(model)) => match &self.effort {
+                Some(effort) if model.efforts.contains(effort) => Some(effort.clone()),
+                _ => model.default_effort.clone(),
+            },
+            (None, None) => self.effort.clone(),
+        };
+        self.model = id.into();
+        self.picks.insert("model".into(), json!(self.model));
+        if effort != self.effort {
+            self.effort = effort;
+            self.picks.insert("effort".into(), json!(self.effort));
+        }
+        self.model_event()
     }
 
     /// Reads `skills/list`: the session commands, then each enabled skill.
@@ -238,17 +275,8 @@ impl Settings {
                 let Some(model) = self.models.iter().find(|model| model.name == *value) else {
                     return Some(vec![]);
                 };
-                let effort = match &self.effort {
-                    Some(effort) if model.efforts.contains(effort) => Some(effort.clone()),
-                    _ => model.default_effort.clone(),
-                };
-                self.model = model.id.clone();
-                self.picks.insert("model".into(), json!(self.model));
-                if effort != self.effort {
-                    self.effort = effort;
-                    self.picks.insert("effort".into(), json!(self.effort));
-                }
-                Some(vec![self.model_event()])
+                let id = model.id.clone();
+                Some(vec![self.choose(&id, None)])
             }
             THINKING_DIALOG => {
                 let efforts = self
@@ -304,6 +332,7 @@ impl Settings {
 
     fn model_event(&self) -> HarnessEvent {
         HarnessEvent::Model {
+            id: Some(self.model.clone()).filter(|id| !id.is_empty()),
             name: self.name().into(),
             thinking: self.effort.clone(),
         }

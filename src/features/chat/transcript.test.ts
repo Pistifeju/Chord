@@ -127,11 +127,19 @@ test("a history start empties the transcript and the status, then the saved mess
 test("a session's history changes the chat once, at its end", () => {
   let fed = chatFed(emptyChat, null, { kind: "history_start" }, 1);
   fed = chatFed(fed.chat, fed.replay, { kind: "user_message_chunk", text: "Hi", images: [], at: 5 }, 2);
-  assert.equal(fed.chat, emptyChat);
+  assert.deepEqual([fed.chat.items, fed.chat.loading], [[], true]);
   fed = chatFed(fed.chat, fed.replay, { kind: "history_end" }, 3);
   assert.equal(fed.replay, null);
   assert.deepEqual(fed.chat.items, [{ role: "user", text: "Hi", streaming: false, images: [], at: 5 }]);
-  assert.equal(fed.chat.historyLength, 1);
+  assert.deepEqual([fed.chat.historyLength, fed.chat.loading], [1, false]);
+});
+
+test("a second history start keeps what the replay held before it", () => {
+  let fed = chatFed(emptyChat, null, { kind: "history_start" }, 1);
+  fed = chatFed(fed.chat, fed.replay, { kind: "commands", commands: [{ name: "new", description: "", kind: "session", origin: null }] }, 2);
+  fed = chatFed(fed.chat, fed.replay, { kind: "history_start" }, 3);
+  fed = chatFed(fed.chat, fed.replay, { kind: "history_end" }, 4);
+  assert.deepEqual(fed.chat.commands, [{ name: "new", description: "", kind: "session", origin: null }]);
 });
 
 const call = (title: string, detail: string, state: "done" | "failed" = "done", changes?: { added: number; removed: number }): Step => ({ kind: "call", id: `${title}-${detail}`, title, detail, state, ...(changes && { changes }) });

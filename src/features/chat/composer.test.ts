@@ -1,7 +1,8 @@
 // Tests for the composer's send, key, drop and picker rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { composerKey, droppedFiles, pickerClick, sendable } from "./composer.ts";
+import { composerKey, composerState, droppedFiles, heldMessage, pickerClick, sendable } from "./composer.ts";
+import { emptyChat, type Chat } from "./transcript.ts";
 
 const rows = [
   { name: "model", description: "", kind: "session" as const, origin: null },
@@ -39,4 +40,13 @@ test("a picker button closes its own picker and swaps from the other one", () =>
   assert.deepEqual(pickerClick("Model", "Model"), { open: false });
   assert.deepEqual(pickerClick("Thinking", "Model"), { open: true });
   assert.deepEqual(pickerClick(null, "Model"), { open: true });
+});
+
+test("a chat that loads takes one message, which goes out at the history's end and back to the draft when the agent stopped first", () => {
+  const loading: Chat = { ...emptyChat, agent: "ready", loading: true };
+  assert.equal(composerState(loading).canSend, true);
+  assert.equal(composerState({ ...loading, held: "hi" }).canSend, false);
+  assert.equal(heldMessage({ ...loading, held: "hi" }), null);
+  assert.deepEqual(heldMessage({ ...loading, held: "hi", loading: false }), { kind: "send", text: "hi" });
+  assert.deepEqual(heldMessage({ ...loading, held: "hi", agent: "idle" }), { kind: "restore", text: "hi" });
 });

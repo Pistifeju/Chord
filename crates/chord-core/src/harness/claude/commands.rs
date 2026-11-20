@@ -2,9 +2,9 @@
 
 use serde_json::Value;
 
-use super::permissions;
+use super::{NAME, permissions};
 use crate::harness::{
-    DialogAnswer, DialogAsk, HarnessEvent, SlashCommand, SlashKind, capitalized, text,
+    DialogAnswer, DialogAsk, HarnessEvent, ModelOption, SlashCommand, SlashKind, capitalized, text,
 };
 
 const MODEL_DIALOG: &str = "claude-model";
@@ -89,7 +89,22 @@ impl Settings {
     /// The `initialize` answer: the models, the commands and the permission mode.
     pub(super) fn initialized(&mut self, answer: &Value) -> Vec<HarnessEvent> {
         self.models = answer["models"].as_array().cloned().unwrap_or_default();
+        let models = self
+            .models
+            .iter()
+            .map(|model| ModelOption {
+                id: text(&model["value"]),
+                name: text(&model["displayName"]),
+                provider: None,
+                levels: levels(model),
+                default_level: None,
+            })
+            .collect();
         vec![
+            HarnessEvent::Models {
+                harness: NAME,
+                models,
+            },
             commands(&answer["commands"]),
             self.mode_changed(text(&answer["current_permission_mode"])),
         ]
@@ -105,6 +120,9 @@ impl Settings {
             .or(self.model.as_deref())?;
         let thinks = current.is_none_or(|model| model["supportsEffort"] != false);
         Some(HarnessEvent::Model {
+            id: current
+                .and_then(|model| model["value"].as_str())
+                .map(String::from),
             name: name.into(),
             thinking: self.effort.clone().filter(|_| thinks),
         })
@@ -241,14 +259,28 @@ impl Settings {
     }
 
     fn levels(&self) -> Vec<String> {
-        self.current()
-            .filter(|model| model["supportsEffort"] != false)
-            .and_then(|model| model["supportedEffortLevels"].as_array())
-            .into_iter()
-            .flatten()
-            .filter_map(|level| level.as_str().map(String::from))
-            .collect()
+        self.current().map(levels).unwrap_or_default()
     }
+
+    /// The model entry's `value` and the effort the user picked in the agent picker, kept as the user's picks.
+    pub(super) fn chose(&mut self, model: &str, effort: Option<&str>) {
+        self.picks.model = Some(model.into());
+        if let Some(effort) = effort {
+            self.picks.effort = Some(effort.into());
+        }
+    }
+}
+
+fn levels(model: &Value) -> Vec<String> {
+    if model["supportsEffort"] == false {
+        return vec![];
+    }
+    model["supportedEffortLevels"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|level| level.as_str().map(String::from))
+        .collect()
 }
 
 /// Chord's session commands, then Claude Code's: a built-in one acts on the session, any other is a skill named after its plugin.

@@ -141,11 +141,6 @@ impl Reader {
         held_elsewhere: &[String],
     ) -> Result<Read, Error> {
         let command = session_command(text);
-        if command.is_some() && !images.is_empty() {
-            return Err(Error::Message(
-                "Remove the images, then change the session".into(),
-            ));
-        }
         if let Some(command @ ("new" | "reload")) = command {
             // A reload keeps the session and the user's picks; a new session takes the config's.
             let open = match command {
@@ -242,6 +237,29 @@ impl Reader {
             events: self.running.then(|| self.queue()).into_iter().collect(),
             lines: vec![line],
             relaunch: None,
+        }
+    }
+
+    /// The model and effort the agent picker chose; Claude Code reads the settings again once they took hold.
+    pub(super) fn pick_model(&mut self, model: &str, effort: Option<&str>) -> Read {
+        self.settings.chose(model, effort);
+        let mut lines = vec![self.request(
+            Pending::Changed {
+                model: Some(model.into()),
+            },
+            "set_model",
+            json!({ "model": model }),
+        )];
+        if let Some(level) = effort {
+            lines.push(self.request(
+                Pending::Changed { model: None },
+                "apply_flag_settings",
+                json!({ "settings": { "effortLevel": level } }),
+            ));
+        }
+        Read {
+            lines,
+            ..Read::default()
         }
     }
 

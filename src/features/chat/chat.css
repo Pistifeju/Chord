@@ -677,7 +677,7 @@
   flex: none;
 }
 
-/* Nothing in the bar overlaps: as it narrows, the branch and model names ellipsize, then the branch name and the context percentage hide (the icons, the ring and their tooltips stay), then the thinking level, then the model name. */
+/* Nothing in the bar overlaps: as it narrows, the branch and model names ellipsize, then the branch name and the context percentage hide (the icons, the ring and their tooltips stay), then the thinking level, then the agent button. */
 .chat-composer-bar {
   container-type: inline-size;
 }
@@ -691,7 +691,7 @@
 }
 
 @container (max-width: 240px) {
-  :where(.chat-pickers) > .chat-picker + .chat-picker {
+  .chat-agent-level {
     display: none;
   }
 }
@@ -701,9 +701,9 @@
     display: none;
   }
 
-  .chat-composer-bar .chat-pickers + .chat-context {
-    margin-left: auto;
-    border-left: none;
+  .chat-composer-bar .chat-context:has(+ .chat-pickers) {
+    margin-right: 0;
+    border-right: none;
   }
 }
 
@@ -748,18 +748,9 @@
     transform var(--t-fast) var(--ease-out);
 }
 
-:where(.chat-pickers) > .chat-picker + .chat-picker {
-  flex: none;
-  color: var(--ink-muted);
-}
-
 .chat-picker:hover:not(:disabled) {
   background: var(--raised);
   color: var(--ink);
-}
-
-:where(.chat-pickers) > .chat-picker + .chat-picker:hover:not(:disabled) {
-  color: var(--ink-secondary);
 }
 
 .chat-picker:active:not(:disabled) {
@@ -768,6 +759,46 @@
 }
 
 .chat-picker:disabled {
+  color: var(--ink-disabled);
+}
+
+/* The agent button: the agent's logo, the model and the thinking level, read as one label. */
+.chat-agent {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+}
+
+.chat-agent[aria-expanded="true"] {
+  background: var(--selected);
+  color: var(--ink);
+}
+
+.chat-agent-logo {
+  display: flex;
+  flex: none;
+  color: var(--ink-muted);
+}
+
+.chat-agent-model {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-agent-level {
+  flex: none;
+  color: var(--ink-muted);
+}
+
+.chat-agent:hover:not(:disabled) .chat-agent-level,
+.chat-agent[aria-expanded="true"] .chat-agent-level {
+  color: var(--ink-secondary);
+}
+
+.chat-agent:disabled .chat-agent-logo,
+.chat-agent:disabled .chat-agent-level {
   color: var(--ink-disabled);
 }
 
@@ -807,9 +838,15 @@
   white-space: nowrap;
 }
 
-.chat-pickers + .chat-context {
-  margin-left: 4px;
-  border-left: 1px solid var(--line-strong);
+.chat-permissions + .chat-context,
+.chat-context + .chat-pickers {
+  margin-left: 0;
+}
+
+/* The divider sets the meter off from the agent button's label. */
+.chat-context:has(+ .chat-pickers) {
+  margin-right: 4px;
+  border-right: 1px solid var(--line-strong);
   height: 14px;
 }
 
@@ -1213,4 +1250,99 @@
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+}
+
+/* The agent picker: right-aligned over the agent button; the component sets its transform origin on the button. */
+.chat-agent-menu {
+  left: auto;
+  width: min(460px, 100%);
+  max-height: 420px;
+  padding: 0;
+  outline: none;
+  transform-origin: 100% 100%;
+  animation: chat-agent-open var(--t-med) var(--ease-out);
+}
+
+@keyframes chat-agent-open {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.96);
+  }
+}
+
+.chat-agent-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.chat-agent-tabs {
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.chat-agent-tabs .segmented {
+  display: flex;
+}
+
+.chat-agent-tabs .segmented button {
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.chat-agent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  max-height: 252px;
+  padding: 6px;
+  overflow-y: auto;
+  scroll-padding: 6px;
+}
+
+.chat-agent-list .chat-dialog-option {
+  min-height: 36px;
+  padding: 0 10px;
+  color: var(--ink);
+}
+
+.chat-agent-thinking {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  min-height: 44px;
+  padding: 8px 8px 8px 16px;
+  border-top: 1px solid var(--line);
+}
+
+.chat-agent-thinking .segmented {
+  margin-left: auto;
+}
+
+.chat-agent-thinking .segmented button {
+  padding: 0 9px;
+  font-size: calc(12px * var(--text-scale));
+}
+
+.chat-agent-note {
+  font-size: calc(12px * var(--text-scale));
+  color: var(--ink-muted);
+}
+
+.chat-agent-none {
+  margin-left: auto;
+  padding-right: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-agent-menu {
+    animation-name: chat-fade;
+  }
 }

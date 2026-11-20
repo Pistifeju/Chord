@@ -7,6 +7,7 @@ pub mod claude;
 pub mod codex;
 mod earlier;
 pub mod installed;
+pub mod models;
 mod numbered;
 pub mod pi;
 mod process;
@@ -57,9 +58,12 @@ pub trait Agent: Send {
     /// What this harness can do; the UI hides a control whose capability is missing.
     fn capabilities(&self) -> Vec<Capability>;
     /// Sends the user's message, or runs it as a session command. `held_elsewhere` are the sessions other panes hold, which a resume must not open.
-    fn send(&self, text: &str, images: &[Image], held_elsewhere: &[String]) -> Result<(), Error>;
+    /// Returns whether the message took the images; a session command leaves them for the next message.
+    fn send(&self, text: &str, images: &[Image], held_elsewhere: &[String]) -> Result<bool, Error>;
     /// Answers the dialog the agent opened with `id`.
     fn answer_dialog(&self, id: &str, answer: &DialogAnswer) -> Result<(), Error>;
+    /// Switches to the model with `id` from its `Models` list and, when given, to one of its thinking levels; without one the harness keeps or clamps its own.
+    fn pick_model(&self, id: &str, level: Option<&str>) -> Result<(), Error>;
     /// Stops the run; the agent keeps running.
     fn abort(&self) -> Result<(), Error>;
     /// Ends the agent and reports it as exited, for a pane that stays.
@@ -147,6 +151,23 @@ pub struct SubagentNode {
     pub started_at: Option<f64>,
     /// Epoch milliseconds, set once it ended.
     pub ended_at: Option<f64>,
+}
+
+/// One model a harness offers. `id` goes back in a pick; `provider` is set when the harness reaches models through several; `levels` are its thinking levels as the harness names them, lowest first, empty for a model that does not think; `default_level` is the one it starts on, when the harness says.
+#[derive(Serialize, Deserialize, Type, Debug, Clone, PartialEq)]
+pub struct ModelOption {
+    pub id: String,
+    pub name: String,
+    pub provider: Option<String>,
+    pub levels: Vec<String>,
+    pub default_level: Option<String>,
+}
+
+/// A model and thinking level the user picked for a pane whose harness is not running yet.
+#[derive(Deserialize, Type, Debug, Clone, PartialEq)]
+pub struct ModelPick {
+    pub id: String,
+    pub level: Option<String>,
 }
 
 /// An image in a message: base64 data and its MIME type.
@@ -272,10 +293,17 @@ pub enum HarnessEvent {
         ms: Option<u32>,
         changes: Option<LineChanges>,
     },
-    /// The model the agent runs and, when that model reasons, its thinking level; sent when a session starts and after each pick.
+    /// The model the agent runs and, when that model reasons, its thinking level; sent when a session starts and after each pick. `id` is the model's id in `Models`, when the harness says.
     Model {
+        id: Option<String>,
         name: String,
         thinking: Option<String>,
+    },
+    /// Every model the harness offers; sent once it lists them.
+    Models {
+        /// The `name` of the harness's entry in `HARNESSES`.
+        harness: &'static str,
+        models: Vec<ModelOption>,
     },
     /// How many tokens the session fills of the model's context window; `tokens` is missing right after a compaction, until a reply measures it again; `window` is missing when the model has none.
     Context {

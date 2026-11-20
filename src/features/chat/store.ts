@@ -1,13 +1,15 @@
 // Connects the transcript rules to IPC: one chat per pane, started, fed by the agent's events, stopped.
 import { Channel } from "@tauri-apps/api/core";
-import { commands, type DialogAnswer, type HarnessEvent, type Image, type PaneAgent } from "../../ipc/bindings";
+import { commands, type DialogAnswer, type HarnessEvent, type Image, type ModelOption, type ModelPick, type PaneAgent } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
 import { paneNames, type PaneNames } from "../panes/sessions";
 import { usage } from "../usage/store";
 import { notify } from "../../ui/alert";
 import { fileName } from "../files/paths";
 import { imageExtensions, imageMime, type Attachment } from "./attachments";
+import { heldMessage } from "./composer";
 import { intakes } from "./intake";
+import { openingOf, openingWith, type Opening } from "./opening";
 import { emptyChat, withSteerImages, type Chat } from "./transcript";
 
 export const chats = externalStore<Record<string, Chat>>({});
@@ -20,6 +22,19 @@ export const paneHarnesses = externalStore<Record<string, string>>({});
 
 export const loadPaneHarnesses = (agents: Record<string, PaneAgent>) =>
   paneHarnesses.set(Object.fromEntries(Object.entries(agents).flatMap(([pane, agent]) => (agent.harness ? [[pane, agent.harness]] : []))));
+
+// The models each harness listed when it last ran, so the agent picker shows them while another harness runs.
+export const modelCatalogs = externalStore<Record<string, ModelOption[]>>({});
+
+export const loadModelCatalogs = (models: Record<string, ModelOption[]>) => modelCatalogs.set(models);
+
+/** Reads every harness's models in the background at launch, so the agent menu lists them before any of them runs. */
+export function refreshModelCatalogs() {
+  commands
+    .refreshModels()
+    .then((models) => modelCatalogs.set({ ...modelCatalogs.get(), ...models }))
+    .catch(console.error);
+}
 
 export const chatOf = (all: Record<string, Chat>, pane: string): Chat => all[pane] ?? emptyChat;
 
@@ -51,27 +66,57 @@ export const closeSlash = (pane: string, draft: string) => slashClosed.set({ ...
 
 const intake = intakes();
 
+// What each harness's last new session opened with, and the harness the last new pane took as the default.
+const openings = new Map<string, Opening>();
+let defaultHarness: string | null = null;
+
+const opened = (harness: string | null, pick: ModelPick | null): Opening =>
+  openingWith(harness ? openings.get(harness) : undefined, harness && pick ? modelCatalogs.get()[harness]?.find((model) => model.id === pick.id) : undefined, pick?.level ?? null);
+
+function rememberOpening(pane: string) {
+  const harness = paneHarnesses.get()[pane];
+  const opening = openingOf(chatOf(chats.get(), pane));
+  if (harness && opening) openings.set(harness, opening);
+}
+
+function settleHeld(pane: string) {
+  const settled = heldMessage(chatOf(chats.get(), pane));
+  if (!settled) return;
+  update(pane, (chat) => ({ ...chat, held: null }));
+  if (settled.kind === "send") return sendMessage(pane, settled.text);
+  const draft = drafts.get()[pane];
+  setDraft(pane, draft ? `${settled.text}\n${draft}` : settled.text);
+}
+
 function received(pane: string, start: number, event: HarnessEvent) {
   const fed = intake.fed(pane, start, chatOf(chats.get(), pane), event, Date.now());
   if (!fed) return;
   const { effect } = fed;
   if (effect?.kind === "draft") setDraft(pane, effect.text);
   if (effect?.kind === "usage") usage.set({ ...usage.get(), [effect.harness]: effect.windows });
+  if (effect?.kind === "models") modelCatalogs.set({ ...modelCatalogs.get(), [effect.harness]: effect.models });
   if (effect?.kind === "notify") notify(effect.text);
   update(pane, () => fed.chat);
+  settleHeld(pane);
+  rememberOpening(pane);
 }
 
-// Resolves once the agent's history has arrived, or the start failed.
-export async function startChat(worktree: string, pane: string) {
+// Resolves once the agent's history has arrived, or the start failed. `switchTo` starts another harness on a new session, at the model `pick`.
+export async function startChat(worktree: string, pane: string, switchTo: string | null = null, pick: ModelPick | null = null) {
   if (chatOf(chats.get(), pane).agent !== "idle") return;
   let loaded = () => {};
   const history = new Promise<void>((resolve) => (loaded = resolve));
   const start = intake.begin(pane, loaded);
   const channel = new Channel<HarnessEvent>();
   channel.onmessage = (event) => received(pane, start, event);
-  update(pane, (chat) => ({ ...chat, agent: "starting", notice: null, report: null, commands: [] }));
+  // A pane's first start opens a new session, which shows its harness's last opening until the agent answers.
+  const fresh = switchTo !== null || !(pane in paneHarnesses.get());
+  const expected = switchTo ?? defaultHarness;
+  update(pane, (chat) => ({ ...chat, agent: "starting", loading: true, notice: null, report: null, commands: [], ...(fresh && opened(expected, pick)) }));
   try {
-    const { harness, capabilities } = await commands.startChat(worktree, pane, channel);
+    const { harness, capabilities } = await commands.startChat(worktree, pane, switchTo, pick, channel);
+    if (fresh && switchTo === null) defaultHarness = harness;
+    if (fresh && harness !== expected) update(pane, (chat) => ({ ...chat, ...opened(harness, pick) }));
     paneHarnesses.set({ ...paneHarnesses.get(), [pane]: harness });
     // The pane closed while its agent started, so the stop came first and missed it.
     if (!intake.has(pane)) commands.stopChat(pane).catch(console.error);
@@ -132,17 +177,22 @@ export function attachPasted(pane: string, file: File) {
   reader.readAsDataURL(file);
 }
 
-// The waiting images leave the composer once the harness took the message; a failed send keeps them and puts the text back in an empty draft.
+// The waiting images leave the composer once the harness took them; a session command leaves them for the next message, and a failed send keeps them and puts the text back in an empty draft. A chat that loads holds the message.
 export function sendMessage(pane: string, text: string) {
+  if (chatOf(chats.get(), pane).loading) return update(pane, (chat) => ({ ...chat, held: text, notice: null }));
   const sent = attachments.get()[pane] ?? [];
   const images = sent.map((a) => a.image);
+  const forgetSteer = () => update(pane, (chat) => ({ ...chat, steerImages: chat.steerImages.filter((steer) => steer.images !== images) }));
   update(pane, (chat) => withSteerImages({ ...chat, notice: null }, text, images));
   commands
     .sendMessage(pane, text, images)
-    .then(() => attachments.set({ ...attachments.get(), [pane]: (attachments.get()[pane] ?? []).filter((a) => !sent.includes(a)) }))
+    .then((took) => {
+      if (took) attachments.set({ ...attachments.get(), [pane]: (attachments.get()[pane] ?? []).filter((a) => !sent.includes(a)) });
+      else forgetSteer();
+    })
     .catch((error) => {
       if (!drafts.get()[pane]) setDraft(pane, text);
-      update(pane, (chat) => ({ ...chat, steerImages: chat.steerImages.filter((steer) => steer.images !== images) }));
+      forgetSteer();
       noticeOf(pane, error);
     });
 }
@@ -151,6 +201,11 @@ export function sendMessage(pane: string, text: string) {
 export function answerDialog(pane: string, id: string, answer: DialogAnswer) {
   update(pane, (chat) => (chat.dialog?.id === id ? { ...chat, dialog: null } : chat));
   commands.answerDialog(pane, id, answer).catch((error) => noticeOf(pane, error));
+}
+
+// A refusal shows as a notice; the harness reports the model that took hold.
+export function pickModel(pane: string, id: string, level: string | null) {
+  commands.pickModel(pane, id, level).catch((error) => noticeOf(pane, error));
 }
 
 // The picker opens as a dialog; a refusal shows as a notice.

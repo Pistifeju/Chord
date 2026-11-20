@@ -10,11 +10,11 @@ use specta::Type;
 
 use super::installed::default_for_new_pane;
 use super::{
-    Agent, Capability, DialogAnswer, HarnessEvent, Image, Status, StatusReport, StatusTracker,
-    status_for,
+    Agent, Capability, DialogAnswer, HARNESSES, HarnessEvent, Image, ModelPick, Status,
+    StatusReport, StatusTracker, status_for,
 };
 use crate::awake::Awake;
-use crate::{Error, Store, WorktreePanes, xcode_bundles};
+use crate::{Error, PaneAgent, Store, WorktreePanes, xcode_bundles};
 
 /// Each pane's agent and the worktree it runs in.
 type Running = HashMap<String, (PathBuf, Box<dyn Agent>)>;
@@ -59,11 +59,11 @@ impl Sessions {
         lock(&self.running)
     }
 
-    fn with(
+    fn with<T>(
         &self,
         pane: &str,
-        act: impl FnOnce(&dyn Agent) -> Result<(), Error>,
-    ) -> Result<(), Error> {
+        act: impl FnOnce(&dyn Agent) -> Result<T, Error>,
+    ) -> Result<T, Error> {
         match self.sessions().get(pane) {
             Some((_, session)) => act(session.as_ref()),
             None => Err(Error::Message("The agent is not running".into())),
@@ -71,14 +71,34 @@ impl Sessions {
     }
 
     /// Starts the pane's agent in the worktree with the harness the pane saved, or the default one for a pane without one, replaces the one the pane had, and saves the pane as running.
+    /// `switch_to` names another harness: the pane takes it on a new session, and `pick` is the model it starts on.
     /// `on_status_change` hears a status once per change, with the agent's last message, before `on_event` gets it.
     pub fn start(
         &self,
         worktree: PathBuf,
         pane: String,
+        switch_to: Option<String>,
+        pick: Option<ModelPick>,
         on_event: impl Fn(HarnessEvent) + Send + 'static,
         on_status_change: impl Fn(Status, &str) + Send + 'static,
     ) -> Result<Started, Error> {
+        let mut replaced_agent = None;
+        if let Some(harness) = switch_to {
+            if !HARNESSES.iter().any(|h| h.starts && h.name == harness) {
+                return Err(Error::Message(format!(
+                    "Chord cannot run the harness \"{harness}\""
+                )));
+            }
+            replaced_agent = Some(self.store.update(|state| {
+                state.agents.insert(
+                    pane.clone(),
+                    PaneAgent {
+                        harness: Some(harness),
+                        session: None,
+                    },
+                )
+            })?);
+        }
         let watch = Mutex::new(PaneWatch {
             pane: pane.clone(),
             store: Arc::clone(&self.store),
@@ -119,7 +139,26 @@ impl Sessions {
                     }
                 }
             },
-        )?;
+        )
+        .and_then(|session| {
+            if let Some(pick) = &pick {
+                session.pick_model(&pick.id, pick.level.as_deref())?;
+            }
+            Ok(session)
+        });
+        let session = match session {
+            Ok(session) => session,
+            Err(error) => {
+                // A failed switch leaves the pane on the agent that still runs in it.
+                if let Some(previous) = replaced_agent {
+                    self.store.update(|state| match previous {
+                        Some(previous) => state.agents.insert(pane.clone(), previous),
+                        None => state.agents.remove(&pane),
+                    })?;
+                }
+                return Err(error);
+            }
+        };
         let capabilities = session.capabilities();
         // The lock is free again before the old session drops: dropping kills the agent's process and waits for it.
         let replaced = self.sessions().insert(pane.clone(), (worktree, session));
@@ -132,7 +171,8 @@ impl Sessions {
         })
     }
 
-    pub fn send(&self, pane: &str, text: &str, images: &[Image]) -> Result<(), Error> {
+    /// Whether the message took the images.
+    pub fn send(&self, pane: &str, text: &str, images: &[Image]) -> Result<bool, Error> {
         let state = self.store.get();
         let held_elsewhere = state
             .panes
@@ -146,6 +186,10 @@ impl Sessions {
 
     pub fn answer_dialog(&self, pane: &str, id: &str, answer: &DialogAnswer) -> Result<(), Error> {
         self.with(pane, |session| session.answer_dialog(id, answer))
+    }
+
+    pub fn pick_model(&self, pane: &str, id: &str, level: Option<&str>) -> Result<(), Error> {
+        self.with(pane, |session| session.pick_model(id, level))
     }
 
     pub fn abort(&self, pane: &str) -> Result<(), Error> {
@@ -245,6 +289,12 @@ impl PaneWatch {
     fn observe(&mut self, event: &HarnessEvent) -> Option<StatusReport> {
         match event {
             HarnessEvent::State { running } => self.awake.set_working(&self.pane, *running),
+            // The agent picker lists a harness's models while another harness runs.
+            HarnessEvent::Models { harness, models } => {
+                let _ = self.store.update(|state| {
+                    state.models.insert((*harness).into(), models.clone());
+                });
+            }
             // The next start opens the session the pane shows now.
             HarnessEvent::SessionInfo { id } => {
                 let _ = self.store.update(|state| {
@@ -267,7 +317,7 @@ impl PaneWatch {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Layout, PaneAgent, Tab, WorktreePanes};
+    use crate::{Layout, Tab, WorktreePanes};
 
     fn held(session: &str) -> PaneAgent {
         PaneAgent {
@@ -398,6 +448,8 @@ mod tests {
         let started = Sessions::new(Arc::clone(&store), root.clone()).start(
             PathBuf::from("/w"),
             "a".into(),
+            None,
+            None,
             |_| {},
             |_, _| {},
         );

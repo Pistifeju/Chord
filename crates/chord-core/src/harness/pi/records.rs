@@ -2,12 +2,14 @@
 
 use serde_json::Value;
 
-use super::{EXTENSION_PREFIX, FORK_DIALOG, Picker, SESSION_COMMANDS, USAGE_STATUS};
+use super::{
+    EXTENSION_PREFIX, FORK_DIALOG, MODELS_REQUEST, NAME, Picker, SESSION_COMMANDS, USAGE_STATUS,
+};
 use crate::harness::calls::OpenCalls;
 use crate::harness::shell::read_only_title;
 use crate::harness::{
-    DialogAsk, HarnessEvent, Image, LineChanges, SlashCommand, SlashKind, SubagentNode,
-    SubagentState, ToolOutcome, UsageWindow, capitalized, count,
+    DialogAsk, HarnessEvent, Image, LineChanges, ModelOption, SlashCommand, SlashKind,
+    SubagentNode, SubagentState, ToolOutcome, UsageWindow, capitalized, count, text,
 };
 
 // The model label shows pi's name for the model; the thinking level shows only for a model that reasons.
@@ -20,9 +22,62 @@ fn chosen_model(state: &Value) -> Option<HarnessEvent> {
         None
     };
     Some(HarnessEvent::Model {
+        id: model_id(model),
         name: name.into(),
         thinking,
     })
+}
+
+// The id a pick sends back: pi names a model by its provider and its id together.
+fn model_id(model: &Value) -> Option<String> {
+    Some(format!(
+        "{}/{}",
+        model["provider"].as_str()?,
+        model["id"].as_str()?
+    ))
+}
+
+// pi's own rule (`getSupportedThinkingLevels`): a model that reasons takes every level its map does not turn off, and xhigh and max only when the map names them.
+const THINKING_LEVELS: [&str; 7] = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
+
+fn thinking_levels(model: &Value) -> Vec<String> {
+    if model["reasoning"] != true {
+        return vec![];
+    }
+    let map = &model["thinkingLevelMap"];
+    THINKING_LEVELS
+        .into_iter()
+        .filter(|level| match map.get(level) {
+            Some(Value::Null) => false,
+            mapped => !matches!(*level, "xhigh" | "max") || mapped.is_some(),
+        })
+        .map(String::from)
+        .collect()
+}
+
+pub(super) fn models_event(models: &Value) -> HarnessEvent {
+    HarnessEvent::Models {
+        harness: NAME,
+        models: models
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|model| {
+                let id = model_id(model)?;
+                Some(ModelOption {
+                    name: text(if model["name"].is_string() {
+                        &model["name"]
+                    } else {
+                        &model["id"]
+                    }),
+                    provider: model["provider"].as_str().map(String::from),
+                    levels: thinking_levels(model),
+                    default_level: None,
+                    id,
+                })
+            })
+            .collect(),
+    }
 }
 
 fn model_dialog(models: &Value) -> HarnessEvent {
@@ -30,13 +85,7 @@ fn model_dialog(models: &Value) -> HarnessEvent {
         .as_array()
         .into_iter()
         .flatten()
-        .filter_map(|model| {
-            Some(format!(
-                "{}/{}",
-                model["provider"].as_str()?,
-                model["id"].as_str()?
-            ))
-        })
+        .filter_map(model_id)
         .collect();
     picker_dialog(
         Picker::Model,
@@ -46,7 +95,7 @@ fn model_dialog(models: &Value) -> HarnessEvent {
 }
 
 // The current model's provider leads, the others keep pi's order; inside a provider the higher version comes first. A version is the id's short number runs (`claude-opus-4-5-20251101` is 4.5), so a release date does not count.
-pub(super) fn newest_first(options: &mut [String], current: Option<&str>) {
+pub(super) fn newest_first<T>(options: &mut [T], current: Option<&str>, id: impl Fn(&T) -> &str) {
     fn provider(option: &str) -> &str {
         option.split_once('/').map_or("", |(provider, _)| provider)
     }
@@ -55,11 +104,12 @@ pub(super) fn newest_first(options: &mut [String], current: Option<&str>) {
         .into_iter()
         .collect();
     for option in options.iter() {
-        if !providers.iter().any(|p| p == provider(option)) {
-            providers.push(provider(option).into());
+        if !providers.iter().any(|p| p == provider(id(option))) {
+            providers.push(provider(id(option)).into());
         }
     }
     options.sort_by_cached_key(|option| {
+        let option = id(option);
         let group = providers.iter().position(|p| *p == provider(option));
         let version: Vec<u32> = option
             .split(|c: char| !c.is_ascii_digit())
@@ -161,12 +211,20 @@ pub(super) fn events_from(record: &Value) -> Vec<HarnessEvent> {
                     .into(),
             }]
         }
-        Some("response") if record["success"] == false => vec![HarnessEvent::Notice {
-            text: record["error"]
-                .as_str()
-                .unwrap_or("pi refused the command")
-                .into(),
-        }],
+        // The chat takes no message until a history ends, so a refused one still ends.
+        Some("response") if record["success"] == false => {
+            let notice = HarnessEvent::Notice {
+                text: record["error"]
+                    .as_str()
+                    .unwrap_or("pi refused the command")
+                    .into(),
+            };
+            let ended = (record["command"] == "get_messages").then_some(HarnessEvent::HistoryEnd);
+            std::iter::once(notice).chain(ended).collect()
+        }
+        Some("response") if record["id"] == MODELS_REQUEST => {
+            vec![models_event(&record["data"]["models"])]
+        }
         Some("response") => response(record["command"].as_str(), &record["data"]),
         _ => vec![],
     }

@@ -23,8 +23,8 @@ export type Item = Message | StepGroup | StopMark | CompactionMark;
 /** A dialog the agent waits on; `id` goes back with the answer. */
 export type OpenDialog = { id: string; title: string; ask: DialogAsk };
 
-/** A model's name and, when it reasons, its thinking level. */
-export type ModelChoice = { name: string; thinking: string | null };
+/** A model's name and, when it reasons, its thinking level; `id` names it in the harness's model list, when the harness says. */
+export type ModelChoice = { id: string | null; name: string; thinking: string | null };
 
 /** The model's context window and the tokens the session fills of it; null tokens right after a compaction. */
 type ContextFill = { tokens: number | null; window: number };
@@ -61,9 +61,13 @@ export type Chat = {
   report: StatusReport | null;
   /** How many of the items came back as the session's history; they show without the arrival motion. */
   historyLength: number;
+  /** From the start or a `history_start` until its `history_end`: the harness may not take a message yet. */
+  loading: boolean;
+  /** The message sent while the chat loaded; it goes out when the history ends. */
+  held: string | null;
 };
 
-export const emptyChat: Chat = { agent: "idle", items: [], running: false, since: null, capabilities: null, notice: null, dialog: null, model: null, permissions: null, context: null, commands: [], subagents: [], subagentsAt: null, queued: [], steerImages: [], report: null, historyLength: 0 };
+export const emptyChat: Chat = { agent: "idle", items: [], running: false, since: null, capabilities: null, notice: null, dialog: null, model: null, permissions: null, context: null, commands: [], subagents: [], subagentsAt: null, queued: [], steerImages: [], report: null, historyLength: 0, loading: false, held: null };
 
 export type SteerImages = { text: string; images: Image[] };
 
@@ -166,10 +170,12 @@ export type Replay = HarnessEvent[] | null;
 
 /** The chat and the held replay after `event`: a session's history changes the chat once, at its end, stamped with that `now`. The held array is the caller's to pass back. */
 export function chatFed(chat: Chat, replay: Replay, event: HarnessEvent, now: number): { chat: Chat; replay: Replay } {
-  const held = event.kind === "history_start" ? [] : replay;
+  // A start inside a held replay keeps what came before it; replaying the start clears the transcript again.
+  const held = event.kind === "history_start" ? (replay ?? []) : replay;
   if (!held) return { chat: chatAfter(chat, event, now), replay: null };
   held.push(event);
-  if (event.kind !== "history_end") return { chat, replay: held };
+  // An exit ends a replay it cut short.
+  if (event.kind !== "history_end" && event.kind !== "exited") return { chat: event.kind === "history_start" ? { ...chat, loading: true } : chat, replay: held };
   return { chat: held.reduce((next, replayed) => chatAfter(next, replayed, now), chat), replay: null };
 }
 
@@ -215,7 +221,7 @@ export function chatAfter(chat: Chat, event: HarnessEvent, now: number): Chat {
     case "dialog_closed":
       return chat.dialog && chat.dialog.ask.kind !== "menu" ? { ...chat, dialog: null } : chat;
     case "model":
-      return { ...chat, model: { name: event.name, thinking: event.thinking ?? null } };
+      return { ...chat, model: { id: event.id ?? null, name: event.name, thinking: event.thinking ?? null } };
     case "context":
       return { ...chat, context: event.window == null ? null : { tokens: event.tokens ?? null, window: event.window } };
     case "permissions":
@@ -250,12 +256,13 @@ export function chatAfter(chat: Chat, event: HarnessEvent, now: number): Chat {
     case "history_start":
       return { ...chat, items: [], subagentsAt: null, queued: [], steerImages: [], report: null, historyLength: 0 };
     case "history_end":
-      return { ...chat, historyLength: chat.items.length, subagentsAt: chat.subagents.length > 0 ? chat.items.length : null };
-    // Rust saves the session; the intake hands the draft, the export and the usage to the store; the transcript holds none of them.
+      return { ...chat, loading: false, historyLength: chat.items.length, subagentsAt: chat.subagents.length > 0 ? chat.items.length : null };
+    // Rust saves the session; the intake hands the draft, the export, the usage and the model list to the store; the transcript holds none of them.
     case "session_info":
     case "draft":
     case "exported":
     case "usage":
+    case "models":
       return chat;
     case "exited":
       // Nobody is left to answer a dialog, a picker menu included.

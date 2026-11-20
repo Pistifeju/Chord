@@ -9,8 +9,8 @@ use super::reader::Reader;
 use super::records::{collapse_skill, newest_first};
 use crate::harness::calls::OpenCalls;
 use crate::harness::{
-    DialogAnswer, DialogAsk, HarnessEvent, Image, LineChanges, SlashCommand, SlashKind,
-    SubagentNode, SubagentState, ToolOutcome, UsageWindow,
+    DialogAnswer, DialogAsk, HarnessEvent, Image, LineChanges, ModelOption, SlashCommand,
+    SlashKind, SubagentNode, SubagentState, ToolOutcome, UsageWindow,
 };
 
 fn events(record: &str) -> Vec<HarnessEvent> {
@@ -510,6 +510,7 @@ fn the_state_tells_the_model_and_a_picker_marks_it() {
                 id: "a.jsonl".into()
             },
             HarnessEvent::Model {
+                id: Some("anthropic/sonnet-4".into()),
                 name: "Sonnet 4".into(),
                 thinking: Some("medium".into())
             },
@@ -519,6 +520,7 @@ fn the_state_tells_the_model_and_a_picker_marks_it() {
     assert_eq!(
         events(plain),
         vec![HarnessEvent::Model {
+            id: Some("local/small".into()),
             name: "small".into(),
             thinking: None
         }]
@@ -549,7 +551,7 @@ fn the_model_list_puts_the_current_provider_and_the_newest_versions_first() {
     ]
     .map(String::from)
     .into();
-    newest_first(&mut options, Some("openai-codex/gpt-5.1"));
+    newest_first(&mut options, Some("openai-codex/gpt-5.1"), String::as_str);
     assert_eq!(
         options,
         [
@@ -975,5 +977,34 @@ fn the_run_starts_and_settles() {
             HarnessEvent::State { running: false },
             HarnessEvent::Aborted
         ]
+    );
+}
+
+#[test]
+fn the_model_list_gives_each_model_the_levels_pi_allows_it() {
+    let models = r#"{"type":"response","id":"chord-models","command":"get_available_models","success":true,"data":{"models":[{"id":"gpt-5","provider":"openai","name":"GPT-5","reasoning":true,"thinkingLevelMap":{"minimal":null,"xhigh":"xhigh"}},{"id":"small","provider":"local","reasoning":false}]}}"#;
+    assert_eq!(
+        events(models),
+        vec![HarnessEvent::Models {
+            harness: "pi",
+            models: vec![
+                ModelOption {
+                    id: "openai/gpt-5".into(),
+                    name: "GPT-5".into(),
+                    provider: Some("openai".into()),
+                    levels: ["off", "low", "medium", "high", "xhigh"]
+                        .map(String::from)
+                        .to_vec(),
+                    default_level: None,
+                },
+                ModelOption {
+                    id: "local/small".into(),
+                    name: "small".into(),
+                    provider: Some("local".into()),
+                    levels: vec![],
+                    default_level: None,
+                },
+            ],
+        }]
     );
 }

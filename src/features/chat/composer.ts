@@ -1,4 +1,4 @@
-// Rules for the composer: whether it shows and steers, whether a send goes through, what a key does in it, where dropped files go, what a picker button does and which menu floats above it.
+// Rules for the composer: whether it shows and steers, whether a send goes through, what becomes of a message held while the chat loaded, what a key does in it, where dropped files go, what a picker button does and which menu floats above it.
 import type { SlashCommand } from "../../ipc/bindings";
 import { steppedIndex } from "../../ui/listStep.ts";
 import { imageMime } from "./attachments.ts";
@@ -12,10 +12,18 @@ export function composerState(chat: Chat) {
   return {
     ready,
     steers,
-    canSend: ready && (!chat.running || steers),
+    // A chat that loads takes one message, which waits for the history's end.
+    canSend: ready && (chat.loading ? chat.held === null : !chat.running || steers),
     menu,
     shown: chat.agent !== "idle" && (!chat.dialog || menu !== null),
   };
+}
+
+/** What becomes of the message the chat held while it loaded: it goes out once the agent takes messages, and back into the draft when the agent stopped first. Null while it waits. */
+export function heldMessage({ held, agent, loading }: Chat): { kind: "send" | "restore"; text: string } | null {
+  if (held === null) return null;
+  if (agent === "idle") return { kind: "restore", text: held };
+  return agent === "ready" && !loading ? { kind: "send", text: held } : null;
 }
 
 /** Whether a send goes through: the composer takes sends and holds text or an attachment. */
@@ -46,6 +54,6 @@ export function droppedFiles(paths: string[], canAttach: boolean): { attach: str
 /** What a picker button does once the open menus close: the open picker's button leaves it closed, the other picker's button opens its own. A picker's dialog title is its button's title. */
 export const pickerClick = (openTitle: string | null, title: string) => ({ open: openTitle !== title });
 
-/** The one menu floating above the composer: an open picker first, then the branch menu, then the slash menu. */
-export const composerMenu = (picker: boolean, branch: boolean, slash: boolean): "picker" | "branch" | "slash" | null =>
-  picker ? "picker" : branch ? "branch" : slash ? "slash" : null;
+/** The one menu floating above the composer: an open picker first, then the agent picker, then the branch menu, then the slash menu. */
+export const composerMenu = (picker: boolean, agent: boolean, branch: boolean, slash: boolean): "picker" | "agent" | "branch" | "slash" | null =>
+  picker ? "picker" : agent ? "agent" : branch ? "branch" : slash ? "slash" : null;

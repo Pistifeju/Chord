@@ -1,5 +1,5 @@
 // Connects the tab and layout rules to IPC: each worktree's tab groups, their agents, saved through Rust.
-import { commands, type DiffSide, type Direction, type WorktreePanes } from "../../ipc/bindings";
+import { commands, type DiffSide, type Direction, type ModelPick, type WorktreePanes } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
 import { closeSheet, openSheet, type Sheet } from "../../app/sheet";
 import { chats, forgetChat, startChat } from "../chat/store";
@@ -28,6 +28,9 @@ const set = (worktree: string, next: WorktreePanes) => panes.set({ ...panes.get(
 
 const browsersIn = (saved: WorktreePanes | undefined): string[] => (saved ? browserPaneIds(saved.layout) : []);
 
+// The agent and model a new chat tab starts on in place of the default, until its start.
+const startsOn = new Map<string, { harness: string; pick: ModelPick | null }>();
+
 // Every pane change goes through here: a pane that appears starts its agent, a pane that goes forgets its chat or closes its page.
 function commit(worktree: string, next: WorktreePanes | undefined, persist: boolean) {
   const { [worktree]: before, ...rest } = panes.get();
@@ -36,7 +39,11 @@ function commit(worktree: string, next: WorktreePanes | undefined, persist: bool
   panes.set(next ? { ...panes.get(), [worktree]: next } : rest);
   if (persist) save(worktree);
   const { started, gone } = paneChanges(before, next);
-  for (const pane of started) void startChat(worktree, pane);
+  for (const pane of started) {
+    const on = startsOn.get(pane);
+    startsOn.delete(pane);
+    void startChat(worktree, pane, on?.harness ?? null, on?.pick ?? null);
+  }
   for (const pane of gone) forgetChat(pane);
 }
 
@@ -67,6 +74,13 @@ export const splitFocused = (worktree: string, direction: Direction) => change(w
 
 // A new chat tab in `group`, by default the focused one.
 export const newSession = (worktree: string, group?: string) => change(worktree, (p) => withNewSession(p, newId(), group));
+
+/** A new chat tab in the focused group on `harness` at the model `pick`; the chat the user picked it from stays as it is. */
+export function newSessionOn(worktree: string, harness: string, pick: ModelPick | null) {
+  const id = newId();
+  startsOn.set(id, { harness, pick });
+  change(worktree, (p) => withNewSession(p, id));
+}
 
 export const closeFocused = (worktree: string) => closePane(worktree, panesOf(worktree).focused);
 

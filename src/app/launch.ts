@@ -5,7 +5,7 @@ import { installAppMenu } from "./appMenu";
 import { loadDeferredViews } from "./deferredViews";
 import { keepAwake, linksInDefaultBrowser, loadAppearance, muteNotifications } from "../features/settings/store";
 import { loadPanes, resumeAgents } from "../features/panes/store";
-import { loadPaneHarnesses } from "../features/chat/store";
+import { loadModelCatalogs, loadPaneHarnesses, refreshModelCatalogs } from "../features/chat/store";
 import { checkHarnesses } from "../features/harnesses/store";
 import { sidebar } from "../features/sidebar/store";
 import { loadSidePanels } from "../features/sidepanel/store";
@@ -40,6 +40,8 @@ export async function launch() {
     sidebar.set(state.sidebar);
     loadPanes(state.panes);
     loadPaneHarnesses(state.agents);
+    loadModelCatalogs(state.models);
+    refreshModelCatalogs();
     loadSidePanels(state.sidePanels);
     loadBottomPanels(state.bottomPanels);
     loadRunDestinations(state.runDestinations);

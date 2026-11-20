@@ -172,6 +172,7 @@ fn a_saved_thread_opens_again_with_its_turns() {
             HarnessEvent::HistoryStart,
             HarnessEvent::SessionInfo { id: "t1".into() },
             HarnessEvent::Model {
+                id: Some("m1".into()),
                 name: "m1".into(),
                 thinking: None
             },
@@ -211,6 +212,7 @@ fn a_reload_shows_and_sends_the_users_picks_over_the_threads_settings() {
     let resumed = r#"{"id":5,"result":{"model":"m1","reasoningEffort":"high","thread":{"id":"t1","turns":[]}}}"#;
     let opened = events(&mut reader, &[resumed]);
     assert!(opened.contains(&HarnessEvent::Model {
+        id: Some("m2".into()),
         name: "m2".into(),
         thinking: Some("low".into())
     }));
@@ -537,6 +539,7 @@ fn a_picked_model_without_the_level_takes_its_default() {
         [
             HarnessEvent::DialogClosed,
             HarnessEvent::Model {
+                id: Some("m2".into()),
                 name: "Model Two".into(),
                 thinking: Some("medium".into())
             }

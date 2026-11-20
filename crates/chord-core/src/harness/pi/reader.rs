@@ -187,6 +187,9 @@ impl ShownSession {
 
     // A picker's list is built from a response that does not know the current choice.
     fn with_current(&self, mut event: HarnessEvent) -> HarnessEvent {
+        if let HarnessEvent::Models { models, .. } = &mut event {
+            newest_first(models, self.model.as_deref(), |model| &model.id);
+        }
         if let HarnessEvent::Dialog {
             id,
             ask: DialogAsk::Menu {
@@ -197,7 +200,7 @@ impl ShownSession {
         {
             match Picker::from_id(id) {
                 Some(Picker::Model) => {
-                    newest_first(options, self.model.as_deref());
+                    newest_first(options, self.model.as_deref(), String::as_str);
                     *current = self.model.clone();
                 }
                 Some(Picker::Thinking) => *current = self.thinking.clone(),

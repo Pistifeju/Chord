@@ -82,6 +82,7 @@ pub fn checks(pick: Option<&str>) -> Checks {
         (check_each(HARNESSES.iter()), git.join().unwrap_or(false))
     });
     let default_harness = default_harness(pick, &harnesses).map(str::to_string);
+    *lock(&CHECKED) = Some(harnesses.clone());
     Checks {
         harnesses,
         git_install: (!git).then(|| GIT_INSTALL.into()),
@@ -89,12 +90,25 @@ pub fn checks(pick: Option<&str>) -> Checks {
     }
 }
 
-/// The harness a pane without one takes: the user's pick while it can start, else the first ready one. A lone harness that is missing fails with `MissingTool`.
+/// The last check of the harnesses, so a new pane starts without one of its own: each costs a login shell and a start of every harness.
+static CHECKED: Mutex<Option<Vec<HarnessCheck>>> = Mutex::new(None);
+
+/// The harness a pane without one takes: the user's pick while it can start, else the first ready one, by the last check while that names one. A lone harness that is missing fails with `MissingTool`.
 pub fn default_for_new_pane(pick: Option<&str>) -> Result<String, Error> {
+    let checked = lock(&CHECKED);
+    if let Some(name) = checked
+        .as_deref()
+        .and_then(|checks| default_harness(pick, checks))
+    {
+        return Ok(name.to_string());
+    }
+    drop(checked);
     let starting: Vec<&Harness> = HARNESSES.iter().filter(|harness| harness.starts).collect();
     let checks = check_each(starting.iter().copied());
     if let Some(name) = default_harness(pick, &checks) {
-        return Ok(name.to_string());
+        let name = name.to_string();
+        *lock(&CHECKED) = Some(checks);
+        return Ok(name);
     }
     match (starting.as_slice(), checks.as_slice()) {
         (

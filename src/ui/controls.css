@@ -587,7 +587,11 @@ button:focus-visible {
   color: var(--ink-secondary);
 }
 
-.segmented button[aria-checked="false"]:hover {
+.segmented button:disabled {
+  color: var(--ink-disabled);
+}
+
+.segmented button[aria-checked="false"]:hover:not(:disabled) {
   color: var(--ink);
 }
 
@@ -595,6 +599,44 @@ button:focus-visible {
   background: var(--control-selected);
   box-shadow: var(--shadow-control);
   color: var(--ink);
+}
+
+/* A sliding control draws the checked look once, on a thumb that moves under the buttons. */
+.segmented[data-sliding] {
+  position: relative;
+}
+
+.segmented[data-sliding] button {
+  position: relative;
+  transition: color var(--t-fast) var(--ease-out);
+}
+
+.segmented[data-sliding] button[aria-checked="true"] {
+  background: transparent;
+  box-shadow: none;
+}
+
+.segmented-thumb {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 0;
+  border-radius: var(--radius-inset);
+  background: var(--control-selected);
+  box-shadow: var(--shadow-control);
+  transition:
+    transform var(--t-med) var(--ease-out),
+    width var(--t-med) var(--ease-out);
+}
+
+.segmented-thumb[data-jump] {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .segmented-thumb {
+    transition: none;
+  }
 }
 
 /* A 14px checkbox. */

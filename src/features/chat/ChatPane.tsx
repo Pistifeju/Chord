@@ -1,12 +1,14 @@
 // The chat of one pane: transcript, composer, and a Start button while no agent runs, or the harness rows while its harness cannot start.
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { flushSync } from "react-dom";
-import { memo, useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type CSSProperties, type KeyboardEvent } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type CSSProperties, type KeyboardEvent } from "react";
 import { tooltip } from "../../app/commands";
 import type { Checks, HarnessCheck, Image, SlashCommand, SubagentNode } from "../../ipc/bindings";
 import { elementAtDrop } from "../../ui/dropPoint";
 import { ArrowDownIcon, ArrowUpIcon, BranchIcon, ChevronDownIcon, ChevronIcon, CloseIcon, ImageIcon, PaperclipIcon } from "../../ui/icons";
 import { imageUrl, isImageType, type Attachment } from "./attachments";
+import { AgentMenu } from "./AgentMenu";
+import { agentPickerPane, closeAgentPicker, openAgentPicker } from "./agentPicker";
 import { BranchMenu } from "./BranchMenu";
 import { branchLabel, branchMenuPane, closeBranchMenu, openBranchMenu } from "./branch";
 import { DialogMenu, DialogPanel } from "./DialogPanel";
@@ -21,6 +23,7 @@ import { worktreeAt } from "../worktrees/projects";
 import { projects } from "../worktrees/store";
 import { StatusMark } from "../status/StatusMark";
 import { HarnessRows } from "../harnesses/HarnessRows";
+import { harnessMarks } from "../harnesses/logos";
 import { blockingRows } from "../harnesses/harnessCheck";
 import { checkHarnesses, harnessChecks, watchHarnessChecks } from "../harnesses/store";
 import { TranscriptFind } from "./TranscriptFind";
@@ -319,11 +322,19 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
   // A switch changes the folder every pane of the worktree works in, so any running agent locks it.
   const worktreeBusy = chats.usePart((all) => anyRunning(all, allPaneIds(panes.get()[worktree])));
   const branchAsked = branchMenuPane.usePart((open) => open === pane);
-  const floating = composerMenu(menu !== null, branchAsked && !worktreeBusy, slashRows.length > 0);
+  const agentAsked = agentPickerPane.usePart((open) => open === pane);
+  const harness = paneHarnesses.usePart((all) => all[pane] ?? null);
+  const floating = composerMenu(menu !== null, agentAsked && ready && harness !== null, branchAsked && !worktreeBusy, slashRows.length > 0);
+  const agentButton = useRef<HTMLButtonElement>(null);
+  const AgentLogo = harness ? harnessMarks[harness]?.Logo : undefined;
 
   useEffect(() => {
     if (worktreeBusy && branchMenuPane.get() === pane) closeBranchMenu();
   }, [worktreeBusy, pane]);
+
+  useEffect(() => {
+    if (!ready && agentPickerPane.get() === pane) closeAgentPicker();
+  }, [ready, pane]);
 
   // The pane under the pointer takes the dropped images; any other file, such as a video, goes into the draft as its path.
   useEffect(() => {
@@ -366,12 +377,18 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
   }, [ready, focused, dialogOpen]);
   const closeMenus = () => {
     closeBranchMenu();
+    if (agentPickerPane.get() === pane) closeAgentPicker();
     if (menu) answerDialog(pane, menu.dialog.id, { kind: "cancelled" });
   };
-  const togglePicker = (command: "/model" | "/thinking" | "/permissions", title: string) => {
+  const togglePicker = (command: "/permissions", title: string) => {
     const click = pickerClick(menu?.dialog.title ?? null, title);
     closeMenus();
     if (click.open) openPicker(pane, command);
+  };
+  const toggleAgent = () => {
+    const open = floating === "agent";
+    closeMenus();
+    if (!open) openAgentPicker(pane);
   };
   const toggleBranch = () => {
     const open = floating === "branch";
@@ -385,12 +402,13 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
   const shownItems = useRef(chat.items);
   if (!sameItems(shownItems.current, chat.items)) shownItems.current = chat.items;
   const subagentRows = chat.capabilities?.includes("subagents") ? chat.subagents : noSubagents;
+  const queuedRows = useMemo(() => (chat.held === null ? chat.queued : [chat.held]), [chat.held, chat.queued]);
   useLayoutEffect(() => {
     const el = transcript.current;
     if (chat.items[0] !== firstItem.current) pinned.current = true;
     firstItem.current = chat.items[0];
     if (el && pinned.current) el.scrollTop = el.scrollHeight;
-  }, [shownItems.current, chat.running, chat.queued, chat.steerImages, subagentRows]);
+  }, [shownItems.current, chat.running, queuedRows, chat.steerImages, subagentRows]);
 
   const jumpToEnd = () => {
     const el = transcript.current;
@@ -435,8 +453,8 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
       className="chat"
       ref={root}
       onClick={(e) => {
-        // A click outside a control lands in the composer, unless the reader selected text.
-        if ((e.target as Element).closest("button, a, input, textarea")) return;
+        // A click outside a control lands in the composer, unless the reader selected text. The agent menu moves the focus itself: a pick can open another tab.
+        if ((e.target as Element).closest("button, a, input, textarea, .chat-agent-menu")) return;
         if (window.getSelection()?.isCollapsed !== false) composer.current?.focus();
       }}
     >
@@ -451,7 +469,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
             setAway(fromEnd >= 72);
           }}
         >
-          {chat.items.length === 0 && chat.agent === "starting" ? (
+          {chat.items.length === 0 && chat.agent === "starting" && chat.capabilities === null ? (
             <span className="spinner chat-starting" role="status" aria-label="Starting the agent" />
           ) : chat.items.length === 0 && chat.agent === "idle" ? (
             <div className="chat-empty">
@@ -460,7 +478,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
               <Start worktree={worktree} pane={pane} blocking={blocking} />
             </div>
           ) : (
-            <Messages pane={pane} items={shownItems.current} queued={chat.queued} steerImages={chat.steerImages} subagents={subagentRows} subagentsAt={chat.subagentsAt} historyLength={chat.historyLength} />
+            <Messages pane={pane} items={shownItems.current} queued={queuedRows} steerImages={chat.steerImages} subagents={subagentRows} subagentsAt={chat.subagentsAt} historyLength={chat.historyLength} />
           )}
         </div>
         <button type="button" className="chat-jump" data-shown={away || undefined} title="Jump to Latest" aria-label="Jump to Latest" onClick={jumpToEnd}>
@@ -493,6 +511,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
       {composerShown && (
         <div className="chat-composer-anchor">
           {menu && <DialogMenu key={menu.dialog.id} pane={pane} dialog={menu.dialog} options={menu.ask.options} current={menu.ask.current ?? null} filter={menu.ask.filter} />}
+          {floating === "agent" && harness && <AgentMenu worktree={worktree} pane={pane} harness={harness} chat={chat} trigger={agentButton} />}
           {floating === "branch" && <BranchMenu worktree={worktree} current={branch} />}
           {floating === "slash" && <SlashMenu commands={slashRows} query={slashQuery(draft) ?? ""} active={slashAt} onActive={setSlashActive} onPick={pickSlash} onDismiss={() => closeSlash(pane, draft)} />}
           <div className="chat-composer" data-path-drop={pathOver || undefined}>
@@ -549,25 +568,13 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
                   type="button"
                   className="chat-picker chat-permissions"
                   title="Permissions"
-                  disabled={!ready}
+                  disabled={!ready || chat.loading}
                   data-menu-toggle
                   data-asks={chat.permissions.asks || undefined}
                   onClick={() => togglePicker("/permissions", "Permissions")}
                 >
                   {chat.permissions.mode}
                 </button>
-              )}
-              {labels && (
-                <div className="chat-pickers">
-                  <button type="button" className="chat-picker" title="Model" disabled={!ready} data-menu-toggle onClick={() => togglePicker("/model", "Model")}>
-                    {labels.name}
-                  </button>
-                  {labels.thinking && (
-                    <button type="button" className="chat-picker" title="Thinking Level" disabled={!ready} data-menu-toggle onClick={() => togglePicker("/thinking", "Thinking Level")}>
-                      {labels.thinking}
-                    </button>
-                  )}
-                </div>
               )}
               {context && (
                 <span className="chat-context" data-level={context.level} title={context.title} aria-label={context.title}>
@@ -577,6 +584,29 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
                   </svg>
                   <span className="chat-context-percent">{context.percent === null ? "?" : `${context.percent}%`}</span>
                 </span>
+              )}
+              {labels && (
+                <div className="chat-pickers">
+                  <button
+                    ref={agentButton}
+                    type="button"
+                    className="chat-picker chat-agent"
+                    title={harness ? `${harnessMarks[harness]?.title ?? harness}, Model and Thinking` : "Model and Thinking"}
+                    aria-haspopup="dialog"
+                    aria-expanded={floating === "agent"}
+                    disabled={!ready || chat.loading}
+                    data-menu-toggle
+                    onClick={toggleAgent}
+                  >
+                    {AgentLogo && (
+                      <span className="chat-agent-logo">
+                        <AgentLogo />
+                      </span>
+                    )}
+                    <span className="chat-agent-model">{labels.name}</span>
+                    {labels.thinking && <span className="chat-agent-level">{labels.thinking}</span>}
+                  </button>
+                </div>
               )}
               <button
                 type="button"

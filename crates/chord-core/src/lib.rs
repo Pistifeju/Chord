@@ -27,7 +27,8 @@ pub use error::Error;
 pub use files::FileEntry;
 pub use git_counts::GitCounts;
 pub use harness::{
-    Capability, DialogAnswer, DialogAsk, HarnessEvent, Image, SlashCommand, Status, login_shell,
+    Capability, DialogAnswer, DialogAsk, HarnessEvent, Image, ModelOption, ModelPick, SlashCommand,
+    Status, login_shell,
 };
 pub use lock::lock;
 pub use panes::{DiffSide, Direction, Layout, Tab, WorktreePanes};

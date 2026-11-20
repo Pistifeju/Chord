@@ -14,9 +14,13 @@ use std::path::Path;
 
 use serde_json::json;
 
+use super::models::{self, Step, listed};
 use super::relaunch::Relaunchable;
-use super::{Agent, Capability, DialogAnswer, Harness, HarnessEvent, Image, SignIn, agent_tools};
+use super::{
+    Agent, Capability, DialogAnswer, Harness, HarnessEvent, Image, ModelOption, SignIn, agent_tools,
+};
 use crate::{Error, lock};
+use commands::Settings;
 use reader::{Reader, Relaunch};
 
 /// The harness name a pane saves.
@@ -38,6 +42,21 @@ pub const HARNESS: Harness = Harness {
 
 /// Codex's 60 s tool timeout would end a cold build's call.
 const TOOL_TIMEOUT_SEC: u32 = 3600;
+
+/// Codex's models, read from an app server that opens no thread.
+pub(crate) fn models() -> Result<Vec<ModelOption>, Error> {
+    let mut settings = Settings::default();
+    models::ask(
+        &HARNESS,
+        &["app-server"],
+        &[requests::initialize(1)],
+        move |record| match record["id"].as_u64() {
+            Some(1) => Step::Write(vec![requests::initialized(), requests::model_list(2)]),
+            Some(2) => listed(settings.read_models(&record["result"])),
+            _ => Step::Wait,
+        },
+    )
+}
 
 /// The pane's Codex; `/new` and `/reload` swap its process for another.
 pub struct Session(Relaunchable<Reader>);
@@ -91,17 +110,16 @@ impl Agent for Session {
     }
 
     /// Starts a turn, steers the running one, or runs a session command.
-    fn send(&self, text: &str, images: &[Image], held_elsewhere: &[String]) -> Result<(), Error> {
+    fn send(&self, text: &str, images: &[Image], held_elsewhere: &[String]) -> Result<bool, Error> {
         let reader = self.0.reader();
-        let relaunch = images
-            .is_empty()
-            .then(|| lock(&reader).relaunch(text))
-            .flatten();
+        let took = lock(&reader).takes_images(text);
+        let images = if took { images } else { &[] };
+        let relaunch = lock(&reader).relaunch(text);
         if let Some(open) = relaunch {
-            return self.0.relaunch(open);
+            return self.0.relaunch(open).map(|()| false);
         }
         let read = lock(&reader).send(text, images, held_elsewhere)?;
-        self.0.deliver(read.into())
+        self.0.deliver(read.into()).map(|()| took)
     }
 
     fn abort(&self) -> Result<(), Error> {
@@ -111,6 +129,11 @@ impl Agent for Session {
 
     fn answer_dialog(&self, id: &str, answer: &DialogAnswer) -> Result<(), Error> {
         let read = lock(&self.0.reader()).answer(id, answer)?;
+        self.0.deliver(read.into())
+    }
+
+    fn pick_model(&self, id: &str, level: Option<&str>) -> Result<(), Error> {
+        let read = lock(&self.0.reader()).pick_model(id, level);
         self.0.deliver(read.into())
     }
 

@@ -133,6 +133,14 @@ impl Reader {
         }
     }
 
+    /// Whether `text` sends its images: a message or a skill's command does, a session command does not.
+    pub(super) fn takes_images(&self, text: &str) -> bool {
+        matches!(
+            self.settings.command(text),
+            None | Some(Command::Skill { .. })
+        )
+    }
+
     /// The user's message: a new turn, or a steer of the running one. A session command opens its picker, and a skill's command sends the skill.
     pub(super) fn send(
         &mut self,
@@ -146,51 +154,39 @@ impl Reader {
             )));
         };
         let (text, input) = match self.settings.command(text) {
-            Some(Command::Menu(event)) if images.is_empty() => {
+            Some(Command::Menu(event)) => {
                 return Ok(Read {
                     events: vec![event],
                     lines: vec![],
                 });
             }
             Some(Command::Resume | Command::Back(_) | Command::Clone | Command::Compact)
-                if images.is_empty() && self.turn.is_some() =>
+                if self.turn.is_some() =>
             {
                 return Err(Error::Message(
                     "Wait for the agent to finish, then change the session".into(),
                 ));
             }
-            Some(Command::Resume) if images.is_empty() => {
+            Some(Command::Resume) => {
                 let cwd = self.cwd.to_string_lossy().into_owned();
                 let held = held_elsewhere.to_vec();
                 let id = self.request(Pending::Threads { held });
                 return Ok(lines(requests::thread_list(id, &cwd)));
             }
-            Some(Command::Back(back)) if images.is_empty() => {
+            Some(Command::Back(back)) => {
                 let id = self.request(Pending::Turns { back });
                 return Ok(lines(requests::thread_turns(id, &thread)));
             }
-            Some(Command::Clone) if images.is_empty() => {
+            Some(Command::Clone) => {
                 let cwd = self.cwd.to_string_lossy().into_owned();
                 let id = self.request(Pending::Fork);
                 return Ok(lines(requests::thread_fork(id, &thread, None, &cwd)));
             }
-            Some(Command::Compact) if images.is_empty() => {
+            Some(Command::Compact) => {
                 let id = self.request(Pending::Compact);
                 return Ok(lines(requests::thread_compact(id, &thread)));
             }
-            Some(
-                Command::Menu(_)
-                | Command::Resume
-                | Command::New
-                | Command::Reload
-                | Command::Back(_)
-                | Command::Clone
-                | Command::Compact,
-            ) => {
-                return Err(Error::Message(
-                    "Remove the images, then change the session".into(),
-                ));
-            }
+            Some(Command::New | Command::Reload) => return Ok(Read::default()),
             Some(Command::Skill { text, skill }) => {
                 let mut input = requests::input(&text, images);
                 input.push(skill);
@@ -222,6 +218,14 @@ impl Reader {
     }
 
     /// The user's answer to an open ask: the line that answers Codex, or a new turn with the answers.
+    /// The model and level the next turns carry.
+    pub(super) fn pick_model(&mut self, id: &str, level: Option<&str>) -> Read {
+        Read {
+            events: vec![self.settings.choose(id, level)],
+            lines: vec![],
+        }
+    }
+
     pub(super) fn answer(&mut self, id: &str, answer: &DialogAnswer) -> Result<Read, Error> {
         if id == resume::DIALOG {
             let picked = self.resume.pick(answer);
@@ -442,8 +446,18 @@ impl Reader {
             lines: vec![],
         };
         match pending {
+            // The chat takes no message until a history ends, so a failed handshake ends an empty one, and a send gets its error.
             Pending::Initialize => match error {
-                Some(error) => notice(error),
+                Some(error) => {
+                    self.thread_error = Some(error.clone());
+                    Read {
+                        events: vec![
+                            HarnessEvent::Notice { text: error },
+                            HarnessEvent::HistoryEnd,
+                        ],
+                        lines: vec![],
+                    }
+                }
                 None => Read {
                     events: vec![],
                     lines: vec![
@@ -456,7 +470,7 @@ impl Reader {
             },
             // Without the list the model shows its id; the thread starts either way.
             Pending::Models => {
-                self.settings.read_models(result);
+                let models = self.settings.read_models(result);
                 let line = match self.saved.take() {
                     Some(thread) => {
                         let cwd = self.cwd.to_string_lossy().into_owned();
@@ -469,7 +483,7 @@ impl Reader {
                     None => self.thread_start(),
                 };
                 Read {
-                    events: vec![],
+                    events: vec![models],
                     lines: vec![line],
                 }
             }
