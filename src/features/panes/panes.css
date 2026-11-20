@@ -165,16 +165,30 @@
 }
 
 /* Only the bar's own buttons: the run control's play button sits inside its capsule. */
+/* The plus is a square cell the bar's height, filled on hover like a tab. */
 .tabbar > .icon-button {
   flex: none;
-  align-self: center;
-  margin: 0 8px 0 2px;
+  align-self: stretch;
+  width: 36px;
+  height: auto;
+  margin-bottom: 1px;
+  border-radius: 0;
+  color: var(--ink-muted);
+  opacity: 0;
+  transition: opacity var(--t-fast) var(--ease-out), background-color var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out);
 }
 
-/* A bar with no tab: the plus's glyph starts 10px in, where a tab's icon and the toolbar's Run glyph start. */
-.tabbar > .icon-button:first-child {
-  margin-left: 4px;
+.tabbar > .icon-button:focus-visible {
+  outline-offset: -2px;
 }
+
+/* The plus waits hidden until the bar holds the pointer or the focus; a bar with no tab always shows it. */
+.tabbar:hover > .icon-button,
+.tabbar:focus-within > .icon-button,
+.tabbar > .icon-button:first-child {
+  opacity: 1;
+}
+
 
 /* The shown file or the panes, with the bottom panel under them. */
 .panes-work {
