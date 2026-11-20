@@ -100,9 +100,9 @@ export function HarnessRows({ checks, rows }: { checks: Checks | null; rows?: Ha
 }
 
 export function CheckAgain() {
-  const running = harnessChecks.usePart((s) => s.running);
+  const running = harnessChecks.usePart((s) => s.running && s.asked);
   return (
-    <button type="button" className="button-secondary harness-recheck" aria-busy={running} onClick={() => void checkHarnesses()}>
+    <button type="button" className="button-secondary harness-recheck" aria-busy={running} onClick={() => void checkHarnesses(true)}>
       <span className="button-label">Check Again</span>
       {running && <span className="spinner" />}
     </button>
