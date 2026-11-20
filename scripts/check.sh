@@ -20,6 +20,7 @@ step() {
 }
 
 step tsc npx tsc --noEmit
+step tsc-test npx tsc --noEmit -p tsconfig.test.json
 step rules sh scripts/check-rules.sh
 step test node --test "src/**/*.test.ts"
 step fmt cargo fmt --all --check

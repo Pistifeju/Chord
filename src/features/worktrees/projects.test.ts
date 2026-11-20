@@ -3,10 +3,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { branchName, goneWorktrees, moved, noProjects, withFirstWorktreeSelected, withProject, withoutProject, withoutWorktree, withSavedSelection, withSelectionRestored, withWorktrees } from "./projects.ts";
 
+const tree = (path: string, branch: string) => ({ path, branch, xcode: false, git: true });
+
 test("removing a project clears the selection only when it held the selected worktree", () => {
   let projects = withProject(withProject(noProjects, { path: "/a", name: "a" }), { path: "/b", name: "b" });
-  projects = withWorktrees(projects, "/a", [{ path: "/a-fix", branch: "fix" }]);
-  projects = withWorktrees(projects, "/b", [{ path: "/b", branch: "main" }]);
+  projects = withWorktrees(projects, "/a", [tree("/a-fix", "fix")]);
+  projects = withWorktrees(projects, "/b", [tree("/b", "main")]);
 
   assert.equal(withoutProject({ ...projects, selected: "/a-fix" }, "/a").selected, null);
   assert.equal(withoutProject({ ...projects, selected: "/b" }, "/a").selected, "/b");
@@ -14,7 +16,7 @@ test("removing a project clears the selection only when it held the selected wor
 
 test("an added project opens its first worktree only while nothing is open", () => {
   let projects = withProject(noProjects, { path: "/a", name: "a" });
-  projects = withWorktrees(projects, "/a", [{ path: "/a", branch: "main" }, { path: "/a-fix", branch: "fix" }]);
+  projects = withWorktrees(projects, "/a", [tree("/a", "main"), tree("/a-fix", "fix")]);
 
   assert.equal(withFirstWorktreeSelected(projects, "/a").selected, "/a");
   assert.equal(withFirstWorktreeSelected({ ...projects, selected: "/b" }, "/a").selected, "/b");
@@ -27,9 +29,9 @@ test("a typed branch name has its whitespace runs turned into dashes and its end
 
 test("deleting the selected worktree selects the one below it, or above when it was last", () => {
   const list = [
-    { path: "/a", branch: "main" },
-    { path: "/a-one", branch: "one" },
-    { path: "/a-two", branch: "two" },
+    tree("/a", "main"),
+    tree("/a-one", "one"),
+    tree("/a-two", "two"),
   ];
   const projects = withWorktrees(withProject(noProjects, { path: "/a", name: "a" }), "/a", list);
 
@@ -46,7 +48,7 @@ test("a refused delete gives the selection back only when the delete had moved i
 });
 
 test("the saved worktree is selected only if it still exists and nothing is selected yet", () => {
-  const projects = withWorktrees(withProject(noProjects, { path: "/a", name: "a" }), "/a", [{ path: "/a-one", branch: "one" }]);
+  const projects = withWorktrees(withProject(noProjects, { path: "/a", name: "a" }), "/a", [tree("/a-one", "one")]);
 
   assert.equal(withSavedSelection(projects, "/a-one").selected, "/a-one");
   assert.equal(withSavedSelection(projects, "/gone").selected, null);
@@ -56,12 +58,12 @@ test("the saved worktree is selected only if it still exists and nothing is sele
 
 test("a project's worktrees missing from its new list are gone", () => {
   const list = [
-    { path: "/a", branch: "main" },
-    { path: "/a-one", branch: "one" },
+    tree("/a", "main"),
+    tree("/a-one", "one"),
   ];
   const projects = withWorktrees(withProject(noProjects, { path: "/a", name: "a" }), "/a", list);
 
-  assert.deepEqual(goneWorktrees(projects, "/a", [{ path: "/a", branch: "main" }]), ["/a-one"]);
+  assert.deepEqual(goneWorktrees(projects, "/a", [tree("/a", "main")]), ["/a-one"]);
   assert.deepEqual(goneWorktrees(projects, "/a", []), ["/a", "/a-one"]);
 });
 

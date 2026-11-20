@@ -1,7 +1,7 @@
 // Tests for the transcript rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { callTime, chatAfter, chatFed, emptyChat, queuedImages, stepImages, stepsChanges, stepsSummary, withSteerImages, type Step } from "./transcript.ts";
+import { callTime, chatAfter, chatFed, emptyChat, queuedImages, stepImages, stepsChanges, stepsSummary, withSteerImages, type Message, type Step } from "./transcript.ts";
 
 test("chunks of one reply join into one streaming message until it ends", () => {
   let chat = chatAfter(emptyChat, { kind: "message_chunk", text: "Hel" }, 0);
@@ -13,10 +13,10 @@ test("chunks of one reply join into one streaming message until it ends", () => 
 
 test("a chunk after a steer starts a new reply", () => {
   let chat = chatAfter(emptyChat, { kind: "message_chunk", text: "One" }, 0);
-  chat = chatAfter(chat, { kind: "user_message_chunk", text: "Stop" }, 0);
+  chat = chatAfter(chat, { kind: "user_message_chunk", text: "Stop", images: [] }, 0);
   chat = chatAfter(chat, { kind: "message_chunk", text: "Two" }, 0);
   assert.deepEqual(
-    chat.items.map((m) => [m.role, m.text]),
+    (chat.items as Message[]).map((m) => [m.role, m.text]),
     [
       ["assistant", "One"],
       ["user", "Stop"],
@@ -31,7 +31,7 @@ test("an exit stops the run and the stream", () => {
   chat = chatAfter(chat, { kind: "exited" }, 0);
   assert.equal(chat.agent, "idle");
   assert.equal(chat.running, false);
-  assert.equal(chat.items[0].streaming, false);
+  assert.equal((chat.items[0] as Message).streaming, false);
 });
 
 test("thoughts and calls fold into one group that the next reply closes", () => {
@@ -107,7 +107,7 @@ test("a dialog stays open until Rust closes it", () => {
 });
 
 test("a picker menu stays open past a dialog close, until the agent exits", () => {
-  const ask = { kind: "menu", options: ["a", "b"], current: "a", filter: false } as const;
+  const ask = { kind: "menu" as const, options: ["a", "b"], current: "a", filter: false };
   let chat = chatAfter(emptyChat, { kind: "dialog", id: "m1", title: "Model", ask }, 0);
   chat = chatAfter(chat, { kind: "dialog_closed" }, 0);
   assert.equal(chat.dialog?.id, "m1");

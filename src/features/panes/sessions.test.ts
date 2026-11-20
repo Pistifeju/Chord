@@ -52,7 +52,7 @@ test("closing the last tab of all leaves its group empty", () => {
 });
 
 test("a tab dropped on another group's bar joins it, and a group left empty goes", () => {
-  assert.deepEqual(withTabMoved(sideBySide, "p3", { group: "g1", edge: null }), {
+  assert.deepEqual(withTabMoved(sideBySide, "p3", { group: "g1", edge: null }, "g3"), {
     layout: group("g1", [chat("p1", "Session 1"), chat("p2", "Session 2"), chat("p3", "Session 3")], "p3"),
     focused: "p3",
   });
