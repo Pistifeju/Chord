@@ -1,0 +1,47 @@
+/* The variants page: the frame around the four versions, then each version's own rules. */
+html,
+body {
+  overflow: auto;
+}
+
+.variants {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 28px 20px;
+}
+
+.variants-header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.variants-header h1,
+.variants-version h2 {
+  margin: 0;
+  font-size: calc(14px * var(--text-scale));
+  font-weight: 600;
+}
+
+.variants-version p {
+  margin: 0 0 8px;
+  color: var(--ink-muted);
+  font-size: calc(12px * var(--text-scale));
+}
+
+/* Set the width and the surface of the spot the thing sits in. */
+.variants-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 160px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--canvas);
+}
