@@ -1,4 +1,4 @@
-// The Files view: the worktree folder's name with Collapse All and Reload, its filter field and its tree with its right-click menu and name fields.
+// The Files view: its filter field with Collapse All and Reload, and its tree with its right-click menu and name fields.
 import { Fragment, memo, useEffect, useRef, useState, type CSSProperties } from "react";
 import { addPathToDraft, focusComposer, pathDropPane } from "../chat/store";
 import { showMenu } from "../../app/commands";
@@ -34,19 +34,16 @@ export const FilesView = memo(function FilesView({ worktree }: { worktree: strin
   }, [tree.selected, rows.length]);
   return (
     <div className="files">
-      <div className="files-header">
-        <span className="files-title" title={worktree}>
-          {fileName(worktree)}
-        </span>
-        <button type="button" className="icon-button collapse-all" title="Collapse All" aria-label="Collapse All" disabled={tree.open.length === 0} onClick={() => collapseAll(worktree)}>
-          <CollapseAllIcon />
-        </button>
-        <button type="button" className="icon-button" title="Reload" aria-label="Reload" onClick={() => void reloadFiles(worktree)}>
-          <ReloadIcon />
-        </button>
-      </div>
       <div className="files-filter">
-        <input className="input" placeholder="Filter" aria-label="Filter Files" value={tree.filter} onChange={(e) => setFilter(worktree, e.target.value)} />
+        <input className="files-filter-field" placeholder="Filter" aria-label="Filter Files" value={tree.filter} onChange={(e) => setFilter(worktree, e.target.value)} />
+        <span className="files-filter-actions">
+          <button type="button" className="icon-button collapse-all" title="Collapse All" aria-label="Collapse All" disabled={tree.open.length === 0} onClick={() => collapseAll(worktree)}>
+            <CollapseAllIcon />
+          </button>
+          <button type="button" className="icon-button" title="Reload" aria-label="Reload" onClick={() => void reloadFiles(worktree)}>
+            <ReloadIcon />
+          </button>
+        </span>
       </div>
       <div
         ref={list}

@@ -39,7 +39,7 @@ import { RenameBranchPopup } from "../features/worktrees/RenameBranchPopup";
 import { NewWorktreePopup } from "../features/worktrees/NewWorktreePopup";
 import { ProjectDrop } from "../features/worktrees/ProjectDrop";
 import { watchGitCounts } from "../features/worktrees/gitCountsRefresh";
-import { hasXcodeProject, worktreeAt } from "../features/worktrees/projects";
+import { hasXcodeProject, ownerOf, worktreeAt } from "../features/worktrees/projects";
 import { projects, welcomed } from "../features/worktrees/store";
 import { alert, dismissAlert } from "../ui/alert";
 import { seeThrough } from "../ui/seeThrough";
@@ -100,6 +100,8 @@ export default function App() {
   const buildStates = builds.use();
   const projectHasXcode = hasXcodeProject(state);
   const xcode = worktreeAt(state, selected)?.xcode === true;
+  const owner = selected === null ? undefined : ownerOf(state, selected);
+  const project = list.find((entry) => entry.path === owner);
   // The iOS parts of the sidebar, the toolbar, the side panel and the bottom panel are slots, so no core feature imports features/ios.
   const markers = useMemo(
     () => Object.fromEntries(Object.entries(buildStates).flatMap(([path, build]) => { const marker = markerText(build); return marker ? [[path, marker]] : []; })),
@@ -139,6 +141,11 @@ export default function App() {
       {/* An open sheet or Settings keeps keyboard focus and clicks inside itself. */}
       <div className="app-content" inert={overlay}>
         <div className="titlebar" data-tauri-drag-region>
+          {!empty && !hidden && project && (
+            <span className="titlebar-project" title={project.path} data-tauri-drag-region>
+              {project.name}
+            </span>
+          )}
           {!empty && (
             <span className="titlebar-sidebar" data-hidden={hidden}>
               <SidebarToggle />

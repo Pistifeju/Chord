@@ -262,7 +262,7 @@ Sizes multiply by `--text-scale`, which the text size setting changes (⌘=, ⌘
 - **Empty title** (600, 16px): the title of an empty state.
 - **Heading** (600, 14px): section headings, sheet titles and the Settings header.
 - **Body** (400, 13px, 1.45): descriptions, row labels, tab names. The transcript runs at 1.5.
-- **Label** (500, 13px): buttons, segments, the worktree name in the title bar.
+- **Label** (500, 13px): buttons, segments, the project name in the title bar.
 - **Code** (400, 12px): inline code, code blocks and tables of the agent's Markdown take the Body line height.
 - **Meta** (400, 12px, muted): git counts, shortcut hints, helper and notice text. Field labels use 12px at 500.
 - **Sidebar**: project names 11px/600 uppercase muted, card titles 13px/500, status words 11px/500, branches at 12px, git counts and shortcut hints at 11px. See `design/sidebar.md`.
@@ -279,7 +279,7 @@ Sizes multiply by `--text-scale`, which the text size setting changes (⌘=, ⌘
 ## Layout
 
 - One window, minimum 900 × 600. A flex row of the sidebar (280px) and the main area, with the status bar under both across the full width.
-- The title bar row is 40px tall (`--titlebar-height`), transparent, and drags the window. The sidebar toggle sits right after the traffic lights, whether the sidebar shows or not. The traffic lights, the toggle and the tabs share the row's center line. On a worktree the tab bars of the groups along the top take the row, at the same height; in a worktree with an Xcode project the toolbar takes it instead (see Build and Run) and the tab bars sit under it.
+- The title bar row is 40px tall (`--titlebar-height`), transparent, and drags the window. While the sidebar shows, the open worktree's project name sits right after the traffic lights (Label weight, `ink-secondary`, truncating, its path as the tooltip) and the sidebar toggle sits over the sidebar's right end, on the navigator's right edge. While the sidebar hides, the name goes and the toggle sits right after the traffic lights. The traffic lights, the name, the toggle and the tabs share the row's center line. On a worktree the tab bars of the groups along the top take the row, at the same height; in a worktree with an Xcode project the toolbar takes it instead (see Build and Run) and the tab bars sit under it.
 - The toast shows 4px below the window's top edge, centered over the title bar row.
 - The transcript and the composer share a centered column, 720px at most, with 20px side padding. The composer card and a dialog fill the column's inner width, and the user's message bubble ends on the card's right edge. Transcript text, the Working row and the notice sit 15px further in (the card's border, padding and input padding), so they start where the draft text starts, at every pane width.
 - The transcript fades out over its top and bottom 16px, so text scrolls away under the edges.
@@ -311,6 +311,7 @@ Popover and sheet shadows include a 1px ring: black at 8% in light, white at 10%
 - A worktree card's hover fill, its open fill and ring change over 120ms with `--ease-out`, and pressing its head or a session row scales it to 98.5%.
 - A Settings section's hover fill and ink change over 120ms with `--ease-out`, and pressing it scales it to 98.5%.
 - The Usage panel rises like a sheet. Its inspector title fades in and rises 4px over 200ms with `--ease-out` when the pick changes, a list row's hover fill changes over 120ms, and the refresh icon turns while a read runs. Its chart and bars do not animate.
+- The Files filter's Collapse All and Reload fade in over 120ms with `--ease-out` while you hover the filter row or work in it, and the field's text makes room for them over the same 120ms.
 - The project chevron, a step group's chevron and a Files folder's chevron turn in 120ms.
 - In the chat, a message, a step row, the Working row, the find bar and the notice fade in and rise 4px over 200ms with `--ease-out` when they arrive. A chat that opens with history shows it still. Each part of a step group's summary whose text changes fades in and unblurs from 2px over 400ms with a plain ease-out.
 - The slash menu and a composer picker menu fade in and rise 4px over 200ms with `--ease-out` when they open. An extension's dialog in place of the composer fades in over 120ms.
@@ -326,7 +327,7 @@ Popover and sheet shadows include a 1px ring: black at 8% in light, white at 10%
 - The toolbar's error list fades in, drops 4px and grows from 96% over 200ms with `--ease-out`, out of the error count's corner.
 - The toolbar's Stop glyph changes color over 120ms with `--ease-out` when it enables or disables.
 - The toolbar's activity line slides its segment across the field every 1.4s while a build, an install or a launch goes on; under Reduce Motion the line fills the field's width and pulses to 35% opacity every 2.4s instead.
-- Under Reduce Motion the sheet, its backdrop, the lightbox, the chat drop card, scrim, toast, chevrons, the context ring, the usage bar and the onboarding check's stroke skip their animation, the toolbar's error list only fades, the welcome's sidebar loop stays on its first beat, the welcome's step slide, a harness row's state and command chip, chat items, the slash, picker and agent menus, the chat drop card's content, a message's copy button and time, a session row's status, the run marker, a step summary's changed part, a new tab, a Changes view row, the commit mode menu, the Usage panel and its inspector title only fade, the send button, the agent button, a sliding Segmented control's thumb, the jump button, a worktree card, a settings section and a checkbox and its check do not move or scale, the jump scrolls instantly and spinners and the orbit run at a third of their speed.
+- Under Reduce Motion the sheet, its backdrop, the lightbox, the chat drop card, scrim, toast, chevrons, the context ring, the usage bar and the onboarding check's stroke skip their animation, the toolbar's error list only fades, the welcome's sidebar loop stays on its first beat, the Files filter's buttons and field padding change at once, the welcome's step slide, a harness row's state and command chip, chat items, the slash, picker and agent menus, the chat drop card's content, a message's copy button and time, a session row's status, the run marker, a step summary's changed part, a new tab, a Changes view row, the commit mode menu, the Usage panel and its inspector title only fade, the send button, the agent button, a sliding Segmented control's thumb, the jump button, a worktree card, a settings section and a checkbox and its check do not move or scale, the jump scrolls instantly and spinners and the orbit run at a third of their speed.
 
 ## Shapes
 

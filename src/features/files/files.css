@@ -1,31 +1,8 @@
-/* The Files view: header, filter field, tree rows; and the Open File by Name sheet. Rules: design/side-panel-and-files.md. */
+/* The Files view: filter field with its buttons, tree rows; and the Open File by Name sheet. Rules: design/side-panel-and-files.md. */
 .files {
   display: flex;
   flex-direction: column;
   height: 100%;
-}
-
-.files-header {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 4px 6px 0 18px;
-}
-
-.files-title {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  font-weight: 500;
-  color: var(--ink);
-}
-
-.files-header .icon-button {
-  flex: none;
-  width: 24px;
-  height: 24px;
 }
 
 /* While a folder is open the chevrons point out; Collapse All folds them in as the button greys out. */
@@ -45,15 +22,81 @@
 
 @media (prefers-reduced-motion: reduce) {
   .collapse-all,
-  .collapse-chevron {
+  .collapse-chevron,
+  .files-filter-field,
+  .files-filter-actions {
     transition: none;
   }
 }
 
+/* A borderless field on raised; Collapse All and Reload show inside its right end while you hover the row or work in it. */
 .files-filter {
+  position: relative;
   display: flex;
   align-items: center;
   padding: 4px 8px;
+}
+
+.files-filter-field {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: var(--raised);
+  font: inherit;
+  color: inherit;
+  transition:
+    background-color var(--t-fast) var(--ease-out),
+    border-color var(--t-fast) var(--ease-out),
+    padding var(--t-fast) var(--ease-out);
+}
+
+.files-filter-field:focus-visible {
+  outline: none;
+  border-color: var(--line-strong);
+  background: var(--sheet);
+}
+
+.files-filter-field::placeholder {
+  color: var(--ink-muted);
+}
+
+.files-filter:hover .files-filter-field,
+.files-filter:focus-within .files-filter-field {
+  padding-right: 60px;
+}
+
+.files-filter-actions {
+  position: absolute;
+  right: 11px;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity var(--t-fast) var(--ease-out);
+}
+
+.files-filter:hover .files-filter-actions,
+.files-filter:focus-within .files-filter-actions {
+  opacity: 1;
+}
+
+.files-filter-actions .icon-button {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-inset);
+  color: var(--ink-muted);
+}
+
+.files-filter-actions .icon-button:hover {
+  background: var(--selected);
+  color: var(--ink);
+}
+
+.files-filter-actions .icon-button:disabled {
+  background: transparent;
+  color: var(--ink-disabled);
 }
 
 .files-tree {
