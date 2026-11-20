@@ -10,7 +10,7 @@ import { focusPane, panes } from "../panes/store";
 import { openSettings, settingsOpen, shortcutChanges } from "../settings/store";
 import { agentPanes, attentionQueue, nextAttention, runningAgents, type AgentPane } from "../status/attention";
 import { finished, openAgent } from "../status/store";
-import { ageLabel, seenDone, statusLabel, urgentReport } from "../status/status";
+import { ageLabel, seenStatus, statusLabel, urgentReport } from "../status/status";
 import { StatusMark } from "../status/StatusMark";
 import { BranchIcon, ChevronIcon, FolderIcon, GearIcon, PlusIcon, QuestionIcon, SidebarIcon, WorkspacesIcon } from "../../ui/icons";
 import { ChangesView } from "../changes/ChangesView";
@@ -48,10 +48,11 @@ const navigatorViews: { view: NavigatorView; label: string; icon: ReactNode }[] 
   { view: "changes", label: "Changes", icon: <BranchIcon /> },
 ];
 
-// The navigator's control: one icon per view; Workspaces carries a dot while an agent awaits input, so a hidden card still calls.
+// The navigator's control: one icon per view; Workspaces carries a dot while an agent awaits input you have not seen, so a hidden card still calls.
 function Navigator({ shown, views }: { shown: NavigatorView; views: NavigatorView[] }) {
   shortcutChanges.use();
-  const waiting = chats.usePart((all) => Object.values(all).some((chat) => chat.report?.status.kind === "waiting"));
+  const finishedPanes = finished.use();
+  const waiting = chats.usePart((all) => Object.entries(all).some(([pane, chat]) => chat.report?.status.kind === "waiting" && !seenStatus("waiting", [pane], finishedPanes, chat.dialog != null)));
   return (
     <div className="segmented navigator" role="radiogroup" aria-label="Navigator">
       {navigatorViews
@@ -225,11 +226,12 @@ function useNow(): number {
 // A session row's right slot: "Done" for a finish nobody opened, the mark and age while an agent runs, the status word while it needs attention, otherwise the age of the last status.
 function SessionStatus({ paneIdList, finishedPanes }: { paneIdList: string[]; finishedPanes: string[] }) {
   const report = chats.usePart((all) => urgentReport(paneIdList.map((pane) => all[pane]?.report)));
+  const dialog = chats.usePart((all) => paneIdList.some((pane) => all[pane]?.dialog != null));
   const now = useNow();
   if (!report) return null;
   const kind = report.status.kind;
   const age = ageLabel(report.since, now);
-  if (seenDone(kind, paneIdList, finishedPanes)) return <span key="age" className="session-age">{age}</span>;
+  if (seenStatus(kind, paneIdList, finishedPanes, dialog)) return <span key="age" className="session-age">{age}</span>;
   if (kind === "done") {
     return (
       <span key="unseen-done" className="session-status" data-status="done">

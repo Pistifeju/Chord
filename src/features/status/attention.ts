@@ -1,11 +1,11 @@
-// The agents that need you, in the order Next Agent Needing You opens them: Awaiting input first, then a Failed, an Exited or a Done you have not opened, the longest wait first within each; the agents that run; and the one after the pane you are on.
+// The agents that need you, in the order Next Agent Needing You opens them: an open dialog or a question you have not opened first, then a Failed, an Exited or a Done you have not opened, the longest wait first within each; the agents that run; and the one after the pane you are on.
 import type { WorktreePanes } from "../../ipc/bindings";
 import { chatPaneIds } from "../panes/layout.ts";
 import { URGENCY, type StatusReport } from "./status.ts";
 
 export type AgentPane = { worktree: string; pane: string };
 
-type Reports = Record<string, { report: StatusReport | null } | undefined>;
+type Reports = Record<string, { report: StatusReport | null; dialog?: unknown } | undefined>;
 
 /** Every chat pane of the worktrees, in sidebar order. */
 export const agentPanes = (order: string[], panes: Record<string, WorktreePanes>): AgentPane[] =>
@@ -15,7 +15,7 @@ export function attentionQueue(all: AgentPane[], chats: Reports, finished: strin
   const report = (entry: AgentPane) => chats[entry.pane]?.report;
   const needs = (entry: AgentPane) => {
     const kind = report(entry)?.status.kind;
-    return kind === "waiting" || (kind !== undefined && kind !== "running" && finished.includes(entry.pane));
+    return (kind === "waiting" && chats[entry.pane]?.dialog != null) || (kind !== undefined && kind !== "running" && finished.includes(entry.pane));
   };
   const urgency = (entry: AgentPane) => URGENCY.indexOf(report(entry)!.status.kind);
   return all.filter(needs).sort((a, b) => urgency(a) - urgency(b) || report(a)!.since - report(b)!.since);

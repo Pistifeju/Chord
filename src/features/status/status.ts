@@ -15,9 +15,9 @@ export function urgentReport(reports: (StatusReport | null | undefined)[]): Stat
   return urgent;
 }
 
-/** A set of panes' status is a done you already saw: done, and none of its panes carries the finished mark. */
-export const seenDone = (kind: Status["kind"] | undefined, panes: string[], finished: string[]): boolean =>
-  kind === "done" && !panes.some((pane) => finished.includes(pane));
+/** A set of panes' status you already saw: done, or a question with no dialog open, and none of its panes carries the finished mark. */
+export const seenStatus = (kind: Status["kind"] | undefined, panes: string[], finished: string[], dialog: boolean): boolean =>
+  (kind === "done" || (kind === "waiting" && !dialog)) && !panes.some((pane) => finished.includes(pane));
 
 export function statusLabel(status: Status): string {
   switch (status.kind) {

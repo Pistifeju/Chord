@@ -8,7 +8,7 @@ import { ChatPane } from "../chat/ChatPane";
 import { chats, paneHarnesses, usePaneNames } from "../chat/store";
 import { harnessMarks } from "../harnesses/logos";
 import { shortcutChanges } from "../settings/store";
-import { seenDone, statusLabel } from "../status/status";
+import { seenStatus, statusLabel } from "../status/status";
 import { StatusMark } from "../status/StatusMark";
 import { finished } from "../status/store";
 import { BottomPanel, type BottomViewSlot } from "../bottompanel/BottomPanel";
@@ -141,11 +141,12 @@ function GroupTabs({ group, place, edges }: { group: Group; place: Place; edges:
   const chatIds = chatPaneIds(group);
   const statusesJson = chats.usePart((all) => JSON.stringify(chatIds.map((tab) => all[tab]?.report?.status ?? null)));
   const statuses: (Status | null)[] = JSON.parse(statusesJson);
+  const dialogs = chats.usePart((all) => chatIds.map((tab) => all[tab]?.dialog != null).join());
   const finishedPanes = finished.use();
-  // The open tab's pane shows its own Working row, so its tab shows no status; a done you already saw shows none either.
+  // The open tab's pane shows its own Working row, so its tab shows no status; a done or a question you already saw shows none either.
   const statusOf = (tab: Tab): Status | null => {
     const report = tab.id === group.active ? null : statuses[chatIds.indexOf(tab.id)] ?? null;
-    return seenDone(report?.kind, [tab.id], finishedPanes) ? null : report;
+    return seenStatus(report?.kind, [tab.id], finishedPanes, dialogs.split(",")[chatIds.indexOf(tab.id)] === "true") ? null : report;
   };
   return (
     <div className="tabbar" role="tablist" data-group-bar data-tauri-drag-region={edges.top || undefined} data-sidebar-hidden={(edges.top && edges.left && hidden) || undefined}>
