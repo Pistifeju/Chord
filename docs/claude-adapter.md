@@ -48,7 +48,11 @@ The reader sits behind one mutex, as Codex's does: the stdout thread and the `Ag
 
 `HARNESSES` takes `claude::HARNESS`, the entry `harness/mod.rs` holds today, with `starts: true`. `harness::start` gets the `claude::NAME` arm. A failed spawn returns `Error::start_failed` with the install step. `Session::start` calls `installed::require`.
 
-Capabilities: `Chat`, `Attachments`, `Steer`, `Models`, `Context`. No `Subagents` before N6.
+Capabilities: `Chat`, `Attachments`, `Steer`, `Models`, `Context`, `Subagents`.
+
+Usage (N6): the control request `get_usage` after the handshake, after each `result`, and at a `rate_limit_event`, at most once per 30 s, since the event holds one window's state alone. With `rate_limits_available`, `rate_limits.five_hour` and `seven_day` become the windows `5h` and `week` from `utilization` and `resets_at`; an error says nothing, since an API key has no usage.
+
+Subagents (N6): `task_started` with a `task_type` of `local_agent`, `remote_agent`, `in_process_teammate` or `local_workflow` starts a row named `subagent_type`, else `workflow_name`, else `description`, under its `parent_task_id`. `task_progress` sets the tool from `last_tool_name`; `task_notification` `status` or `task_updated` `patch.status` ends it: `completed` Done, `failed`, `killed` or `stopped` Error. A `local_bash` task and a monitor show nothing.
 
 ### Start line and handshake
 
@@ -121,7 +125,7 @@ A reply that fails at the API arrives as an `assistant` record with `error` and 
 
 2.1.328 has no `Grep`, `Glob` or `LS` tool: Claude Code searches through `Bash`, and `read_only_title` reads those as Search and List.
 
-Skipped until their step: each record with a `parent_tool_use_id` (N6), `rate_limit_event` (N6). Skipped for good: `task_started` and `task_notification`, which a long `Bash` call sends too, the hook records, `thinking_tokens`, `api_retry`, `keep_alive`, `command_lifecycle`, prompt suggestions.
+Skipped: each record with a `parent_tool_use_id`, whose subagent shows as its lineage row. Skipped for good: the hook records, `thinking_tokens`, `api_retry`, `keep_alive`, `command_lifecycle`, prompt suggestions.
 
 ### What `Agent` writes
 

@@ -46,7 +46,11 @@ The reader sits behind one mutex. The stdout thread and the `Agent` methods both
 
 `HARNESSES` takes `codex::HARNESS` with `starts: true`, and `harness::start` gets the `codex::NAME` arm. A failed spawn returns `Error::start_failed` with the install step, as pi's does. `Session::start` calls `installed::require`.
 
-Capabilities: `Chat`, `Attachments`, `Steer`, `Models`, `Context`. No `Subagents` before N6.
+Capabilities: `Chat`, `Attachments`, `Steer`, `Models`, `Context`, `Subagents`.
+
+Usage (N6): `account/rateLimits/read` after the handshake and again at each `account/rateLimits/updated`, since an update may leave fields out. `primary` and `secondary` become `Usage` windows, shortest first, named by `windowDurationMins` (`5h`, `week`, `month`); a refusal, as for an API key, sends no windows.
+
+Subagents (N6): Codex 0.158 reports a subagent as `subAgentActivity` items on the thread that started it, with multi-agent v1 and v2 alike; it sends no `thread/started` for the subagent's thread and no `spawnAgent` call. `started` or `interacted` starts a row for `agentThreadId`, named by the last part of `agentPath` (`/root/scout` reads `scout`), under the thread the item came on; `completed` ends it Done and `interrupted` Error. The subagent's own thread then speaks on the same process: its `item/started` sets the row's tool, its `turn/completed` ends it (failed or interrupted as Error).
 
 ### Handshake
 
@@ -79,7 +83,7 @@ The reader drops a notification whose `threadId` is not the pane's thread. A sub
 | `turn/completed` | open tool calls end as `Stopped`; status `failed` sends `MessageEnd { failed: true }` and a `Notice`; then `State { running: false }`; status `interrupted` adds `Aborted` |
 | stdout closes | `Exited`, as pi |
 
-Skipped until their step: `collabAgentToolCall` and `subAgentActivity` (N6), `dynamicToolCall` (N4 uses MCP), `plan`, `hookPrompt`, `sleep`, review mode, image generation.
+Skipped: `dynamicToolCall` (N4 uses MCP), `plan`, `hookPrompt`, `sleep`, review mode, image generation.
 
 `Model.name` is the model's `displayName` from `model/list`, else its id. `thinking` is the effort string.
 

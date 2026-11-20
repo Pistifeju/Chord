@@ -6,7 +6,8 @@ use serde_json::json;
 
 use super::permissions;
 use super::reader::Reader;
-use crate::harness::{DialogAnswer, DialogAsk, HarnessEvent};
+use crate::harness::subagents::Subagents;
+use crate::harness::{DialogAnswer, DialogAsk, HarnessEvent, SubagentState, UsageWindow};
 
 // A reader past the handshake, on thread "t1".
 fn started() -> Reader {
@@ -16,7 +17,7 @@ fn started() -> Reader {
         r#"{"id":1,"result":{}}"#,
         r#"{"id":2,"result":{"data":[]}}"#,
         r#"{"id":3,"result":{"data":[{"id":"m1","displayName":"Model One"}]}}"#,
-        r#"{"id":4,"result":{"thread":{"id":"t1"},"model":"m1","reasoningEffort":"high"}}"#,
+        r#"{"id":5,"result":{"thread":{"id":"t1"},"model":"m1","reasoningEffort":"high"}}"#,
     ] {
         reader.feed(answer.as_bytes());
     }
@@ -71,18 +72,18 @@ fn a_steer_the_ended_turn_refused_starts_the_next_turn() {
         .unwrap_or_default();
     reader.feed(br#"{"method":"turn/completed","params":{"threadId":"t1","turn":{"id":"u1","status":"completed"}}}"#);
     let refused =
-        reader.feed(br#"{"id":5,"error":{"code":-32600,"message":"no active turn to steer"}}"#);
+        reader.feed(br#"{"id":6,"error":{"code":-32600,"message":"no active turn to steer"}}"#);
     let input = json!([{ "type": "text", "text": "more", "text_elements": [] }]);
     assert_eq!(
         steer,
         [
-            json!({ "id": 5, "method": "turn/steer", "params": { "threadId": "t1", "input": input, "expectedTurnId": "u1" } })
+            json!({ "id": 6, "method": "turn/steer", "params": { "threadId": "t1", "input": input, "expectedTurnId": "u1" } })
         ]
     );
     assert_eq!(
         refused.lines,
         [
-            json!({ "id": 6, "method": "turn/start", "params": { "threadId": "t1", "input": input } })
+            json!({ "id": 7, "method": "turn/start", "params": { "threadId": "t1", "input": input } })
         ]
     );
 }
@@ -161,10 +162,10 @@ fn a_saved_thread_opens_again_with_its_turns() {
     assert_eq!(
         models.lines,
         [
-            json!({ "id": 4, "method": "thread/resume", "params": { "threadId": "t1", "cwd": "/w" } })
+            json!({ "id": 5, "method": "thread/resume", "params": { "threadId": "t1", "cwd": "/w" } })
         ]
     );
-    let resumed = r#"{"id":4,"result":{"model":"m1","reasoningEffort":null,"approvalPolicy":"on-request","sandbox":{"type":"readOnly","networkAccess":false},"thread":{"id":"t1","turns":[{"id":"u1","items":[{"type":"userMessage","id":"i1","content":[{"type":"text","text":"Hi"}]},{"type":"agentMessage","id":"a1","text":"Hello"}]}]}}}"#;
+    let resumed = r#"{"id":5,"result":{"model":"m1","reasoningEffort":null,"approvalPolicy":"on-request","sandbox":{"type":"readOnly","networkAccess":false},"thread":{"id":"t1","turns":[{"id":"u1","items":[{"type":"userMessage","id":"i1","content":[{"type":"text","text":"Hi"}]},{"type":"agentMessage","id":"a1","text":"Hello"}]}]}}}"#;
     assert_eq!(
         events(&mut reader, &[resumed]),
         [
@@ -207,7 +208,7 @@ fn a_reload_shows_and_sends_the_users_picks_over_the_threads_settings() {
     reader.feed(br#"{"id":1,"result":{}}"#);
     reader.feed(br#"{"id":2,"result":{"data":[]}}"#);
     reader.feed(br#"{"id":3,"result":{"data":[]}}"#);
-    let resumed = r#"{"id":4,"result":{"model":"m1","reasoningEffort":"high","thread":{"id":"t1","turns":[]}}}"#;
+    let resumed = r#"{"id":5,"result":{"model":"m1","reasoningEffort":"high","thread":{"id":"t1","turns":[]}}}"#;
     let opened = events(&mut reader, &[resumed]);
     assert!(opened.contains(&HarnessEvent::Model {
         name: "m2".into(),
@@ -218,7 +219,7 @@ fn a_reload_shows_and_sends_the_users_picks_over_the_threads_settings() {
     assert_eq!(
         turn.unwrap_or_default(),
         [
-            json!({ "id": 5, "method": "turn/start", "params": { "model": "m2", "effort": "low", "threadId": "t1", "input": input } })
+            json!({ "id": 6, "method": "turn/start", "params": { "model": "m2", "effort": "low", "threadId": "t1", "input": input } })
         ]
     );
 }
@@ -227,10 +228,10 @@ fn a_reload_shows_and_sends_the_users_picks_over_the_threads_settings() {
 fn a_saved_thread_codex_cannot_open_gives_a_new_one() {
     let mut reader = reopened();
     reader.feed(br#"{"id":3,"result":{"data":[]}}"#);
-    let refused = reader.feed(br#"{"id":4,"error":{"code":-32600,"message":"no rollout"}}"#);
+    let refused = reader.feed(br#"{"id":5,"error":{"code":-32600,"message":"no rollout"}}"#);
     assert_eq!(
         refused.lines,
-        [json!({ "id": 5, "method": "thread/start", "params": { "cwd": "/w" } })]
+        [json!({ "id": 6, "method": "thread/start", "params": { "cwd": "/w" } })]
     );
 }
 
@@ -291,7 +292,7 @@ fn a_picked_mode_rides_the_next_turn() {
     let input = json!([{ "type": "text", "text": "go", "text_elements": [] }]);
     assert_eq!(
         turn.unwrap_or_default(),
-        [json!({ "id": 5, "method": "turn/start", "params": {
+        [json!({ "id": 6, "method": "turn/start", "params": {
             "threadId": "t1",
             "input": input,
             "approvalPolicy": "never",
@@ -308,10 +309,10 @@ fn resume_lists_the_threads_no_other_pane_holds_and_opens_the_pick() {
     assert_eq!(
         list.unwrap_or_default(),
         [
-            json!({ "id": 5, "method": "thread/list", "params": { "cwd": "/w", "sortKey": "updated_at", "limit": 50 } })
+            json!({ "id": 6, "method": "thread/list", "params": { "cwd": "/w", "sortKey": "updated_at", "limit": 50 } })
         ]
     );
-    let threads = r#"{"id":5,"result":{"data":[{"id":"t1","preview":"This one","updatedAt":0},{"id":"t2","preview":"Fix the login\nand more","updatedAt":0},{"id":"t3","preview":"Held","updatedAt":0}]}}"#;
+    let threads = r#"{"id":6,"result":{"data":[{"id":"t1","preview":"This one","updatedAt":0},{"id":"t2","preview":"Fix the login\nand more","updatedAt":0},{"id":"t3","preview":"Held","updatedAt":0}]}}"#;
     let opened = events(&mut reader, &[threads]);
     let [
         HarnessEvent::Dialog {
@@ -332,7 +333,7 @@ fn resume_lists_the_threads_no_other_pane_holds_and_opens_the_pick() {
     assert_eq!(
         resumed.unwrap_or_default(),
         [
-            json!({ "id": 6, "method": "thread/resume", "params": { "threadId": "t2", "cwd": "/w" } })
+            json!({ "id": 7, "method": "thread/resume", "params": { "threadId": "t2", "cwd": "/w" } })
         ]
     );
 }
@@ -341,7 +342,7 @@ fn resume_lists_the_threads_no_other_pane_holds_and_opens_the_pick() {
 fn go_back(command: &str) -> (Vec<String>, Vec<HarnessEvent>, Vec<serde_json::Value>) {
     let mut reader = started();
     reader.send(command, &[], &[]).ok();
-    let turns = r#"{"id":5,"result":{"data":[{"id":"u2","items":[{"type":"userMessage","content":[{"type":"text","text":"Second"}]}]},{"id":"c1","items":[]},{"id":"u1","items":[{"type":"userMessage","content":[{"type":"text","text":"First"}]}]}]}}"#;
+    let turns = r#"{"id":6,"result":{"data":[{"id":"u2","items":[{"type":"userMessage","content":[{"type":"text","text":"Second"}]}]},{"id":"c1","items":[]},{"id":"u1","items":[{"type":"userMessage","content":[{"type":"text","text":"First"}]}]}]}}"#;
     let opened = events(&mut reader, &[turns]);
     let [
         HarnessEvent::Dialog {
@@ -376,7 +377,7 @@ fn fork_goes_through_the_turn_before_the_picked_message() {
     assert_eq!(
         lines,
         [
-            json!({ "id": 6, "method": "thread/fork", "params": { "threadId": "t1", "lastTurnId": "c1", "cwd": "/w" } })
+            json!({ "id": 7, "method": "thread/fork", "params": { "threadId": "t1", "lastTurnId": "c1", "cwd": "/w" } })
         ]
     );
 }
@@ -387,7 +388,7 @@ fn rewind_drops_the_picked_messages_turn_and_opens_the_thread_again() {
     assert_eq!(
         lines,
         [
-            json!({ "id": 6, "method": "thread/revert", "params": { "threadId": "t1", "beforeTurnId": "u2" } })
+            json!({ "id": 7, "method": "thread/revert", "params": { "threadId": "t1", "beforeTurnId": "u2" } })
         ]
     );
 }
@@ -463,7 +464,7 @@ fn a_turn_end_drops_its_asks_and_keeps_the_messages_questions() {
     assert_eq!(
         answered.unwrap_or_default(),
         [
-            json!({ "id": 5, "method": "turn/start", "params": { "threadId": "t1", "input": input } })
+            json!({ "id": 6, "method": "turn/start", "params": { "threadId": "t1", "input": input } })
         ]
     );
 }
@@ -521,7 +522,7 @@ fn a_picked_model_without_the_level_takes_its_default() {
         r#"{"id":1,"result":{}}"#,
         r#"{"id":2,"result":{"data":[]}}"#,
         r#"{"id":3,"result":{"data":[{"id":"m1","displayName":"Model One","supportedReasoningEfforts":[{"reasoningEffort":"high"}],"defaultReasoningEffort":"high"},{"id":"m2","displayName":"Model Two","supportedReasoningEfforts":[{"reasoningEffort":"low"},{"reasoningEffort":"medium"}],"defaultReasoningEffort":"medium"}]}}"#,
-        r#"{"id":4,"result":{"thread":{"id":"t1"},"model":"m1","reasoningEffort":"high"}}"#,
+        r#"{"id":5,"result":{"thread":{"id":"t1"},"model":"m1","reasoningEffort":"high"}}"#,
     ] {
         reader.feed(answer.as_bytes());
     }
@@ -546,7 +547,68 @@ fn a_picked_model_without_the_level_takes_its_default() {
     assert_eq!(
         turn.unwrap_or_default(),
         [
-            json!({ "id": 5, "method": "turn/start", "params": { "threadId": "t1", "input": input, "model": "m2", "effort": "medium" } })
+            json!({ "id": 6, "method": "turn/start", "params": { "threadId": "t1", "input": input, "model": "m2", "effort": "medium" } })
         ]
     );
+}
+
+#[test]
+fn the_rate_limits_read_becomes_the_usage_windows_shortest_first() {
+    let mut reader = started();
+    let read = reader.feed(br#"{"id":4,"result":{"rateLimits":{"primary":{"usedPercent":59.4,"windowDurationMins":10080,"resetsAt":1700000000},"secondary":{"usedPercent":42,"windowDurationMins":300,"resetsAt":null}}}}"#);
+    assert_eq!(
+        read.events,
+        [HarnessEvent::Usage {
+            harness: "codex",
+            windows: vec![
+                UsageWindow {
+                    label: "5h 42%".into(),
+                    resets_at: None
+                },
+                UsageWindow {
+                    label: "week 59%".into(),
+                    resets_at: Some(1700000000000.0)
+                },
+            ]
+        }]
+    );
+    let updated =
+        reader.feed(br#"{"method":"account/rateLimits/updated","params":{"rateLimits":{}}}"#);
+    assert_eq!(
+        updated.lines,
+        [
+            json!({ "id": 6, "method": "account/rateLimits/read", "params": { "excludeResetCreditDetails": true } })
+        ]
+    );
+    let api_key = reader.feed(br#"{"id":6,"error":{"code":-32600,"message":"no account"}}"#);
+    assert_eq!(
+        api_key.events,
+        [HarnessEvent::Usage {
+            harness: "codex",
+            windows: vec![]
+        }]
+    );
+}
+
+#[test]
+fn subagent_activity_starts_and_ends_a_subagent_named_by_its_path() {
+    let mut reader = started();
+    let started = events(
+        &mut reader,
+        &[
+            r#"{"method":"item/completed","params":{"threadId":"t1","item":{"type":"subAgentActivity","id":"i1","kind":"started","agentThreadId":"s1","agentPath":"/root/reviewer"}}}"#,
+            r#"{"method":"item/completed","params":{"threadId":"s1","item":{"type":"subAgentActivity","id":"i2","kind":"started","agentThreadId":"s2","agentPath":"/root/reviewer/scout"}}}"#,
+            r#"{"method":"item/started","params":{"threadId":"s2","item":{"type":"commandExecution","id":"c1","command":"cargo build"}}}"#,
+            r#"{"method":"item/completed","params":{"threadId":"s1","item":{"type":"subAgentActivity","id":"i3","kind":"interrupted","agentThreadId":"s2","agentPath":"/root/reviewer/scout"}}}"#,
+            r#"{"method":"item/completed","params":{"threadId":"t1","item":{"type":"subAgentActivity","id":"i4","kind":"completed","agentThreadId":"s1","agentPath":"/root/reviewer"}}}"#,
+        ],
+    );
+    assert_eq!(
+        Subagents::lineage(&started),
+        [
+            (0, "reviewer".into(), SubagentState::Done, None),
+            (1, "scout".into(), SubagentState::Error, Some("Run".into())),
+        ]
+    );
+    assert_eq!(reader.end(), [HarnessEvent::Subagents { nodes: vec![] }]);
 }

@@ -8,12 +8,13 @@ use serde_json::{Map, Value};
 
 use super::asks::{self, Answered, Asks, Parsed};
 use super::commands::{Command, Settings};
-use super::{items, requests};
+use super::{NAME, items, requests, usage};
 use crate::Error;
 use crate::harness::calls::OpenCalls;
 use crate::harness::earlier::{Back, Earlier, Message};
 use crate::harness::resume::{self, Resume, Session};
-use crate::harness::{DialogAnswer, HarnessEvent, Image};
+use crate::harness::subagents::Subagents;
+use crate::harness::{DialogAnswer, HarnessEvent, Image, SubagentState};
 
 /// What one record leads to: events for the chat and lines to write Codex.
 #[derive(Default)]
@@ -60,6 +61,7 @@ enum Pending {
         input: Vec<Value>,
     },
     Interrupt,
+    RateLimits,
 }
 
 /// Reads one Codex process's stdout, line by line.
@@ -86,6 +88,7 @@ pub(super) struct Reader {
     asks: Asks,
     /// The paths of each running file change by item id, for its approval.
     files: HashMap<String, String>,
+    subagents: Subagents,
 }
 
 impl Reader {
@@ -108,6 +111,7 @@ impl Reader {
             calls: OpenCalls::default(),
             asks: Asks::default(),
             files: HashMap::new(),
+            subagents: Subagents::default(),
         }
     }
 
@@ -276,10 +280,11 @@ impl Reader {
         ))
     }
 
-    /// Stdout closed: the calls still open end as stopped, and the open ask closes.
+    /// Stdout closed: the calls still open end as stopped, the open ask closes and the subagents go with the process.
     pub(super) fn end(&mut self) -> Vec<HarnessEvent> {
         let mut events = self.asks.withdraw(|_| true);
         events.extend(self.calls.stop());
+        events.extend(self.subagents.clear());
         events
     }
 
@@ -292,6 +297,8 @@ impl Reader {
                 events: vec![],
                 lines: vec![self.skills_list()],
             },
+            // An update may leave out what did not change, so the whole snapshot is read again.
+            (Value::Null, Some("account/rateLimits/updated")) => lines(self.rate_limits()),
             (Value::Null, Some(method)) => Read {
                 events: self.notification(method, &record["params"]),
                 lines: vec![],
@@ -395,6 +402,10 @@ impl Reader {
         }
     }
 
+    fn rate_limits(&mut self) -> Value {
+        requests::rate_limits(self.request(Pending::RateLimits))
+    }
+
     fn skills_list(&mut self) -> Value {
         let cwd = self.cwd.to_string_lossy().into_owned();
         requests::skills_list(self.request(Pending::Skills), &cwd)
@@ -438,6 +449,7 @@ impl Reader {
                         requests::initialized(),
                         self.skills_list(),
                         requests::model_list(self.request(Pending::Models)),
+                        self.rate_limits(),
                     ],
                 },
             },
@@ -496,6 +508,8 @@ impl Reader {
                 let mut events = vec![HarnessEvent::HistoryStart];
                 match (error, result["thread"]["id"].as_str()) {
                     (None, Some(thread)) => {
+                        // The old thread's subagents stay with it.
+                        events.extend(self.subagents.clear());
                         self.thread = Some(thread.into());
                         events.push(HarnessEvent::SessionInfo { id: thread.into() });
                         events.extend(self.settings.opened(result));
@@ -551,6 +565,13 @@ impl Reader {
                 Read { events, lines }
             }
             Pending::Interrupt => error.map_or_else(Read::default, notice),
+            Pending::RateLimits => Read {
+                events: vec![HarnessEvent::Usage {
+                    harness: NAME,
+                    windows: usage::windows(&result["rateLimits"]),
+                }],
+                lines: vec![],
+            },
         }
     }
 
@@ -561,6 +582,9 @@ impl Reader {
             return self
                 .asks
                 .withdraw(|reply| reply.request.as_ref() == Some(request));
+        }
+        if let Some(events) = self.subagent(method, params) {
+            return events;
         }
         // A subagent's thread and a thread the pane left speak on the same process.
         if self.thread.is_none() || params["threadId"].as_str() != self.thread.as_deref() {
@@ -622,6 +646,8 @@ impl Reader {
                 let streamed = self.streamed.remove(&item_id());
                 self.files.remove(&item_id());
                 let mut events = items::completed(item, params["completedAtMs"].as_f64(), streamed);
+                let thread = self.thread.clone().unwrap_or_default();
+                events.extend(self.activity(item, &thread));
                 if let Some(ask) = asks::message_questions(item) {
                     events.extend(self.asks.push(ask));
                 }
@@ -651,6 +677,53 @@ impl Reader {
             }],
             "turn/completed" => self.turn_completed(&params["turn"]),
             _ => vec![],
+        }
+    }
+
+    // A subagent's own thread: its turn's start, its tools and its turn's end feed the lineage; none for a notification that is no subagent's.
+    fn subagent(&mut self, method: &str, params: &Value) -> Option<Vec<HarnessEvent>> {
+        let id = params["threadId"].as_str()?;
+        if !self.subagents.knows(id) {
+            return None;
+        }
+        let event = match method {
+            "turn/started" => Some(self.subagents.start(id, None, None)),
+            "item/started" => items::started(&params["item"], None, &self.cwd)
+                .into_iter()
+                .find_map(|event| match event {
+                    HarnessEvent::ToolStart { title, .. } => Some(title),
+                    _ => None,
+                })
+                .and_then(|title| self.subagents.tool(id, &title)),
+            "item/completed" => self.activity(&params["item"], id),
+            "turn/completed" => {
+                let state = match params["turn"]["status"].as_str() {
+                    Some("failed" | "interrupted") => SubagentState::Error,
+                    _ => SubagentState::Done,
+                };
+                self.subagents.end(id, state)
+            }
+            _ => None,
+        };
+        Some(event.into_iter().collect())
+    }
+
+    // Codex reports each subagent's start, interaction and end as an item on the thread that started it, `thread`.
+    fn activity(&mut self, item: &Value, thread: &str) -> Option<HarnessEvent> {
+        if item["type"] != "subAgentActivity" {
+            return None;
+        }
+        let id = item["agentThreadId"].as_str()?;
+        match item["kind"].as_str()? {
+            "started" | "interacted" => {
+                let name = item["agentPath"]
+                    .as_str()
+                    .and_then(|path| path.rsplit('/').find(|part| !part.is_empty()));
+                Some(self.subagents.start(id, Some(thread), name))
+            }
+            "completed" => self.subagents.end(id, SubagentState::Done),
+            "interrupted" => self.subagents.end(id, SubagentState::Error),
+            _ => None,
         }
     }
 

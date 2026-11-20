@@ -56,7 +56,7 @@ function received(pane: string, start: number, event: HarnessEvent) {
   if (!fed) return;
   const { effect } = fed;
   if (effect?.kind === "draft") setDraft(pane, effect.text);
-  if (effect?.kind === "usage") usage.set(effect.windows);
+  if (effect?.kind === "usage") usage.set({ ...usage.get(), [effect.harness]: effect.windows });
   if (effect?.kind === "notify") notify(effect.text);
   update(pane, () => fed.chat);
 }

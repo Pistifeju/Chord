@@ -23,6 +23,11 @@ pub(super) fn model_list(id: u64) -> Value {
     json!({ "id": id, "method": "model/list", "params": {} })
 }
 
+/// The account's rate limit windows, without the reset credits' details.
+pub(super) fn rate_limits(id: u64) -> Value {
+    json!({ "id": id, "method": "account/rateLimits/read", "params": { "excludeResetCreditDetails": true } })
+}
+
 pub(super) fn thread_start(id: u64, cwd: &str) -> Value {
     json!({ "id": id, "method": "thread/start", "params": { "cwd": cwd } })
 }

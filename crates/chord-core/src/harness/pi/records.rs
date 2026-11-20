@@ -361,6 +361,7 @@ fn ui_request(record: &Value) -> Option<HarnessEvent> {
     let ask = match record["method"].as_str()? {
         "setStatus" if record["statusKey"] == USAGE_STATUS => {
             return Some(HarnessEvent::Usage {
+                harness: super::NAME,
                 windows: usage_windows(record["statusText"].as_str().unwrap_or("[]")),
             });
         }

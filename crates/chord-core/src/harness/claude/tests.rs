@@ -7,7 +7,8 @@ use serde_json::json;
 use super::reader::{Open, Reader};
 use super::transcript;
 use crate::harness::earlier::Message;
-use crate::harness::{DialogAnswer, DialogAsk, HarnessEvent};
+use crate::harness::subagents::Subagents;
+use crate::harness::{DialogAnswer, DialogAsk, HarnessEvent, SubagentState, UsageWindow};
 
 fn events(reader: &mut Reader, records: &[&str]) -> Vec<HarnessEvent> {
     records
@@ -263,4 +264,85 @@ fn a_reload_reopens_a_fork_until_its_first_message_names_the_new_session() {
             ..Open::default()
         })
     );
+}
+
+#[test]
+fn get_usage_becomes_the_five_hour_and_weekly_windows() {
+    let mut reader = Reader::new(Path::new("/w"), None, Open::default());
+    reader.initialize();
+    reader.feed(br#"{"type":"control_response","response":{"subtype":"success","request_id":"chord-1","response":{}}}"#);
+    let usage = r#"{"type":"control_response","response":{"subtype":"success","request_id":"chord-5","response":{"rate_limits_available":true,"rate_limits":{"five_hour":{"utilization":10,"resets_at":"2026-01-02T03:04:05.678901+00:00"},"seven_day":{"utilization":40.4,"resets_at":null}}}}}"#;
+    assert_eq!(
+        events(&mut reader, &[usage]),
+        [HarnessEvent::Usage {
+            harness: "claude",
+            windows: vec![
+                UsageWindow {
+                    label: "5h 10%".into(),
+                    resets_at: Some(1767323045678.0)
+                },
+                UsageWindow {
+                    label: "week 40%".into(),
+                    resets_at: None
+                },
+            ]
+        }]
+    );
+}
+
+#[test]
+fn an_api_key_has_no_usage_and_its_refusal_says_nothing() {
+    let mut reader = Reader::new(Path::new("/w"), None, Open::default());
+    reader.initialize();
+    reader.feed(br#"{"type":"control_response","response":{"subtype":"success","request_id":"chord-1","response":{}}}"#);
+    let refused = r#"{"type":"control_response","response":{"subtype":"error","request_id":"chord-5","error":"no subscription"}}"#;
+    assert_eq!(events(&mut reader, &[refused]), []);
+}
+
+#[test]
+fn agent_tasks_report_their_lineage_and_a_shell_task_none() {
+    let mut reader = Reader::new(Path::new("/w"), None, Open::default());
+    let shell = r#"{"type":"system","subtype":"task_started","task_id":"b1","task_type":"local_bash","description":"npm test"}"#;
+    assert_eq!(events(&mut reader, &[shell]), []);
+    let records = [
+        r#"{"type":"system","subtype":"task_started","task_id":"a1","task_type":"local_agent","subagent_type":"Explore","description":"Find the auth code"}"#,
+        r#"{"type":"system","subtype":"task_started","task_id":"a2","task_type":"local_agent","parent_task_id":"a1","description":"Read the tests"}"#,
+        r#"{"type":"system","subtype":"task_progress","task_id":"a1","last_tool_name":"Grep"}"#,
+        r#"{"type":"system","subtype":"task_notification","task_id":"a2","status":"failed"}"#,
+    ];
+    assert_eq!(
+        Subagents::lineage(&events(&mut reader, &records)),
+        [
+            (
+                0,
+                "Explore".into(),
+                SubagentState::Running,
+                Some("Grep".into())
+            ),
+            (1, "Read the tests".into(), SubagentState::Error, None),
+        ]
+    );
+    let done = r#"{"type":"system","subtype":"task_updated","task_id":"a1","patch":{"status":"completed"}}"#;
+    assert_eq!(
+        Subagents::lineage(&events(&mut reader, &[done]))[0],
+        (
+            0,
+            "Explore".into(),
+            SubagentState::Done,
+            Some("Grep".into())
+        )
+    );
+}
+
+#[test]
+fn a_rate_limit_event_reads_the_usage_at_most_every_30_seconds() {
+    let mut reader = Reader::new(Path::new("/w"), None, Open::default());
+    let event = br#"{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","rateLimitType":"five_hour"}}"#;
+    assert_eq!(
+        reader.feed(event).lines,
+        [
+            json!({ "type": "control_request", "request_id": "chord-1", "request": { "subtype": "get_usage" } })
+        ]
+    );
+    assert!(reader.feed(event).lines.is_empty());
 }

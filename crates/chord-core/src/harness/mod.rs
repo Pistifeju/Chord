@@ -13,6 +13,7 @@ mod process;
 mod resume;
 pub mod sessions;
 mod shell;
+mod subagents;
 
 pub use process::login_shell;
 
@@ -112,6 +113,16 @@ pub enum Capability {
 pub struct UsageWindow {
     pub label: String,
     pub resets_at: Option<f64>,
+}
+
+impl UsageWindow {
+    /// The window named `name`, e.g. "5h", with `percent` of it used.
+    pub(crate) fn used(name: &str, percent: f64, resets_at: Option<f64>) -> Self {
+        UsageWindow {
+            label: format!("{name} {}%", percent.round()),
+            resets_at,
+        }
+    }
 }
 
 #[derive(Serialize, Type, Debug, Clone, Copy, PartialEq)]
@@ -280,8 +291,12 @@ pub enum HarnessEvent {
     },
     /// The commands the agent offers after a slash.
     Commands { commands: Vec<SlashCommand> },
-    /// The subscription usage windows of the account, shortest first; the whole list each time, empty when none applies.
-    Usage { windows: Vec<UsageWindow> },
+    /// The subscription usage windows of the harness's account, shortest first; the whole list each time, empty when none applies, as for an API key.
+    Usage {
+        /// The `name` of the harness's entry in `HARNESSES`.
+        harness: &'static str,
+        windows: Vec<UsageWindow>,
+    },
     /// The background subagent runs as a lineage, each node before its children; the whole list each time, empty when none applies.
     Subagents { nodes: Vec<SubagentNode> },
     /// The steering messages the agent has not taken in yet, oldest first; the whole queue each time.

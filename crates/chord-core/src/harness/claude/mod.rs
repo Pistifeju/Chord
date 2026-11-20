@@ -239,6 +239,7 @@ impl Agent for Session {
             Capability::Steer,
             Capability::Models,
             Capability::Context,
+            Capability::Subagents,
         ]
     }
 

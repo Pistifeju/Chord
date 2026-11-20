@@ -745,6 +745,7 @@ fn a_usage_status_becomes_the_usage_windows() {
     assert_eq!(
         events(status),
         vec![HarnessEvent::Usage {
+            harness: "pi",
             windows: vec![
                 UsageWindow {
                     label: "5h 42%".into(),
@@ -760,7 +761,10 @@ fn a_usage_status_becomes_the_usage_windows() {
     let cleared = r#"{"type":"extension_ui_request","id":"u2","method":"setStatus","statusKey":"chord-usage"}"#;
     assert_eq!(
         events(cleared),
-        vec![HarnessEvent::Usage { windows: vec![] }]
+        vec![HarnessEvent::Usage {
+            harness: "pi",
+            windows: vec![]
+        }]
     );
     let other = r#"{"type":"extension_ui_request","id":"u3","method":"setStatus","statusKey":"other","statusText":"x"}"#;
     assert_eq!(events(other), vec![]);

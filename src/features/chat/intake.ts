@@ -3,14 +3,14 @@ import type { HarnessEvent, UsageWindow } from "../../ipc/bindings";
 import { chatFed, type Chat, type Replay } from "./transcript.ts";
 
 /** What an event does outside the transcript, for the store to carry out. */
-type Effect = { kind: "draft"; text: string } | { kind: "usage"; windows: UsageWindow[] } | { kind: "notify"; text: string };
+type Effect = { kind: "draft"; text: string } | { kind: "usage"; harness: string; windows: UsageWindow[] } | { kind: "notify"; text: string };
 
 function effectOf(event: HarnessEvent): Effect | null {
   switch (event.kind) {
     case "draft":
       return { kind: "draft", text: event.text };
     case "usage":
-      return { kind: "usage", windows: event.windows };
+      return { kind: "usage", harness: event.harness, windows: event.windows };
     case "exported":
       return { kind: "notify", text: `Exported to ${event.path}` };
     default:

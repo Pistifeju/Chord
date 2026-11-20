@@ -2,18 +2,20 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 
 use super::asks::{self, Asks, Parsed};
 use super::blocks::{self, Streamed};
 use super::commands::{Change, Picks, Settings, commands, session_command};
-use super::{requests, transcript};
+use super::{NAME, blocks::timestamp, requests, transcript};
 use crate::Error;
 use crate::harness::calls::OpenCalls;
 use crate::harness::earlier::{Back, Earlier};
 use crate::harness::resume::{self, Resume};
-use crate::harness::{DialogAnswer, HarnessEvent, Image, count, text};
+use crate::harness::subagents::Subagents;
+use crate::harness::{DialogAnswer, HarnessEvent, Image, SubagentState, UsageWindow, count, text};
 
 /// What one record leads to: events for the chat and lines to write Claude Code.
 #[derive(Default)]
@@ -49,7 +51,19 @@ enum Pending {
         model: Option<String>,
     },
     Mode,
+    Usage,
 }
+
+/// Claude Code sends `rate_limit_event` as often as each reply; usage is read again at most this often.
+const USAGE_EVERY: Duration = Duration::from_secs(30);
+
+/// The task types that are agents; a long shell command or a monitor is a task too.
+const AGENT_TASKS: [&str; 4] = [
+    "local_agent",
+    "remote_agent",
+    "in_process_teammate",
+    "local_workflow",
+];
 
 /// A message the adapter wrote, until Claude Code echoes it.
 struct Sent {
@@ -86,6 +100,9 @@ pub(super) struct Reader {
     held: Vec<HarnessEvent>,
     calls: OpenCalls,
     asks: Asks,
+    subagents: Subagents,
+    /// When a `rate_limit_event` last read the usage.
+    usage_read: Option<Instant>,
 }
 
 impl Reader {
@@ -111,6 +128,8 @@ impl Reader {
             held: vec![],
             calls: OpenCalls::default(),
             asks: Asks::default(),
+            subagents: Subagents::default(),
+            usage_read: None,
         }
     }
 
@@ -309,10 +328,11 @@ impl Reader {
         })
     }
 
-    /// Stdout closed: the calls still open end as stopped, and the open ask closes.
+    /// Stdout closed: the calls still open end as stopped, the open ask closes and the subagents go with the process.
     pub(super) fn end(&mut self) -> Vec<HarnessEvent> {
         let mut events = self.asks.withdraw(|_| true);
         events.extend(self.calls.stop());
+        events.extend(self.subagents.clear());
         events
     }
 
@@ -341,6 +361,20 @@ impl Reader {
             Some("assistant") if !subagent => events(self.assistant(&record)),
             Some("user") if !subagent => events(self.user(&record)),
             Some("result") => self.result(&record),
+            // The event holds one window's state, so the usage is read whole.
+            Some("rate_limit_event") => {
+                let due = self.usage_read.is_none_or(|at| at.elapsed() >= USAGE_EVERY);
+                if due {
+                    self.usage_read = Some(Instant::now());
+                }
+                Read {
+                    lines: due
+                        .then(|| self.request(Pending::Usage, "get_usage", json!({})))
+                        .into_iter()
+                        .collect(),
+                    ..Read::default()
+                }
+            }
             _ => Read::default(),
         };
         read.events = self.calls.track(read.events);
@@ -393,6 +427,37 @@ impl Reader {
                 events
             }
             Some("commands_changed") => vec![commands(&record["commands"])],
+            Some("task_started") => {
+                let agent = AGENT_TASKS.contains(&record["task_type"].as_str().unwrap_or_default());
+                let (Some(id), true) = (record["task_id"].as_str(), agent) else {
+                    return vec![];
+                };
+                let name = ["subagent_type", "workflow_name", "description"]
+                    .into_iter()
+                    .find_map(|key| record[key].as_str().filter(|name| !name.is_empty()));
+                vec![
+                    self.subagents
+                        .start(id, record["parent_task_id"].as_str(), name),
+                ]
+            }
+            Some("task_progress") => record["task_id"]
+                .as_str()
+                .zip(record["last_tool_name"].as_str())
+                .and_then(|(id, tool)| self.subagents.tool(id, tool))
+                .into_iter()
+                .collect(),
+            Some("task_notification" | "task_updated") => {
+                let status = record["status"]
+                    .as_str()
+                    .or(record["patch"]["status"].as_str());
+                let state = match status {
+                    Some("completed") => SubagentState::Done,
+                    Some("failed" | "killed" | "stopped") => SubagentState::Error,
+                    _ => return vec![],
+                };
+                let id = record["task_id"].as_str().unwrap_or_default();
+                self.subagents.end(id, state).into_iter().collect()
+            }
             Some("compact_boundary") => vec![
                 HarnessEvent::Compaction {
                     summary: String::new(),
@@ -510,7 +575,10 @@ impl Reader {
         }
         Read {
             events,
-            lines: vec![self.request(Pending::Context, "get_context_usage", json!({}))],
+            lines: vec![
+                self.request(Pending::Context, "get_context_usage", json!({})),
+                self.request(Pending::Usage, "get_usage", json!({})),
+            ],
             relaunch: None,
         }
     }
@@ -531,7 +599,8 @@ impl Reader {
                 .to_string()
         });
         let mut read = Read::default();
-        if let Some(text) = error.clone() {
+        // Usage is a hint: a login without it shows none, and says nothing.
+        if let Some(text) = error.clone().filter(|_| !matches!(pending, Pending::Usage)) {
             read.events.push(HarnessEvent::Notice { text });
         }
         match pending {
@@ -569,6 +638,7 @@ impl Reader {
                         ),
                         self.request(Pending::Settings, "get_settings", json!({})),
                         self.request(Pending::Context, "get_context_usage", json!({})),
+                        self.request(Pending::Usage, "get_usage", json!({})),
                     ];
                 }
             }
@@ -589,6 +659,10 @@ impl Reader {
                     window: self.window,
                 });
             }
+            Pending::Usage if error.is_none() => read.events.push(HarnessEvent::Usage {
+                harness: NAME,
+                windows: usage_windows(answer),
+            }),
             Pending::Interrupt if error.is_none() && self.sent.iter().any(|sent| sent.steer) => {
                 self.sent.retain(|sent| !sent.steer);
                 read.events.push(self.queue());
@@ -597,6 +671,28 @@ impl Reader {
         }
         read
     }
+}
+
+// The five-hour and weekly windows of a subscription; an API key has none.
+fn usage_windows(usage: &Value) -> Vec<UsageWindow> {
+    if usage["rate_limits_available"] != true {
+        return vec![];
+    }
+    [("5h", "five_hour"), ("week", "seven_day")]
+        .into_iter()
+        .filter_map(|(name, key)| {
+            let window = &usage["rate_limits"][key];
+            // Claude Code writes the reset with an offset, which is always UTC.
+            let resets_at = window["resets_at"]
+                .as_str()
+                .map(|at| Value::from(at.replace("+00:00", "Z")));
+            Some(UsageWindow::used(
+                name,
+                window["utilization"].as_f64()?,
+                resets_at.as_ref().and_then(timestamp),
+            ))
+        })
+        .collect()
 }
 
 fn events(events: Vec<HarnessEvent>) -> Read {

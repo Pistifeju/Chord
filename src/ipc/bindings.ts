@@ -633,8 +633,10 @@ export type HarnessEvent_Deserialize =
 { kind: "dialog"; id: string; title: string; ask: DialogAsk_Deserialize } | 
 /**  The commands the agent offers after a slash. */
 { kind: "commands"; commands: SlashCommand_Deserialize[] } | 
-/**  The subscription usage windows of the account, shortest first; the whole list each time, empty when none applies. */
-{ kind: "usage"; windows: UsageWindow_Deserialize[] } | 
+/**  The subscription usage windows of the harness's account, shortest first; the whole list each time, empty when none applies, as for an API key. */
+{ kind: "usage"; 
+/**  The `name` of the harness's entry in `HARNESSES`. */
+harness: string; windows: UsageWindow_Deserialize[] } | 
 /**  The background subagent runs as a lineage, each node before its children; the whole list each time, empty when none applies. */
 { kind: "subagents"; nodes: SubagentNode_Deserialize[] } | 
 /**  The steering messages the agent has not taken in yet, oldest first; the whole queue each time. */
@@ -689,8 +691,10 @@ export type HarnessEvent_Serialize =
 { kind: "dialog"; id: string; title: string; ask: DialogAsk_Serialize } | 
 /**  The commands the agent offers after a slash. */
 { kind: "commands"; commands: SlashCommand_Serialize[] } | 
-/**  The subscription usage windows of the account, shortest first; the whole list each time, empty when none applies. */
-{ kind: "usage"; windows: UsageWindow_Serialize[] } | 
+/**  The subscription usage windows of the harness's account, shortest first; the whole list each time, empty when none applies, as for an API key. */
+{ kind: "usage"; 
+/**  The `name` of the harness's entry in `HARNESSES`. */
+harness: string; windows: UsageWindow_Serialize[] } | 
 /**  The background subagent runs as a lineage, each node before its children; the whole list each time, empty when none applies. */
 { kind: "subagents"; nodes: SubagentNode_Serialize[] } | 
 /**  The steering messages the agent has not taken in yet, oldest first; the whole queue each time. */

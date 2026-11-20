@@ -8,6 +8,7 @@ mod reader;
 mod requests;
 #[cfg(test)]
 mod tests;
+mod usage;
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -186,6 +187,7 @@ impl Agent for Session {
             Capability::Steer,
             Capability::Models,
             Capability::Context,
+            Capability::Subagents,
         ]
     }
 

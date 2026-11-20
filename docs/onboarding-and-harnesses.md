@@ -11,7 +11,7 @@ Chord runs Codex over `codex app-server` and Claude Code over `claude -p` with s
 - [x] N3 **hard** Needs N1. Claude Code over `claude -p` with stream-json in and out: N2's list, with the picker holding Claude Code's permission mode.
 - [x] N4 Needs N2 or N3. Build and run tools for Codex and Claude Code through a stdio MCP server that Chord's own binary serves.
 - [x] N5 Needs N2 or N3. Session commands for Codex and Claude Code: new, fork, clone, rewind, reload and compact.
-- [ ] N6 Needs N2 or N3. Usage and subagents for Codex and Claude Code, from what each CLI reports itself. The status bar shows the usage of every used harnesses. So we need to use the icons of the harnesses so set them apart.
+- [x] N6 Needs N2 or N3. Usage and subagents for Codex and Claude Code, from what each CLI reports itself. The status bar shows the usage of every used harnesses. So we need to use the icons of the harnesses so set them apart.
 - [ ] N7 Needs N1. The oldest version of each harness Chord runs: step each harness back through its released versions, run Chord's feature list on each one, and set its `oldest_tested` to the oldest version where every feature works. pi now, Codex after N2, Claude Code after N3. Section 2's tested versions list each harness's oldest and newest passing versions.
 
 Edge cases:
@@ -91,7 +91,7 @@ Permission asks open as dialogs, and the card reports Waiting while one is open.
 | `harness/pi/mod.rs:29` | install step is `npm install -g` | `curl -fsSL https://pi.dev/install.sh \| sh` | 1 |
 | `harness/pi/mod.rs:332` | the version check and its parser are private to pi | one check and one parser for every harness | 1 |
 | `panes/PaneArea.tsx` | a chat tab shows its pane's harness logo from `harnesses/logos.tsx`, the harness name in its tooltip; `logos.tsx` has pi, Codex and Claude Code | none | 4 |
-| `usage/store.ts` | one usage list for the whole app | one per harness; the status bar shows the focused pane's | 6 |
+| `usage/store.ts` | one usage list per harness, keyed by the `harness` of `Usage`; the status bar shows each harness that reported, after its logo | none | 6 |
 | `harness/pi/extension.ts` | pi gets the `build` and `run` tools from the extension; Codex and Claude Code from `chord agent-tools`, a stdio MCP server in Chord's own binary | none | 5 |
 | `AGENTS.md` "New harness", `harness-contract.md` 3 "Version check", `ARCHITECTURE.md` 3.6 | a new harness is one `start` arm; pi checks its own version | a new harness is a list entry and a `start` arm; one check for every harness | 1 |
 | `PRODUCT.md`, `README.md:13`, `ARCHITECTURE.md` 1 and 3 | name pi as the one harness | name the three | 7 |
