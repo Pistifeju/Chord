@@ -1,0 +1,20 @@
+{
+  "instructions": [
+    "Use build and run for this worktree's Xcode project instead of calling xcodebuild or xcrun simctl yourself; `simctl ... booted` can reach another worktree's simulator.",
+    "Call build or run only when the user asks for it, not to check your own edits."
+  ],
+  "tools": [
+    {
+      "name": "build",
+      "label": "Build",
+      "description": "Builds this worktree's Xcode project like Chord's Cmd-B, in the worktree's own DerivedData; the user sees the log in Chord. Answers 'Build succeeded', 'Stopped' when the user started another build, or 'Build failed' with the error lines.",
+      "promptSnippet": "Build this worktree's Xcode project and get its errors"
+    },
+    {
+      "name": "run",
+      "label": "Run",
+      "description": "Builds the app and runs it on this worktree's own simulator like Chord's Cmd-R; the user sees the log and the app in Chord. Answers 'Launched', 'Stopped' when the user started another build, or 'Build failed' with the error lines.",
+      "promptSnippet": "Build the app and launch it on this worktree's simulator"
+    }
+  ]
+}

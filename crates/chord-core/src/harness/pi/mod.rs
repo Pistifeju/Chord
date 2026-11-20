@@ -45,9 +45,10 @@ const EXTENSION_FILE: &str = "chord-extension.ts";
 const EXTENSION_PREFIX: &str = "chord-";
 /// The status key the extension reports the usage windows under.
 const USAGE_STATUS: &str = "chord-usage";
-/// The extension registers the build and run tools when pi starts with these: the socket Chord takes the calls on, and the worktree they build.
+/// The extension registers the build and run tools when pi starts with these: the socket Chord takes the calls on, the worktree they build, and the tools' texts.
 const TOOLS_SOCKET_ENV: &str = "CHORD_TOOLS";
 const WORKTREE_ENV: &str = "CHORD_WORKTREE";
+const TOOL_TEXTS_ENV: &str = "CHORD_TOOL_TEXTS";
 /// A subagent extension's widget carries its background runs as one line with this prefix, then a JSON snapshot.
 const SUBAGENTS_PREFIX: &str = "PI_SUBAGENT_ASYNC_JSON:";
 /// The request id of a prompt that runs one of the extension's commands; its response means the session may have changed.
@@ -290,7 +291,10 @@ fn launch(
     let mut command = login_shell(HARNESS.binary, &args);
     command.current_dir(dir);
     if let Some(socket) = tools {
-        command.env(TOOLS_SOCKET_ENV, socket).env(WORKTREE_ENV, dir);
+        command
+            .env(TOOLS_SOCKET_ENV, socket)
+            .env(WORKTREE_ENV, dir)
+            .env(TOOL_TEXTS_ENV, super::agent_tools::TEXTS);
     }
     Process::start(command, move |output, stdin| match output {
         Output::Line(line) => {

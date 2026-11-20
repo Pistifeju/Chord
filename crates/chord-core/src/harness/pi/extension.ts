@@ -64,45 +64,32 @@ function callChord(socket: string, tool: string, worktree: string, signal: Abort
   });
 }
 
-function registerBuildTools(pi: ExtensionAPI, socket: string, worktree: string) {
-  const tools = [
-    {
-      name: "build",
-      label: "Build",
-      description:
-        "Builds this worktree's Xcode project like Chord's Cmd-B, in the worktree's own DerivedData; the user sees the log in Chord. Answers 'Build succeeded', 'Stopped' when the user started another build, or 'Build failed' with the error lines.",
-      promptSnippet: "Build this worktree's Xcode project and get its errors",
-      promptGuidelines: [
-        "Use build and run for this worktree's Xcode project instead of calling xcodebuild or xcrun simctl yourself; `simctl ... booted` can reach another worktree's simulator.",
-        "Call build or run only when the user asks for it, not to check your own edits.",
-      ],
-    },
-    {
-      name: "run",
-      label: "Run",
-      description:
-        "Builds the app and runs it on this worktree's own simulator like Chord's Cmd-R; the user sees the log and the app in Chord. Answers 'Launched', 'Stopped' when the user started another build, or 'Build failed' with the error lines.",
-      promptSnippet: "Build the app and launch it on this worktree's simulator",
-      promptGuidelines: [],
-    },
-  ];
-  for (const tool of tools) {
+type ToolTexts = {
+  instructions: string[];
+  tools: { name: string; label: string; description: string; promptSnippet: string }[];
+};
+
+function registerBuildTools(pi: ExtensionAPI, socket: string, worktree: string, texts: ToolTexts) {
+  texts.tools.forEach((tool, index) => {
     pi.registerTool({
       ...tool,
+      // pi puts every tool's guidelines in one system prompt list, so the first tool carries them for both.
+      promptGuidelines: index === 0 ? texts.instructions : [],
       parameters: Type.Object({}),
       async execute(_id, _params, signal) {
         const reply = await callChord(socket, tool.name, worktree, signal);
         return { content: [{ type: "text", text: reply.text }], details: undefined, isError: reply.failed };
       },
     });
-  }
+  });
 }
 
 export default function (pi: ExtensionAPI) {
-  // Chord sets both only for a worktree with an Xcode project.
+  // Chord sets all three only for a worktree with an Xcode project.
   const socket = process.env.CHORD_TOOLS;
   const worktree = process.env.CHORD_WORKTREE;
-  if (socket && worktree) registerBuildTools(pi, socket, worktree);
+  const texts = process.env.CHORD_TOOL_TEXTS;
+  if (socket && worktree && texts) registerBuildTools(pi, socket, worktree, JSON.parse(texts) as ToolTexts);
 
   // RPC drops the usage bar's TUI component, so the windows travel as a status text the adapter reads.
   const usage: Record<string, UsageWindow> = {};

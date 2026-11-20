@@ -12,11 +12,13 @@ mod tests;
 use std::path::Path;
 use std::sync::{Arc, Mutex, PoisonError};
 
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use super::installed::require;
 use super::process::{Output, Process, login_shell};
-use super::{Agent, Capability, DialogAnswer, Harness, HarnessEvent, Image, OnEvent, SignIn};
+use super::{
+    Agent, Capability, DialogAnswer, Harness, HarnessEvent, Image, OnEvent, SignIn, agent_tools,
+};
 use crate::{Error, lock};
 use reader::{Read, Reader};
 
@@ -37,6 +39,9 @@ pub const HARNESS: Harness = Harness {
     starts: true,
 };
 
+/// Codex's 60 s tool timeout would end a cold build's call.
+const TOOL_TIMEOUT_SEC: u32 = 3600;
+
 /// One running `codex app-server` process, on one thread.
 pub struct Session {
     process: Mutex<Process>,
@@ -45,16 +50,32 @@ pub struct Session {
 }
 
 impl Session {
-    /// Starts Codex in `dir` on the saved thread `session`, else on a new thread.
+    /// Starts Codex in `dir` on the saved thread `session`, else on a new thread. With `tools`, the socket Chord's tools listen on, the agent gets the build and run tools.
     pub fn start(
         dir: &Path,
         session: Option<&str>,
+        tools: Option<&Path>,
         on_event: impl Fn(HarnessEvent) + Send + 'static,
     ) -> Result<Session, Error> {
         require(&HARNESS)?;
         let on_event: OnEvent = Arc::new(Mutex::new(on_event));
         let reader = Arc::new(Mutex::new(Reader::new(dir, session)));
-        let mut command = login_shell(HARNESS.binary, &["app-server"]);
+        let mut args = vec!["app-server".to_string()];
+        if let Some((command, server_args)) =
+            tools.and_then(|socket| agent_tools::command(socket, dir))
+        {
+            let overrides = [
+                ("command", json!(command).to_string()),
+                ("args", json!(server_args).to_string()),
+                ("tool_timeout_sec", TOOL_TIMEOUT_SEC.to_string()),
+                ("default_tools_approval_mode", r#""approve""#.into()),
+            ];
+            for (key, value) in overrides {
+                args.extend(["-c".into(), format!("mcp_servers.chord.{key}={value}")]);
+            }
+        }
+        let args: Vec<&str> = args.iter().map(String::as_str).collect();
+        let mut command = login_shell(HARNESS.binary, &args);
         command.current_dir(dir);
         let (records, emit) = (Arc::clone(&reader), Arc::clone(&on_event));
         let process = Process::start(command, move |output, stdin| {

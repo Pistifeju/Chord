@@ -1,5 +1,6 @@
 //! What a harness tells the chat: the events every adapter emits.
 
+pub mod agent_tools;
 mod asks;
 mod calls;
 pub mod claude;
@@ -74,8 +75,12 @@ pub fn start(
         pi::NAME => Ok(Box::new(pi::Session::start(
             dir, session, data_dir, tools, on_event,
         )?)),
-        codex::NAME => Ok(Box::new(codex::Session::start(dir, session, on_event)?)),
-        claude::NAME => Ok(Box::new(claude::Session::start(dir, session, on_event)?)),
+        codex::NAME => Ok(Box::new(codex::Session::start(
+            dir, session, tools, on_event,
+        )?)),
+        claude::NAME => Ok(Box::new(claude::Session::start(
+            dir, session, tools, on_event,
+        )?)),
         other => Err(Error::Message(format!(
             "Chord cannot run the harness \"{other}\""
         ))),

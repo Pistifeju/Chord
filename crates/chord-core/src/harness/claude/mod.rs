@@ -13,11 +13,13 @@ mod transcript;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use super::installed::require;
 use super::process::{Output, Process, login_shell};
-use super::{Agent, Capability, DialogAnswer, Harness, HarnessEvent, Image, OnEvent, SignIn};
+use super::{
+    Agent, Capability, DialogAnswer, Harness, HarnessEvent, Image, OnEvent, SignIn, agent_tools,
+};
 use crate::{Error, lock};
 use reader::{Read, Reader};
 
@@ -63,24 +65,28 @@ pub struct Session {
     dir: PathBuf,
     /// The worktree's folder of session files.
     folder: Option<PathBuf>,
+    /// The socket of the build and run tools, for a resume's new process.
+    tools: Option<PathBuf>,
     running: Mutex<Running>,
     on_event: OnEvent,
 }
 
 impl Session {
-    /// Starts Claude Code in `dir` on the saved session `session` when its file exists, else on a new session.
+    /// Starts Claude Code in `dir` on the saved session `session` when its file exists, else on a new session. With `tools`, the socket Chord's tools listen on, the agent gets the build and run tools.
     pub fn start(
         dir: &Path,
         session: Option<&str>,
+        tools: Option<&Path>,
         on_event: impl Fn(HarnessEvent) + Send + 'static,
     ) -> Result<Session, Error> {
         require(&HARNESS)?;
         let on_event: OnEvent = Arc::new(Mutex::new(on_event));
         let folder = transcript::folder(dir);
-        let running = launch(dir, folder.as_deref(), session, &on_event)?;
+        let running = launch(dir, folder.as_deref(), session, tools, &on_event)?;
         Ok(Session {
             dir: dir.to_path_buf(),
             folder,
+            tools: tools.map(Path::to_path_buf),
             running: Mutex::new(running),
             on_event,
         })
@@ -92,6 +98,7 @@ impl Session {
             &self.dir,
             self.folder.as_deref(),
             Some(session),
+            self.tools.as_deref(),
             &self.on_event,
         )?;
         let old = std::mem::replace(&mut *lock(&self.running), new);
@@ -122,15 +129,29 @@ fn launch(
     dir: &Path,
     folder: Option<&Path>,
     session: Option<&str>,
+    tools: Option<&Path>,
     on_event: &OnEvent,
 ) -> Result<Running, Error> {
     let resumed = session
         .filter(|id| folder.is_some_and(|folder| transcript::file(folder, id).is_file()))
         .map(String::from);
-    let mut args = ARGS.to_vec();
+    let mut args: Vec<String> = ARGS.map(String::from).to_vec();
     if let Some(id) = &resumed {
-        args.extend(["--resume", id.as_str()]);
+        args.extend(["--resume".into(), id.clone()]);
     }
+    // The tools are Chord's own, so they ask no permission, as in pi.
+    if let Some((command, server_args)) = tools.and_then(|socket| agent_tools::command(socket, dir))
+    {
+        let config =
+            json!({ "mcpServers": { "chord": { "command": command, "args": server_args } } });
+        args.extend([
+            "--mcp-config".into(),
+            config.to_string(),
+            "--allowedTools".into(),
+            "mcp__chord__build,mcp__chord__run".into(),
+        ]);
+    }
+    let args: Vec<&str> = args.iter().map(String::as_str).collect();
     let reader = Arc::new(Mutex::new(Reader::new(
         dir,
         folder.map(Path::to_path_buf),
