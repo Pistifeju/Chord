@@ -1,4 +1,4 @@
-// The Preview view in the side panel: the worktree's preview simulator screen under its header, the preview model's menu and the line while a rebuild runs, beside the worktree's `#Preview` list on the panel's outer edge, as a Files tree that ↑ and ↓ step through, with a filter from five previews, and the compile error's bar, with the Simulator view's screen, bezel, input and Screenshot button, or the line that stands in for it. Also its toolbar button.
+// The Preview view in the side panel, or its centered line in a worktree without a `#Preview`: the worktree's preview simulator screen under its header, the preview model's menu and the line while a rebuild runs, beside the worktree's `#Preview` list on the panel's outer edge, as a Files tree that ↑ and ↓ step through, with a filter from five previews, and the compile error's bar, with the Simulator view's screen, bezel, input and Screenshot button, or the line that stands in for it. Also its toolbar button.
 import { Menu } from "@tauri-apps/api/menu";
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import { tooltip } from "../../../app/commands";
@@ -70,11 +70,31 @@ export function PreviewView({ worktree }: { worktree: string }) {
   const model = usePreviewModel(worktree);
   const fallback = useFallbackSimulator(worktree);
   const picked = pick !== null;
+  const count = previewLists.usePart((lists) => lists[worktree]?.length ?? null);
+  useEffect(() => {
+    loadPreviewList(worktree);
+    const onFocus = () => loadPreviewList(worktree);
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [worktree]);
   useEffect(() => {
     const number = openPreview(worktree);
     return () => closePreview(worktree, number);
   }, [worktree, model, picked]);
   const modelMenu = async () => Menu.new({ items: await simulatorItems(model, (chosen) => choosePreviewModel(worktree, chosen)) });
+  // The first list read decides between the screen and the line, so neither flashes.
+  if (count === null) return <div className="preview" />;
+  if (count === 0)
+    return (
+      <div className="preview">
+        <div className="preview-empty">
+          <p>No previews in this worktree.</p>
+          <p>
+            Add a <code>#Preview</code> to a SwiftUI view to see it here.
+          </p>
+        </div>
+      </div>
+    );
   return (
     <div className="preview">
       <div className="preview-body">
@@ -119,12 +139,6 @@ function PreviewList({ worktree }: { worktree: string }) {
   const list = useRef<HTMLDivElement>(null);
   const width = previewListWidth.use();
   const toggle = (file: string) => setClosed((files) => (files.includes(file) ? files.filter((f) => f !== file) : [...files, file]));
-  useEffect(() => {
-    loadPreviewList(worktree);
-    const onFocus = () => loadPreviewList(worktree);
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, [worktree]);
   return (
     <div
       className="preview-list"
@@ -170,7 +184,6 @@ function PreviewList({ worktree }: { worktree: string }) {
         {rows.map((row) => (
           <ListRow key={row.entry.path} row={row} selected={pick !== null && row.pick !== null && previewKey(pick) === row.entry.path} onToggle={toggle} onPick={(chosen) => choosePreview(worktree, chosen)} />
         ))}
-        {all?.length === 0 && <div className="files-empty">No previews in this worktree</div>}
         {!!all?.length && rows.length === 0 && <div className="files-empty">No matches</div>}
       </div>
     </div>

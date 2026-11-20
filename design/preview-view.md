@@ -19,9 +19,13 @@
   A click shows a preview or opens and closes a file.
   The pick stays the worktree's, whatever file the editor shows.
   Typing filters on name and file and opens every file.
-  No match reads "No matches"; a worktree without a `#Preview` reads "No previews in this worktree".
+  No match reads "No matches".
   The list reads again when the window takes the focus.
   Showing the view widens the side panel to 560px at least; the next view gets back the width the panel had before.
+- **Empty:** a worktree without a `#Preview` shows no header, screen or list.
+  In their place sits the Simulator view's centered meta line, 40% down: "No previews in this worktree." in `ink-secondary`, then "Add a `#Preview` to a SwiftUI view to see it here." in `ink-muted`, 4px apart, the `#Preview` as inline code on `raised` with the Inset radius.
+  The list reads again when the window takes the focus, and the view fills once a `#Preview` shows up.
+  While the first list loads, the view stays blank.
 - **Screen:** the Simulator view's screen, bezel and input, without its button row.
 - **Compile error:** the last frame stays, and a bar on `raised` with a 1px `line` top edge sits along the view's bottom: a 16px `danger` error icon, then the first error, `file:line` in 12px `danger` and the message in 12px `ink`, which truncates, its full text as the tooltip, 10px 12px padding.
   A click opens the file at that line.
