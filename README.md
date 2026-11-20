@@ -6,11 +6,11 @@ Chord is in early development.
 
 ## Requirements
 
-- macOS
+- macOS 14 or later
 - Xcode Command Line Tools (`xcode-select --install`)
-- [Rust](https://rustup.rs)
-- [Node.js](https://nodejs.org) with npm
-- [pi](https://github.com/earendil-works/pi), the coding agent Chord runs
+- [Rust](https://rustup.rs); rustup installs the version `rust-toolchain.toml` pins
+- [Node.js](https://nodejs.org) 24 or later, with npm
+- A coding agent: [pi](https://github.com/earendil-works/pi), Codex or Claude Code. Chord shows the install command of a missing one.
 
 ## Build
 

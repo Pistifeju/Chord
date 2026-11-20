@@ -8,11 +8,11 @@ web
 
 ## Users
 
-A solo developer, often an iOS developer, who runs several pi agents in parallel on separate tasks and switches between them. They open Chord to start a task, check which agent needs them, answer it, and move to the next.
+A solo developer, often an iOS developer, who runs several coding agents (pi, Codex, Claude Code) in parallel on separate tasks and switches between them. They open Chord to start a task, check which agent needs them, answer it, and move to the next.
 
 ## Product Purpose
 
-Chord is a macOS workspace for coding agents. Each task gets its own git worktree, and each worktree gets its own pi agent chats. Success: the developer runs many agents at once and always knows which one is waiting, done or broken, without losing track of any task.
+Chord is a macOS workspace for coding agents. Each task gets its own git worktree, and each worktree gets its own agent chats. Success: the developer runs many agents at once and always knows which one is waiting, done or broken, without losing track of any task.
 
 ## Positioning
 
@@ -22,7 +22,7 @@ Chord is a macOS workspace for coding agents. Each task gets its own git worktre
 ## Operating Context
 
 - Works with any git repo. The developer adds a project, creates a worktree per task, and splits panes so each pane runs its own agent.
-- pi is the agent harness Chord runs. Xcode Command Line Tools, git and pi must be installed; Chord tells the user how to install a missing one.
+- Chord runs three agent harnesses: pi, Codex and Claude Code. Each pane runs one of them. Xcode Command Line Tools, git and one harness must be installed; Chord tells the user how to install a missing one.
 - The developer stays in one window for hours, switching worktrees with ⌘1-9 and keyboard shortcuts.
 
 ## Capabilities and Constraints

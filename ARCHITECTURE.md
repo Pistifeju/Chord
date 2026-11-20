@@ -10,9 +10,11 @@ generated IPC bindings         src/ipc/bindings.ts, written by the Rust build
 src-tauri (app crate)          thin commands, menu, window, notifications
 ------------------------------ plain Rust calls
 chord-core                    projects, worktrees, git, state file,
-                               harness trait, pi adapter
+                               harness trait, one adapter per harness
 ------------------------------ stdin / stdout
-pi --mode rpc                  one process per pane
+pi --mode rpc                  one process per pane, of the harness
+codex app-server               the pane picked
+claude -p
 ```
 
 ## 2. Rust
