@@ -1,4 +1,4 @@
-// The Changes view: its scope control, Uncommitted or Branch while the worktree has a base (see BranchList), then under Uncommitted the worktree's changed files under Staged and Changes, Stash Changes on the Changes heading, the repository's stashes under them (see StashList), with the commit area under them: the push line while the branch has commits to push, then the message card with the subject length and Commit with its mode menu in its foot; each row with its name, folder, line counts and status; a click opens its diff. A checkbox on each row and group heading stages or unstages, and a row's More button and right-click menu hold its Stage or Unstage, and Discard.
+// The Changes view: its branch line (see BranchMenu), its scope control, Uncommitted or Branch while the worktree has a base (see BranchList), then under Uncommitted the worktree's changed files under Staged and Changes, Stash Changes on the Changes heading, the repository's stashes under them (see StashList), with the commit area under them: the push line while the branch has commits to push, then the message card with the subject length and Commit with its mode menu in its foot; each row with its name, folder, line counts and status; a click opens its diff. A checkbox on each row and group heading stages or unstages, and a row's More button and right-click menu hold its Stage or Unstage, and Discard.
 import { memo, useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from "react";
 import type { Change } from "../../ipc/bindings";
 import { showMenu } from "../../app/commands";
@@ -9,6 +9,7 @@ import { gitCounts } from "../worktrees/gitCountsRefresh";
 import { Segmented } from "../../ui/Segmented";
 import { arrivals, canCommit, changeGroups, diffKey, focusedDiff, nextSelection, pickRange, statusWord } from "./changes";
 import { BaseControl, BranchList } from "./BranchList";
+import { BranchLine } from "./BranchMenu";
 import { ChangeParts } from "./ChangeParts";
 import { StashList } from "./StashList";
 import { changesTarget } from "./commands";
@@ -34,6 +35,7 @@ export const ChangesView = memo(function ChangesView({ worktree }: { worktree: s
   const scope = branch ? picked : "uncommitted";
   return (
     <>
+      <BranchLine worktree={worktree} />
       {branch && (
         <div className="changes-header">
           <Segmented label="Scope" options={scopeOptions} value={scope} onChange={(value) => setScope(worktree, value)} />

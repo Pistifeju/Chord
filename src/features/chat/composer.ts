@@ -54,6 +54,5 @@ export function droppedFiles(paths: string[], canAttach: boolean): { attach: str
 /** What a picker button does once the open menus close: the open picker's button leaves it closed, the other picker's button opens its own. A picker's dialog title is its button's title. */
 export const pickerClick = (openTitle: string | null, title: string) => ({ open: openTitle !== title });
 
-/** The one menu floating above the composer: an open picker first, then the agent picker, then the branch menu, then the slash menu. */
-export const composerMenu = (picker: boolean, agent: boolean, branch: boolean, slash: boolean): "picker" | "agent" | "branch" | "slash" | null =>
-  picker ? "picker" : agent ? "agent" : branch ? "branch" : slash ? "slash" : null;
+/** The one menu floating above the composer: an open picker first, then the agent picker, then the slash menu. */
+export const composerMenu = (picker: boolean, agent: boolean, slash: boolean): "picker" | "agent" | "slash" | null => (picker ? "picker" : agent ? "agent" : slash ? "slash" : null);

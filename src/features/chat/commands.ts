@@ -2,14 +2,11 @@
 import type { AppCommand } from "../../app/commands";
 import { onTarget } from "../../app/commandTarget";
 import { chatPaneIds } from "../panes/layout";
-import { requestDeleteBranch } from "../worktrees/localBranches";
-import { startBranchRename } from "../worktrees/rename";
-import { projects, shownPanes } from "../worktrees/store";
+import { shownPanes } from "../worktrees/store";
 import { sheet } from "../../app/sheet";
 import { closeFind, finds, openFind } from "./find";
 import { closeLightbox, lightboxes, stepLightbox } from "./viewing";
 import { agentPickerPane, closeAgentPicker } from "./agentPicker";
-import { branchMenuPane, closeBranchMenu } from "./branch";
 import { slashMenu } from "./slash";
 import { abortRun, answerDialog, chatOf, chats, closeSlash, drafts, pickAttachments, slashClosed } from "./store";
 
@@ -18,12 +15,6 @@ const focusedPane = (): string | null => {
   if (sheet.get() !== null || document.activeElement?.closest(".side-panel, .bottom-panel")) return null;
   const shown = shownPanes();
   return shown?.focused && chatPaneIds(shown.layout).includes(shown.focused) ? shown.focused : null;
-};
-
-const onBranch = (act: (worktree: string, branch: string) => void) => (target?: string) => {
-  const worktree = projects.get().selected;
-  closeBranchMenu();
-  if (worktree && target) act(worktree, target);
 };
 
 const runningPane = (): string | null => {
@@ -46,11 +37,6 @@ const slashPane = (): string | null => {
   if (!pane) return null;
   const draft = drafts.get()[pane] ?? "";
   return slashMenu(chatOf(chats.get(), pane).commands, draft, slashClosed.get()[pane]).length > 0 ? pane : null;
-};
-
-const branchMenuOpenPane = (): string | null => {
-  const pane = focusedPane();
-  return pane && branchMenuPane.get() === pane ? pane : null;
 };
 
 const agentPickerOpenPane = (): string | null => {
@@ -86,9 +72,6 @@ export const chatCommands: AppCommand[] = [
     }),
   },
   { id: "chat.slashClose", title: "Close Command Menu", shortcut: { key: "escape" }, ...onTarget(slashPane, (pane) => closeSlash(pane, drafts.get()[pane] ?? "")) },
-  { id: "branch.rename", title: "Rename Branch", run: onBranch(startBranchRename) },
-  { id: "branch.delete", title: "Delete Branch", run: onBranch(requestDeleteBranch) },
-  { id: "chat.branchMenuClose", title: "Close Branch Menu", shortcut: { key: "escape" }, ...onTarget(branchMenuOpenPane, closeBranchMenu) },
   { id: "chat.agentPickerClose", title: "Close Agent Picker", shortcut: { key: "escape" }, ...onTarget(agentPickerOpenPane, closeAgentPicker) },
   { id: "chat.stop", title: "Stop Agent", shortcut: { key: "escape" }, ...onTarget(runningPane, abortRun) },
 ];

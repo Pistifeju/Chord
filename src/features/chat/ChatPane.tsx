@@ -5,22 +5,16 @@ import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type Clipb
 import { tooltip } from "../../app/commands";
 import type { Checks, HarnessCheck, Image, SlashCommand, SubagentNode } from "../../ipc/bindings";
 import { elementAtDrop } from "../../ui/dropPoint";
-import { ArrowDownIcon, ArrowUpIcon, BranchIcon, ChevronDownIcon, ChevronIcon, CloseIcon, ImageIcon, PaperclipIcon } from "../../ui/icons";
+import { ArrowDownIcon, ArrowUpIcon, ChevronIcon, CloseIcon, ImageIcon, PaperclipIcon } from "../../ui/icons";
 import { imageUrl, isImageType, type Attachment } from "./attachments";
 import { AgentMenu } from "./AgentMenu";
 import { agentPickerPane, closeAgentPicker, openAgentPicker } from "./agentPicker";
-import { BranchMenu } from "./BranchMenu";
-import { branchLabel, branchMenuPane, closeBranchMenu, openBranchMenu } from "./branch";
 import { DialogMenu, DialogPanel } from "./DialogPanel";
 import { compactionLabel, contextMeter } from "./context";
 import { useClock } from "./clock";
 import { elapsedText } from "./elapsed";
 import { modelLabels } from "./model";
 import { appearance } from "../settings/store";
-import { allPaneIds } from "../panes/agents";
-import { panes } from "../panes/store";
-import { worktreeAt } from "../worktrees/projects";
-import { projects } from "../worktrees/store";
 import { StatusMark } from "../status/StatusMark";
 import { HarnessRows } from "../harnesses/HarnessRows";
 import { harnessMarks } from "../harnesses/logos";
@@ -38,7 +32,7 @@ import { isTicking, subagentLine, subagentSummary } from "./subagents";
 import { completion, slashMenu, slashQuery } from "./slash";
 import { closeLightbox, lightboxes, openLightbox, stepLightbox } from "./viewing";
 import { addPathToDraft, answerDialog, attachFiles, attachments, attachPasted, chatOf, chats, closeSlash, drafts, openPicker, paneHarnesses, pathDropPane, pickAttachments, removeAttachment, sendMessage, setDraft, slashClosed, startChat, takesAttachments } from "./store";
-import { anyRunning, callTime, isStreaming, queuedImages, stepImages, stepsChanges, stepsSummary, stepsTime, type CompactionMark, type Item, type Message, type SteerImages, type StepGroup } from "./transcript";
+import { callTime, isStreaming, queuedImages, stepImages, stepsChanges, stepsSummary, stepsTime, type CompactionMark, type Item, type Message, type SteerImages, type StepGroup } from "./transcript";
 import "./chat.css";
 
 function SubagentLine({ mark, text }: { mark: SubagentNode["state"]; text: string }) {
@@ -317,20 +311,11 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
   const canSubmit = sendable(canSend, draft, waiting.length);
   const textPercent = appearance.usePart((a) => a.textPercent);
   const dialogOpen = chat.dialog !== null;
-  const branch = projects.usePart((p) => worktreeAt(p, worktree)?.branch ?? null);
-  const git = projects.usePart((p) => worktreeAt(p, worktree)?.git ?? false);
-  // A switch changes the folder every pane of the worktree works in, so any running agent locks it.
-  const worktreeBusy = chats.usePart((all) => anyRunning(all, allPaneIds(panes.get()[worktree])));
-  const branchAsked = branchMenuPane.usePart((open) => open === pane);
   const agentAsked = agentPickerPane.usePart((open) => open === pane);
   const harness = paneHarnesses.usePart((all) => all[pane] ?? null);
-  const floating = composerMenu(menu !== null, agentAsked && ready && harness !== null, branchAsked && !worktreeBusy, slashRows.length > 0);
+  const floating = composerMenu(menu !== null, agentAsked && ready && harness !== null, slashRows.length > 0);
   const agentButton = useRef<HTMLButtonElement>(null);
   const AgentLogo = harness ? harnessMarks[harness]?.Logo : undefined;
-
-  useEffect(() => {
-    if (worktreeBusy && branchMenuPane.get() === pane) closeBranchMenu();
-  }, [worktreeBusy, pane]);
 
   useEffect(() => {
     if (!ready && agentPickerPane.get() === pane) closeAgentPicker();
@@ -376,7 +361,6 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
     if (ready && focused && !dialogOpen) composer.current?.focus();
   }, [ready, focused, dialogOpen]);
   const closeMenus = () => {
-    closeBranchMenu();
     if (agentPickerPane.get() === pane) closeAgentPicker();
     if (menu) answerDialog(pane, menu.dialog.id, { kind: "cancelled" });
   };
@@ -389,11 +373,6 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
     const open = floating === "agent";
     closeMenus();
     if (!open) openAgentPicker(pane);
-  };
-  const toggleBranch = () => {
-    const open = floating === "branch";
-    closeMenus();
-    if (!open) openBranchMenu(pane);
   };
 
   // Follow the reply while the reader sits at the bottom; reading further up pauses it. A session that opens starts the transcript over and shows its end.
@@ -512,7 +491,6 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
         <div className="chat-composer-anchor">
           {menu && <DialogMenu key={menu.dialog.id} pane={pane} dialog={menu.dialog} options={menu.ask.options} current={menu.ask.current ?? null} filter={menu.ask.filter} />}
           {floating === "agent" && harness && <AgentMenu worktree={worktree} pane={pane} harness={harness} chat={chat} trigger={agentButton} />}
-          {floating === "branch" && <BranchMenu worktree={worktree} current={branch} />}
           {floating === "slash" && <SlashMenu commands={slashRows} query={slashQuery(draft) ?? ""} active={slashAt} onActive={setSlashActive} onPick={pickSlash} onDismiss={() => closeSlash(pane, draft)} />}
           <div className="chat-composer" data-path-drop={pathOver || undefined}>
             {waiting.length > 0 && (
@@ -547,20 +525,6 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
               {canAttach && (
                 <button type="button" className="icon-button" title={tooltip("chat.attach")} aria-label="Attach Images" disabled={!ready} onClick={() => pickAttachments(pane)}>
                   <PaperclipIcon />
-                </button>
-              )}
-              {git && (
-                <button
-                  type="button"
-                  className="chat-picker chat-branch"
-                  title={worktreeBusy ? "Switch branches after the agent stops" : "Switch Branch"}
-                  disabled={worktreeBusy}
-                  data-menu-toggle
-                  onClick={toggleBranch}
-                >
-                  <BranchIcon />
-                  <span className="chat-branch-name">{branchLabel(branch)}</span>
-                  <ChevronDownIcon />
                 </button>
               )}
               {chat.permissions && (

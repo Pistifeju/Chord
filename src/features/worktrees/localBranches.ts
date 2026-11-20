@@ -1,4 +1,4 @@
-// The delete of a local branch from the composer's branch menu: the sheets that ask first and the git call.
+// The delete of a local branch from the Changes view's branch menu: the sheets that ask first and the git call.
 import { closeSheet, openSheet, sheet, sheetOf } from "../../app/sheet";
 import { commands } from "../../ipc/bindings";
 import { fail } from "../../ui/alert";

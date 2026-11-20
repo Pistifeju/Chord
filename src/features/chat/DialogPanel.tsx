@@ -28,6 +28,8 @@ type SelectProps = {
   descriptions?: string[];
   /** Each option takes a checkbox, and Submit answers with the checked ones. */
   multi?: boolean;
+  /** The rows lead with the check column and stack the description under the name, as the branch menu does. */
+  stacked?: boolean;
 };
 
 const noneUnavailable = () => false;
@@ -35,7 +37,7 @@ const noneUnavailable = () => false;
 const openFrom = (at: number, shown: number[], unavailable: (at: number) => boolean) =>
   shown[at] !== undefined && unavailable(shown[at]) ? steppedPast(at, 1, shown.length, (i) => unavailable(shown[i])) : at;
 
-export function Select({ options, current, answer, filter = "field", meta, unavailable = noneUnavailable, rowMenu, descriptions = [], multi = false }: SelectProps) {
+export function Select({ options, current, answer, filter = "field", meta, unavailable = noneUnavailable, rowMenu, descriptions = [], multi = false, stacked = false }: SelectProps) {
   const [query, setQuery] = useState("");
   const [checked, setChecked] = useState<ReadonlySet<number>>(new Set());
   const [active, setActive] = useState(() => openFrom(startIndex(options, current), matchingOptions(options, ""), unavailable));
@@ -75,10 +77,11 @@ export function Select({ options, current, answer, filter = "field", meta, unava
     }
   };
 
+  const field = <input autoFocus className="input" value={query} placeholder="Filter" aria-label="Filter Options" onChange={(e) => narrow(e.target.value)} />;
   return (
     // Without a filter row the list itself takes the focus, so the arrows and Return still reach it.
     <div className="chat-dialog-select" onKeyDown={onKey} tabIndex={filter === "field" ? undefined : -1} ref={root}>
-      {filter === "field" && <input autoFocus className="input" value={query} placeholder="Filter" aria-label="Filter Options" onChange={(e) => narrow(e.target.value)} />}
+      {filter === "field" && field}
       <div className="chat-dialog-options" role="listbox" ref={list}>
         {shown.map((at, i) => {
           const option = options[at];
@@ -105,6 +108,7 @@ export function Select({ options, current, answer, filter = "field", meta, unava
               aria-checked={multi ? checked.has(at) : undefined}
               aria-disabled={unavailable(at) || undefined}
               data-active={i === active || undefined}
+              data-stacked={stacked || undefined}
               className="chat-dialog-option"
               onMouseMove={() => i !== active && !unavailable(at) && setActive(i)}
               onClick={() => choose(at)}
@@ -115,7 +119,17 @@ export function Select({ options, current, answer, filter = "field", meta, unava
                   <CheckIcon size={12} />
                 </span>
               )}
-              {meta ? (
+              {stacked ? (
+                <>
+                  <span className="chat-dialog-current" role={isCurrent ? "img" : undefined} aria-label={isCurrent ? "Current" : undefined}>
+                    {isCurrent && <CheckIcon size={12} />}
+                  </span>
+                  <span className="chat-dialog-label">
+                    <span className="chat-dialog-name">{option}</span>
+                    {description && <span className="chat-dialog-description">{description}</span>}
+                  </span>
+                </>
+              ) : meta ? (
                 <>
                   <span className="chat-dialog-name">{option}</span>
                   <span className="chat-dialog-meta">

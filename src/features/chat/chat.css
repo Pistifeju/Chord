@@ -677,15 +677,14 @@
   flex: none;
 }
 
-/* Nothing in the bar overlaps: as it narrows, the branch and model names ellipsize, then the branch name and the context percentage hide (the icons, the ring and their tooltips stay), then the thinking level, then the agent button. */
+/* Nothing in the bar overlaps: as it narrows, the model name ellipsizes, then the context percentage and the permissions hide (the icons, the ring and their tooltips stay), then the thinking level, then the agent button. */
 .chat-composer-bar {
   container-type: inline-size;
 }
 
 @container (max-width: 300px) {
   .chat-context-percent,
-  .chat-permissions,
-  .chat-branch-name {
+  .chat-permissions {
     display: none;
   }
 }
@@ -800,29 +799,6 @@
 .chat-agent:disabled .chat-agent-logo,
 .chat-agent:disabled .chat-agent-level {
   color: var(--ink-disabled);
-}
-
-.chat-branch {
-  display: inline-flex;
-  flex: 0 1 auto;
-  align-items: center;
-  gap: 6px;
-  max-width: 40%;
-}
-
-.chat-branch > svg {
-  flex: none;
-  color: var(--ink-muted);
-}
-
-.chat-branch:disabled > svg {
-  color: var(--ink-disabled);
-}
-
-.chat-branch-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .chat-context {
@@ -998,6 +974,11 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+/* The filter field keeps its 30px whatever the list's length. */
+.chat-dialog-select > .input {
+  flex: none;
 }
 
 .chat-dialog-select:focus {
@@ -1237,6 +1218,34 @@
   display: inline-flex;
   flex: none;
   color: var(--ink-muted);
+}
+
+/* A stacked row, as the branch menu's: the check column, then the name over its description, as a commit mode row. */
+.chat-dialog-menu .chat-dialog-option[data-stacked] {
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 6px;
+  min-height: 0;
+  padding: 6px 8px 6px 6px;
+  border-radius: var(--radius-inset);
+}
+
+.chat-dialog-option[data-stacked] .chat-dialog-current {
+  place-items: center;
+  width: 14px;
+  height: 19px;
+}
+
+.chat-dialog-option[data-stacked] .chat-dialog-label {
+  min-width: 0;
+}
+
+.chat-dialog-option[data-stacked][data-active] .chat-dialog-description {
+  color: var(--ink-secondary);
+}
+
+.chat-dialog-option[data-stacked][aria-disabled="true"] .chat-dialog-description {
+  color: var(--ink-disabled);
 }
 
 .chat-dialog-empty {

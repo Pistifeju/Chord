@@ -1,4 +1,78 @@
 /* The Changes view: its scope control and base, its groups and their rows, which take the Files tree and its row, a branch's commit rows, the Stashes group and its stash rows, and the commit area under them. Rules: design/changes-view.md. */
+/* The worktree's branch over the scope control; its menu drops under it. */
+.changes-branch-line {
+  position: relative;
+  flex: none;
+  padding: 0 8px;
+}
+
+.changes-branch-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  height: 28px;
+  padding: 0 8px;
+  border: none;
+  border-radius: var(--radius-control);
+  background: transparent;
+  font-weight: 500;
+  color: var(--ink-secondary);
+  white-space: nowrap;
+  transition:
+    background-color var(--t-fast) var(--ease-out),
+    color var(--t-fast) var(--ease-out),
+    transform var(--t-fast) var(--ease-out);
+}
+
+.changes-branch-button:hover:not(:disabled) {
+  background: var(--raised);
+  color: var(--ink);
+}
+
+.changes-branch-button:active:not(:disabled),
+.changes-branch-button[aria-expanded="true"] {
+  background: var(--selected);
+  color: var(--ink);
+}
+
+.changes-branch-button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.changes-branch-button:disabled,
+.changes-branch-button:disabled > svg {
+  color: var(--ink-disabled);
+}
+
+.changes-branch-button > svg {
+  flex: none;
+  color: var(--ink-muted);
+}
+
+.changes-branch-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.changes-branch-line > .chat-dialog-menu {
+  top: calc(100% + 2px);
+  right: 8px;
+  bottom: auto;
+  left: 8px;
+  z-index: 3;
+  transform-origin: 50% 0;
+  animation-name: changes-menu-drop;
+}
+
+@keyframes changes-menu-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.96);
+  }
+}
+
 .changes-header {
   flex: none;
   padding: 4px 8px 0;
@@ -8,6 +82,10 @@
 .changes-header .segmented button {
   flex: 1;
   min-width: 0;
+}
+
+.changes-header .segmented-label {
+  display: block;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -526,8 +604,13 @@
     animation-name: changes-fade;
   }
 
-  .changes-commit-menu {
+  .changes-commit-menu,
+  .changes-branch-line > .chat-dialog-menu {
     animation-name: changes-fade;
+  }
+
+  .changes-branch-button:active:not(:disabled) {
+    transform: none;
   }
 
   .changes-commit-more > svg {
