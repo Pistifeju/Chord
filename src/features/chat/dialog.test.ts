@@ -1,7 +1,7 @@
 // Tests for the select dialog rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { matchingOptions, typedIndex } from "./dialog.ts";
+import { matchingOptions, numberedIndex, typedIndex } from "./dialog.ts";
 
 test("a query keeps the options that contain it, in order and ignoring case", () => {
   assert.deepEqual(matchingOptions(["Claude Opus", "GPT-5", "claude Haiku"], " CLAUDE "), [0, 2]);
@@ -18,4 +18,11 @@ test("typing jumps to an option whose word starts with it, else one that contain
 test("a new name typed over an old one finds the new one", () => {
   assert.equal(typedIndex(["Claude Opus", "Fable"], "opusfa"), 1);
   assert.equal(typedIndex(["Claude Opus", "Fable"], "opusfable"), 1);
+});
+
+test("a digit picks the option with that number, within the list", () => {
+  assert.equal(numberedIndex("1", 2), 0);
+  assert.equal(numberedIndex("3", 2), -1);
+  assert.equal(numberedIndex("0", 2), -1);
+  assert.equal(numberedIndex("a", 2), -1);
 });

@@ -437,10 +437,19 @@ fn ui_request(record: &Value) -> Option<HarnessEvent> {
             descriptions: vec![],
             multi: false,
         },
-        "confirm" => DialogAsk::Confirm {
-            message: text("message"),
-            url: None,
-        },
+        "confirm" => {
+            let message = text("message");
+            let (message, detail) = if is_command(&message) {
+                (String::new(), Some(message))
+            } else {
+                (message, None)
+            };
+            DialogAsk::Confirm {
+                message,
+                detail,
+                url: None,
+            }
+        }
         "input" => DialogAsk::Input {
             placeholder: text("placeholder"),
         },
@@ -606,6 +615,19 @@ fn describe_tool(name: &str, args: &Value) -> (String, String) {
         }
         _ => (readable_name(name), argument_values(args)),
     }
+}
+
+// pi's confirm sends one plain string, so its text is all there is to tell a shell command by.
+fn is_command(message: &str) -> bool {
+    const TOOLS: [&str; 10] = [
+        "cd", "git", "npm", "npx", "rm", "mv", "cp", "cargo", "sh", "bash",
+    ];
+    ["&&", "||", "; ", " | "]
+        .iter()
+        .any(|chain| message.contains(chain))
+        || message
+            .split_once(char::is_whitespace)
+            .is_some_and(|(first, _)| TOOLS.contains(&first))
 }
 
 // "mcp__github__list_issues" reads as "Github list issues".

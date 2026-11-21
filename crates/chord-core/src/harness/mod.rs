@@ -223,9 +223,10 @@ pub enum DialogAsk {
         current: Option<String>,
         filter: bool,
     },
-    /// With a `url`, the buttons read Open and Decline, and Open opens the link before it answers.
+    /// `detail` is the shell command the confirm is about, shown as code in place of `message`. With a `url`, the buttons read Open and Decline, and Open opens the link before it answers.
     Confirm {
         message: String,
+        detail: Option<String>,
         url: Option<String>,
     },
     Input {
@@ -573,6 +574,7 @@ mod tests {
                 title: "Pick".into(),
                 ask: DialogAsk::Confirm {
                     message: "".into(),
+                    detail: None,
                     url: None,
                 },
             },
@@ -598,6 +600,7 @@ mod tests {
                 title: "Clear".into(),
                 ask: DialogAsk::Confirm {
                     message: "".into(),
+                    detail: None,
                     url: None,
                 },
             },

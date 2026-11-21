@@ -419,6 +419,7 @@ fn a_form_asks_its_fields_in_the_order_the_server_sent() {
                 title: "Alpha".into(),
                 ask: DialogAsk::Confirm {
                     message: "".into(),
+                    detail: None,
                     url: None
                 },
             }

@@ -278,6 +278,7 @@ pub(crate) fn form_steps(schema: &Value, message: &str) -> Option<VecDeque<Step>
                     title: title.clone(),
                     ask: DialogAsk::Confirm {
                         message: description.unwrap_or_default(),
+                        detail: None,
                         url: None,
                     },
                     field: Field::Flag { key: key.clone() },

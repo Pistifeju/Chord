@@ -501,8 +501,8 @@ export type DialogAsk_Deserialize =
 { kind: "select"; options: string[]; current?: string | null; detail?: string | null; descriptions: string[]; multi: boolean } | 
 /**  A select the user opened from the composer bar; it floats over the composer as a menu, with a filter row only when `filter`. */
 { kind: "menu"; options: string[]; current?: string | null; filter: boolean } | 
-/**  With a `url`, the buttons read Open and Decline, and Open opens the link before it answers. */
-{ kind: "confirm"; message: string; url?: string | null } | { kind: "input"; placeholder: string };
+/**  `detail` is the shell command the confirm is about, shown as code in place of `message`. With a `url`, the buttons read Open and Decline, and Open opens the link before it answers. */
+{ kind: "confirm"; message: string; detail?: string | null; url?: string | null } | { kind: "input"; placeholder: string };
 
 /**  What a dialog asks. */
 export type DialogAsk_Serialize = 
@@ -510,8 +510,8 @@ export type DialogAsk_Serialize =
 { kind: "select"; options: string[]; current: string | null; detail: string | null; descriptions: string[]; multi: boolean } | 
 /**  A select the user opened from the composer bar; it floats over the composer as a menu, with a filter row only when `filter`. */
 { kind: "menu"; options: string[]; current: string | null; filter: boolean } | 
-/**  With a `url`, the buttons read Open and Decline, and Open opens the link before it answers. */
-{ kind: "confirm"; message: string; url: string | null } | { kind: "input"; placeholder: string };
+/**  `detail` is the shell command the confirm is about, shown as code in place of `message`. With a `url`, the buttons read Open and Decline, and Open opens the link before it answers. */
+{ kind: "confirm"; message: string; detail: string | null; url: string | null } | { kind: "input"; placeholder: string };
 
 export type DiffLine = DiffLine_Serialize | DiffLine_Deserialize;
 

@@ -5,7 +5,7 @@ import { CheckIcon } from "../../ui/icons";
 import { useOutsidePointer } from "../../ui/outsidePointer";
 import { steppedPast } from "../../ui/listStep";
 import { openInDefaultBrowser } from "../browser/store";
-import { filtersOptions, matchingOptions, startIndex, typedIndex, TYPING_PAUSE_MS } from "./dialog";
+import { filtersOptions, matchingOptions, numberedIndex, startIndex, typedIndex, TYPING_PAUSE_MS } from "./dialog";
 import { answerDialog } from "./store";
 import type { OpenDialog } from "./transcript";
 
@@ -32,6 +32,8 @@ type SelectProps = {
   stacked?: boolean;
   /** The icon each row leads with. */
   icon?: (option: string) => ReactNode;
+  /** Each row ends with its number, and the digit key picks it. */
+  numbered?: boolean;
 };
 
 const noneUnavailable = () => false;
@@ -39,7 +41,7 @@ const noneUnavailable = () => false;
 const openFrom = (at: number, shown: number[], unavailable: (at: number) => boolean) =>
   shown[at] !== undefined && unavailable(shown[at]) ? steppedPast(at, 1, shown.length, (i) => unavailable(shown[i])) : at;
 
-export function Select({ options, current, answer, filter = "field", meta, unavailable = noneUnavailable, rowMenu, descriptions = [], multi = false, stacked = false, icon }: SelectProps) {
+export function Select({ options, current, answer, filter = "field", meta, unavailable = noneUnavailable, rowMenu, descriptions = [], multi = false, stacked = false, icon, numbered = false }: SelectProps) {
   const [query, setQuery] = useState("");
   const [checked, setChecked] = useState<ReadonlySet<number>>(new Set());
   const [active, setActive] = useState(() => openFrom(startIndex(options, current), matchingOptions(options, ""), unavailable));
@@ -64,7 +66,11 @@ export function Select({ options, current, answer, filter = "field", meta, unava
   }, [active, query]);
 
   const onKey = (e: KeyboardEvent) => {
-    if (filter === "typing" && e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.nativeEvent.isComposing) {
+    const digit = numbered && !e.metaKey && !e.ctrlKey && !e.nativeEvent.isComposing ? numberedIndex(e.key, shown.length) : -1;
+    if (digit !== -1) {
+      e.preventDefault();
+      choose(shown[digit]);
+    } else if (filter === "typing" && e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
       const text = (e.timeStamp - typed.current.at < TYPING_PAUSE_MS ? typed.current.text : "") + e.key;
       typed.current = { text, at: e.timeStamp };
@@ -145,6 +151,15 @@ export function Select({ options, current, answer, filter = "field", meta, unava
                   <span className="chat-dialog-name">{option}</span>
                   {isCurrent && check}
                 </>
+              ) : numbered ? (
+                <>
+                  {label}
+                  {i < 9 && (
+                    <kbd className="chat-dialog-key" aria-hidden="true">
+                      {i + 1}
+                    </kbd>
+                  )}
+                </>
               ) : (
                 <>
                   {label}
@@ -195,27 +210,27 @@ function Input({ placeholder, answer }: { placeholder: string; answer: (answer: 
 }
 
 // With a link, Open sends it to the default browser before it answers, whatever the link setting says.
-function Confirm({ message, url, answer }: { message: string; url: string | null; answer: (answer: DialogAnswer) => void }) {
-  const confirm = () => {
-    if (url) openInDefaultBrowser(url);
-    answer({ kind: "confirmed", confirmed: true });
+function Confirm({ message, detail, url, answer }: { message: string; detail: string | null; url: string | null; answer: (answer: DialogAnswer) => void }) {
+  const yes = url ? "Open" : "Yes";
+  const pick = (given: DialogAnswer) => {
+    if (given.kind !== "value") return answer(given);
+    if (given.value === yes && url) openInDefaultBrowser(url);
+    answer({ kind: "confirmed", confirmed: given.value === yes });
   };
   return (
     <>
       {message && <p className="chat-dialog-message">{message}</p>}
+      {detail && (
+        <pre className="chat-dialog-detail" data-selectable>
+          {detail}
+        </pre>
+      )}
       {url && (
         <p className="chat-dialog-message chat-dialog-link" data-selectable>
           {url}
         </p>
       )}
-      <div className="chat-dialog-buttons">
-        <button type="button" className="button-secondary" onClick={() => answer({ kind: "confirmed", confirmed: false })}>
-          {url ? "Decline" : "No"}
-        </button>
-        <button type="button" className="button-primary" autoFocus onClick={confirm}>
-          {url ? "Open" : "Yes"}
-        </button>
-      </div>
+      <Select options={[yes, url ? "Decline" : "No"]} current={null} answer={pick} filter="none" numbered />
     </>
   );
 }
@@ -251,9 +266,9 @@ export function DialogPanel({ pane, dialog }: { pane: string; dialog: OpenDialog
           {ask.detail}
         </pre>
       )}
-      {ask.kind === "select" && <Select options={ask.options} current={ask.current ?? null} answer={answer} filter={!ask.detail && filtersOptions(ask.options.length) ? "field" : "typing"} descriptions={ask.descriptions} multi={ask.multi} />}
+      {ask.kind === "select" && <Select options={ask.options} current={ask.current ?? null} answer={answer} filter={!ask.detail && filtersOptions(ask.options.length) ? "field" : "typing"} descriptions={ask.descriptions} multi={ask.multi} numbered={!!ask.detail && !ask.multi} />}
       {ask.kind === "input" && <Input placeholder={ask.placeholder} answer={answer} />}
-      {ask.kind === "confirm" && <Confirm message={ask.message} url={ask.url ?? null} answer={answer} />}
+      {ask.kind === "confirm" && <Confirm message={ask.message} detail={ask.detail ?? null} url={ask.url ?? null} answer={answer} />}
     </div>
   );
 }

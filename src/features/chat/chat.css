@@ -1050,13 +1050,37 @@
 
 /* The command or the files an approval is about. */
 .chat-dialog-detail {
-  margin: 0;
-  max-height: 120px;
-  padding: 0 8px;
+  margin: 0 8px;
+  max-height: 160px;
+  padding: 8px 10px;
   overflow-y: auto;
+  border-radius: var(--radius-control);
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--line);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-size: calc(12px * var(--text-scale));
+  line-height: 1.6;
+  color: var(--ink-secondary);
+}
+
+/* The number that picks a row, at the row's end. */
+.chat-dialog-key {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  min-width: 20px;
+  height: 20px;
+  border-radius: var(--radius-check);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+  font-family: inherit;
+  font-size: calc(11px * var(--text-scale));
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+}
+
+.chat-dialog-option[data-active] .chat-dialog-key {
   color: var(--ink-secondary);
 }
 

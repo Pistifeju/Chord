@@ -236,6 +236,7 @@ fn elicitation(id: String, request: &Value) -> Parsed {
             title: server,
             ask: DialogAsk::Confirm {
                 message,
+                detail: None,
                 url: Some(text(&request["url"])),
             },
             field: Field::Link,

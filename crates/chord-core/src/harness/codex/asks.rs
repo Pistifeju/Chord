@@ -217,6 +217,7 @@ pub(super) fn parse(
                 title: text(&params["serverName"]),
                 ask: DialogAsk::Confirm {
                     message: text(&params["message"]),
+                    detail: None,
                     url: Some(text(&params["url"])),
                 },
                 field: Field::Link,

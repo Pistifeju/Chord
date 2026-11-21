@@ -12,6 +12,12 @@ export function matchingOptions(options: string[], query: string): number[] {
   return options.flatMap((option, at) => (option.toLowerCase().includes(needle) ? [at] : []));
 }
 
+/** The option a digit key picks: 1 to 9 name the first nine options; -1 for any other key. */
+export function numberedIndex(key: string, count: number): number {
+  const at = Number(key) - 1;
+  return /^[1-9]$/.test(key) && at < count ? at : -1;
+}
+
 /** Where the highlight starts: on the current option, else the first. */
 export const startIndex = (options: string[], current: string | null): number => Math.max(0, current === null ? 0 : options.indexOf(current));
 

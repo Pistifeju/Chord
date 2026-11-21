@@ -917,6 +917,36 @@ fn a_select_request_opens_a_dialog_and_a_notify_does_not() {
 }
 
 #[test]
+fn a_confirm_about_a_shell_command_sends_it_as_detail() {
+    let confirm = |message: &str| {
+        events(&json!({"type": "extension_ui_request", "id": "u1", "method": "confirm", "title": "Run?", "message": message}).to_string())
+    };
+    let ask = |message: &str, detail: Option<&str>| {
+        vec![HarnessEvent::Dialog {
+            id: "u1".into(),
+            title: "Run?".into(),
+            ask: DialogAsk::Confirm {
+                message: message.into(),
+                detail: detail.map(String::from),
+                url: None,
+            },
+        }]
+    };
+    assert_eq!(
+        confirm("git commit -m 'fix'"),
+        ask("", Some("git commit -m 'fix'"))
+    );
+    assert_eq!(
+        confirm("make && make install"),
+        ask("", Some("make && make install"))
+    );
+    assert_eq!(
+        confirm("Pi restarts its extensions. The chat stays."),
+        ask("Pi restarts its extensions. The chat stays.", None)
+    );
+}
+
+#[test]
 fn the_first_record_after_a_dialog_closes_it() {
     let mut reader = Reader::default();
     let dialog = r#"{"type":"extension_ui_request","id":"u1","method":"select","title":"Pick","options":["a"]}"#;
