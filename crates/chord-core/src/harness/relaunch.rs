@@ -1,4 +1,4 @@
-//! A harness process a session command can swap for a new one: the running process and the reader of its stdout, the swap, and the order events and lines go out in. The Codex and Claude Code adapters build on it.
+//! A harness process a session command can swap for a new one: the running process and the reader of its stdout, the swap, the order events and lines go out in, and the pane's `Agent`. The Codex and Claude Code adapters build on it.
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -8,7 +8,7 @@ use serde_json::Value;
 
 use super::installed::require;
 use super::process::{Output, Process, login_shell};
-use super::{Harness, HarnessEvent, OnEvent};
+use super::{Agent, Capability, DialogAnswer, Harness, HarnessEvent, Image, OnEvent};
 use crate::{Error, lock};
 
 /// What one record or call leads to: events for the chat, lines to write the harness, and what a new process opens in place of this one.
@@ -28,13 +28,26 @@ impl<O> Default for Read<O> {
     }
 }
 
-/// The reader of one process's stdout.
+/// The reader of one process's stdout, and what the pane's calls ask of the process.
 pub(super) trait Reader: Send + 'static {
     /// What a new process opens.
     type Open;
     /// The first line the process gets.
     fn initialize(&mut self) -> Value;
     fn feed(&mut self, line: &[u8]) -> Read<Self::Open>;
+    /// Whether `text` sends its images: a message does, a session command does not.
+    fn takes_images(&self, text: &str) -> bool;
+    /// The user's message or session command; `held_elsewhere` are the sessions other panes hold.
+    fn send(
+        &mut self,
+        text: &str,
+        images: &[Image],
+        held_elsewhere: &[String],
+    ) -> Result<Read<Self::Open>, Error>;
+    fn answer(&mut self, id: &str, answer: &DialogAnswer) -> Result<Read<Self::Open>, Error>;
+    fn pick_model(&mut self, id: &str, level: Option<&str>) -> Read<Self::Open>;
+    /// The line that stops the running turn; none when no turn runs.
+    fn interrupt(&mut self) -> Option<Value>;
     /// Stdout closed: the events that end what the process left open.
     fn end(&mut self) -> Vec<HarnessEvent>;
 }
@@ -121,6 +134,46 @@ impl<R: Reader> Relaunchable<R> {
             .unwrap_or_else(PoisonError::into_inner)
             .process
             .end_reported();
+    }
+}
+
+impl<R: Reader> Agent for Relaunchable<R> {
+    fn capabilities(&self) -> Vec<Capability> {
+        vec![
+            Capability::Chat,
+            Capability::Attachments,
+            Capability::Steer,
+            Capability::Models,
+            Capability::Context,
+            Capability::Subagents,
+        ]
+    }
+
+    fn send(&self, text: &str, images: &[Image], held_elsewhere: &[String]) -> Result<bool, Error> {
+        let reader = self.reader();
+        let took = lock(&reader).takes_images(text);
+        let images = if took { images } else { &[] };
+        let read = lock(&reader).send(text, images, held_elsewhere)?;
+        self.deliver(read).map(|()| took)
+    }
+
+    fn abort(&self) -> Result<(), Error> {
+        let interrupt = lock(&self.reader()).interrupt();
+        interrupt.map_or(Ok(()), |line| self.write(&line))
+    }
+
+    fn answer_dialog(&self, id: &str, answer: &DialogAnswer) -> Result<(), Error> {
+        let read = lock(&self.reader()).answer(id, answer)?;
+        self.deliver(read)
+    }
+
+    fn pick_model(&self, id: &str, level: Option<&str>) -> Result<(), Error> {
+        let read = lock(&self.reader()).pick_model(id, level);
+        self.deliver(read)
+    }
+
+    fn end_reported(self: Box<Self>) {
+        Relaunchable::end_reported(*self);
     }
 }
 

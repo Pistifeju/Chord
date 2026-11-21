@@ -11,9 +11,10 @@ use super::commands::{Command, Settings};
 use super::{NAME, items, requests, usage};
 use crate::Error;
 use crate::harness::calls::OpenCalls;
-use crate::harness::earlier::{Back, Earlier, Message};
+use crate::harness::earlier::{Back, Message};
 use crate::harness::relaunch;
-use crate::harness::resume::{self, Resume, Session};
+use crate::harness::resume::Session;
+use crate::harness::session_dialogs::{self, Picked, SessionDialogs};
 use crate::harness::subagents::Subagents;
 use crate::harness::{DialogAnswer, HarnessEvent, Image, SubagentState};
 
@@ -70,8 +71,7 @@ pub(super) struct Reader {
     cwd: PathBuf,
     /// The pane's saved thread, until the handshake asks Codex to open it.
     saved: Option<String>,
-    resume: Resume,
-    earlier: Earlier,
+    dialogs: SessionDialogs,
     thread: Option<String>,
     /// Why Codex started no thread, so a send says it.
     thread_error: Option<String>,
@@ -98,8 +98,7 @@ impl Reader {
         Reader {
             cwd: cwd.to_path_buf(),
             saved: saved.map(String::from),
-            resume: Resume::default(),
-            earlier: Earlier::default(),
+            dialogs: SessionDialogs::default(),
             thread: None,
             thread_error: None,
             turn: None,
@@ -227,32 +226,23 @@ impl Reader {
     }
 
     pub(super) fn answer(&mut self, id: &str, answer: &DialogAnswer) -> Result<Read, Error> {
-        if id == resume::DIALOG {
-            let picked = self.resume.pick(answer);
-            let cwd = self.cwd.to_string_lossy().into_owned();
-            let lines = picked.map(|thread| {
-                let id = self.request(Pending::Resume { saved: false });
-                requests::thread_resume(id, &thread, &cwd)
-            });
-            return Ok(Read {
-                events: vec![HarnessEvent::DialogClosed],
-                lines: lines.into_iter().collect(),
-            });
-        }
-        if Earlier::owns(id) {
-            let mut read = Read {
-                events: vec![HarnessEvent::DialogClosed],
-                lines: vec![],
+        if let Some(session_dialogs::Answered { events, picked }) = self.dialogs.answer(id, answer)
+        {
+            let line = match picked {
+                Picked::Session(thread) => thread.map(|thread| {
+                    let cwd = self.cwd.to_string_lossy().into_owned();
+                    let id = self.request(Pending::Resume { saved: false });
+                    requests::thread_resume(id, &thread, &cwd)
+                }),
+                // The fork and rewind selects open only on a thread.
+                Picked::Message(picked) => picked
+                    .zip(self.thread.clone())
+                    .map(|((back, message), thread)| self.go_back(back, message, &thread)),
             };
-            if let (Some((back, message)), Some(thread)) =
-                (self.earlier.pick(answer), self.thread.clone())
-            {
-                read.events.push(HarnessEvent::Draft {
-                    text: message.text.clone(),
-                });
-                read.lines.push(self.go_back(back, message, &thread));
-            }
-            return Ok(read);
+            return Ok(Read {
+                events,
+                lines: line.into_iter().collect(),
+            });
         }
         if let Some(picked) = self.settings.pick(id, answer) {
             let mut events = vec![HarnessEvent::DialogClosed];
@@ -356,7 +346,7 @@ impl Reader {
             })
             .collect();
         Read {
-            events: vec![self.resume.offer(threads)],
+            events: vec![self.dialogs.offer_sessions(threads)],
             lines: vec![],
         }
     }
@@ -402,7 +392,7 @@ impl Reader {
             })
             .collect();
         Read {
-            events: vec![self.earlier.offer(back, messages)],
+            events: vec![self.dialogs.offer_messages(back, messages)],
             lines: vec![],
         }
     }
@@ -799,6 +789,42 @@ impl relaunch::Reader for Reader {
 
     fn feed(&mut self, line: &[u8]) -> relaunch::Read<Relaunch> {
         Reader::feed(self, line).into()
+    }
+
+    fn takes_images(&self, text: &str) -> bool {
+        Reader::takes_images(self, text)
+    }
+
+    // `/new` and `/reload` relaunch before Codex has a thread.
+    fn send(
+        &mut self,
+        text: &str,
+        images: &[Image],
+        held_elsewhere: &[String],
+    ) -> Result<relaunch::Read<Relaunch>, Error> {
+        if let Some(open) = self.relaunch(text) {
+            return Ok(relaunch::Read {
+                relaunch: Some(open),
+                ..relaunch::Read::default()
+            });
+        }
+        Reader::send(self, text, images, held_elsewhere).map(Into::into)
+    }
+
+    fn answer(
+        &mut self,
+        id: &str,
+        answer: &DialogAnswer,
+    ) -> Result<relaunch::Read<Relaunch>, Error> {
+        Reader::answer(self, id, answer).map(Into::into)
+    }
+
+    fn pick_model(&mut self, id: &str, level: Option<&str>) -> relaunch::Read<Relaunch> {
+        Reader::pick_model(self, id, level).into()
+    }
+
+    fn interrupt(&mut self) -> Option<Value> {
+        Reader::interrupt(self)
     }
 
     fn end(&mut self) -> Vec<HarnessEvent> {

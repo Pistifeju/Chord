@@ -17,10 +17,8 @@ use serde_json::json;
 
 use super::models::{self, Step, listed};
 use super::relaunch::Relaunchable;
-use super::{
-    Agent, Capability, DialogAnswer, Harness, HarnessEvent, Image, ModelOption, SignIn, agent_tools,
-};
-use crate::{Error, lock};
+use super::{Agent, Harness, HarnessEvent, ModelOption, SignIn, agent_tools};
+use crate::Error;
 use commands::Settings;
 use reader::{Open, Reader};
 
@@ -80,26 +78,22 @@ pub(crate) fn models() -> Result<Vec<ModelOption>, Error> {
     )
 }
 
-/// The pane's Claude Code; a session command that opens another session, or the same one again, swaps its process.
-pub struct Session(Relaunchable<Reader>);
-
-impl Session {
-    /// Starts Claude Code in `dir` on the saved session `session` when its file exists, else on a new session. With `tools`, the socket Chord's tools listen on, the agent gets the build and run tools.
-    pub fn start(
-        dir: &Path,
-        session: Option<&str>,
-        tools: Option<&Path>,
-        on_event: impl Fn(HarnessEvent) + Send + 'static,
-    ) -> Result<Session, Error> {
-        let open = Open {
-            session: session.map(String::from),
-            ..Open::default()
-        };
-        let (cwd, tools) = (dir.to_path_buf(), tools.map(Path::to_path_buf));
-        let folder = transcript::folder(dir);
-        let launch = move |open| launch(&cwd, folder.as_deref(), open, tools.as_deref());
-        Relaunchable::start(&HARNESS, dir, open, launch, on_event).map(Session)
-    }
+/// Starts the pane's Claude Code in `dir` on the saved session `session` when its file exists, else on a new session; a session command that opens another session, or the same one again, swaps its process. With `tools`, the socket Chord's tools listen on, the agent gets the build and run tools.
+pub fn start(
+    dir: &Path,
+    session: Option<&str>,
+    tools: Option<&Path>,
+    on_event: impl Fn(HarnessEvent) + Send + 'static,
+) -> Result<Box<dyn Agent>, Error> {
+    let open = Open {
+        session: session.map(String::from),
+        ..Open::default()
+    };
+    let (cwd, tools) = (dir.to_path_buf(), tools.map(Path::to_path_buf));
+    let folder = transcript::folder(dir);
+    let launch = move |open| launch(&cwd, folder.as_deref(), open, tools.as_deref());
+    Relaunchable::start(&HARNESS, dir, open, launch, on_event)
+        .map(|agent| Box::new(agent) as Box<dyn Agent>)
 }
 
 // A saved session without its file starts a new one: `--resume` on an unknown id prints an error and exits.
@@ -152,44 +146,4 @@ fn launch(
     }
     let reader = Reader::new(dir, folder.map(Path::to_path_buf), open);
     (args, reader)
-}
-
-impl Agent for Session {
-    fn capabilities(&self) -> Vec<Capability> {
-        vec![
-            Capability::Chat,
-            Capability::Attachments,
-            Capability::Steer,
-            Capability::Models,
-            Capability::Context,
-            Capability::Subagents,
-        ]
-    }
-
-    /// Sends a message, or runs a session command; `/resume` leaves out `held_elsewhere`, the sessions other panes hold.
-    fn send(&self, text: &str, images: &[Image], held_elsewhere: &[String]) -> Result<bool, Error> {
-        let took = commands::session_command(text).is_none();
-        let images = if took { images } else { &[] };
-        let read = lock(&self.0.reader()).send(text, images, held_elsewhere)?;
-        self.0.deliver(read).map(|()| took)
-    }
-
-    fn abort(&self) -> Result<(), Error> {
-        let interrupt = lock(&self.0.reader()).interrupt();
-        interrupt.map_or(Ok(()), |line| self.0.write(&line))
-    }
-
-    fn answer_dialog(&self, id: &str, answer: &DialogAnswer) -> Result<(), Error> {
-        let read = lock(&self.0.reader()).answer(id, answer);
-        self.0.deliver(read)
-    }
-
-    fn pick_model(&self, id: &str, level: Option<&str>) -> Result<(), Error> {
-        let read = lock(&self.0.reader()).pick_model(id, level);
-        self.0.deliver(read)
-    }
-
-    fn end_reported(self: Box<Self>) {
-        self.0.end_reported();
-    }
 }

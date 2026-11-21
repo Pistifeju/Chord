@@ -6,6 +6,7 @@ use super::{
     EXTENSION_PREFIX, FORK_DIALOG, MODELS_REQUEST, NAME, Picker, SESSION_COMMANDS, USAGE_STATUS,
 };
 use crate::harness::calls::OpenCalls;
+use crate::harness::session_commands::{self, NO_THINKING};
 use crate::harness::shell::read_only_title;
 use crate::harness::{
     DialogAsk, HarnessEvent, Image, LineChanges, ModelOption, SlashCommand, SlashKind,
@@ -128,7 +129,7 @@ fn thinking_dialog(levels: &Value) -> HarnessEvent {
         .flatten()
         .filter_map(|level| level.as_str().map(capitalized))
         .collect();
-    picker_dialog(Picker::Thinking, options, "The model does not think")
+    picker_dialog(Picker::Thinking, options, NO_THINKING)
 }
 
 // A list with nothing to pick (no option, or only "Off") is a notice instead.
@@ -138,19 +139,11 @@ fn picker_dialog(picker: Picker, options: Vec<String>, nothing_to_pick: &str) ->
             text: nothing_to_pick.into(),
         };
     }
-    HarnessEvent::Dialog {
-        id: picker.id().into(),
-        title: match picker {
-            Picker::Model => "Model",
-            Picker::Thinking => "Thinking Level",
-        }
-        .into(),
-        ask: DialogAsk::Menu {
-            options,
-            current: None,
-            filter: matches!(picker, Picker::Model),
-        },
-    }
+    let menu = match picker {
+        Picker::Model => session_commands::Picker::Model,
+        Picker::Thinking => session_commands::Picker::Thinking,
+    };
+    session_commands::menu(menu, picker.id(), options, None)
 }
 
 pub(super) fn events_from(record: &Value) -> Vec<HarnessEvent> {
@@ -251,12 +244,7 @@ fn response(command: Option<&str>, data: &Value) -> Vec<HarnessEvent> {
                         })
                     })
                     .filter(|command| !command.name.starts_with(EXTENSION_PREFIX))
-                    .chain(SESSION_COMMANDS.map(|(name, description)| SlashCommand {
-                        name: name.into(),
-                        description: description.into(),
-                        kind: SlashKind::Session,
-                        origin: None,
-                    }))
+                    .chain(session_commands::listed(&SESSION_COMMANDS))
                     .collect(),
             }]
         }

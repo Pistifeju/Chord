@@ -24,7 +24,7 @@ Sections 2 to 4 cover `asks.rs`, `commands.rs`, `permissions.rs` and `transcript
 
 The reader sits behind one mutex, as Codex's does: the stdout thread and the `Agent` methods both lock it. The adapter reads `serde_json::Value` and skips a record it does not know.
 
-`HARNESSES` holds `claude::HARNESS` with `starts: true`, and `harness::start` has the `claude::NAME` arm. A failed spawn returns `Error::start_failed` with the install step. `Session::start` calls `installed::require`.
+`HARNESSES` holds `claude::HARNESS` with `starts: true`, and `harness::start` has the `claude::NAME` arm. A failed spawn returns `Error::start_failed` with the install step. `Relaunchable::start` calls `installed::require`.
 
 Capabilities: `Chat`, `Attachments`, `Steer`, `Models`, `Context`, `Subagents`.
 

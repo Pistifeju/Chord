@@ -13,6 +13,8 @@ pub mod pi;
 mod process;
 mod relaunch;
 mod resume;
+mod session_commands;
+mod session_dialogs;
 pub mod sessions;
 mod shell;
 pub mod spend;
@@ -84,12 +86,8 @@ pub fn start(
         pi::NAME => Ok(Box::new(pi::Session::start(
             dir, session, data_dir, tools, on_event,
         )?)),
-        codex::NAME => Ok(Box::new(codex::Session::start(
-            dir, session, tools, on_event,
-        )?)),
-        claude::NAME => Ok(Box::new(claude::Session::start(
-            dir, session, tools, on_event,
-        )?)),
+        codex::NAME => codex::start(dir, session, tools, on_event),
+        claude::NAME => claude::start(dir, session, tools, on_event),
         other => Err(Error::Message(format!(
             "Chord cannot run the harness \"{other}\""
         ))),

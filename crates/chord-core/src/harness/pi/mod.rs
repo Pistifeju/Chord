@@ -17,6 +17,7 @@ use serde_json::{Value, json};
 use super::installed::require;
 use super::models::{self, Step, listed};
 use super::process::{Output, Process, login_shell};
+use super::session_commands::{CLONE, COMPACT, Entry, FORK, MODEL, NEW, RESUME, THINKING};
 use super::{Agent, Capability, DialogAnswer, Harness, HarnessEvent, Image, ModelOption};
 use crate::Error;
 use commands::{
@@ -97,22 +98,19 @@ impl Picker {
 }
 
 /// What pi offers after a slash in its own terminal and RPC does not list: each name and its description.
-const SESSION_COMMANDS: [(&str, &str); 10] = [
-    ("model", "Pick the model"),
-    ("thinking", "Pick the thinking level"),
-    ("new", "Start a new session"),
-    ("resume", "Open another session of this worktree"),
-    ("fork", "Start a new session from an earlier message"),
-    ("clone", "Copy this session into a new one"),
+const SESSION_COMMANDS: [Entry; 10] = [
+    MODEL,
+    THINKING,
+    NEW,
+    RESUME,
+    FORK,
+    CLONE,
     ("tree", "Go back to an earlier point of this session"),
     (
         "reload",
         "Reload extensions, skills, prompts and context files",
     ),
-    (
-        "compact",
-        "Summarize the session to free the context, optionally with what to keep",
-    ),
+    COMPACT,
     (
         "export",
         "Write this session to an HTML file, optionally at a path",

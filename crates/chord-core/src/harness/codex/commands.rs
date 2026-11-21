@@ -5,8 +5,11 @@ use serde_json::{Map, Value, json};
 use super::NAME;
 use super::permissions;
 use crate::harness::earlier::Back;
+use crate::harness::session_commands::{
+    self, CLONE, Entry, FORK, MODEL, NEW, Picker, RESUME, REWIND, THINKING,
+};
 use crate::harness::{
-    DialogAnswer, DialogAsk, HarnessEvent, ModelOption, SlashCommand, SlashKind, capitalized,
+    DialogAnswer, HarnessEvent, ModelOption, SlashCommand, SlashKind, capitalized,
 };
 
 const MODEL_DIALOG: &str = "codex-model";
@@ -14,15 +17,15 @@ const THINKING_DIALOG: &str = "codex-thinking";
 const PERMISSIONS_DIALOG: &str = "codex-permissions";
 
 /// The commands of Codex itself that act on the thread: each name and its description.
-const SESSION_COMMANDS: [(&str, &str); 10] = [
-    ("model", "Pick the model"),
-    ("thinking", "Pick the thinking level"),
+const SESSION_COMMANDS: [Entry; 10] = [
+    MODEL,
+    THINKING,
     ("permissions", "Pick what Codex may do without asking"),
-    ("new", "Start a new session"),
-    ("resume", "Open another session of this worktree"),
-    ("fork", "Start a new session from an earlier message"),
-    ("clone", "Copy this session into a new one"),
-    ("rewind", "Go back to an earlier message of this session"),
+    NEW,
+    RESUME,
+    FORK,
+    CLONE,
+    REWIND,
     (
         "reload",
         "Restart Codex on this session, with its config, skills and MCP servers read again",
@@ -147,12 +150,7 @@ impl Settings {
                 })
             })
             .collect();
-        let session = SESSION_COMMANDS.map(|(name, description)| SlashCommand {
-            name: name.into(),
-            description: description.into(),
-            kind: SlashKind::Session,
-            origin: None,
-        });
+        let session = session_commands::listed(&SESSION_COMMANDS);
         let skills = self.skills.iter().map(|skill| SlashCommand {
             name: skill.name.clone(),
             description: skill.description.clone(),
@@ -160,7 +158,7 @@ impl Settings {
             origin: None,
         });
         HarnessEvent::Commands {
-            commands: session.into_iter().chain(skills).collect(),
+            commands: session.chain(skills).collect(),
         }
     }
 
@@ -204,40 +202,23 @@ impl Settings {
             .strip_prefix('/')?
             .split_once(' ')
             .unwrap_or((&text[1..], ""));
-        let menu = |id: &str, title: &str, options: Vec<String>, current: Option<String>| {
-            Command::Menu(HarnessEvent::Dialog {
-                id: id.into(),
-                title: title.into(),
-                ask: DialogAsk::Menu {
-                    options,
-                    current,
-                    filter: id == MODEL_DIALOG,
-                },
-            })
-        };
         match name {
-            "model" => Some(menu(
+            "model" => Some(Command::Menu(session_commands::menu(
+                Picker::Model,
                 MODEL_DIALOG,
-                "Model",
                 self.models.iter().map(|model| model.name.clone()).collect(),
                 Some(self.name().into()),
-            )),
+            ))),
             "thinking" => {
                 let efforts = self
                     .current()
                     .map(|model| model.efforts.as_slice())
                     .unwrap_or(&[]);
-                if efforts.is_empty() {
-                    return Some(Command::Menu(HarnessEvent::Notice {
-                        text: "The model does not think".into(),
-                    }));
-                }
-                Some(menu(
+                Some(Command::Menu(session_commands::thinking(
                     THINKING_DIALOG,
-                    "Thinking Level",
                     efforts.iter().map(|effort| capitalized(effort)).collect(),
                     self.effort.as_deref().map(capitalized),
-                ))
+                )))
             }
             "resume" => Some(Command::Resume),
             "new" => Some(Command::New),
@@ -246,12 +227,12 @@ impl Settings {
             "rewind" => Some(Command::Back(Back::Rewind)),
             "clone" => Some(Command::Clone),
             "compact" => Some(Command::Compact),
-            "permissions" => Some(menu(
+            "permissions" => Some(Command::Menu(session_commands::menu(
+                Picker::Permissions,
                 PERMISSIONS_DIALOG,
-                "Permissions",
                 permissions::MODES.map(String::from).to_vec(),
                 Some(permissions::mode(&self.approval, &self.sandbox).0),
-            )),
+            ))),
             _ => {
                 let skill = self.skills.iter().find(|skill| skill.name == name)?;
                 Some(Command::Skill {

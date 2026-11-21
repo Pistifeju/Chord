@@ -12,9 +12,9 @@ use super::commands::{Change, Picks, Settings, commands, session_command};
 use super::{NAME, requests, transcript};
 use crate::Error;
 use crate::harness::calls::OpenCalls;
-use crate::harness::earlier::{Back, Earlier};
+use crate::harness::earlier::Back;
 use crate::harness::relaunch;
-use crate::harness::resume::{self, Resume};
+use crate::harness::session_dialogs::{self, Picked, SessionDialogs};
 use crate::harness::subagents::Subagents;
 use crate::harness::timestamp;
 use crate::harness::{DialogAnswer, HarnessEvent, Image, SubagentState, UsageWindow, count, text};
@@ -76,8 +76,7 @@ pub(super) struct Reader {
     folder: Option<PathBuf>,
     /// What the process opened, until its first message: Claude Code writes a fork's session and a rewind's branch only with it.
     opened: Open,
-    resume: Resume,
-    earlier: Earlier,
+    dialogs: SessionDialogs,
     session: Option<String>,
     running: bool,
     requests: u64,
@@ -108,8 +107,7 @@ impl Reader {
             cwd: cwd.to_path_buf(),
             folder,
             opened,
-            resume: Resume::default(),
-            earlier: Earlier::default(),
+            dialogs: SessionDialogs::default(),
             session: None,
             running: false,
             requests: 0,
@@ -164,7 +162,7 @@ impl Reader {
                     let sessions = self.folder.as_deref().map_or_else(Vec::new, |folder| {
                         transcript::sessions(folder, self.session.as_deref(), held_elsewhere)
                     });
-                    self.resume.offer(sessions)
+                    self.dialogs.offer_sessions(sessions)
                 }
                 "clone" => {
                     let standing = self.standing();
@@ -194,7 +192,7 @@ impl Reader {
                     });
                     let prompts =
                         transcript::prompts(&file.unwrap_or_default(), standing.at.as_deref());
-                    self.earlier.offer(back, prompts)
+                    self.dialogs.offer_messages(back, prompts)
                 }
             };
             return Ok(events(vec![event]));
@@ -266,36 +264,35 @@ impl Reader {
 
     /// The user's answer to an open ask, and the line that answers Claude Code.
     pub(super) fn answer(&mut self, id: &str, answer: &DialogAnswer) -> Read {
-        if id == resume::DIALOG {
-            return Read {
-                events: vec![HarnessEvent::DialogClosed],
-                relaunch: self.resume.pick(answer).map(|session| Open {
+        if let Some(session_dialogs::Answered { events, picked }) = self.dialogs.answer(id, answer)
+        {
+            let relaunch = match picked {
+                Picked::Session(session) => session.map(|session| Open {
                     session: Some(session),
                     ..Open::default()
                 }),
-                ..Read::default()
-            };
-        }
-        if Earlier::owns(id) {
-            let mut read = events(vec![HarnessEvent::DialogClosed]);
-            if let Some((back, message)) = self.earlier.pick(answer) {
-                read.events.push(HarnessEvent::Draft { text: message.text });
                 // Before the first reply nothing stays, so a new session opens.
-                let standing = self.standing();
-                read.relaunch = Some(match message.before {
-                    // A rewind of a fork that has no message yet stays a fork, so the old session keeps its turns.
-                    Some(at) => Open {
-                        fork: back == Back::Fork || standing.fork,
-                        at: Some(at),
-                        ..standing
-                    },
-                    None => Open {
-                        picks: self.settings.picks().clone(),
-                        ..Open::default()
-                    },
-                });
-            }
-            return read;
+                Picked::Message(picked) => picked.map(|(back, message)| {
+                    let standing = self.standing();
+                    match message.before {
+                        // A rewind of a fork that has no message yet stays a fork, so the old session keeps its turns.
+                        Some(at) => Open {
+                            fork: back == Back::Fork || standing.fork,
+                            at: Some(at),
+                            ..standing
+                        },
+                        None => Open {
+                            picks: self.settings.picks().clone(),
+                            ..Open::default()
+                        },
+                    }
+                }),
+            };
+            return Read {
+                events,
+                lines: vec![],
+                relaunch,
+            };
         }
         if Settings::owns(id) {
             let line = self.settings.pick(id, answer).map(|change| match change {
@@ -726,6 +723,31 @@ impl relaunch::Reader for Reader {
 
     fn feed(&mut self, line: &[u8]) -> Read {
         Reader::feed(self, line)
+    }
+
+    fn takes_images(&self, text: &str) -> bool {
+        session_command(text).is_none()
+    }
+
+    fn send(
+        &mut self,
+        text: &str,
+        images: &[Image],
+        held_elsewhere: &[String],
+    ) -> Result<Read, Error> {
+        Reader::send(self, text, images, held_elsewhere)
+    }
+
+    fn answer(&mut self, id: &str, answer: &DialogAnswer) -> Result<Read, Error> {
+        Ok(Reader::answer(self, id, answer))
+    }
+
+    fn pick_model(&mut self, id: &str, level: Option<&str>) -> Read {
+        Reader::pick_model(self, id, level)
+    }
+
+    fn interrupt(&mut self) -> Option<Value> {
+        Reader::interrupt(self)
     }
 
     fn end(&mut self) -> Vec<HarnessEvent> {

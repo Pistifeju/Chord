@@ -3,8 +3,11 @@
 use serde_json::Value;
 
 use super::{NAME, permissions};
+use crate::harness::session_commands::{
+    self, CLONE, COMPACT, Entry, FORK, MODEL, NEW, Picker, RESUME, REWIND, THINKING,
+};
 use crate::harness::{
-    DialogAnswer, DialogAsk, HarnessEvent, ModelOption, SlashCommand, SlashKind, capitalized, text,
+    DialogAnswer, HarnessEvent, ModelOption, SlashCommand, SlashKind, capitalized, text,
 };
 
 const MODEL_DIALOG: &str = "claude-model";
@@ -12,24 +15,21 @@ const THINKING_DIALOG: &str = "claude-thinking";
 const PERMISSIONS_DIALOG: &str = "claude-permissions";
 
 /// Chord's commands that act on the session: each name and its description.
-const SESSION_COMMANDS: [(&str, &str); 10] = [
-    ("model", "Pick the model"),
-    ("thinking", "Pick the thinking level"),
+const SESSION_COMMANDS: [Entry; 10] = [
+    MODEL,
+    THINKING,
     ("permissions", "Pick what Claude Code may do without asking"),
-    ("new", "Start a new session"),
-    ("resume", "Open another session of this worktree"),
-    ("fork", "Start a new session from an earlier message"),
-    ("clone", "Copy this session into a new one"),
-    ("rewind", "Go back to an earlier message of this session"),
+    NEW,
+    RESUME,
+    FORK,
+    CLONE,
+    REWIND,
     (
         "reload",
         "Restart Claude Code on this session, with its settings, skills and MCP servers read again",
     ),
     // Claude Code runs it from the message text.
-    (
-        "compact",
-        "Summarize the session to free the context, optionally with what to keep",
-    ),
+    COMPACT,
 ];
 
 /// Claude Code's own commands the menu leaves out: Chord's `model`, `thinking` and `new` stand in for them.
@@ -143,41 +143,24 @@ impl Settings {
 
     /// The picker or notice a typed session command opens; none for any other text.
     pub(super) fn command(&self, typed: &str) -> Option<HarnessEvent> {
-        let menu = |id: &str, title: &str, options: Vec<String>, current: Option<String>| {
-            HarnessEvent::Dialog {
-                id: id.into(),
-                title: title.into(),
-                ask: DialogAsk::Menu {
-                    options,
-                    current,
-                    filter: id == MODEL_DIALOG,
-                },
-            }
-        };
         match typed.trim() {
-            "/model" => Some(menu(
+            "/model" => Some(session_commands::menu(
+                Picker::Model,
                 MODEL_DIALOG,
-                "Model",
                 self.models
                     .iter()
                     .map(|model| text(&model["displayName"]))
                     .collect(),
                 self.current().map(|model| text(&model["displayName"])),
             )),
-            "/thinking" => {
-                let levels = self.levels();
-                if levels.is_empty() {
-                    return Some(HarnessEvent::Notice {
-                        text: "The model does not think".into(),
-                    });
-                }
-                Some(menu(
-                    THINKING_DIALOG,
-                    "Thinking Level",
-                    levels.iter().map(|level| capitalized(level)).collect(),
-                    self.effort.as_deref().map(capitalized),
-                ))
-            }
+            "/thinking" => Some(session_commands::thinking(
+                THINKING_DIALOG,
+                self.levels()
+                    .iter()
+                    .map(|level| capitalized(level))
+                    .collect(),
+                self.effort.as_deref().map(capitalized),
+            )),
             "/permissions" => {
                 let auto = self
                     .current()
@@ -186,9 +169,9 @@ impl Settings {
                 let current = modes
                     .contains(&self.mode.as_str())
                     .then(|| permissions::label(&self.mode).into());
-                Some(menu(
+                Some(session_commands::menu(
+                    Picker::Permissions,
                     PERMISSIONS_DIALOG,
-                    "Permissions",
                     modes
                         .iter()
                         .map(|mode| permissions::label(mode).into())
@@ -285,12 +268,7 @@ fn levels(model: &Value) -> Vec<String> {
 
 /// Chord's session commands, then Claude Code's: a built-in one acts on the session, any other is a skill named after its plugin.
 pub(super) fn commands(list: &Value) -> HarnessEvent {
-    let session = SESSION_COMMANDS.map(|(name, description)| SlashCommand {
-        name: name.into(),
-        description: description.into(),
-        kind: SlashKind::Session,
-        origin: None,
-    });
+    let session = session_commands::listed(&SESSION_COMMANDS);
     let own = list.as_array().into_iter().flatten().filter_map(|command| {
         let name = command["name"].as_str()?;
         let taken = LEFT_OUT.contains(&name)
@@ -310,6 +288,6 @@ pub(super) fn commands(list: &Value) -> HarnessEvent {
         })
     });
     HarnessEvent::Commands {
-        commands: session.into_iter().chain(own).collect(),
+        commands: session.chain(own).collect(),
     }
 }

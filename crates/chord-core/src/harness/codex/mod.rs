@@ -17,10 +17,8 @@ use serde_json::json;
 
 use super::models::{self, Step, listed};
 use super::relaunch::Relaunchable;
-use super::{
-    Agent, Capability, DialogAnswer, Harness, HarnessEvent, Image, ModelOption, SignIn, agent_tools,
-};
-use crate::{Error, lock};
+use super::{Agent, Harness, HarnessEvent, ModelOption, SignIn, agent_tools};
+use crate::Error;
 use commands::Settings;
 use reader::{Reader, Relaunch};
 
@@ -59,25 +57,21 @@ pub(crate) fn models() -> Result<Vec<ModelOption>, Error> {
     )
 }
 
-/// The pane's Codex; `/new` and `/reload` swap its process for another.
-pub struct Session(Relaunchable<Reader>);
-
-impl Session {
-    /// Starts Codex in `dir` on the saved thread `session`, else on a new thread. With `tools`, the socket Chord's tools listen on, the agent gets the build and run tools.
-    pub fn start(
-        dir: &Path,
-        session: Option<&str>,
-        tools: Option<&Path>,
-        on_event: impl Fn(HarnessEvent) + Send + 'static,
-    ) -> Result<Session, Error> {
-        let open = Relaunch {
-            thread: session.map(String::from),
-            ..Relaunch::default()
-        };
-        let (cwd, tools) = (dir.to_path_buf(), tools.map(Path::to_path_buf));
-        let launch = move |open| launch(&cwd, open, tools.as_deref());
-        Relaunchable::start(&HARNESS, dir, open, launch, on_event).map(Session)
-    }
+/// Starts the pane's Codex in `dir` on the saved thread `session`, else on a new thread; `/new` and `/reload` swap its process for another. With `tools`, the socket Chord's tools listen on, the agent gets the build and run tools.
+pub fn start(
+    dir: &Path,
+    session: Option<&str>,
+    tools: Option<&Path>,
+    on_event: impl Fn(HarnessEvent) + Send + 'static,
+) -> Result<Box<dyn Agent>, Error> {
+    let open = Relaunch {
+        thread: session.map(String::from),
+        ..Relaunch::default()
+    };
+    let (cwd, tools) = (dir.to_path_buf(), tools.map(Path::to_path_buf));
+    let launch = move |open| launch(&cwd, open, tools.as_deref());
+    Relaunchable::start(&HARNESS, dir, open, launch, on_event)
+        .map(|agent| Box::new(agent) as Box<dyn Agent>)
 }
 
 fn launch(dir: &Path, open: Relaunch, tools: Option<&Path>) -> (Vec<String>, Reader) {
@@ -96,49 +90,4 @@ fn launch(dir: &Path, open: Relaunch, tools: Option<&Path>) -> (Vec<String>, Rea
         }
     }
     (args, reader)
-}
-
-impl Agent for Session {
-    fn capabilities(&self) -> Vec<Capability> {
-        vec![
-            Capability::Chat,
-            Capability::Attachments,
-            Capability::Steer,
-            Capability::Models,
-            Capability::Context,
-            Capability::Subagents,
-        ]
-    }
-
-    /// Starts a turn, steers the running one, or runs a session command.
-    fn send(&self, text: &str, images: &[Image], held_elsewhere: &[String]) -> Result<bool, Error> {
-        let reader = self.0.reader();
-        let took = lock(&reader).takes_images(text);
-        let images = if took { images } else { &[] };
-        let relaunch = lock(&reader).relaunch(text);
-        if let Some(open) = relaunch {
-            return self.0.relaunch(open).map(|()| false);
-        }
-        let read = lock(&reader).send(text, images, held_elsewhere)?;
-        self.0.deliver(read.into()).map(|()| took)
-    }
-
-    fn abort(&self) -> Result<(), Error> {
-        let interrupt = lock(&self.0.reader()).interrupt();
-        interrupt.map_or(Ok(()), |line| self.0.write(&line))
-    }
-
-    fn answer_dialog(&self, id: &str, answer: &DialogAnswer) -> Result<(), Error> {
-        let read = lock(&self.0.reader()).answer(id, answer)?;
-        self.0.deliver(read.into())
-    }
-
-    fn pick_model(&self, id: &str, level: Option<&str>) -> Result<(), Error> {
-        let read = lock(&self.0.reader()).pick_model(id, level);
-        self.0.deliver(read.into())
-    }
-
-    fn end_reported(self: Box<Self>) {
-        self.0.end_reported();
-    }
 }

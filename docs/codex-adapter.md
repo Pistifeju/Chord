@@ -20,7 +20,7 @@ Written against codex-cli 0.158.0. `codex app-server generate-ts --out <folder>`
 
 The reader sits behind one mutex. The stdout thread and the `Agent` methods both lock it, because a `send` needs the thread id, the running turn id and a fresh request id. The adapter reads `serde_json::Value`, as pi's does, and skips a record it does not know.
 
-`HARNESSES` holds `codex::HARNESS` with `starts: true`, and `harness::start` has the `codex::NAME` arm. A failed spawn returns `Error::start_failed` with the install step, as pi's does. `Session::start` calls `installed::require`.
+`HARNESSES` holds `codex::HARNESS` with `starts: true`, and `harness::start` has the `codex::NAME` arm. A failed spawn returns `Error::start_failed` with the install step, as pi's does. `Relaunchable::start` calls `installed::require`.
 
 Capabilities: `Chat`, `Attachments`, `Steer`, `Models`, `Context`, `Subagents`.
 
