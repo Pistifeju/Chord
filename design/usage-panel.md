@@ -8,6 +8,7 @@
   Opening it closes Settings, and opening Settings closes it.
 - **Header:** 48px with a 1px `line` bottom rule, 28px left padding: "Usage" at Heading size, then a Segmented for the range ("24h", "7d", "30d", "90d", each with its tooltip such as "Past 7 days"), one for Cost or Tokens, a refresh icon button and a close icon button.
   The refresh icon turns once every 800ms while a read runs.
+  It starts turning 300ms into the read, so a cached read, such as a range change, leaves it still.
   The panel opens on Past 30 days and Cost.
 - **List:** fills the width left of the inspector, scrolls, 12px padding before the scrollbar's room.
   One `role="listbox"` that takes the focus when the panel shows its rows and names the picked row with `aria-activedescendant`; ↑ ↓ Home End move the pick and scroll it into view, a click picks.

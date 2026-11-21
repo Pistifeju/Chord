@@ -30,7 +30,7 @@
 }
 
 .usage-refresh[aria-busy="true"] > svg {
-  animation: spin 800ms linear infinite;
+  animation: spin 800ms linear 300ms infinite;
 }
 
 .usage-state {
