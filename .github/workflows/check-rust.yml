@@ -32,6 +32,7 @@ concurrency:
 
 jobs:
   check:
+    name: rust
     # macOS minutes bill at 10x; the Rust crates link Apple frameworks, so they cannot build on Linux.
     runs-on: macos-latest
     timeout-minutes: 30
