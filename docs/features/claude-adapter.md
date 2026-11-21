@@ -1,6 +1,6 @@
 # The Claude Code adapter (N3)
 
-N3 of `docs/onboarding-and-harnesses.md`: Chord runs `claude -p` with stream-json in and out, one process per pane, as `harness/claude/` next to pi and Codex. That document holds the feature list, the edge cases and the contract changes (its sections 1, 3 and 5). This one holds the record mapping and what nobody has checked yet.
+N3 of `docs/features/onboarding-and-harnesses.md`: Chord runs `claude -p` with stream-json in and out, one process per pane, as `harness/claude/` next to pi and Codex. That document holds the feature list, the edge cases and the contract changes (its sections 1, 3 and 5). This one holds the record mapping and what nobody has checked yet.
 
 Written against Claude Code 2.1.328. Claude Code has no command that writes its protocol's types. The message types are published with the Claude Agent SDK; the control requests it leaves out were read from the schemas inside the 2.1.328 binary, then tried on a live process (section 6). To see a record live, pipe JSON lines into the start line of section 1 from a temp folder. Never commit a recorded run.
 

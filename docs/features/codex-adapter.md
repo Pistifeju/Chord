@@ -1,6 +1,6 @@
 # The Codex adapter (N2)
 
-N2 of `docs/onboarding-and-harnesses.md`: Chord runs `codex app-server`, one process per pane, as `harness/codex/` next to pi. That document holds the feature list, the edge cases and the contract changes (its sections 1, 3 and 5). This one holds the record mapping and what nobody has checked yet.
+N2 of `docs/features/onboarding-and-harnesses.md`: Chord runs `codex app-server`, one process per pane, as `harness/codex/` next to pi. That document holds the feature list, the edge cases and the contract changes (its sections 1, 3 and 5). This one holds the record mapping and what nobody has checked yet.
 
 Written against codex-cli 0.158.0. `codex app-server generate-ts --out <folder>` writes the protocol's types; generate them into a temp folder to read while you change the adapter, and never commit them.
 
