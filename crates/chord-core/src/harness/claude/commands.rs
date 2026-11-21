@@ -88,7 +88,14 @@ impl Settings {
 
     /// The `initialize` answer: the models, the commands and the permission mode.
     pub(super) fn initialized(&mut self, answer: &Value) -> Vec<HarnessEvent> {
-        self.models = answer["models"].as_array().cloned().unwrap_or_default();
+        // `default` only repeats one of the listed models under another name.
+        self.models = answer["models"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter(|model| model["value"] != "default")
+            .cloned()
+            .collect();
         let models = self
             .models
             .iter()
@@ -224,7 +231,7 @@ impl Settings {
         }
     }
 
-    // The picked entry, else the first other than `default` that resolves to the applied model.
+    // The picked entry, else the first that resolves to the applied model.
     fn current(&self) -> Option<&Value> {
         let picked = self.picked.as_deref();
         let model = self.model.as_deref();
@@ -233,8 +240,7 @@ impl Settings {
             .find(|entry| picked.is_some() && entry["value"].as_str() == picked)
             .or_else(|| {
                 self.models.iter().find(|entry| {
-                    entry["value"] != "default"
-                        && model.is_some()
+                    model.is_some()
                         && (entry["resolvedModel"].as_str() == model
                             || entry["value"].as_str() == model)
                 })
