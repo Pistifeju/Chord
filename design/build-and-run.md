@@ -56,8 +56,9 @@ A failure is `danger` text and the toolbar's Run and Stop icons take `success` a
   ⌘T shows or hides the Terminal; ⌘⇧Y shows or hides the log half.
   Both are saved per worktree.
 - **Which view a run shows:** ⌘R and the play button open the side panel on the Simulator view when the run goes to a simulator.
+  An agent's run opens it too: an agent runs only when the user asks, and always on the worktree's simulator.
   A build the user starts (⌘R, ⌘B, the play button) shows the log half on Build and leaves the Terminal as it is; when the app launches the half switches to Console, if it still shows Build; a failed build stays on Build.
-  A build the agent started moves nothing; the run marker reports it.
+  A build the agent started moves nothing else; the run marker reports it.
 - **Build view:** the build's output as Code text in `ink-secondary` on `canvas`, 8px padding, selectable, one scroll area that stays at the end while output arrives unless the reader scrolled up.
   Only the lines in view are mounted; the log keeps 10,000.
   After a failed build its errors come first in the scroll area, 30 at most, and the view scrolls to them: 26px rows with the Control radius, a 16px `danger` warning icon, then the file name and line ("LoginView.swift:42") in `ink-secondary`, then the message in `ink`, which truncates and holds the full text as its tooltip.
