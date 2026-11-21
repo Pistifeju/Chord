@@ -1,6 +1,7 @@
 # Status bar
 
-A 26px strip across the window's full width, under the sidebar and the main area, on `canvas` with a 1px `line` top edge.
+A 36px strip under the main area, on `canvas` with a 1px `line` top edge.
+The sidebar reaches the window's bottom edge, and its 36px footer row shares the strip's top line.
 Its items sit on the strip's center line.
 The 28px gear icon button that opens Settings (tooltip "Settings (⌘,)") sits in a 36px footer row at the sidebar's bottom, 8px in, under a 1px `line` divider.
 At the row's right end, 8px in, a question mark icon button (tooltip "Help") opens the Help sheet (see Sheets).

@@ -278,7 +278,7 @@ Sizes multiply by `--text-scale`, which the text size setting changes (⌘=, ⌘
 
 ## Layout
 
-- One window, minimum 900 × 600. A flex row of the sidebar (280px) and the main area, with the status bar under both across the full width.
+- One window, minimum 900 × 600. A flex row of the sidebar (280px) and the main area, with the status bar under the main area; the sidebar runs to the window's bottom edge.
 - The title bar row is 40px tall (`--titlebar-height`), transparent, and drags the window. While the sidebar shows, the open worktree's project name sits right after the traffic lights (Label weight, `ink-secondary`, truncating, its path as the tooltip) and the sidebar toggle sits over the sidebar's right end, on the navigator's right edge. While the sidebar hides, the name goes and the toggle sits right after the traffic lights. The traffic lights, the name, the toggle and the tabs share the row's center line. On a worktree the tab bars of the groups along the top take the row, at the same height; in a worktree with an Xcode project the toolbar takes it instead (see Build and Run) and the tab bars sit under it.
 - The toast shows 4px below the window's top edge, centered over the title bar row.
 - The transcript and the composer share a centered column, 720px at most, with 20px side padding. The composer card and a dialog fill the column's inner width, and the user's message bubble ends on the card's right edge. Transcript text, the Working row and the notice sit 15px further in (the card's border, padding and input padding), so they start where the draft text starts, at every pane width.
