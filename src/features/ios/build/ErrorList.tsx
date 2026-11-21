@@ -39,7 +39,6 @@ export function ErrorList({ worktree, build, anchor }: { worktree: string; build
     window.addEventListener("resize", closeErrorList);
     return () => window.removeEventListener("resize", closeErrorList);
   }, [anchor]);
-  useEffect(() => closeErrorList, []);
   useEffect(() => {
     panel.current?.querySelector("[data-active]")?.scrollIntoView({ block: "nearest" });
   }, [active]);

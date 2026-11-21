@@ -120,6 +120,13 @@ function Activity({ worktree, scheme, destination, target }: { worktree: string;
   useEffect(() => {
     if (open && !failed) closeErrorList();
   }, [open, failed]);
+  // Leaving the worktree closes its list; StrictMode's early cleanup runs before the list can be open.
+  useEffect(
+    () => () => {
+      if (errorList.get() === worktree) closeErrorList();
+    },
+    [worktree],
+  );
   return (
     <div className="toolbar-activity" data-tone={activity.tone}>
       {target}
