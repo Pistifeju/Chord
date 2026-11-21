@@ -160,7 +160,7 @@ pub fn write(root: &Path, file: &str, expected: &str, text: &str) -> Result<(), 
 
 /// Makes an empty file, or a folder, at `path` (relative to `root`); an existing entry is never replaced.
 pub fn create(root: &Path, path: &str, folder: bool) -> Result<(), Error> {
-    let target = inside(root, path)?;
+    let target = entry(root, path)?;
     let made = if folder {
         fs::create_dir(&target)
     } else {
@@ -179,7 +179,7 @@ pub fn create(root: &Path, path: &str, folder: bool) -> Result<(), Error> {
 /// Moves `from` to `to` (both relative to `root`); an existing `to` stops it, unless it is `from` itself, as in a case-only rename on a case-insensitive volume.
 pub fn rename(root: &Path, from: &str, to: &str) -> Result<(), Error> {
     refuse_root(from)?;
-    let (source, target) = (inside(root, from)?, inside(root, to)?);
+    let (source, target) = (entry(root, from)?, entry(root, to)?);
     // shortcut: a file created at `to` between this check and the rename is replaced; upgrade to renamex_np with RENAME_EXCL if that is reported.
     if let Ok(existing) = target.symlink_metadata() {
         use std::os::unix::fs::MetadataExt;
@@ -195,7 +195,7 @@ pub fn rename(root: &Path, from: &str, to: &str) -> Result<(), Error> {
 pub fn trash(root: &Path, path: &str) -> Result<(), Error> {
     use objc2_foundation::{NSFileManager, NSString, NSURL};
     refuse_root(path)?;
-    let target = inside(root, path)?;
+    let target = entry(root, path)?;
     let url = NSURL::fileURLWithPath(&NSString::from_str(&target.to_string_lossy()));
     NSFileManager::defaultManager()
         .trashItemAtURL_resultingItemURL_error(&url, None)
@@ -206,7 +206,7 @@ pub fn trash(root: &Path, path: &str) -> Result<(), Error> {
 pub fn reveal(root: &Path, path: &str) -> Result<(), Error> {
     let status = std::process::Command::new("open")
         .arg("-R")
-        .arg(inside(root, path)?)
+        .arg(entry(root, path)?)
         .status()?;
     if !status.success() {
         return Err(Error::Message(format!("Cannot show {path} in Finder")));
@@ -224,19 +224,54 @@ fn refuse_root(path: &str) -> Result<(), Error> {
     Ok(())
 }
 
-// The path under `root`; a relative path that climbs out or is absolute is refused.
+// The path under `root` that `relative` names, with symlinks followed; one that climbs out, is absolute, or resolves outside `root` is refused.
 pub(crate) fn inside(root: &Path, relative: &str) -> Result<PathBuf, Error> {
-    let relative = Path::new(relative);
-    if relative
+    let path = plain(root, relative)?;
+    let real = match path.canonicalize() {
+        Ok(real) => real,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => beside(&path)?,
+        Err(error) => return Err(error.into()),
+    };
+    stay(root, &real, relative)?;
+    Ok(path)
+}
+
+// Like `inside`, for an operation on the entry itself (create, rename, trash, reveal): only its folder is resolved, so a symlink there can be renamed or trashed but not passed through.
+fn entry(root: &Path, relative: &str) -> Result<PathBuf, Error> {
+    let path = plain(root, relative)?;
+    if !relative.is_empty() {
+        stay(root, &beside(&path)?, relative)?;
+    }
+    Ok(path)
+}
+
+fn plain(root: &Path, relative: &str) -> Result<PathBuf, Error> {
+    let relative_path = Path::new(relative);
+    if relative_path
         .components()
         .any(|part| !matches!(part, Component::Normal(_)))
     {
-        return Err(Error::Message(format!(
-            "{} is not inside the worktree",
-            relative.display()
-        )));
+        return Err(outside(relative));
     }
-    Ok(root.join(relative))
+    Ok(root.join(relative_path))
+}
+
+// `path` with its folder resolved, for a path whose last part may not exist yet.
+fn beside(path: &Path) -> std::io::Result<PathBuf> {
+    let folder = path.parent().unwrap_or(path).canonicalize()?;
+    Ok(folder.join(path.file_name().unwrap_or_default()))
+}
+
+fn stay(root: &Path, real: &Path, relative: &str) -> Result<(), Error> {
+    if real.starts_with(root.canonicalize()?) {
+        Ok(())
+    } else {
+        Err(outside(relative))
+    }
+}
+
+fn outside(relative: &str) -> Error {
+    Error::Message(format!("{relative} is not inside the worktree"))
 }
 
 fn join(folder: &str, name: &str) -> String {
@@ -337,6 +372,28 @@ mod tests {
         );
         assert!(list(&root, "../x").is_err());
         let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn refuses_a_symlink_that_leaves_the_worktree() {
+        let base = std::env::temp_dir().join(format!("chord-link-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        let (root, other) = (base.join("root"), base.join("other"));
+        fs::create_dir_all(root.join("in")).unwrap();
+        fs::create_dir_all(&other).unwrap();
+        fs::write(other.join("secret"), "s").unwrap();
+        fs::write(root.join("in/a"), "a").unwrap();
+        std::os::unix::fs::symlink(&other, root.join("out")).unwrap();
+        std::os::unix::fs::symlink(other.join("secret"), root.join("leaf")).unwrap();
+        std::os::unix::fs::symlink(root.join("in"), root.join("alias")).unwrap();
+
+        assert!(read(&root, "out/secret").is_err());
+        assert!(read(&root, "leaf").is_err());
+        assert!(create(&root, "out/new", false).is_err());
+        assert_eq!(read(&root, "alias/a").unwrap(), "a");
+        rename(&root, "leaf", "moved").unwrap();
+        assert!(root.join("moved").symlink_metadata().is_ok());
+        let _ = fs::remove_dir_all(&base);
     }
 
     #[test]
