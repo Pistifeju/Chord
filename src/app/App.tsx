@@ -21,6 +21,8 @@ import { CloseAgentsPopup } from "../features/panes/CloseAgentsPopup";
 import { PaneArea } from "../features/panes/PaneArea";
 import { QuitPopup } from "../features/quit/QuitPopup";
 import { watchQuit } from "../features/quit/store";
+import { UpdatePopup } from "../features/update/UpdatePopup";
+import { watchUpdates } from "../features/update/store";
 import { HelpSheet } from "../features/help/HelpSheet";
 import { NoProjects } from "../features/worktrees/NoProjects";
 import { Onboarding } from "../features/onboarding/Onboarding";
@@ -112,6 +114,7 @@ export default function App() {
     window.addEventListener("keydown", shortcutWhenLaunched);
     const unwatch = watchGitCounts();
     const unwatchQuit = watchQuit();
+    const unwatchUpdates = watchUpdates();
     const unwatchFinished = watchFinished();
     const unwatchClicks = watchNotificationClicks();
     const unwatchShown = watchShownPanes();
@@ -122,6 +125,7 @@ export default function App() {
       window.removeEventListener("keydown", shortcutWhenLaunched);
       unwatch();
       unwatchQuit();
+      unwatchUpdates();
       unwatchFinished();
       unwatchClicks();
       unwatchShown();
@@ -214,6 +218,7 @@ export default function App() {
       <DropStashPopup />
       <OpenFileByNamePopup />
       <QuitPopup />
+      <UpdatePopup />
       <HelpSheet />
       <CloseAgentsPopup />
       <RemoveProjectPopup />

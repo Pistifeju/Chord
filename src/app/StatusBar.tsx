@@ -1,10 +1,12 @@
-// The strip under the main area: a slot for the simulators button, and the subscription usage of each harness that reports it, after its logo, with the shortest window's bar; a click on it opens the Usage panel.
+// The strip under the main area: the update button at its left end once a newer release exists, a slot for the simulators button, and the subscription usage of each harness that reports it, after its logo, with the shortest window's bar; a click on it opens the Usage panel.
 import { useEffect, useState, type ReactNode } from "react";
 import type { UsageWindow } from "../ipc/bindings";
 import { harnessMarks } from "../features/harnesses/logos";
+import { installing, newerVersion, requestUpdate } from "../features/update/store";
 import { openUsagePanel } from "../features/usage/commands";
 import { usage } from "../features/usage/store";
 import { openWindows, usageLevel, usageText, usageTitle, usedPercent } from "../features/usage/usage";
+import { ArrowDownIcon } from "../ui/icons";
 
 const REFRESH_MS = 60000;
 
@@ -28,6 +30,8 @@ function HarnessUsage({ mark, windows, now }: { mark: Mark; windows: UsageWindow
 
 export function StatusBar({ simulators }: { simulators: ReactNode }) {
   const reported = usage.use();
+  const update = newerVersion.use();
+  const install = installing.use();
   // A window goes stale when its reset passes, with no event to say so.
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
@@ -39,6 +43,27 @@ export function StatusBar({ simulators }: { simulators: ReactNode }) {
     .filter(({ windows }) => windows.length > 0);
   return (
     <div className="statusbar">
+      {update && (
+        <button type="button" className="statusbar-update" disabled={install !== null} onClick={requestUpdate}>
+          {install === null ? (
+            <>
+              <ArrowDownIcon />
+              Update to {update}
+            </>
+          ) : install.percent === 100 ? (
+            "Restarting"
+          ) : install.percent === null ? (
+            "Downloading"
+          ) : (
+            <>
+              <span className="usage-bar" aria-hidden>
+                <span style={{ width: `${install.percent}%` }} />
+              </span>
+              Downloading {install.percent}%
+            </>
+          )}
+        </button>
+      )}
       {simulators}
       {shown.length > 0 && (
         <span className="statusbar-usage">

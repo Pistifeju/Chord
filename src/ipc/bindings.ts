@@ -124,8 +124,12 @@ export const commands = {
 	pickScreenshotFolder: () => __TAURI_INVOKE<string | null>("pick_screenshot_folder"),
 	/**  Starts a native drag of a file, shown as `preview`, out of the window: Finder and other apps take it, and so does a chat pane. */
 	dragFileOut: (file: string, preview: string) => __TAURI_INVOKE<null>("drag_file_out", { file, preview }),
-	/**  Stops every agent, shell and build, starts the shutdown of Chord's booted simulators and ends the app once the user confirmed the quit. Panes stay saved as running, so they start again on launch. */
+	/**  Stops the app's work and ends the app once the user confirmed the quit. */
 	quitApp: () => __TAURI_INVOKE<null>("quit_app"),
+	/**  The version of a newer release, or none. */
+	checkUpdate: () => __TAURI_INVOKE<string | null>("check_update"),
+	/**  Downloads the newer release over the installed app, then stops the app's work and starts the new version. A failed download stops nothing. `on_percent` gets the download's percentage as it grows, when the server tells the size, and 100 once the download ended. */
+	installUpdate: (onPercent: Channel<number>) => __TAURI_INVOKE<null>("install_update", { onPercent }),
 	/**  Saves the setting and applies it; a missing `caffeinate` fails before anything is saved, even with no agent working. */
 	setKeepAwake: (enabled: boolean) => __TAURI_INVOKE<null>("set_keep_awake", { enabled }),
 	/**  Opens a link of the chat in the default app. */

@@ -16,11 +16,14 @@ drag = "2.1"
 chord-core = { path = "../crates/chord-core" }
 chord-ios = { path = "../crates/chord-ios" }
 serde = { version = "1.0.229", features = ["derive"] }
+# `generate_context!` names this crate once tauri.conf.json has a `plugins` section.
+serde_json = "1.0.154"
 specta = "=2.0.0-rc.28"
 specta-typescript = "=0.0.15"
 tauri = { version = "2", features = ["unstable"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-notification = "2"
+tauri-plugin-updater = "2"
 tauri-specta = { version = "=2.0.0-rc.28", features = ["derive", "typescript"] }
 
 [lints]
