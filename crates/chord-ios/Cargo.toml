@@ -21,5 +21,5 @@ objc2-foundation = { version = "0.3", default-features = false, features = ["std
 objc2-quartz-core = { version = "0.3", default-features = false, features = ["std", "CAAnimation", "CABase", "CALayer", "CAMediaTiming", "CAMediaTimingFunction", "CAShapeLayer", "CATextLayer", "CATransform3D", "CATransaction", "objc2-core-foundation", "objc2-core-graphics"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
-chord-core = { version = "0.1.0", path = "../chord-core" }
+chord-core = { path = "../chord-core" }
 specta = { version = "=2.0.0-rc.28", features = ["derive"] }
