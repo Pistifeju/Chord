@@ -33,6 +33,9 @@
   },
   "bundle": {
     "active": true,
+    "macOS": {
+      "minimumSystemVersion": "14.0"
+    },
     "targets": [
       "app"
     ],
