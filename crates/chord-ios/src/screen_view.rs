@@ -322,8 +322,10 @@ struct Shown {
 struct Screen {
     webview: Retained<NSView>,
     view: Retained<NSView>,
-    /// The bezel, inside the view's canvas-colored layer.
+    /// The bezel's edge, inside the view's canvas-colored layer.
     frame: Retained<CALayer>,
+    /// The bezel's frame, 1px inside its edge. A border on `frame` would let its fill bleed past the edge's round corners.
+    plate: Retained<CALayer>,
     /// The screen, inside the frame.
     layer: Retained<CALayer>,
     /// Home, Lock and Shake under the frame, once the web has laid them out.
@@ -411,6 +413,8 @@ impl Screen {
         let frame = CALayer::new();
         let layer = CALayer::new();
         layer.setMasksToBounds(true);
+        let plate = CALayer::new();
+        frame.addSublayer(&plate);
         frame.addSublayer(&layer);
         let capsule = CALayer::new();
         capsule.setHidden(true);
@@ -429,6 +433,7 @@ impl Screen {
             webview,
             view,
             frame,
+            plate,
             layer,
             capsule,
             buttons: None,
@@ -510,9 +515,16 @@ impl Screen {
             framed,
         ));
         self.frame.setCornerRadius(bezel.radius + bezel_width);
-        self.frame.setBorderWidth(EDGE_WIDTH);
-        self.frame.setBackgroundColor(Some(&srgb(bezel.frame)));
-        self.frame.setBorderColor(Some(&srgb(bezel.edge)));
+        self.frame.setBackgroundColor(Some(&srgb(bezel.edge)));
+        self.plate.setFrame(CGRect::new(
+            CGPoint::new(EDGE_WIDTH, EDGE_WIDTH),
+            CGSize::new(
+                framed.width - 2.0 * EDGE_WIDTH,
+                framed.height - 2.0 * EDGE_WIDTH,
+            ),
+        ));
+        self.plate.setCornerRadius(bezel.radius + FRAME_WIDTH);
+        self.plate.setBackgroundColor(Some(&srgb(bezel.frame)));
         self.layer
             .setFrame(CGRect::new(CGPoint::new(bezel_width, bezel_width), screen));
         self.layer.setCornerRadius(bezel.radius);
