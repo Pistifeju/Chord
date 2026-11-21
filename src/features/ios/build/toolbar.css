@@ -165,7 +165,6 @@
   overflow: hidden;
   padding: 0 10px;
   text-overflow: ellipsis;
-  text-align: center;
 }
 
 /* While it builds, installs or launches: a 2px line along the field's bottom edge with a segment sliding across it. Rust reports no file counts, so it shows that work goes on, not how far. */
