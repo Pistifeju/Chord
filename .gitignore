@@ -5,7 +5,8 @@ src-tauri/gen/schemas
 .DS_Store
 *.log
 .codex/
-.agents/.DS_Store
+.claude/
+.env*
 .agents/skills/impeccable/
 .agents/skills/improve-animations/
 .impeccable/

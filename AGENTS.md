@@ -8,7 +8,7 @@ A macOS workspace for coding agents: one git worktree per task, each with its ow
 
 ## Boundaries
 
-- Only `crates/chord-core/src/harness/pi/` knows pi's records. The frontend gets Chord events.
+- Only `crates/chord-core/src/harness/<name>/` knows that harness's records. The frontend gets Chord events.
 - `chord-core` has no `tauri` dependency and never names `chord-ios`.
 - Rust decides every status (`status_for`). TS stores it.
 - A Tauri command runs git, filesystem and process work on `spawn_blocking`.
@@ -26,7 +26,8 @@ A macOS workspace for coding agents: one git worktree per task, each with its ow
 - In a `design/` file, start each sentence on its own line, so a diff shows the one sentence that changed.
 - CSS variables from `src/ui/tokens.css`. No raw hex in components.
 - Name a file, folder or module after the domain concept it holds. Never `utils`, `helpers`, `common`, `misc` or `shared`. Reaching for one of those means the file holds two jobs: split it, or find the name in what its functions operate on.
-- Write a comment only where the code cannot say it: one line, the why, never the how.
+- Line 1 of every source file is a comment that says what the file holds. `npm run map` prints it.
+- A `///` doc comment states an item's contract. Write any other comment only where the code cannot say it: one line, the why, never the how.
 
 ## Tests
 
@@ -34,7 +35,7 @@ Do not add tests by default. Add one only when all three hold:
 
 - it fails when you revert your change;
 - it hardcodes its expected values, never computed by production code, fixtures or mocks;
-- it runs at the one layer that owns the behavior: a pure module or `chord-core`, never the UI.
+- it runs at the one layer that owns the behavior: a pure module or `chord-core`, never a React component.
 
 Never test copy, CSS classes, constants, third-party libraries, private state, timing or work counts. A test you touch that breaks these rules gets deleted, not updated. Fix or delete a flaky test.
 
@@ -46,10 +47,10 @@ Never test copy, CSS classes, constants, third-party libraries, private state, t
 
 ## How to
 
-- New Tauri command: a function in `src-tauri/src/commands/<area>.rs`, one line in the command list in `lib.rs`, then regenerate the bindings.
+- New Tauri command: a function in `src-tauri/src/commands/<area>.rs`, one line in the command list in `lib.rs`, then regenerate the bindings with `npm run bindings`.
 - New shortcut or menu item: one entry in the feature's commands, listed in `src/app/commands.ts`.
 - New harness: an entry in `HARNESSES` in `harness/mod.rs`, `Agent` implemented in `crates/chord-core/src/harness/<name>/`, and one arm in `harness::start`. Set the entry's `starts` once the arm lands.
-- New harness capability: a variant in `Capability`, emit it in `harness/pi/`, check it in the view.
+- New harness capability: a variant in `Capability`, add it to `capabilities()` for each harness that has it (`harness/pi/mod.rs` for pi, `harness/relaunch.rs` for Codex and Claude Code), check it in the view.
 
 ## Done
 

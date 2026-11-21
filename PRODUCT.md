@@ -36,10 +36,6 @@ Chord is a macOS workspace for coding agents. Each task gets its own git worktre
 - Name: Chord. MIT licensed, open source, early development.
 - Visual direction: the category standard for agent workspaces. The developer chose it over an invented visual world.
 
-## Evidence on Hand
-
-- No users, testimonials, benchmarks or press yet. Future work must not invent them.
-
 ## Product Principles
 
 1. The developer always knows which agent needs them next.
