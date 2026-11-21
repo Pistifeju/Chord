@@ -5,7 +5,7 @@ import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type Clipb
 import { tooltip } from "../../app/commands";
 import type { Checks, HarnessCheck, Image, SlashCommand, SubagentNode } from "../../ipc/bindings";
 import { elementAtDrop } from "../../ui/dropPoint";
-import { ArrowDownIcon, ArrowUpIcon, ChevronIcon, CloseIcon, EyeIcon, FileIcon, ImageIcon, PaperclipIcon, PencilIcon, PlayIcon } from "../../ui/icons";
+import { ArrowDownIcon, ArrowUpIcon, ChevronIcon, CloseIcon, EyeIcon, FileIcon, FolderIcon, ImageIcon, PaperclipIcon, PencilIcon, PlayIcon, SearchIcon } from "../../ui/icons";
 import { imageUrl, isImageType, type Attachment } from "./attachments";
 import { AgentMenu } from "./AgentMenu";
 import { agentPickerPane, closeAgentPicker, openAgentPicker } from "./agentPicker";
@@ -166,9 +166,9 @@ const MessageRow = memo(function MessageRow({ pane, message, fresh }: { pane: st
   );
 });
 
-const stepIcons: Partial<Record<CallKind, typeof FileIcon>> = { edit: PencilIcon, write: PencilIcon, read: EyeIcon, run: PlayIcon };
+const stepIcons: Partial<Record<CallKind, typeof FileIcon>> = { edit: PencilIcon, write: PencilIcon, read: EyeIcon, search: SearchIcon, list: FolderIcon, run: PlayIcon };
 
-function StepLine({ step, worktree }: { step: Step; worktree: string }) {
+function StepLine({ step, worktree, showChanges }: { step: Step; worktree: string; showChanges: boolean }) {
   if (step.kind === "thought") {
     return (
       <div className="chat-step" data-kind="thought">
@@ -176,7 +176,7 @@ function StepLine({ step, worktree }: { step: Step; worktree: string }) {
       </div>
     );
   }
-  const changes = step.state === "done" ? step.changes : undefined;
+  const changes = showChanges && step.state === "done" ? step.changes : undefined;
   const Icon = stepIcons[callKind(step.title)] ?? FileIcon;
   return (
     <div className="chat-step" data-state={step.state} title={step.detail}>
@@ -202,6 +202,8 @@ const StepsRow = memo(function StepsRow({ pane, worktree, group, live, fresh }: 
   const images = stepImages(group.steps);
   const total = stepsTime(group.steps);
   const changes = stepsChanges(group.steps);
+  // One changed step would repeat the toggle line's counts.
+  const changedSteps = group.steps.filter((step) => step.kind === "call" && step.state === "done" && step.changes).length;
   const last = group.steps[group.steps.length - 1];
   const line = live && last ? stepDoing(last) : stepsHeadline(group.steps);
   // The line the row mounted with shows still; a new line fades in, so a history group holds and a live one reads its steps.
@@ -225,7 +227,7 @@ const StepsRow = memo(function StepsRow({ pane, worktree, group, live, fresh }: 
       {expanded && (
         <div className="chat-step-lines">
           {group.steps.map((step) => (
-            <StepLine key={step.kind === "thought" ? `thought-${step.id}` : step.id} step={step} worktree={worktree} />
+            <StepLine key={step.kind === "thought" ? `thought-${step.id}` : step.id} step={step} worktree={worktree} showChanges={changedSteps > 1} />
           ))}
         </div>
       )}

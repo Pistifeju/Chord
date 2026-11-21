@@ -37,8 +37,9 @@
   After it, the lines the group's finished edits and writes added ("+43", `success`) and removed ("−5", `danger`), tabular, each only when not zero; a write counts its whole content as added.
   The group's total run time sits at the toggle line's right end once it reaches 5 s and the group is past.
   The toggle opens one 26px row per step, its icon 18px in, the steps' indent.
-  A call's row holds its 16px kind icon in `ink-muted` (Edit and Write a pencil, Read an eye, Run a play, any other a file), its title at 500 in `ink-secondary`, then a path from the worktree's root, or a command in the code font at 11.5px, on one line that truncates; the full detail is the row's tooltip.
+  A call's row holds its 12px kind icon in `ink-muted` (Edit and Write a pencil, Read an eye, Search a magnifier, List a folder, Run a play, any other a file), its title at 500 in `ink-secondary`, then a path from the worktree's root, or a command in the code font at 11.5px, on one line that truncates; the full detail is the row's tooltip.
   At its end sit the `status-running` orbit while the call runs, its added and removed lines once it finished, and its run time.
+  A call's added and removed lines show only when two or more of the group's calls changed lines; with one, the toggle line already holds them.
   A thought's row has no icon and shows its text on one line that truncates.
   The rows only read: no hover, no press, no focus.
   A failed call's icon and title take `danger`.

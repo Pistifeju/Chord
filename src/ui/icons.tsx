@@ -156,7 +156,7 @@ export const QuestionIcon = () => (
   </Icon>
 );
 
-export const FolderIcon = ({ size = 24 }: { size?: number }) => (
+export const FolderIcon = ({ size = 24 }: { size?: number } = {}) => (
   <Icon size={size}>
     <path d="M1.75 4.25c0-.83.67-1.5 1.5-1.5h3l1.5 1.75h5c.83 0 1.5.67 1.5 1.5v6.25c0 .83-.67 1.5-1.5 1.5h-9.5c-.83 0-1.5-.67-1.5-1.5z" />
   </Icon>
@@ -376,6 +376,13 @@ export const ShieldCheckIcon = () => (
   <Icon>
     <path d="M8 1.75 13 3.5v4.25c0 3-2.2 5.1-5 6.5-2.8-1.4-5-3.5-5-6.5V3.5z" />
     <path d="m5.75 7.75 1.5 1.5 3-3" />
+  </Icon>
+);
+
+export const SearchIcon = () => (
+  <Icon>
+    <circle cx="7" cy="7" r="4.25" />
+    <path d="m10.25 10.25 3.5 3.5" />
   </Icon>
 );
 
