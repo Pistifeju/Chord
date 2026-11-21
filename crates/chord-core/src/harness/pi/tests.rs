@@ -44,6 +44,7 @@ fn a_read_only_shell_command_is_titled_by_what_it_does() {
             id: "c1".into(),
             title: "Search".into(),
             detail: "grep -rn foo src".into(),
+            command: true,
             changes: None,
         }]
     );
@@ -58,6 +59,7 @@ fn an_unknown_tool_shows_its_name_and_argument_values() {
             id: "c2".into(),
             title: "Github list issues".into(),
             detail: "a/b".into(),
+            command: false,
             changes: None,
         }]
     );
@@ -70,6 +72,7 @@ fn a_settled_run_stops_the_calls_it_left_open() {
         id: id.into(),
         title: "Run".into(),
         detail: "sleep 9".into(),
+        command: true,
         changes: None,
     };
     assert_eq!(open.track(vec![started("a"), started("b")]).len(), 2);
@@ -144,6 +147,7 @@ fn a_write_counts_its_content_lines_as_added() {
             id: "c1".into(),
             title: "Write".into(),
             detail: "a.ts".into(),
+            command: false,
             changes: Some(LineChanges {
                 added: 3,
                 removed: 0
@@ -270,12 +274,14 @@ fn saved_messages_come_back_as_the_events_of_their_run() {
                 id: "c1".into(),
                 title: "List".into(),
                 detail: "src".into(),
+                command: false,
                 changes: None,
             },
             HarnessEvent::ToolStart {
                 id: "c2".into(),
                 title: "Read".into(),
                 detail: "a.rs".into(),
+                command: false,
                 changes: None,
             },
             HarnessEvent::ToolEnd {

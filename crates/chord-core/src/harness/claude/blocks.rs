@@ -133,6 +133,7 @@ fn tool_use(block: &Value, cwd: &Path) -> Vec<HarnessEvent> {
         id: text(&block["id"]),
         title,
         detail,
+        command: name == "Bash",
         changes,
     }]
 }

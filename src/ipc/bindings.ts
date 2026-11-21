@@ -637,8 +637,8 @@ export type HarnessEvent_Deserialize =
 { kind: "thought_start" } | 
 /**  Text of the reasoning block that is streaming now. */
 { kind: "thought_chunk"; text: string } | 
-/**  A tool call began; `title` is what it does (Read, Search, List, Run, Edit, Write, a tool's name) and `detail` its path, command or arguments. `changes` holds the lines a write puts in its file, known before it runs. */
-{ kind: "tool_start"; id: string; title: string; detail: string; changes?: LineChanges | null } | 
+/**  A tool call began; `title` is what it does (Read, Search, List, Run, Edit, Write, a tool's name) and `detail` its path, command or arguments. `command` says `detail` is a shell command. `changes` holds the lines a write puts in its file, known before it runs. */
+{ kind: "tool_start"; id: string; title: string; detail: string; command: boolean; changes?: LineChanges | null } | 
 /**  A tool call ended; `Stopped` means the run ended or was aborted before it reported. `images` are the ones the tool returned; `ms` is how long it ran, missing when the agent did not measure it; `changes` the lines an edit added and removed. */
 { kind: "tool_end"; id: string; outcome: ToolOutcome; images: Image[]; ms?: number | null; changes?: LineChanges | null } | 
 /**  The model the agent runs and, when that model reasons, its thinking level; sent when a session starts and after each pick. `id` is the model's id in `Models`, when the harness says. */
@@ -699,8 +699,8 @@ export type HarnessEvent_Serialize =
 { kind: "thought_start" } | 
 /**  Text of the reasoning block that is streaming now. */
 { kind: "thought_chunk"; text: string } | 
-/**  A tool call began; `title` is what it does (Read, Search, List, Run, Edit, Write, a tool's name) and `detail` its path, command or arguments. `changes` holds the lines a write puts in its file, known before it runs. */
-{ kind: "tool_start"; id: string; title: string; detail: string; changes: LineChanges | null } | 
+/**  A tool call began; `title` is what it does (Read, Search, List, Run, Edit, Write, a tool's name) and `detail` its path, command or arguments. `command` says `detail` is a shell command. `changes` holds the lines a write puts in its file, known before it runs. */
+{ kind: "tool_start"; id: string; title: string; detail: string; command: boolean; changes: LineChanges | null } | 
 /**  A tool call ended; `Stopped` means the run ended or was aborted before it reported. `images` are the ones the tool returned; `ms` is how long it ran, missing when the agent did not measure it; `changes` the lines an edit added and removed. */
 { kind: "tool_end"; id: string; outcome: ToolOutcome; images: Image[]; ms: number | null; changes: LineChanges | null } | 
 /**  The model the agent runs and, when that model reasons, its thinking level; sent when a session starts and after each pick. `id` is the model's id in `Models`, when the harness says. */

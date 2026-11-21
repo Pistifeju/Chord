@@ -16,6 +16,7 @@ pub(super) fn started(item: &Value, at: Option<f64>, cwd: &Path) -> Vec<HarnessE
             id: id.clone(),
             title: title.into(),
             detail,
+            command: item["type"] == "commandExecution",
             changes,
         }]
     };

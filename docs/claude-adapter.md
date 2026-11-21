@@ -91,7 +91,7 @@ A reply that fails at the API arrives as an `assistant` record with `error` and 
 
 | Tool | Title | Detail |
 |---|---|---|
-| `Bash` | `read_only_title` on `command`, else Run | the command |
+| `Bash` | `read_only_title` on `command`, else Run | the command; `command` is true |
 | `Read` | Read | `file_path`, relative to the worktree |
 | `Write` | Write | the path; `changes` holds the line count of `content` |
 | `Edit`, `NotebookEdit` | Edit | the path |

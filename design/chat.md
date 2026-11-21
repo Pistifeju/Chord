@@ -28,11 +28,21 @@
 - **Find:** ⌘F opens a bar floating at the transcript's top right (`--shadow-popover`, on `canvas` with a 1px `line-strong` border and the Control radius): a field, the position ("2 of 7", "No results"; meta, tabular), previous and next icon buttons (disabled without matches) and a close icon button.
   Return steps to the next match, Shift-Return to the previous, Esc or a click anywhere outside the bar closes it.
   Matches take an `editor-match` background; the current one adds a 2px `accent-ink` underline and scrolls to the middle.
-- **Step group:** thoughts and tool calls between two messages, one row in meta text: a toggle with a chevron and what the group did by kind ("1 thought, 2 searches, edited 2 files, ran 4 commands": thoughts, files read, searches, folders listed, distinct files edited or written, commands run, other tool calls, each only when there is one, on one line that truncates with an ellipsis while the chevron, counts and time keep their place; Inset radius, `raised` and `ink-secondary` on hover, `selected` when pressed), folded when the run is past it.
-  After the count, the lines the group's finished edits and writes added ("+43", `success`) and removed ("−5", `danger`), tabular, each only when not zero; a write counts its whole content as added.
-  It stays folded while it runs, only the count growing; the toggle opens all steps.
-  A call is its title (`ink-secondary`, `danger` when it failed) and its detail on one line.
-  A call that ran 5 s or more, or failed, shows its run time at the line's right end ("55.4 s", "320 ms"), 11px `ink-muted`, tabular; the group's total sits at the toggle line's right end once it reaches 5 s.
+- **Step group:** thoughts and tool calls between two messages, one row in meta text: a toggle with a chevron and one line that truncates with an ellipsis while the chevron, counts and time keep their place (Inset radius, `raised` and `ink-secondary` on hover, `selected` when pressed), folded.
+  While the group is the run's newest item, the line holds the `status-running` orbit and what its newest step does: "Thinking", "Reading mod.rs", "Editing mod.rs", "Writing mod.rs", "Running cargo check", or another call's title.
+  A shell command reads "Running" and the command, even one that only reads, searches or lists.
+  Each new line fades in and unblurs from 2px over 400ms.
+  Once the group is past, the line names its two weightiest kinds and counts the rest ("Edited 4 files, ran 1 command, 3 more"): distinct files edited or written, commands run, other tool calls, searches, files read, folders listed, thoughts, in that order, each only when there is one.
+  Its tooltip holds every kind ("1 thought, read 1 file, edited 4 files, ran 1 command").
+  After it, the lines the group's finished edits and writes added ("+43", `success`) and removed ("−5", `danger`), tabular, each only when not zero; a write counts its whole content as added.
+  The group's total run time sits at the toggle line's right end once it reaches 5 s and the group is past.
+  The toggle opens one 26px row per step, its icon 18px in, the steps' indent.
+  A call's row holds its 16px kind icon in `ink-muted` (Edit and Write a pencil, Read an eye, Run a play, any other a file), its title at 500 in `ink-secondary`, then a path from the worktree's root, or a command in the code font at 11.5px, on one line that truncates; the full detail is the row's tooltip.
+  At its end sit the `status-running` orbit while the call runs, its added and removed lines once it finished, and its run time.
+  A thought's row has no icon and shows its text on one line that truncates.
+  The rows only read: no hover, no press, no focus.
+  A failed call's icon and title take `danger`.
+  A call that ran 5 s or more, or failed, shows its run time ("55.4 s", "320 ms"), 11px `ink-muted`, tabular.
   From a minute up a time reads in minutes ("9m 16s").
   A call the run left unfinished (stopped with Esc) has an `ink-muted` title.
   Images the group's tools returned sit once in a row below the group's last line, folded or open: the same 64px thumbnails, 8px below it, in call order, opening the same lightbox.

@@ -47,7 +47,7 @@ The reader drops a notification whose `threadId` is not the pane's thread. A sub
 | `item/completed`, `agentMessage` | the whole text as one `MessageChunk` when no delta came, then `MessageEnd { at: completedAtMs }` |
 | `item/reasoning/summaryTextDelta`, `textDelta`, an item's first | `ThoughtStart` before its `ThoughtChunk`; a reasoning item without deltas sends nothing |
 | `item/reasoning/summaryTextDelta`, `textDelta` | `ThoughtChunk`; `summaryPartAdded` sends a blank line |
-| `item/started` and `item/completed`, `commandExecution` | `ToolStart` and `ToolEnd`. `shell_script` in `harness/shell.rs` unwraps the `/bin/zsh -lc` script; the title is `read_only_title` on it, else Run; detail is the script. `ms` from `durationMs`. `failed` and `declined` end as `Failed`. |
+| `item/started` and `item/completed`, `commandExecution` | `ToolStart` and `ToolEnd`. `shell_script` in `harness/shell.rs` unwraps the `/bin/zsh -lc` script; the title is `read_only_title` on it, else Run; detail is the script and `command` is true. `ms` from `durationMs`. `failed` and `declined` end as `Failed`. |
 | same, `fileChange` | Title Write for an added file, Edit for an update, Delete for a delete; detail is the paths; `changes` counted from each `diff` |
 | same, `mcpToolCall` | Title is the tool's name, detail the server and the arguments; `images` from the result's image blocks |
 | same, `webSearch` | Title Search |

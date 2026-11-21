@@ -1,7 +1,7 @@
 // Tests for the transcript rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { callTime, chatAfter, chatFed, emptyChat, queuedImages, stepImages, stepsChanges, stepsSummary, withSteerImages, type Message, type Step } from "./transcript.ts";
+import { callTime, chatAfter, chatFed, emptyChat, queuedImages, stepImages, stepsChanges, stepsHeadline, stepsSummary, withSteerImages, type Message, type Step } from "./transcript.ts";
 
 test("chunks of one reply join into one streaming message until it ends", () => {
   let chat = chatAfter(emptyChat, { kind: "message_chunk", text: "Hel" }, 0);
@@ -37,11 +37,11 @@ test("an exit stops the run and the stream", () => {
 test("thoughts and calls fold into one group that the next reply closes", () => {
   let chat = chatAfter(emptyChat, { kind: "thought_start" }, 0);
   chat = chatAfter(chat, { kind: "thought_chunk", text: "Hm" }, 0);
-  chat = chatAfter(chat, { kind: "tool_start", id: "c", title: "Run", detail: "ls" }, 0);
+  chat = chatAfter(chat, { kind: "tool_start", id: "c", title: "Run", detail: "ls", command: true }, 0);
   chat = chatAfter(chat, { kind: "tool_end", id: "c", outcome: "failed", images: [] }, 0);
   chat = chatAfter(chat, { kind: "message_chunk", text: "Done" }, 0);
   assert.deepEqual(chat.items, [
-    { role: "steps", steps: [{ kind: "thought", id: 0, text: "Hm" }, { kind: "call", id: "c", title: "Run", detail: "ls", state: "failed", images: [] }] },
+    { role: "steps", steps: [{ kind: "thought", id: 0, text: "Hm" }, { kind: "call", id: "c", title: "Run", detail: "ls", command: true, state: "failed", images: [] }] },
     { role: "assistant", text: "Done", streaming: true },
   ]);
 });
@@ -51,7 +51,7 @@ test("two thinking blocks stay two thoughts and a stopped call stays stopped", (
   chat = chatAfter(chat, { kind: "thought_chunk", text: "A" }, 0);
   chat = chatAfter(chat, { kind: "thought_start" }, 0);
   chat = chatAfter(chat, { kind: "thought_chunk", text: "B" }, 0);
-  chat = chatAfter(chat, { kind: "tool_start", id: "c", title: "Run", detail: "sleep 9" }, 0);
+  chat = chatAfter(chat, { kind: "tool_start", id: "c", title: "Run", detail: "sleep 9", command: true }, 0);
   chat = chatAfter(chat, { kind: "tool_end", id: "c", outcome: "stopped", images: [] }, 0);
   chat = chatAfter(chat, { kind: "state", running: false }, 0);
   assert.deepEqual(chat.items, [
@@ -60,7 +60,7 @@ test("two thinking blocks stay two thoughts and a stopped call stays stopped", (
       steps: [
         { kind: "thought", id: 0, text: "A" },
         { kind: "thought", id: 1, text: "B" },
-        { kind: "call", id: "c", title: "Run", detail: "sleep 9", state: "stopped", images: [] },
+        { kind: "call", id: "c", title: "Run", detail: "sleep 9", command: true, state: "stopped", images: [] },
       ],
     },
   ]);
@@ -78,7 +78,7 @@ test("a run stamps its start, and the report keeps its time until the status cha
 
 test("a tool call keeps the images its tool returned", () => {
   const image = { data: "x", mime_type: "image/png" };
-  let chat = chatAfter(emptyChat, { kind: "tool_start", id: "c", title: "Read", detail: "a.png" }, 0);
+  let chat = chatAfter(emptyChat, { kind: "tool_start", id: "c", title: "Read", detail: "a.png", command: false }, 0);
   chat = chatAfter(chat, { kind: "tool_end", id: "c", outcome: "done", images: [image] }, 0);
   assert.deepEqual(chat.items, [{ role: "steps", steps: [{ kind: "call", id: "c", title: "Read", detail: "a.png", state: "done", images: [image] }] }]);
 });
@@ -148,6 +148,12 @@ test("the step summary counts calls by kind and edited files once each", () => {
   const steps = [call("Search", "a"), call("Search", "b"), call("Edit", "x.ts"), call("Edit", "x.ts"), call("Write", "y.ts"), call("Run", "ls"), call("Github list", "z")];
   assert.equal(stepsSummary(steps), "2 searches, edited 2 files, ran 1 command, 1 tool call");
   assert.equal(stepsSummary([{ kind: "thought", id: 0, text: "" }, call("Read", "a")]), "1 thought, read 1 file");
+});
+
+test("the step headline names the two weightiest kinds and counts the rest", () => {
+  const steps = [{ kind: "thought" as const, id: 0, text: "" }, call("Read", "a"), call("Edit", "x.ts"), call("Edit", "y.ts"), call("Run", "ls"), call("Read", "b")];
+  assert.equal(stepsHeadline(steps), "Edited 2 files, ran 1 command, 3 more");
+  assert.equal(stepsHeadline([call("Read", "a")]), "Read 1 file");
 });
 
 test("the step changes sum the finished calls' lines", () => {

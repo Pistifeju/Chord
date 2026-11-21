@@ -567,6 +567,7 @@ fn tool_start(id: Option<&str>, name: Option<&str>, args: &Value) -> HarnessEven
         id: id.unwrap_or_default().into(),
         title,
         detail,
+        command: name == "bash",
         // shortcut: a write that replaces a file counts every line as added, as pi reports no diff for it; count removed lines once pi does.
         changes: match (name, args["content"].as_str()) {
             ("write", Some(content)) => Some(LineChanges {

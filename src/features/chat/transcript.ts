@@ -7,7 +7,7 @@ export type Message = { role: "user" | "assistant"; text: string; streaming: boo
 
 export type Step =
   | { kind: "thought"; /** Its place in the group; steps only append, so it stays stable. */ id: number; text: string }
-  | { kind: "call"; id: string; title: string; detail: string; state: "running" | "done" | "failed" | "stopped"; /** The images the tool returned. */ images?: Image[]; /** How long it ran, when the agent measured it. */ ms?: number; /** The lines it added to and removed from a file. */ changes?: LineChanges };
+  | { kind: "call"; id: string; title: string; detail: string; /** The detail is a shell command. */ command?: true; state: "running" | "done" | "failed" | "stopped"; /** The images the tool returned. */ images?: Image[]; /** How long it ran, when the agent measured it. */ ms?: number; /** The lines it added to and removed from a file. */ changes?: LineChanges };
 
 /** The thoughts and tool calls between two messages, folded into one row. */
 export type StepGroup = { role: "steps"; steps: Step[] };
@@ -120,25 +120,76 @@ export function stepImages(steps: Step[]): Image[] {
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
+/** What a call does, by its title; a title the harnesses do not share is "other". */
+export type CallKind = "read" | "search" | "list" | "run" | "edit" | "write" | "other";
+
+const callKinds = new Map<string, CallKind>([
+  ["Read", "read"],
+  ["Search", "search"],
+  ["List", "list"],
+  ["Run", "run"],
+  ["Edit", "edit"],
+  ["Write", "write"],
+]);
+
+export const callKind = (title: string): CallKind => callKinds.get(title) ?? "other";
+
+type StepKind = "thoughts" | "read" | "searches" | "listed" | "edited" | "ran" | "other";
+
+function stepKinds(steps: Step[]): { kind: StepKind; count: number; text: string }[] {
+  const calls = steps.flatMap((step) => (step.kind === "call" ? [step] : []));
+  const count = (...kinds: CallKind[]) => calls.filter((call) => kinds.includes(callKind(call.title))).length;
+  const edited = new Set(calls.filter((call) => ["edit", "write"].includes(callKind(call.title))).map((call) => call.detail)).size;
+  const thoughts = steps.length - calls.length;
+  const [read, searches, listed, ran, other] = [count("read"), count("search"), count("list"), count("run"), count("other")];
+  return [
+    { kind: "thoughts" as const, count: thoughts, text: plural(thoughts, "thought", "thoughts") },
+    { kind: "read" as const, count: read, text: `read ${plural(read, "file", "files")}` },
+    { kind: "searches" as const, count: searches, text: plural(searches, "search", "searches") },
+    { kind: "listed" as const, count: listed, text: `listed ${plural(listed, "folder", "folders")}` },
+    { kind: "edited" as const, count: edited, text: `edited ${plural(edited, "file", "files")}` },
+    { kind: "ran" as const, count: ran, text: `ran ${plural(ran, "command", "commands")}` },
+    { kind: "other" as const, count: other, text: plural(other, "tool call", "tool calls") },
+  ].filter((part) => part.count > 0);
+}
+
+const sentence = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
 /** What the group did, by kind: "2 searches, edited 2 files, ran 4 commands". */
 export function stepsSummary(steps: Step[]): string {
-  const calls = steps.flatMap((step) => (step.kind === "call" ? [step] : []));
-  const count = (...titles: string[]) => calls.filter((call) => titles.includes(call.title)).length;
-  const edited = new Set(calls.filter((call) => call.title === "Edit" || call.title === "Write").map((call) => call.detail)).size;
-  const other = calls.filter((call) => !["Read", "Search", "List", "Run", "Edit", "Write"].includes(call.title)).length;
-  const thoughts = steps.length - calls.length;
-  const [read, searches, listed, ran] = [count("Read"), count("Search"), count("List"), count("Run")];
-  const parts = [
-    thoughts > 0 && plural(thoughts, "thought", "thoughts"),
-    read > 0 && `read ${plural(read, "file", "files")}`,
-    searches > 0 && plural(searches, "search", "searches"),
-    listed > 0 && `listed ${plural(listed, "folder", "folders")}`,
-    edited > 0 && `edited ${plural(edited, "file", "files")}`,
-    ran > 0 && `ran ${plural(ran, "command", "commands")}`,
-    other > 0 && plural(other, "tool call", "tool calls"),
-  ].filter((part) => part !== false);
-  const text = parts.join(", ");
-  return text.charAt(0).toUpperCase() + text.slice(1);
+  return sentence(stepKinds(steps).map((part) => part.text).join(", "));
+}
+
+// Changes to the worktree outrank what only looked at it.
+const headlineOrder: StepKind[] = ["edited", "ran", "other", "searches", "read", "listed", "thoughts"];
+
+/** The group's two weightiest kinds and a count of the rest: "Edited 4 files, ran 1 command, 3 more". */
+export function stepsHeadline(steps: Step[]): string {
+  const parts = stepKinds(steps).sort((a, b) => headlineOrder.indexOf(a.kind) - headlineOrder.indexOf(b.kind));
+  const rest = parts.slice(2).reduce((sum, part) => sum + part.count, 0);
+  return sentence([...parts.slice(0, 2).map((part) => part.text), ...(rest > 0 ? [`${rest} more`] : [])].join(", "));
+}
+
+/** Whether the item at `index` is the run's newest, so a step group there reads its steps live. */
+export const isLive = (items: Item[], index: number, running: boolean) => running && index === items.length - 1;
+
+/** A call's detail as its row shows it: a command as written, a path inside the worktree from the worktree's root. */
+export const callText = (step: Extract<Step, { kind: "call" }>, worktree: string) => (step.command || !step.detail.startsWith(`${worktree}/`) ? step.detail : step.detail.slice(worktree.length + 1));
+
+const fileName = (path: string) => path.slice(path.lastIndexOf("/") + 1);
+
+const doing = new Map<CallKind, string>([
+  ["read", "Reading"],
+  ["edit", "Editing"],
+  ["write", "Writing"],
+]);
+
+/** What a running group's newest step does, as one line: "Running cargo check", "Editing mod.rs", "Thinking". */
+export function stepDoing(step: Step): string {
+  if (step.kind === "thought") return "Thinking";
+  if (step.command) return `Running ${step.detail}`;
+  const verb = doing.get(callKind(step.title));
+  return verb ? `${verb} ${fileName(step.detail)}` : step.title;
 }
 
 /** The lines the group's finished calls added and removed, or null when none changed a file. */
@@ -201,7 +252,7 @@ export function chatAfter(chat: Chat, event: HarnessEvent, now: number): Chat {
         }),
       };
     case "tool_start":
-      return { ...chat, items: withStep(chat.items, (steps) => [...steps, { kind: "call", id: event.id, title: event.title, detail: event.detail, state: "running", ...(event.changes && { changes: event.changes }) }]) };
+      return { ...chat, items: withStep(chat.items, (steps) => [...steps, { kind: "call", id: event.id, title: event.title, detail: event.detail, state: "running", ...(event.command && { command: true as const }), ...(event.changes && { changes: event.changes }) }]) };
     case "tool_end": {
       const ended = (step: Step): Step => (step.kind === "call" && step.id === event.id ? { ...step, state: event.outcome, images: event.images, ...(event.ms != null && { ms: event.ms }), ...(event.changes && { changes: event.changes }) } : step);
       // The call is almost always in the last group.

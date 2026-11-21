@@ -5,7 +5,7 @@ import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type Clipb
 import { tooltip } from "../../app/commands";
 import type { Checks, HarnessCheck, Image, SlashCommand, SubagentNode } from "../../ipc/bindings";
 import { elementAtDrop } from "../../ui/dropPoint";
-import { ArrowDownIcon, ArrowUpIcon, ChevronIcon, CloseIcon, ImageIcon, PaperclipIcon } from "../../ui/icons";
+import { ArrowDownIcon, ArrowUpIcon, ChevronIcon, CloseIcon, EyeIcon, FileIcon, ImageIcon, PaperclipIcon, PencilIcon, PlayIcon } from "../../ui/icons";
 import { imageUrl, isImageType, type Attachment } from "./attachments";
 import { AgentMenu } from "./AgentMenu";
 import { agentPickerPane, closeAgentPicker, openAgentPicker } from "./agentPicker";
@@ -33,7 +33,7 @@ import { isTicking, subagentLine, subagentSummary } from "./subagents";
 import { completion, slashMenu, slashQuery } from "./slash";
 import { closeLightbox, lightboxes, openLightbox, stepLightbox } from "./viewing";
 import { addPathToDraft, answerDialog, attachFiles, attachments, attachPasted, chatOf, chats, closeSlash, drafts, openPicker, paneHarnesses, pathDropPane, pickAttachments, removeAttachment, sendMessage, setDraft, slashClosed, startChat, takesAttachments } from "./store";
-import { callTime, isStreaming, queuedImages, stepImages, stepsChanges, stepsSummary, stepsTime, type CompactionMark, type Item, type Message, type SteerImages, type StepGroup } from "./transcript";
+import { callKind, callText, callTime, isLive, isStreaming, queuedImages, stepDoing, stepImages, stepsChanges, stepsHeadline, stepsSummary, stepsTime, type CallKind, type CompactionMark, type Item, type Message, type SteerImages, type Step, type StepGroup } from "./transcript";
 import "./chat.css";
 
 function SubagentLine({ mark, text }: { mark: SubagentNode["state"]; text: string }) {
@@ -166,14 +166,46 @@ const MessageRow = memo(function MessageRow({ pane, message, fresh }: { pane: st
   );
 });
 
-const StepsRow = memo(function StepsRow({ pane, group, fresh }: { pane: string; group: StepGroup; fresh: boolean }) {
+const stepIcons: Partial<Record<CallKind, typeof FileIcon>> = { edit: PencilIcon, write: PencilIcon, read: EyeIcon, run: PlayIcon };
+
+function StepLine({ step, worktree }: { step: Step; worktree: string }) {
+  if (step.kind === "thought") {
+    return (
+      <div className="chat-step" data-kind="thought">
+        <span className="chat-step-text">{step.text}</span>
+      </div>
+    );
+  }
+  const changes = step.state === "done" ? step.changes : undefined;
+  const Icon = stepIcons[callKind(step.title)] ?? FileIcon;
+  return (
+    <div className="chat-step" data-state={step.state} title={step.detail}>
+      <span className="chat-step-icon">
+        <Icon />
+      </span>
+      <span className="chat-step-title">{step.title}</span>
+      <span className="chat-step-text" data-code={step.command}>
+        {callText(step, worktree)}
+      </span>
+      <span className="chat-step-end">
+        {step.state === "running" && <StatusMark kind="running" />}
+        {changes && changes.added > 0 && <span className="chat-steps-added">+{changes.added}</span>}
+        {changes && changes.removed > 0 && <span className="chat-steps-removed">−{changes.removed}</span>}
+        {callTime(step) && <span className="chat-step-time">{callTime(step)}</span>}
+      </span>
+    </div>
+  );
+}
+
+const StepsRow = memo(function StepsRow({ pane, worktree, group, live, fresh }: { pane: string; worktree: string; group: StepGroup; live: boolean; fresh: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const images = stepImages(group.steps);
   const total = stepsTime(group.steps);
   const changes = stepsChanges(group.steps);
-  const summary = stepsSummary(group.steps);
-  // The parts the row mounted with show still; only a part whose text changes fades in, so the rest of the line holds.
-  const firstParts = useRef(summary.split(", "));
+  const last = group.steps[group.steps.length - 1];
+  const line = live && last ? stepDoing(last) : stepsHeadline(group.steps);
+  // The line the row mounted with shows still; a new line fades in, so a history group holds and a live one reads its steps.
+  const firstLine = useRef(line);
   return (
     <div className="chat-steps" data-fresh={fresh || undefined}>
       <div className="chat-steps-head">
@@ -181,32 +213,21 @@ const StepsRow = memo(function StepsRow({ pane, group, fresh }: { pane: string; 
           <span className="turn-chevron" data-open={expanded}>
             <ChevronIcon />
           </span>
-          <span className="chat-steps-summary">
-            {summary.split(", ").map((part, i) => (
-              <span key={part} data-changed={!firstParts.current.includes(part) || undefined}>
-                {i > 0 && ", "}
-                {part}
-              </span>
-            ))}
+          {live && <StatusMark kind="running" />}
+          <span key={line} className="chat-steps-summary" title={live ? undefined : stepsSummary(group.steps)} data-changed={line !== firstLine.current || undefined}>
+            {line}
           </span>
-          {changes && changes.added > 0 && <span className="chat-steps-added">+{changes.added}</span>}
-          {changes && changes.removed > 0 && <span className="chat-steps-removed">−{changes.removed}</span>}
+          {!live && changes && changes.added > 0 && <span className="chat-steps-added">+{changes.added}</span>}
+          {!live && changes && changes.removed > 0 && <span className="chat-steps-removed">−{changes.removed}</span>}
         </button>
-        {total && <span className="chat-step-time">{total}</span>}
+        {!live && total && <span className="chat-step-time">{total}</span>}
       </div>
-      {expanded &&
-        group.steps.map((step) =>
-        step.kind === "thought" ? (
-          <p key={`thought-${step.id}`} className="chat-step-thought">
-            {step.text}
-          </p>
-        ) : (
-          <div key={step.id} className="chat-step-call" data-state={step.state}>
-            <span className="chat-step-title">{step.title}</span>
-            <span className="chat-step-detail">{step.detail}</span>
-            {callTime(step) && <span className="chat-step-time">{callTime(step)}</span>}
-          </div>
-        ),
+      {expanded && (
+        <div className="chat-step-lines">
+          {group.steps.map((step) => (
+            <StepLine key={step.kind === "thought" ? `thought-${step.id}` : step.id} step={step} worktree={worktree} />
+          ))}
+        </div>
       )}
       {images.length > 0 && <Thumbs pane={pane} images={images} />}
     </div>
@@ -235,11 +256,11 @@ const CompactionRow = memo(function CompactionRow({ mark, fresh }: { mark: Compa
 });
 
 // A streaming reply renders nothing, so its chunks leave the rows as they are.
-type Rows = { items: Item[]; queued: string[]; steerImages: SteerImages[]; subagents: SubagentNode[]; subagentsAt: number | null; /** How many items are the session's history. */ historyLength: number };
+type Rows = { worktree: string; running: boolean; items: Item[]; queued: string[]; steerImages: SteerImages[]; subagents: SubagentNode[]; subagentsAt: number | null; /** How many items are the session's history. */ historyLength: number };
 const sameItems = (a: Item[], b: Item[]) => a === b || (a.length === b.length && a.every((item, i) => item === b[i] || (isStreaming(item) && isStreaming(b[i]))));
-const sameRows = (a: Rows, b: Rows) => a.historyLength === b.historyLength && a.queued === b.queued && a.steerImages === b.steerImages && a.subagents === b.subagents && a.subagentsAt === b.subagentsAt && sameItems(a.items, b.items);
+const sameRows = (a: Rows, b: Rows) => a.worktree === b.worktree && a.running === b.running && a.historyLength === b.historyLength && a.queued === b.queued && a.steerImages === b.steerImages && a.subagents === b.subagents && a.subagentsAt === b.subagentsAt && sameItems(a.items, b.items);
 
-const Messages = memo(function Messages({ pane, items, queued, steerImages, subagents, subagentsAt, historyLength }: { pane: string } & Rows) {
+const Messages = memo(function Messages({ pane, worktree, running, items, queued, steerImages, subagents, subagentsAt, historyLength }: { pane: string } & Rows) {
   // Only items that arrive live while the pane is open animate in; reopening a long chat and a session's history stay still.
   const loaded = useRef(items.length);
   // A session that opens with fewer items than the pane held: what arrives after its history is live.
@@ -249,7 +270,7 @@ const Messages = memo(function Messages({ pane, items, queued, steerImages, suba
   const still = Math.max(loaded.current, historyLength);
   const rows = items.map((item, i) =>
     item.role === "steps" ? (
-      <StepsRow key={i} pane={pane} group={item} fresh={i >= still} />
+      <StepsRow key={i} pane={pane} worktree={worktree} group={item} live={isLive(items, i, running)} fresh={i >= still} />
     ) : item.role === "compaction" ? (
       <CompactionRow key={i} mark={item} fresh={i >= still} />
     ) : item.role === "stopped" ? (
@@ -458,7 +479,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
               <Start worktree={worktree} pane={pane} blocking={blocking} />
             </div>
           ) : (
-            <Messages pane={pane} items={shownItems.current} queued={queuedRows} steerImages={chat.steerImages} subagents={subagentRows} subagentsAt={chat.subagentsAt} historyLength={chat.historyLength} />
+            <Messages pane={pane} worktree={worktree} running={chat.running} items={shownItems.current} queued={queuedRows} steerImages={chat.steerImages} subagents={subagentRows} subagentsAt={chat.subagentsAt} historyLength={chat.historyLength} />
           )}
         </div>
         <button type="button" className="chat-jump" data-shown={away || undefined} title="Jump to Latest" aria-label="Jump to Latest" onClick={jumpToEnd}>
