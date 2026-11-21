@@ -1,5 +1,5 @@
 /* The window toolbar over the panes and the side panel in a worktree with an Xcode project. Rules: design/build-and-run.md. */
-/* Run and Stop at the left, the view buttons at the right, the activity field centered between them. */
+/* Run and Stop with the activity field after them, centered as one group, the view buttons at the right. */
 .toolbar {
   position: relative;
   /* Above the fixed title bar, as the tab bar is, so its buttons take clicks. */
@@ -9,7 +9,6 @@
   gap: 8px;
   flex: none;
   height: var(--titlebar-height);
-  /* Run's glyph starts 10px in, where a tab's icon and a lone plus's glyph start in the tab bar. */
   padding: 0 8px 0 4px;
   background: var(--canvas);
   box-shadow: inset 0 -1px 0 var(--line);
@@ -23,6 +22,7 @@
 .toolbar-lead {
   display: flex;
   flex: none;
+  margin-left: auto;
   align-items: center;
   gap: 2px;
 }
@@ -53,11 +53,10 @@
   position: relative;
   overflow: hidden;
   display: flex;
-  flex: 0 1 640px;
+  flex: 0 1 880px;
   align-items: center;
   min-width: 0;
   height: 28px;
-  margin-left: auto;
   padding: 0 4px 0 0;
   border-radius: var(--radius-control);
   background: var(--raised);
