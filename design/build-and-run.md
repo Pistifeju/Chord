@@ -47,8 +47,10 @@ A failure is `danger` text and the toolbar's Run and Stop icons take `success` a
   Dragging that rule resizes the log half, 480px wide by default, at least 200px, and it leaves the Terminal 200px at least; the rule has the bottom panel edge's grab area and hover.
   The width is saved per worktree.
   Each half shows on its own, and alone it takes the panel's width; the panel hides when neither shows.
-  The log half has the Terminal's 28px header: two tabs, Build and Console, 2px apart, in the place of a name, then a Hide button at the right end that hides that half only.
-  A tab follows the Tab rule at the header's size: 24px tall, 10px side padding, Control radius, 12px/500 `ink-secondary`, the Terminal's name color; hover and the shown view's tab take `raised`, and the text color stays.
+  The log half has the Terminal's 28px header: two tabs, Build and Console, side by side from the header's left edge with no gap, in the place of a name, then a Hide button at the right end that hides that half only.
+  A tab is the tab bar's tab at the header's height: the header's full height above its bottom rule, square corners, 10px side padding, 12px/500 `ink-muted`.
+  Hover and the shown view's tab take `raised` and `ink` over 120ms with `--ease-out`; under Reduce Motion they change at once.
+  The focus ring sits inside the tab.
   A click switches the view; the Terminal's header keeps its name at 12px/500 in `ink-secondary`, focused or not.
   Console has no clear button: no control in this document clears a view, and a build clears it.
   ⌘T shows or hides the Terminal; ⌘⇧Y shows or hides the log half.
