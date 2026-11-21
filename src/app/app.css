@@ -97,6 +97,36 @@
   color: var(--ink-muted);
 }
 
+.statusbar-update {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-inset);
+  background: transparent;
+  color: var(--ink-secondary);
+  font: inherit;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transition: color var(--t-fast) var(--ease-out);
+}
+
+.statusbar-update:hover:not(:disabled) {
+  color: var(--ink);
+}
+
+.statusbar-update:disabled {
+  color: var(--ink-muted);
+}
+
+.statusbar-update > svg {
+  flex: none;
+  width: 12px;
+  height: 12px;
+}
+
 .statusbar-usage {
   display: flex;
   align-items: center;

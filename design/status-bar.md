@@ -15,3 +15,9 @@ A window past its reset is hidden, and a group with no window left goes.
 A group is a button: a click opens the Usage panel (see `design/usage-panel.md`), and hover turns its text to `ink` over 120ms.
 A login without a subscription (an API key) reports no window, so its harness shows no group.
 In a worktree with an Xcode project the simulators button sits before the usage (see Build and Run).
+Once a newer release exists, an update button sits at the strip's left end, 12px in: a 12px down arrow, 6px before `Update to 0.2.1` at 500 in `ink-secondary`, tabular figures; hover turns its text to `ink` over 120ms.
+Chord looks for a release at launch and every six hours; a dev build never looks.
+A click downloads the release and restarts Chord into it; while an agent works it first opens a confirm sheet titled "Update Chord?" with a destructive "Update" action.
+During the download the button takes no click and reads `Downloading 42%` in `ink-muted`, after the usage bar's 32 × 4px bar, which fills with the download.
+Before the server tells the download's size it reads `Downloading` with no bar; once the download ends it reads `Restarting`.
+A failed download shows a failure toast and the button comes back.

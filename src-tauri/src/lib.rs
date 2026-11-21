@@ -109,6 +109,8 @@ pub fn ipc() -> tauri_specta::Builder<tauri::Wry> {
             commands::simulator::pick_screenshot_folder,
             commands::simulator::drag_file_out,
             commands::app::quit_app,
+            commands::app::check_update,
+            commands::app::install_update,
             commands::app::set_keep_awake,
             commands::app::open_link,
             commands::browser::show_browser,
@@ -148,6 +150,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(link_guard())
         .invoke_handler(ipc.invoke_handler())
         .setup(move |app| {

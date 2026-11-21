@@ -1,4 +1,4 @@
-# Builds, signs and notarizes Chord when a version tag is pushed, then publishes the disk image as a GitHub Release.
+# Builds, signs and notarizes Chord when a version tag is pushed, then publishes the disk image, the update archive and the update feed as a GitHub Release.
 name: release
 
 on:
@@ -27,7 +27,8 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Build, sign and notarize
-        run: npm run tauri build -- --bundles app,dmg
+        # The update archive is built here alone, so a build on a contributor's Mac needs no update key.
+        run: npm run tauri build -- --bundles app,dmg --config '{"bundle":{"createUpdaterArtifacts":true}}'
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -35,10 +36,27 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
       # With a secret missing, Tauri builds an unsigned app and exits 0. This keeps that build from shipping.
       - name: Check the app is notarized
         run: xcrun stapler validate target/release/bundle/macos/Chord.app
+      # Tauri only warns when the key that signed the archive is not the one the app trusts, and every installed app would then refuse the update.
+      - name: Check the update is signed with the app's key
+        run: |
+          key_id() { base64 -d | sed -n 2p | base64 -d | head -c 10 | tail -c 8 | xxd -p; }
+          trusted=$(jq -r .plugins.updater.pubkey src-tauri/tauri.conf.json | key_id)
+          signed=$(key_id < target/release/bundle/macos/Chord.app.tar.gz.sig)
+          test -n "$trusted" && test "$trusted" = "$signed"
+      # The installed app reads this file from the latest release to learn of a newer version.
+      - name: Write the update feed
+        run: |
+          jq -n \
+            --arg version "${GITHUB_REF_NAME#v}" \
+            --arg url "https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/Chord.app.tar.gz" \
+            --rawfile signature target/release/bundle/macos/Chord.app.tar.gz.sig \
+            '{version: $version, platforms: {"darwin-aarch64": {signature: $signature, url: $url}}}' > latest.json
       - name: Publish the release
-        run: gh release create "$GITHUB_REF_NAME" target/release/bundle/dmg/*.dmg --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" target/release/bundle/dmg/*.dmg target/release/bundle/macos/Chord.app.tar.gz latest.json --generate-notes
         env:
           GH_TOKEN: ${{ github.token }}

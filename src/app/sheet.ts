@@ -13,6 +13,7 @@ export type Sheet =
   | { kind: "dropStash"; worktree: string; stash: Stash }
   | { kind: "openFileByName"; worktree: string }
   | { kind: "quit" }
+  | { kind: "update" }
   | { kind: "help" }
   | { kind: "closeAgents"; worktree: string; id: string }
   | { kind: "removeProject"; path: string; name: string };
