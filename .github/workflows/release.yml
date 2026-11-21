@@ -1,0 +1,44 @@
+# Builds, signs and notarizes Chord when a version tag is pushed, then publishes the disk image as a GitHub Release.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    # shortcut: the runner is Apple Silicon, so the disk image holds an arm64 build only; add a universal target when an Intel user asks.
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the tag matches the version in Cargo.toml
+        run: |
+          grep -qx "version = \"${GITHUB_REF_NAME#v}\"" Cargo.toml || {
+            echo "Tag $GITHUB_REF_NAME does not match the version in Cargo.toml"
+            exit 1
+          }
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Build, sign and notarize
+        run: npm run tauri build -- --bundles app,dmg
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      # With a secret missing, Tauri builds an unsigned app and exits 0. This keeps that build from shipping.
+      - name: Check the app is notarized
+        run: xcrun stapler validate target/release/bundle/macos/Chord.app
+      - name: Publish the release
+        run: gh release create "$GITHUB_REF_NAME" target/release/bundle/dmg/*.dmg --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
