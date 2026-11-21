@@ -1,6 +1,8 @@
-<h1 align="center">
-  <img src="src-tauri/icons/128x128.png" alt="" width="64" valign="middle" /> Chord
-</h1>
+<p align="center">
+  <img src="src-tauri/icons/128x128.png" alt="" width="96" />
+</p>
+
+<h1 align="center">Chord</h1>
 
 <p align="center">
   <img src="https://img.shields.io/badge/license-MIT-1b4ed8?style=flat" alt="License: MIT" />
