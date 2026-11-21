@@ -79,6 +79,8 @@ pub fn show_browser(
     let (loads, titles, popups) = (app.clone(), app.clone(), app.clone());
     let (load_tab, title_tab, popup_tab) = (tab.clone(), tab.clone(), tab.clone());
     let builder = WebviewBuilder::new(label(&tab), WebviewUrl::External(url))
+        // A page that navigates to Chord's own origin would get the app's commands.
+        .on_navigation(is_web)
         // An about:blank or other non-web load never reaches the tab, so the saved address stays one that reopens.
         .on_page_load(move |_, payload| {
             if !is_web(payload.url()) {
