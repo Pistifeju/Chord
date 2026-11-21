@@ -28,17 +28,37 @@ pub(super) fn rate_limits(id: u64) -> Value {
     json!({ "id": id, "method": "account/rateLimits/read", "params": { "excludeResetCreditDetails": true } })
 }
 
-pub(super) fn thread_start(id: u64, cwd: &str) -> Value {
-    json!({ "id": id, "method": "thread/start", "params": { "cwd": cwd } })
+/// The params every thread the pane opens carries: the worktree, and the guidelines of Chord's tools when the agent has them. Codex hides MCP tools and their server's instructions from the model, so the guidelines go in as developer instructions.
+pub(super) fn opening(cwd: &str, instructions: Option<String>) -> Map<String, Value> {
+    let mut params = Map::new();
+    params.insert("cwd".into(), json!(cwd));
+    if let Some(instructions) = instructions {
+        params.insert("developerInstructions".into(), json!(instructions));
+    }
+    params
 }
 
-pub(super) fn thread_resume(id: u64, thread: &str, cwd: &str) -> Value {
-    json!({ "id": id, "method": "thread/resume", "params": { "threadId": thread, "cwd": cwd } })
+pub(super) fn thread_start(id: u64, opening: &Map<String, Value>) -> Value {
+    json!({ "id": id, "method": "thread/start", "params": opening })
+}
+
+pub(super) fn thread_resume(id: u64, thread: &str, opening: &Map<String, Value>) -> Value {
+    let mut params = opening.clone();
+    params.insert("threadId".into(), json!(thread));
+    json!({ "id": id, "method": "thread/resume", "params": params })
 }
 
 /// A new thread with the turns of `thread` through `last_turn`, or with all of them without one.
-pub(super) fn thread_fork(id: u64, thread: &str, last_turn: Option<&str>, cwd: &str) -> Value {
-    json!({ "id": id, "method": "thread/fork", "params": { "threadId": thread, "lastTurnId": last_turn, "cwd": cwd } })
+pub(super) fn thread_fork(
+    id: u64,
+    thread: &str,
+    last_turn: Option<&str>,
+    opening: &Map<String, Value>,
+) -> Value {
+    let mut params = opening.clone();
+    params.insert("threadId".into(), json!(thread));
+    params.insert("lastTurnId".into(), json!(last_turn));
+    json!({ "id": id, "method": "thread/fork", "params": params })
 }
 
 /// Drops `turn` and every later turn from the thread.

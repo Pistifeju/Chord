@@ -41,6 +41,13 @@ struct Reply {
 /// The connections of the calls that run, by their JSON-RPC id.
 type Open = Arc<Mutex<HashMap<String, UnixStream>>>;
 
+/// The tools' guidelines in one line, as the server's `instructions` say them.
+pub(super) fn instructions() -> String {
+    serde_json::from_str::<Texts>(TEXTS)
+        .map(|texts| texts.instructions.join(" "))
+        .unwrap_or_default()
+}
+
 /// The command and arguments of the server for an agent in `worktree`; none when Chord cannot find its own binary, and the agent starts without the tools.
 pub(super) fn command(socket: &Path, worktree: &Path) -> Option<(String, Vec<String>)> {
     let binary = std::env::current_exe().ok()?;

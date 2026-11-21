@@ -11,7 +11,7 @@ use crate::harness::{DialogAnswer, DialogAsk, HarnessEvent, SubagentState, Usage
 
 // A reader past the handshake, on thread "t1".
 fn started() -> Reader {
-    let mut reader = Reader::new(Path::new("/w"), None, Default::default());
+    let mut reader = Reader::new(Path::new("/w"), None, Default::default(), None);
     reader.initialize();
     for answer in [
         r#"{"id":1,"result":{}}"#,
@@ -148,7 +148,7 @@ fn a_second_ask_opens_after_the_first_one_closes() {
 }
 
 fn reopened() -> Reader {
-    let mut reader = Reader::new(Path::new("/w"), Some("t1"), Default::default());
+    let mut reader = Reader::new(Path::new("/w"), Some("t1"), Default::default(), None);
     reader.initialize();
     reader.feed(br#"{"id":1,"result":{}}"#);
     reader.feed(br#"{"id":2,"result":{"data":[]}}"#);
@@ -204,6 +204,7 @@ fn a_reload_shows_and_sends_the_users_picks_over_the_threads_settings() {
         Path::new("/w"),
         Some("t1"),
         picks.as_object().cloned().unwrap_or_default(),
+        None,
     );
     reader.initialize();
     reader.feed(br#"{"id":1,"result":{}}"#);
@@ -519,7 +520,7 @@ fn other_opens_an_input_whose_text_is_the_answer() {
 
 #[test]
 fn a_picked_model_without_the_level_takes_its_default() {
-    let mut reader = Reader::new(Path::new("/w"), None, Default::default());
+    let mut reader = Reader::new(Path::new("/w"), None, Default::default(), None);
     reader.initialize();
     for answer in [
         r#"{"id":1,"result":{}}"#,

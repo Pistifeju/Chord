@@ -69,6 +69,8 @@ enum Pending {
 /// Reads one Codex process's stdout, line by line.
 pub(super) struct Reader {
     cwd: PathBuf,
+    /// The params every thread the pane opens carries.
+    opening: Map<String, Value>,
     /// The pane's saved thread, until the handshake asks Codex to open it.
     saved: Option<String>,
     dialogs: SessionDialogs,
@@ -93,10 +95,16 @@ pub(super) struct Reader {
 }
 
 impl Reader {
-    /// `picks` are the user's picks an earlier process on the thread held.
-    pub(super) fn new(cwd: &Path, saved: Option<&str>, picks: Map<String, Value>) -> Self {
+    /// `picks` are the user's picks an earlier process on the thread held; `instructions` are the guidelines of Chord's tools when the agent has them.
+    pub(super) fn new(
+        cwd: &Path,
+        saved: Option<&str>,
+        picks: Map<String, Value>,
+        instructions: Option<String>,
+    ) -> Self {
         Reader {
             cwd: cwd.to_path_buf(),
+            opening: requests::opening(&cwd.to_string_lossy(), instructions),
             saved: saved.map(String::from),
             dialogs: SessionDialogs::default(),
             thread: None,
@@ -177,9 +185,13 @@ impl Reader {
                 return Ok(lines(requests::thread_turns(id, &thread)));
             }
             Some(Command::Clone) => {
-                let cwd = self.cwd.to_string_lossy().into_owned();
                 let id = self.request(Pending::Fork);
-                return Ok(lines(requests::thread_fork(id, &thread, None, &cwd)));
+                return Ok(lines(requests::thread_fork(
+                    id,
+                    &thread,
+                    None,
+                    &self.opening,
+                )));
             }
             Some(Command::Compact) => {
                 let id = self.request(Pending::Compact);
@@ -230,9 +242,8 @@ impl Reader {
         {
             let line = match picked {
                 Picked::Session(thread) => thread.map(|thread| {
-                    let cwd = self.cwd.to_string_lossy().into_owned();
                     let id = self.request(Pending::Resume { saved: false });
-                    requests::thread_resume(id, &thread, &cwd)
+                    requests::thread_resume(id, &thread, &self.opening)
                 }),
                 // The fork and rewind selects open only on a thread.
                 Picked::Message(picked) => picked
@@ -353,12 +364,14 @@ impl Reader {
 
     // A fork goes through the turn before the message, or starts empty at the first one; a rewind drops the message's turn and the later ones.
     fn go_back(&mut self, back: Back, message: Message, thread: &str) -> Value {
-        let cwd = self.cwd.to_string_lossy().into_owned();
         match (back, message.before) {
             (Back::Fork, Some(before)) => {
-                requests::thread_fork(self.request(Pending::Fork), thread, Some(&before), &cwd)
+                let id = self.request(Pending::Fork);
+                requests::thread_fork(id, thread, Some(&before), &self.opening)
             }
-            (Back::Fork, None) => requests::thread_start(self.request(Pending::Fork), &cwd),
+            (Back::Fork, None) => {
+                requests::thread_start(self.request(Pending::Fork), &self.opening)
+            }
             (Back::Rewind, _) => {
                 requests::thread_revert(self.request(Pending::Revert), thread, &message.id)
             }
@@ -412,8 +425,7 @@ impl Reader {
     }
 
     fn thread_start(&mut self) -> Value {
-        let cwd = self.cwd.to_string_lossy().into_owned();
-        requests::thread_start(self.request(Pending::Thread), &cwd)
+        requests::thread_start(self.request(Pending::Thread), &self.opening)
     }
 
     fn request(&mut self, pending: Pending) -> u64 {
@@ -463,12 +475,8 @@ impl Reader {
                 let models = self.settings.read_models(result);
                 let line = match self.saved.take() {
                     Some(thread) => {
-                        let cwd = self.cwd.to_string_lossy().into_owned();
-                        requests::thread_resume(
-                            self.request(Pending::Resume { saved: true }),
-                            &thread,
-                            &cwd,
-                        )
+                        let id = self.request(Pending::Resume { saved: true });
+                        requests::thread_resume(id, &thread, &self.opening)
                     }
                     None => self.thread_start(),
                 };
@@ -498,9 +506,8 @@ impl Reader {
             // Codex sends the shortened thread without its turns, so it opens again to show them.
             Pending::Revert => match (error, self.thread.clone()) {
                 (None, Some(thread)) => {
-                    let cwd = self.cwd.to_string_lossy().into_owned();
                     let id = self.request(Pending::Resume { saved: false });
-                    lines(requests::thread_resume(id, &thread, &cwd))
+                    lines(requests::thread_resume(id, &thread, &self.opening))
                 }
                 (error, _) => notice(error.unwrap_or_default()),
             },
