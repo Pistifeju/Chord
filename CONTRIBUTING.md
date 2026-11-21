@@ -3,7 +3,7 @@
 ## Run
 
 - `npm install`, once.
-- `npm run tauri dev` starts the app with live reload.
+- `npm run app:dev` starts the app with live reload.
 - `npm run check` runs every check: types, tests, formatting, lints.
 
 ## Change

@@ -3,7 +3,7 @@
 A macOS workspace for coding agents: one git worktree per task, each with its own agent chats. Tauri 2, Rust, React/TS.
 
 - Architecture: `ARCHITECTURE.md`. UI rules: `DESIGN.md`.
-- Docs: a development plan goes in `docs/plans/<feature>.md` and stays there. A doc spanning several features (a contract, a platform) goes in `docs/`.
+- Docs: a development plan goes in `docs/features/<feature>.md` and stays there. A doc spanning several features (a contract, a platform) goes in `docs/`.
 - Module map: `npm run map` prints every source folder with its file count. `npm run map <folder>` prints that folder's files, each with its line 1, which says what the file holds. When you look for code, run the first, then the second on the folders the task names, and read only the files you need, by name.
 - ripgrep has no `tsx` type: `rg -t ts` searches `.ts` and `.tsx`.
 
