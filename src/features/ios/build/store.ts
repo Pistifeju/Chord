@@ -86,14 +86,18 @@ export function startBuild(worktree: string, run: boolean, agentRequest: number 
   commands.startBuild(worktree, run, target, schemePickOf(worktree), agentRequest, channel).catch(fail);
 }
 
-/** ⌘R and the play button: a run on a simulator shows it in the Simulator view. An agent's run calls `startBuild` and moves nothing. */
+/** ⌘R and the play button: a run on a simulator shows it in the Simulator view. */
 export function runApp(worktree: string) {
   if (runDestinationOf(worktree)?.kind !== "device") openSideView(worktree, "simulator");
   startBuild(worktree, true);
 }
 
 export function watchAgentBuilds(): () => void {
-  const unlisten = events.agentBuildRequested.listen(({ payload }) => startBuild(payload.worktree, payload.run, payload.request));
+  const unlisten = events.agentBuildRequested.listen(({ payload }) => {
+    // An agent runs only when the user asks, and its run always goes to the worktree's simulator.
+    if (payload.run) openSideView(payload.worktree, "simulator");
+    startBuild(payload.worktree, payload.run, payload.request);
+  });
   return () => void unlisten.then((off) => off());
 }
 

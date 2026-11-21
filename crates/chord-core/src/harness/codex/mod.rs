@@ -75,10 +75,11 @@ pub fn start(
 }
 
 fn launch(dir: &Path, open: Relaunch, tools: Option<&Path>) -> (Vec<String>, Reader) {
-    let reader = Reader::new(dir, open.thread.as_deref(), open.picks);
+    let server = tools.and_then(|socket| agent_tools::command(socket, dir));
+    let instructions = server.is_some().then(agent_tools::instructions);
+    let reader = Reader::new(dir, open.thread.as_deref(), open.picks, instructions);
     let mut args = vec!["app-server".to_string()];
-    if let Some((command, server_args)) = tools.and_then(|socket| agent_tools::command(socket, dir))
-    {
+    if let Some((command, server_args)) = server {
         let overrides = [
             ("command", json!(command).to_string()),
             ("args", json!(server_args).to_string()),

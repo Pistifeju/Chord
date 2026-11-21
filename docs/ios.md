@@ -145,7 +145,7 @@ Known gaps in step 2:
 
 A failed build lists its errors above the log. An error that names a file opens it at that line in the editor. The parser is the one the `build` tool uses.
 
-Where each control sits and how it looks: `design/build-and-run.md`. The run control and its menu sit in the window's top right corner, the run status and the booted simulators in the status bar, the build log and the console in the bottom panel as views beside the terminal, and a run marker on the worktree's card. The UI moves only for the person who asked: a failed build the user started opens the log, an agent's build opens nothing.
+Where each control sits and how it looks: `design/build-and-run.md`. The run control and its menu sit in the window's top right corner, the run status and the booted simulators in the status bar, the build log and the console in the bottom panel as views beside the terminal, and a run marker on the worktree's card. The UI moves only for the person who asked: a failed build the user started opens the log, an agent's run opens the Simulator view, since an agent runs only when the user asks, and an agent's build opens nothing.
 
 ## 5. What grows with worktrees
 
