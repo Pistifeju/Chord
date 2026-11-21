@@ -233,7 +233,7 @@ function GroupView({ group, place, edges }: { group: Group; place: Place; edges:
   if (!tab)
     return (
       <div className="group" data-group={group.id}>
-        <GroupTabs group={group} place={place} edges={edges} />
+        {edges.top && <div className="tabbar" data-empty data-tauri-drag-region />}
         <div className="pane">
           <div className="chat-empty">
             <h1 className="chat-empty-title">No tabs open</h1>

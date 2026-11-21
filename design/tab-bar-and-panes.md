@@ -20,7 +20,8 @@
   A new file opens kept.
   The tab shows a 16px file icon, the file name (the full relative path is the tooltip), and a 20px close button that is always visible, since a file tab is closed on purpose.
   It looks like a session tab.
-  Closing the last tab of all leaves its group empty: the tab bar over the chat empty state, "No tabs open", "Open a session in this worktree." and a New Session button.
+  Closing the last tab of all leaves its group empty: the chat empty state, "No tabs open", "Open a session in this worktree." and a New Session button, with no tab bar.
+  In the title bar row an empty, borderless strip keeps the row's height and drags the window; under the toolbar nothing takes its place.
   Close Tab (⌘⇧W) is disabled while no tab has the focus.
 - **Diff tab:** a click on a Changes view row opens the file's diff as the group's preview tab, as a click in the tree opens a file; a double click keeps it.
   It shows a 16px file icon with a plus and a minus, the file name, and the path with "(Staged)" or "(Changes)" as its tooltip.

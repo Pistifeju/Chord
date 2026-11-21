@@ -36,6 +36,11 @@
   height: 34px;
 }
 
+/* A group with no tabs keeps only the title bar row, so the window still drags there. */
+.tabbar[data-empty] {
+  box-shadow: none;
+}
+
 .tabbar[data-sidebar-hidden="true"] {
   padding-left: calc(var(--titlebar-lead) + 40px);
 }
