@@ -112,6 +112,9 @@ export async function startChat(worktree: string, pane: string, switchTo: string
   // A pane's first start opens a new session, which shows its harness's last opening until the agent answers.
   const fresh = switchTo !== null || !(pane in paneHarnesses.get());
   const expected = switchTo ?? defaultHarness;
+  const previous = paneHarnesses.get()[pane];
+  // The expected harness's logo shows while the agent starts, so the agent button keeps its width.
+  if (fresh && expected) paneHarnesses.set({ ...paneHarnesses.get(), [pane]: expected });
   update(pane, (chat) => ({ ...chat, agent: "starting", loading: true, notice: null, report: null, commands: [], ...(fresh && opened(expected, pick)) }));
   try {
     const { harness, capabilities } = await commands.startChat(worktree, pane, switchTo, pick, channel);
@@ -122,7 +125,11 @@ export async function startChat(worktree: string, pane: string, switchTo: string
     if (!intake.has(pane)) commands.stopChat(pane).catch(console.error);
     if (intake.latest(pane, start)) update(pane, (chat) => (chat.agent === "starting" ? { ...chat, agent: "ready", capabilities } : chat));
   } catch (error) {
-    if (intake.latest(pane, start)) update(pane, (chat) => ({ ...chat, agent: "idle", notice: String(error) }));
+    if (intake.latest(pane, start)) {
+      const { [pane]: _, ...rest } = paneHarnesses.get();
+      if (fresh) paneHarnesses.set(previous ? { ...rest, [pane]: previous } : rest);
+      update(pane, (chat) => ({ ...chat, agent: "idle", notice: String(error) }));
+    }
     loaded();
   }
   return history;
