@@ -1,5 +1,5 @@
-# Runs npm run check on every pull request and every push to main.
-name: check
+# Runs the TypeScript checks and the repo rules on Linux for every pull request and every push to main.
+name: check-ts
 
 on:
   pull_request:
@@ -16,19 +16,16 @@ concurrency:
 
 jobs:
   check:
-    runs-on: macos-latest
-    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: npm
-
-      - uses: Swatinem/rust-cache@v2
-
       - run: npm ci
-
-      # check.sh writes the full output to a temp log; print it when a step fails.
-      - run: npm run check || { cat "$TMPDIR"/chord-check*; exit 1; }
+      - run: npx tsc --noEmit
+      - run: npx tsc --noEmit -p tsconfig.test.json
+      - run: sh scripts/check-rules.sh
+      - run: node --test "src/**/*.test.ts"
