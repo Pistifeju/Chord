@@ -10,10 +10,10 @@
   <img src="https://img.shields.io/badge/status-early%20development-bb4d00?style=flat" alt="Status: early development" />
 </p>
 
-<h2 align="center">Coding agents and the iOS Simulator in one window.</h2>
+<h2 align="center">Parallel coding agents for iOS, each with its own worktree and Simulator.</h2>
 
 <p align="center">
-  Built for iOS developers who ship with coding agents. Every task gets its own git worktree and its own Simulator, so your agents don't step on each other's code or builds. Put pi, Codex or Claude Code on it and watch your app come to life right next to the chat. No more juggling Xcode, Terminal and a git client.
+  Built for iOS developers who ship with coding agents. Every branch has its own DerivedData and its own Simulator, so you can test one build while an agent installs another. Bring your own harness and watch your app come to life right next to the chat, in one window. No more juggling Xcode, Terminal and a git client.
 </p>
 
 <h3 align="center"><a href="https://github.com/Pistifeju/Chord/releases/latest"><ins>Download Chord</ins></a> &nbsp;·&nbsp; <a href="CONTRIBUTING.md"><ins>Contribute</ins></a></h3>
@@ -22,19 +22,19 @@
 
 ## Your app, right next to your agents
 
-The Simulator lives inside Chord, beside the agent writing the code. Each worktree gets its own simulator and its own DerivedData, so three tasks can build the same Xcode project at once and nobody's build breaks.
+The Simulator lives inside Chord, beside the agent writing the code. Three agents can build the same Xcode project at once and nobody's build breaks.
 
-Every `#Preview` in the worktree sits one click away. When an agent changes a SwiftUI file, the preview updates on its own.
+Every `#Preview` sits one click away. When an agent changes a SwiftUI file, the preview updates on its own.
 
 ## Features
 
-- **Live Simulator.** Your app runs inside Chord, one simulator per worktree.
+- **Live Simulator.** Your app runs inside Chord, one simulator per branch.
 - **SwiftUI previews.** Every `#Preview` in one list, updated as the agent edits.
-- **A worktree per task.** Run tasks in parallel without agents overwriting each other.
+- **A worktree per branch.** Run agents in parallel without one overwriting another's files.
 - **Status at a glance.** Running, waiting for you, done or failed, for every chat.
-- **Split panes.** Several agents, side by side, in one worktree.
+- **Split panes.** Several agents, side by side, on one branch.
 - **Changes view.** Review the diff, stage, stash and switch branches.
-- **Terminal and editor.** A shell per worktree and an editor for quick fixes.
+- **Terminal and editor.** A shell and an editor for quick fixes.
 - **Usage.** See how many tokens every pi, Codex and Claude Code session burned.
 - **Any git repo.** Not building for iOS? You still get everything else.
 
