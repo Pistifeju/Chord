@@ -1,4 +1,4 @@
-// The preview helper: a dylib preview.rs builds with swiftc and inserts into the app on a preview simulator. It takes over the app's entry point, finds the app's `#Preview` registry types and shows the one Chord picks full screen. It answers Chord on a Unix socket, one JSON object per line: which file the shown preview is in, another preview to show, and a hot reload's dylib (hot_reload.rs) to load and show the preview from.
+// The preview helper: a dylib preview.rs builds with swiftc and inserts into the app on a preview simulator. It takes over the app's entry point, finds the app's `#Preview` registry types and shows the one Chord picks full screen. It answers Chord on a Unix socket, one JSON object per line: which file the shown preview is in, another preview to show, a hot reload's dylib (hot_reload.rs) to load and show the preview from, and the slide of a loaded image.
 // Private behavior it relies on, checked on Xcode 27.1:
 // - Xcode's debug-dylib stub executable calls `__previews_injection_jit_link_entrypoint(argc, argv, …)` first when any image exports it.
 // - `Preview` hides its content, so the dylib interposes the public `Preview.init(_:traits:body:)` of SwiftUI and UIKit and keeps the arguments.
@@ -292,6 +292,13 @@ enum Server {
         case "load":
             guard let path = request["path"] as? String else { return ["error": "No path"] }
             return Screen.load(path)
+        case "slide":
+            guard let image = request["image"] as? String else { return ["error": "No image"] }
+            for i in 0..<_dyld_image_count() {
+                guard let name = _dyld_get_image_name(i), String(cString: name).hasSuffix("/" + image) else { continue }
+                return ["slide": _dyld_get_image_vmaddr_slide(i)]
+            }
+            return ["error": "The app has no image \(image)"]
         default:
             return ["error": "Unknown request"]
         }
