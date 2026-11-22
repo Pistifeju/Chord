@@ -7,7 +7,7 @@ use serde_json::{Value, json};
 
 use super::commands::session_requests;
 use super::records::{events_from, message_update, newest_first, subagent_nodes};
-use super::{Picker, SESSION_PROMPT, SUBAGENTS_PREFIX};
+use super::{PICKED_LEVEL, Picker, SESSION_PROMPT, SUBAGENTS_PREFIX};
 use crate::harness::calls::OpenCalls;
 use crate::harness::{DialogAsk, HarnessEvent, capitalized};
 
@@ -257,10 +257,17 @@ fn requests_after(record: &Value) -> Vec<Value> {
         }
         // A new model can change the thinking level and the context window too.
         (Some("response"), Some("set_model" | "set_thinking_level")) if changed => {
-            vec![
-                json!({ "type": "get_state" }),
-                json!({ "type": "get_session_stats" }),
-            ]
+            let level = record["id"]
+                .as_str()
+                .and_then(|id| id.strip_prefix(PICKED_LEVEL))
+                .map(|level| json!({ "type": "set_thinking_level", "level": level }));
+            level
+                .into_iter()
+                .chain([
+                    json!({ "type": "get_state" }),
+                    json!({ "type": "get_session_stats" }),
+                ])
+                .collect()
         }
         // The settled run is what grew the context.
         (Some("agent_settled"), _) => vec![json!({ "type": "get_session_stats" })],
