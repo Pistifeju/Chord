@@ -65,6 +65,8 @@ const MODEL_DIALOG: &str = "chord-model";
 const THINKING_DIALOG: &str = "chord-thinking";
 /// The request id of the model list the agent picker shows, so its response is no model dialog.
 const MODELS_REQUEST: &str = "chord-models";
+/// A `set_model` request id starts with this when the pick carries a level, which follows it; pi runs requests side by side, and a model switch resets the level once it lands.
+const PICKED_LEVEL: &str = "chord-level:";
 
 /// A dialog the adapter opens to change the session's model or thinking level.
 #[derive(Clone, Copy)]
@@ -281,15 +283,16 @@ impl Agent for Session {
         self.write(&json!({ "type": "abort" }))
     }
 
-    /// `id` is `provider/model`; pi clamps the level it keeps to the new model, so a picked level follows the model.
+    /// `id` is `provider/model`; the reader sends a picked level once pi answers the model switch.
     fn pick_model(&self, id: &str, level: Option<&str>) -> Result<(), Error> {
         let (provider, model) = id
             .split_once('/')
             .ok_or_else(|| Error::Message(format!("pi has no model \"{id}\"")))?;
-        self.write(&json!({ "type": "set_model", "provider": provider, "modelId": model }))?;
-        level.map_or(Ok(()), |level| {
-            self.write(&json!({ "type": "set_thinking_level", "level": level }))
-        })
+        let mut command = json!({ "type": "set_model", "provider": provider, "modelId": model });
+        if let Some(level) = level {
+            command["id"] = format!("{PICKED_LEVEL}{level}").into();
+        }
+        self.write(&command)
     }
 
     /// Answers the dialog pi asked with `id`; a fork dialog is the adapter's own, so its answer becomes the fork.
@@ -362,7 +365,7 @@ fn launch(
                 if !running
                     || matches!(
                         request["type"].as_str(),
-                        Some("get_state" | "get_session_stats")
+                        Some("get_state" | "get_session_stats" | "set_thinking_level")
                     )
                 {
                     let _ = stdin.write(&request);

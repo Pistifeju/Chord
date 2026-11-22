@@ -835,6 +835,19 @@ fn a_pick_reads_the_state_again() {
 }
 
 #[test]
+fn a_picked_level_follows_the_model_switch() {
+    let set = r#"{"type":"response","id":"chord-level:high","command":"set_model","success":true,"data":{}}"#;
+    assert_eq!(
+        Reader::default().feed(set.as_bytes()).requests,
+        vec![
+            json!({ "type": "set_thinking_level", "level": "high" }),
+            json!({ "type": "get_state" }),
+            json!({ "type": "get_session_stats" })
+        ]
+    );
+}
+
+#[test]
 fn a_fork_asks_which_message_and_forks_from_the_picked_one() {
     let record = r#"{"type":"response","command":"get_fork_messages","success":true,"data":{"messages":[{"entryId":"a1","text":"Fix the login\nand the logout"},{"entryId":"b2","text":"Fix the login"}]}}"#;
     assert_eq!(
