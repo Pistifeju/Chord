@@ -316,7 +316,7 @@ fn file_name(pick: &PreviewPick) -> &str {
     pick.file.rsplit('/').next().unwrap_or(&pick.file)
 }
 
-/// Has the preview app show another `#Preview` from the image it launched with.
+/// Has the preview app show another `#Preview` from the images it launched with.
 pub(crate) fn show(worktree: &Path, pick: &PreviewPick) -> Result<(), String> {
     request(
         worktree,

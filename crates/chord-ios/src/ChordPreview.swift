@@ -1,8 +1,9 @@
-// The preview helper: a dylib preview.rs builds with swiftc and inserts into the app on a preview simulator. It takes over the app's entry point, finds the app's `#Preview` registry types and shows the one Chord picks full screen. It answers Chord on a Unix socket, one JSON object per line: which file the shown preview is in, another preview to show, a hot reload's dylib (hot_reload.rs) to load and show the preview from, and the slide of a loaded image.
+// The preview helper: a dylib preview.rs builds with swiftc and inserts into the app on a preview simulator. It takes over the app's entry point, finds the `#Preview` registry types of the app and its packages' dynamic frameworks and shows the one Chord picks full screen. It answers Chord on a Unix socket, one JSON object per line: which file the shown preview is in, another preview to show, a hot reload's dylib (hot_reload.rs) to load and show the preview from, and the slide of a loaded image.
 // Private behavior it relies on, checked on Xcode 27.1:
 // - Xcode's debug-dylib stub executable calls `__previews_injection_jit_link_entrypoint(argc, argv, …)` first when any image exports it.
 // - `Preview` hides its content, so the dylib interposes the public `Preview.init(_:traits:body:)` of SwiftUI and UIKit and keeps the arguments.
 // - `PreviewTrait<T>` is one reference to a Swift array of `any PreviewTraitProtocol`; each element has a `value` (`PreviewLayout` for layouts).
+// - A debug build's rpath names the build folder's `PackageFrameworks` before the app's `Frameworks`, so a package's dynamic framework loads from outside the app bundle.
 import DeveloperToolsSupport
 import Foundation
 import MachO
@@ -129,11 +130,12 @@ func scan(_ header: UnsafePointer<mach_header>) -> [Entry] {
     return found
 }
 
-/// The app bundle's previews in file and line order.
+/// The previews of the app bundle and of its packages' dynamic frameworks, in file and line order.
 @MainActor func previews() -> [Entry] {
     let path = "/" + (Bundle.main.bundlePath as NSString).lastPathComponent + "/"
     let all = (0..<_dyld_image_count()).flatMap { i -> [Entry] in
-        guard let header = _dyld_get_image_header(i), let name = _dyld_get_image_name(i), String(cString: name).contains(path) else { return [] }
+        guard let header = _dyld_get_image_header(i), let name = _dyld_get_image_name(i).map({ String(cString: $0) }),
+              name.contains(path) || name.contains("/PackageFrameworks/") else { return [] }
         return scan(header)
     }
     return all.sorted { ($0.fileID, $0.line) < ($1.fileID, $1.line) }
@@ -220,7 +222,7 @@ let addImageHook: Void = _dyld_register_func_for_add_image { header, _ in
         Server.start()
     }
 
-    /// Shows the `index`th preview of the app's file named `file`, from the image the app launched with.
+    /// Shows the `index`th preview of the file named `file`, from the images the app launched with.
     static func show(file: String, index: Int) -> [String: Any] {
         let inFile = previews().filter { $0.fileID.hasSuffix("/" + file) }
         guard inFile.indices.contains(index) else { return ["error": "The app has no preview \(index + 1) in \(file)"] }
