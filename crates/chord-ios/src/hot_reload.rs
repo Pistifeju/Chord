@@ -38,7 +38,7 @@ fn reload_folder(worktree: &Path) -> Option<PathBuf> {
     preview::hot_reload_folder(worktree).map(|folder| folder.join("reload"))
 }
 
-/// A build object newer than the marker comes from a build after the launch, whose code the app does not run.
+/// A build object newer than the marker comes from a build after the launch, whose code the app does not run. A caching module's commands asked before the marker changed pin the old imported modules, so `compile_commands::jobs` asks the driver again.
 fn launch_marker(folder: &Path) -> PathBuf {
     folder.join("launched")
 }
@@ -158,8 +158,8 @@ pub(crate) fn reload(worktree: &Path) -> Result<Option<BuildIssue>, String> {
             Some((driver, files, shown))
         })
         .ok_or_else(|| format!("{file_id} has no compile command"))?;
-    let jobs = compile_commands::jobs(worktree, driver)?;
     let folder = reload_folder(worktree).ok_or("Chord has no cache folder")?;
+    let jobs = compile_commands::jobs(worktree, driver, &files, &launch_marker(&folder))?;
     let hidden = launched_hidden(worktree, false)?;
     match compile(
         &jobs,
@@ -500,8 +500,16 @@ fn compile_file(
         .ok_or_else(|| format!("{name} has no compile command"))?;
     let stripped_folder = folder.join("stripped");
     // Only the shown preview's file needs its previews. The copy keeps the file name: private symbols and `#fileID` come from it.
-    let primary = if keep_previews {
-        path.to_string()
+    // A caching command reads its inputs from the driver's snapshot, where a copy does not exist.
+    let caches = compile_commands::caches(&job.args);
+    // The snapshot holds the path the driver read, which can name a symbolic link.
+    let original = if caches {
+        value_of(&job.args, "-primary-file").unwrap_or(path)
+    } else {
+        path
+    };
+    let primary = if keep_previews || caches {
+        original.to_string()
     } else {
         strip_to(
             &folder.join("primary").join(path_hash(path)).join(&name),
@@ -517,7 +525,7 @@ fn compile_file(
                 out,
             )
         } else {
-            rewrite(&job.args, path, str::to_string, out)
+            rewrite(&job.args, original, str::to_string, out)
         };
         let output = Command::new(&args[0])
             .args(&args[1..])
@@ -536,9 +544,9 @@ fn compile_file(
             errors.lines().next().unwrap_or_default().to_string(),
         ))
     };
-    let mut result = recompile(true)?;
+    let mut result = recompile(!caches)?;
     // A copy the preview scan misread fails in that copy: the originals compile slower but right.
-    if !result.0 && (result.1.is_none() || primary != path) {
+    if !caches && !result.0 && (result.1.is_none() || primary != path) {
         result = recompile(false)?;
     }
     match result {

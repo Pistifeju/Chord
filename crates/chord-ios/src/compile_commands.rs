@@ -122,13 +122,29 @@ struct Jobs {
     files: HashMap<String, Job>,
 }
 
-/// The module's command per source file, by its real path: asked of the driver once per driver line and file list, then read back from the folder.
-pub(crate) fn jobs(worktree: &Path, driver: &Driver) -> Result<HashMap<String, Job>, String> {
+/// The module's command per source file, by its real path: asked of the driver once per driver line and file list, then read back from the folder. A caching driver is asked again after any source or `launched` changed, since its commands pin the sources and imported modules of when it ran.
+pub(crate) fn jobs(
+    worktree: &Path,
+    driver: &Driver,
+    files: &[String],
+    launched: &Path,
+) -> Result<HashMap<String, Job>, String> {
     let folder = preview::hot_reload_folder(worktree).ok_or("Chord has no cache folder")?;
     let module = driver.module().ok_or("the driver line names no module")?;
     let mut hasher = DefaultHasher::new();
     driver.hash(&mut hasher);
     driver.file_lists().hash(&mut hasher);
+    if caches(&driver.args) {
+        for file in files {
+            let metadata = fs::metadata(file).ok();
+            metadata.as_ref().map(fs::Metadata::len).hash(&mut hasher);
+            metadata.and_then(|m| m.modified().ok()).hash(&mut hasher);
+        }
+        fs::metadata(launched)
+            .and_then(|m| m.modified())
+            .ok()
+            .hash(&mut hasher);
+    }
     let key = hasher.finish();
     let saved = folder.join(format!("jobs-{module}.json"));
     if let Some(jobs) = read::<Jobs>(&saved).filter(|jobs| jobs.key == key) {
@@ -193,6 +209,11 @@ pub(crate) fn real(path: &str) -> String {
         |_| path.to_string(),
         |real: PathBuf| real.to_string_lossy().into_owned(),
     )
+}
+
+/// The command line compiles through the compilation cache: its commands read their inputs from a snapshot the driver took, never from disk.
+pub(crate) fn caches(args: &[String]) -> bool {
+    args.iter().any(|arg| arg == "-cache-compile-job")
 }
 
 pub(crate) fn value_of<'a>(args: &'a [String], flag: &str) -> Option<&'a str> {
