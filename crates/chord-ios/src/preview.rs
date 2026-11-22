@@ -199,7 +199,7 @@ pub(crate) fn launch(
     )?;
     let socket = socket(worktree);
     let _ = std::fs::remove_file(&socket);
-    hot_reload::launched(worktree);
+    hot_reload::launched(worktree, &app.join(format!("{executable}.debug.dylib")));
     command
         .env("SIMCTL_CHILD_DYLD_INSERT_LIBRARIES", &helper)
         .env("SIMCTL_CHILD_CHORD_PREVIEW_SOCKET", &socket);
@@ -298,6 +298,16 @@ pub(crate) fn shown_file(worktree: &Path) -> Result<String, String> {
         .as_str()
         .map(String::from)
         .ok_or_else(|| "the preview app named no file".into())
+}
+
+/// How far dyld moved the app's loaded image named `image` from the addresses in its file.
+pub(crate) fn slide(worktree: &Path, image: &str) -> Result<u64, String> {
+    let reply = request(worktree, &json!({ "op": "slide", "image": image }))?;
+    // A negative slide wraps, and adding it to an address wraps back.
+    reply["slide"]
+        .as_i64()
+        .map(|slide| slide as u64)
+        .ok_or_else(|| "the preview app named no slide".into())
 }
 
 /// The helper knows a preview by its `fileID`, `Module/File.swift`, and the worktree path's module is unknown.
