@@ -665,8 +665,14 @@ impl Reader {
             }
             Pending::Context if error.is_none() => {
                 self.window = count(&answer["maxTokens"]);
+                // Before a new session's first message Claude Code counts its own prompt, tools and skills.
+                let empty = self.session.is_none() && self.opened.session.is_none();
                 read.events.push(HarnessEvent::Context {
-                    tokens: count(&answer["totalTokens"]),
+                    tokens: if empty {
+                        Some(0)
+                    } else {
+                        count(&answer["totalTokens"])
+                    },
                     window: self.window,
                 });
             }

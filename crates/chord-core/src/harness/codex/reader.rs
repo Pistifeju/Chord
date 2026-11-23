@@ -526,6 +526,13 @@ impl Reader {
                         events.push(HarnessEvent::SessionInfo { id: thread.into() });
                         events.extend(self.settings.opened(result));
                         let turns = result["thread"]["turns"].as_array();
+                        // Codex tells the window with the first reply; a thread without a turn fills none of it.
+                        if turns.is_none_or(|turns| turns.is_empty()) {
+                            events.push(HarnessEvent::Context {
+                                tokens: Some(0),
+                                window: self.window,
+                            });
+                        }
                         events.extend(
                             turns
                                 .into_iter()

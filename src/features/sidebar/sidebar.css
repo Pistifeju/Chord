@@ -86,7 +86,7 @@
 }
 
 .dock-row:hover {
-  background: var(--card-hover);
+  background: var(--card);
   color: var(--ink-secondary);
 }
 
@@ -175,11 +175,73 @@
   text-overflow: ellipsis;
 }
 
-/* A hairline between projects, so each project's cards read as one group. */
+/* The filled cards part the projects, so the groups need only space between them. */
 .project-group + .project-group {
-  margin-top: 12px;
-  padding-top: 8px;
-  border-top: 1px solid var(--line);
+  margin-top: 16px;
+}
+
+.project-head,
+.worktree-card {
+  position: relative;
+}
+
+/* Keeps a long name clear of the More button. */
+.project-head .project-name {
+  padding-right: 32px;
+}
+
+/* The More button of a project's name and of a card: hidden it takes no room, and it shows while the pointer or the focus is on its row. */
+.sidebar-more {
+  position: absolute;
+  top: 8px;
+  right: 6px;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-inset);
+  color: var(--ink-muted);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    color var(--t-fast) var(--ease-out),
+    opacity var(--t-fast) var(--ease-out),
+    visibility 0s var(--t-fast);
+}
+
+.project-head > .sidebar-more {
+  top: 4px;
+}
+
+.project-head:hover > .sidebar-more,
+.project-head:focus-within > .sidebar-more,
+.worktree-card:hover > .sidebar-more,
+.worktree-card:focus-within > .sidebar-more {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+/* The More button takes no fill on hover or press: its glyph brightens, as a session's name does. */
+.icon-button.sidebar-more:hover,
+.icon-button.sidebar-more:active {
+  background: none;
+  color: var(--ink);
+}
+
+/* The shortcut hint moves in to make room for the More button. */
+.worktree-head > .worktree-line:first-child {
+  transition: padding-right var(--t-fast) var(--ease-out);
+}
+
+.worktree-card:hover .worktree-head > .worktree-line:first-child,
+.worktree-card:focus-within .worktree-head > .worktree-line:first-child {
+  padding-right: 22px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-more,
+  .worktree-head > .worktree-line:first-child {
+    transition: none;
+  }
 }
 
 .project-name {
@@ -198,15 +260,16 @@
 .worktree-list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-/* One card holds the worktree's head and its session rows; only the head and the rows take clicks. */
+/* One card holds the worktree's head and its session rows; only the head, the More button and the rows take clicks. */
 .worktree-card {
   border-radius: var(--radius-inset);
+  background: var(--card);
   box-shadow: inset 0 0 0 1px transparent;
   transition:
     background-color var(--t-fast) var(--ease-out),
@@ -215,7 +278,7 @@
 }
 
 .worktree-card:hover {
-  background: var(--card-hover);
+  box-shadow: inset 0 0 0 1px var(--line);
 }
 
 .worktree-card:has(.worktree-head:active, .session-row:active) {
@@ -235,7 +298,7 @@
 
 .worktree-card[aria-current="true"] {
   background: var(--selected);
-  box-shadow: inset 0 0 0 1px var(--selected-ring);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
 }
 
 .worktree-head {
@@ -423,6 +486,14 @@
 
 .session-name {
   flex: 1;
+}
+
+.session-logo {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 16px;
+  height: 16px;
 }
 
 .session-row:hover {
