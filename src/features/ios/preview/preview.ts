@@ -57,7 +57,7 @@ export const previewName = (pick: PreviewPick): string => pick.name ?? `Preview 
 /** `Views/ContentView.swift#1`: the list row's path. */
 export const previewKey = (pick: PreviewPick): string => `${pick.file}#${pick.index}`;
 
-/** A row of the list: a file, as a Files tree folder, or one of its previews under it. */
+/** A row of the list: a file, as a Files tree folder, or one of its previews under it; a file with one preview is that preview's row. */
 export type PreviewRow = Row & { pick: PreviewPick | null };
 
 /** The previews whose name or file holds the query, ignoring case, in their file order. */
@@ -80,13 +80,20 @@ function rowNames(all: PreviewPick[]): Map<PreviewPick, string> {
   return names;
 }
 
-/** Each file with a matching preview, then its previews unless the file is closed; a filter opens every file. */
+/** Each file with a matching preview, then its previews unless the file is closed; a filter opens every file. A file with one preview reads as one row that shows it. */
 export function previewRows(all: PreviewPick[], query: string, closed: string[]): PreviewRow[] {
   const names = rowNames(all);
+  const counts = new Map<string, number>();
+  for (const pick of all) counts.set(pick.file, (counts.get(pick.file) ?? 0) + 1);
   const rows: PreviewRow[] = [];
   let file: string | null = null;
   let open = true;
   for (const pick of matchingPreviews(all, query)) {
+    if (counts.get(pick.file) === 1) {
+      file = pick.file;
+      rows.push({ entry: { name: fileName(file), path: previewKey(pick), isDir: false }, depth: 0, open: false, pick });
+      continue;
+    }
     if (pick.file !== file) {
       file = pick.file;
       open = query.trim() !== "" || !closed.includes(file);
@@ -104,12 +111,12 @@ export function steppedPreview(rows: PreviewRow[], from: string | null, down: bo
     const ahead = down ? rows.slice(at + 1) : rows.slice(0, at < 0 ? rows.length : at).reverse();
     return ahead.find((row) => row.pick)?.pick ?? null;
   }
-  const files = rows.flatMap((row, i) => (row.pick ? [] : [i]));
+  const files = rows.flatMap((row, i) => (row.depth === 0 ? [i] : []));
   // The file the row sits in: the last file row at or above it.
   const current = files.filter((i) => i <= at).length - 1;
   const targets = down ? files.slice(current + 1) : files.slice(0, Math.max(current, 0)).reverse();
   for (const i of targets) {
-    const pick = rows[i + 1]?.pick;
+    const pick = rows[i].pick ?? (rows[i + 1]?.depth === 1 ? rows[i + 1].pick : null);
     if (pick) return pick;
   }
   return null;

@@ -10,6 +10,7 @@
   A file's previews drop the name prefix all of them share up to " — " and start with a capital ("Symptoms — first use" reads "First use"); the tooltip keeps the full name and the file.
   The list runs the view's full height, so its edge meets the panel's top bar.
   A file reads as a folder row with a file icon and its relative path; its previews sit one level in, each with its name and no icon, an unnamed one by its index ("Preview 2").
+  A file with one preview reads as a single row with the file icon and path and no chevron, and a click shows that preview.
   Files keep path order.
   The shown preview's row takes `selected` and `ink`.
   ↑ and ↓ go to the previous or next preview, past file rows and the previews of a closed file, from a row or from the filter field; ⌥↑ and ⌥↓ go to the first preview of the previous or next file.
