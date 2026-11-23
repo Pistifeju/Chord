@@ -3,7 +3,7 @@ import type { HarnessEvent, ModelOption, UsageWindow } from "../../ipc/bindings"
 import { chatFed, type Chat, type Replay } from "./transcript.ts";
 
 /** What an event does outside the transcript, for the store to carry out. */
-type Effect = { kind: "draft"; text: string } | { kind: "usage"; harness: string; windows: UsageWindow[] } | { kind: "models"; harness: string; models: ModelOption[] } | { kind: "notify"; text: string };
+type Effect = { kind: "draft"; text: string } | { kind: "usage"; harness: string; windows: UsageWindow[] } | { kind: "models"; harness: string; models: ModelOption[] } | { kind: "notify"; text: string } | { kind: "gitCounts" };
 
 function effectOf(event: HarnessEvent): Effect | null {
   switch (event.kind) {
@@ -15,6 +15,11 @@ function effectOf(event: HarnessEvent): Effect | null {
       return { kind: "models", harness: event.harness, models: event.models };
     case "exported":
       return { kind: "notify", text: `Exported to ${event.path}` };
+    case "tool_end":
+      return { kind: "gitCounts" };
+    // A command a tool left running can write after its call ended, so the turn's end reads once more.
+    case "status":
+      return event.changed && event.status.kind !== "running" ? { kind: "gitCounts" } : null;
     default:
       return null;
   }
