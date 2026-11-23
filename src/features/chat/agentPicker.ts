@@ -17,11 +17,10 @@ export function pickerAgents(checks: Checks | null, own: string): string[] {
   return ready.includes(own) ? ready : [own, ...ready];
 }
 
-/** The level the bar marks for a model: one the user set for it in the bar, else the running model's level when the model has it, else the model's default. Null leaves the level to the harness. */
-export function shownLevel(model: ModelOption, running: ModelChoice | null, chosen: Record<string, string>): string | null {
+/** The level the bar marks for a model, and the one a pick starts it at: the level the user last set in the bar when the model has it, else the running model's level when the model has it, else the model's default. Null leaves the level to the harness. */
+export function shownLevel(model: ModelOption, running: ModelChoice | null, picked: string | null): string | null {
   if (model.levels.length === 0) return null;
-  const set = chosen[model.id];
-  if (set) return set;
+  if (picked && model.levels.includes(picked)) return picked;
   if (running?.thinking && model.levels.includes(running.thinking)) return running.thinking;
   return model.default_level ?? null;
 }

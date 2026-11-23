@@ -5,12 +5,13 @@ import { levelSlots, shownLevel } from "./agentPicker.ts";
 
 const sonnet = { id: "sonnet", name: "Sonnet", provider: null, levels: ["low", "medium", "high"], default_level: "medium" };
 
-test("the bar marks a level set for the model, else the running level the model has, else its default", () => {
+test("the bar marks the picked level the model has, else the running level the model has, else its default", () => {
   const running = { id: "opus", name: "Opus", thinking: "high" };
-  assert.equal(shownLevel(sonnet, running, { sonnet: "low" }), "low");
-  assert.equal(shownLevel(sonnet, running, {}), "high");
-  assert.equal(shownLevel(sonnet, { ...running, thinking: "xhigh" }, {}), "medium");
-  assert.equal(shownLevel({ ...sonnet, levels: [] }, running, {}), null);
+  assert.equal(shownLevel(sonnet, running, "low"), "low");
+  assert.equal(shownLevel(sonnet, running, "xhigh"), "high");
+  assert.equal(shownLevel(sonnet, running, null), "high");
+  assert.equal(shownLevel(sonnet, { ...running, thinking: "xhigh" }, null), "medium");
+  assert.equal(shownLevel({ ...sonnet, levels: [] }, running, "low"), null);
 });
 
 test("the bar's segments hold every model's levels in order, a level one model lacks in its place", () => {
