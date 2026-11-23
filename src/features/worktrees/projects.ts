@@ -50,6 +50,10 @@ export const isGitProject = (projects: Projects, path: string): boolean => proje
 export const projectsTurnedGit = (projects: Projects, readByGit: string[]): string[] =>
   projects.list.filter((p) => projects.worktrees[p.path]?.some((w) => !w.git && readByGit.includes(w.path))).map((p) => p.path);
 
+/** The projects with a git card that git could not read, as after a `git worktree remove` outside Chord. */
+export const projectsLosingWorktrees = (projects: Projects, queried: string[], readByGit: string[]): string[] =>
+  projects.list.filter((p) => projects.worktrees[p.path]?.some((w) => w.git && queried.includes(w.path) && !readByGit.includes(w.path))).map((p) => p.path);
+
 export const worktreeName = (worktree: Worktree): string => worktree.branch ?? fileName(worktree.path);
 
 // Whitespace in a typed branch name becomes a dash; this is the name git sees.
