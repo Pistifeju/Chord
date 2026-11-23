@@ -289,9 +289,9 @@ pub(crate) fn call1(
 
 /// The text of an NSString, or of any object's `description`.
 pub(crate) fn text(object: *mut AnyObject) -> Option<String> {
-    let string = get(object, sel!(description));
-    // SAFETY: `description` returns an NSString.
-    (!string.is_null()).then(|| unsafe { &*(string as *const NSString) }.to_string())
+    // SAFETY: `description` returns an NSString or null, and `as_ref` maps null to `None`.
+    unsafe { (get(object, sel!(description)) as *const NSString).as_ref() }
+        .map(|string| string.to_string())
 }
 
 /// A C symbol of the loaded frameworks, typed as `F`.
