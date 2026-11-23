@@ -84,6 +84,7 @@
   A click opens the agent menu above the composer (see Agent menu); a second click closes it.
   Before the agent button, when the harness has the context capability and has told its window, the context meter, set off from the agent button by a 1px `line-strong` divider 14px tall after it, so it never reads as part of the label: a 12px ring (2px stroke, `line-strong` track, the fill in `accent-ink`) and, 6px after it, the session's fill of the window as a percentage in 12px `ink-muted` meta text, tabular, 8px padding on both sides, with a tooltip of the tokens used and the window; from 50% the ring and the percentage take `status-waiting`, from 75% `status-error`, and the tooltip adds "nearly full".
   `/new` empties it (0%).
+  A session without a message shows 0% before the harness tells its window, with the tooltip "Context: empty".
   The send button sits on the right: a 32px `accent` circle with a white up arrow, `selected` with an `ink-muted` arrow while the draft is empty.
   Its tooltip reads Send, or Steer while the agent runs and the harness has the steer capability; without it the button stays disabled until the run ends.
 - **Dialog:** a dialog an agent opens (select, confirm, input) takes the composer's place as the same `sheet` card: a Heading title, then the body, and the composer returns once it is answered.
