@@ -1,10 +1,12 @@
-// Connects the Changes view to IPC: each worktree's changed files read from git with its branch against its base and the repository's stashes, one read at a time, a failed read leaving the last list, the scope and base each worktree shows, whether its Stashes group is open, the files of an opened commit or stash, a change's diff opened in a tab, the stage, unstage and discard of files and hunks, each followed by a read, the commit message with its mode and the saved push default, commit, amend and push, and the stash of the changes, a stash's apply, pop and drop, each followed by a read and the git counts.
+// Connects the Changes view to IPC: each worktree's changed files read from git with its branch against its base and the repository's stashes, one read at a time, a failed read leaving the last list, the scope and base each worktree shows, whether its Stashes group is open, the files of an opened commit or stash, a change's diff opened in a tab, the stage, unstage and discard of files and hunks, each followed by a read, the commit message with its mode and the saved push default, commit, amend and push, the fetch, the pull and the merge of another branch, each with its notice, and the stash of the changes, a stash's apply, pop and drop, each followed by a read and the git counts.
 import { commands, type BranchChanges_Serialize as BranchChanges, type Change, type CommitTarget_Serialize as CommitTarget, type CommittedFile_Serialize as CommittedFile, type Hunk, type HunkAction, type Stash, type StashAction } from "../../ipc/bindings";
 import { closeSheet, openSheet, sheet, sheetOf } from "../../app/sheet";
 import { externalStore } from "../../ui/externalStore";
+import { pushedNotice } from "./branch";
 import { canCommit } from "./changes";
 import { fail, notify } from "../../ui/alert";
 import { flushAllSaves } from "../editor/store";
+import { reloadFiles, trees } from "../files/store";
 import { closeFilePanesAt, openFileTab } from "../panes/store";
 import { refreshGitCounts } from "../worktrees/gitCountsRefresh";
 
@@ -74,8 +76,10 @@ export const optionsOf = (all: Record<string, CommitOptions>, worktree: string, 
 const currentOptions = (worktree: string) => optionsOf(commitOptions.get(), worktree, pushAfterCommit.get());
 const setOptions = (worktree: string, options: CommitOptions) => commitOptions.set({ ...commitOptions.get(), [worktree]: options });
 
-/** The commit or push that runs in each worktree, which takes no second click. */
-export const running = externalStore<Record<string, "commit" | "push">>({});
+export type Running = "commit" | "push" | "fetch" | "pull" | "merge";
+
+/** The git call that runs in each worktree, which takes no second click. */
+export const running = externalStore<Record<string, Running>>({});
 
 // Each worktree with a read in flight, and whether another read was asked for meanwhile.
 const reading = new Map<string, boolean>();
@@ -156,7 +160,7 @@ export async function confirmDiscard() {
 
 export const typeCommitMessage = (worktree: string, message: string) => commitMessages.set({ ...commitMessages.get(), [worktree]: message });
 
-async function runGit(worktree: string, kind: "commit" | "push", run: () => Promise<unknown>) {
+async function runGit(worktree: string, kind: Running, run: () => Promise<unknown>) {
   if (running.get()[worktree]) return;
   running.set({ ...running.get(), [worktree]: kind });
   try {
@@ -167,6 +171,8 @@ async function runGit(worktree: string, kind: "commit" | "push", run: () => Prom
   const { [worktree]: _, ...rest } = running.get();
   running.set(rest);
   refreshGitCounts();
+  // A pull or a merge moves files on disk, also one that stopped on a conflict.
+  if ((kind === "pull" || kind === "merge") && trees.get()[worktree]) void reloadFiles(worktree);
   await readChanges(worktree);
 }
 
@@ -191,7 +197,31 @@ export function commitStaged(worktree: string) {
   });
 }
 
-export const pushBranch = (worktree: string) => runGit(worktree, "push", () => commands.pushBranch(worktree));
+export function pushBranch(worktree: string) {
+  const target = commitTargets.get()[worktree];
+  return runGit(worktree, "push", async () => {
+    await commands.pushBranch(worktree);
+    if (target?.pushTo) notify(pushedNotice(target.ahead, target.pushTo));
+  });
+}
+
+export const fetchRemote = (worktree: string) => runGit(worktree, "fetch", async () => notify(`Fetched ${await commands.fetchRemote(worktree)}`));
+
+export function pullBranch(worktree: string) {
+  const from = commitTargets.get()[worktree]?.pushTo;
+  return runGit(worktree, "pull", async () => {
+    // A pending edit would land on top of the pulled file.
+    await flushAllSaves();
+    notify((await commands.pullBranch(worktree)) && from ? `Pulled from ${from}` : "Already up to date");
+  });
+}
+
+/** Merges `branch` into the worktree's own, which the notice names as `into`. */
+export const mergeBranch = (worktree: string, branch: string, into: string) =>
+  runGit(worktree, "merge", async () => {
+    await flushAllSaves();
+    notify((await commands.mergeBranch(worktree, branch)) ? `Merged ${branch} into ${into}` : `Already up to date with ${branch}`);
+  });
 
 /** Amend fills an empty field with the last commit's message, and leaving it empties the field while that message stands unchanged. */
 export async function pickCommitMode(worktree: string, amend: boolean, pushAfter: boolean) {

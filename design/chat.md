@@ -134,6 +134,7 @@
   Then come the options as 36px rows in `ink` with 10px padding, the current one marked with the dialog's check at the row's end.
   In the permissions picker each row leads with its mode's icon in `ink-muted`, `ink-secondary` on the highlighted row, 8px before the name.
   ↑ and ↓ or the pointer move the `selected` highlight, Return or a click picks.
+  A select whose rows take a More action, as the branch menu's do, ends each row with a 20px More icon button (three dots, Inset radius, tooltip "More"), shown while the row is highlighted, under the pointer or holds the focus, fading in over 120ms with `--ease-out`; `raised` on hover, `control-selected` on the highlighted row (see `design/changes-view.md`).
   Esc or a click anywhere outside the card closes it without a pick.
   Replies and tool calls from the agent leave it open; only the agent's exit closes it.
 - **Jump to latest:** once the reader scrolls 72px or more above the end of the transcript, a 28px `canvas` circle with a 1px `line-strong` border, the control shadow and an `ink-secondary` down arrow sits centered 4px above the Working row's place, whether the row shows or not.

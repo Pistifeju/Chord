@@ -13,6 +13,8 @@ export const commands = {
 	removeProject: (project: string) => __TAURI_INVOKE<null>("remove_project", { project }),
 	listWorktrees: (project: string) => __TAURI_INVOKE<Worktree_Serialize[]>("list_worktrees", { project }),
 	checkBranchName: (project: string, name: string) => __TAURI_INVOKE<string | null>("check_branch_name", { project, name }),
+	checkNewBranch: (project: string, name: string) => __TAURI_INVOKE<string | null>("check_new_branch", { project, name }),
+	createBranch: (worktree: string, name: string) => __TAURI_INVOKE<null>("create_branch", { worktree, name }),
 	checkBranchRename: (project: string, branch: string, name: string) => __TAURI_INVOKE<string | null>("check_branch_rename", { project, branch, name }),
 	renameBranch: (project: string, branch: string, name: string) => __TAURI_INVOKE<null>("rename_branch", { project, branch, name }),
 	listBranches: (worktree: string) => __TAURI_INVOKE<LocalBranch_Serialize[]>("list_branches", { worktree }),
@@ -60,6 +62,9 @@ export const commands = {
 	readCommitTarget: (worktree: string) => __TAURI_INVOKE<CommitTarget_Serialize>("read_commit_target", { worktree }),
 	lastCommitMessage: (worktree: string) => __TAURI_INVOKE<string>("last_commit_message", { worktree }),
 	pushBranch: (worktree: string) => __TAURI_INVOKE<null>("push_branch", { worktree }),
+	fetchRemote: (worktree: string) => __TAURI_INVOKE<string>("fetch_remote", { worktree }),
+	pullBranch: (worktree: string) => __TAURI_INVOKE<boolean>("pull_branch", { worktree }),
+	mergeBranch: (worktree: string, branch: string) => __TAURI_INVOKE<boolean>("merge_branch", { worktree, branch }),
 	listStashes: (worktree: string) => __TAURI_INVOKE<Stash[]>("list_stashes", { worktree }),
 	listStashFiles: (worktree: string, stash: string) => __TAURI_INVOKE<CommittedFile_Serialize[]>("list_stash_files", { worktree, stash }),
 	stashChanges: (worktree: string) => __TAURI_INVOKE<null>("stash_changes", { worktree }),
@@ -417,6 +422,10 @@ export type CommitTarget_Deserialize = {
 	pushable: boolean,
 	/**  The commits `push_to` lacks; None before the first push sets the upstream. */
 	ahead?: number | null,
+	/**  The commits of `push_to` the branch lacks, as of the last fetch; None before the first push sets the upstream. */
+	behind?: number | null,
+	/**  When the worktree last fetched, in milliseconds since 1970; None before its first fetch. */
+	fetched?: number | null,
 	/**  Whether HEAD has a commit to amend. */
 	amendable: boolean,
 };
@@ -430,6 +439,10 @@ export type CommitTarget_Serialize = {
 	pushable: boolean,
 	/**  The commits `push_to` lacks; None before the first push sets the upstream. */
 	ahead: number | null,
+	/**  The commits of `push_to` the branch lacks, as of the last fetch; None before the first push sets the upstream. */
+	behind: number | null,
+	/**  When the worktree last fetched, in milliseconds since 1970; None before its first fetch. */
+	fetched: number | null,
 	/**  Whether HEAD has a commit to amend. */
 	amendable: boolean,
 };
