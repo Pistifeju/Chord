@@ -50,6 +50,8 @@ export function Select({ options, current, answer, filter = "field", meta, unava
   const root = useRef<HTMLDivElement>(null);
   const typed = useRef({ text: "", at: 0 });
   const list = useRef<HTMLDivElement>(null);
+  // A row the pointer highlights stays put: scrolling it into view would slide the next row under the pointer and keep scrolling.
+  const pointed = useRef(false);
   const shown = matchingOptions(options, query);
   const toggle = (at: number) => setChecked((was) => (was.has(at) ? new Set([...was].filter((i) => i !== at)) : new Set([...was, at])));
   const choose = (at: number) => !unavailable(at) && (multi ? toggle(at) : answer({ kind: "value", value: options[at] }));
@@ -64,6 +66,10 @@ export function Select({ options, current, answer, filter = "field", meta, unava
   }, [filter]);
 
   useEffect(() => {
+    if (pointed.current) {
+      pointed.current = false;
+      return;
+    }
     list.current?.querySelector("[data-active]")?.scrollIntoView({ block: "nearest" });
   }, [active, query]);
 
@@ -120,7 +126,11 @@ export function Select({ options, current, answer, filter = "field", meta, unava
               data-active={i === active || undefined}
               data-stacked={stacked || undefined}
               className="chat-dialog-option"
-              onMouseMove={() => i !== active && !unavailable(at) && setActive(i)}
+              onMouseMove={() => {
+                if (i === active || unavailable(at)) return;
+                pointed.current = true;
+                setActive(i);
+              }}
               onClick={() => choose(at)}
               onContextMenu={rowMenu && ((e) => rowMenu(at, e))}
             >
