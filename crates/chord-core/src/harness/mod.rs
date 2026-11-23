@@ -274,6 +274,8 @@ pub enum HarnessEvent {
         summary: String,
         tokens_before: Option<u32>,
     },
+    /// The agent started (`active`) or finished compacting the context.
+    Compacting { active: bool },
     /// The agent began a new block of reasoning.
     ThoughtStart,
     /// Text of the reasoning block that is streaming now.
@@ -306,10 +308,11 @@ pub enum HarnessEvent {
         harness: &'static str,
         models: Vec<ModelOption>,
     },
-    /// How many tokens the session fills of the model's context window; `tokens` is missing right after a compaction, until a reply measures it again; `window` is missing when the model has none, and until the harness tells it.
+    /// How many tokens the session fills of the model's context window; `tokens` is missing right after a compaction when the agent cannot tell, until a reply measures it again; `estimated` says Chord counted `tokens` itself; `window` is missing when the model has none, and until the harness tells it.
     Context {
         tokens: Option<u32>,
         window: Option<u32>,
+        estimated: bool,
     },
     /// The streaming reply is complete; `failed` when it ended in an error; `at` is when the reply was written, in epoch milliseconds, when the agent says.
     MessageEnd { failed: bool, at: Option<f64> },

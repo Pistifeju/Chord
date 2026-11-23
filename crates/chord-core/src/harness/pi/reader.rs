@@ -104,6 +104,8 @@ struct ShownSession {
     subagents_widget: Option<String>,
     /// An automatic compaction is running; the subagent extension clears its widget for it and redraws after.
     compacting_automatically: bool,
+    /// The tokens the session's messages fill by Chord's count; pi reports none right after a compaction.
+    estimate: Option<u32>,
 }
 
 impl ShownSession {
@@ -166,6 +168,15 @@ impl ShownSession {
         }
     }
 
+    fn remember_estimate(&mut self, record: &Value) {
+        if record["type"] == "response"
+            && record["success"] == true
+            && record["command"] == "get_messages"
+        {
+            self.estimate = estimated_tokens(&record["data"]["messages"]);
+        }
+    }
+
     // The state names the model and level a picker marks.
     fn remember_choice(&mut self, record: &Value) {
         if record["type"] != "response"
@@ -187,6 +198,15 @@ impl ShownSession {
 
     // A picker's list is built from a response that does not know the current choice.
     fn with_current(&self, mut event: HarnessEvent) -> HarnessEvent {
+        if let HarnessEvent::Context {
+            tokens: tokens @ None,
+            window: Some(_),
+            estimated,
+        } = &mut event
+        {
+            *tokens = self.estimate;
+            *estimated = tokens.is_some();
+        }
         if let HarnessEvent::Models { models, .. } = &mut event {
             newest_first(models, self.model.as_deref(), |model| &model.id);
         }
@@ -211,6 +231,33 @@ impl ShownSession {
     }
 }
 
+// pi's own estimate: a token per four characters of text, tool arguments and summaries, 1200 per image. It leaves out the system prompt and the tool definitions.
+fn estimated_tokens(messages: &Value) -> Option<u32> {
+    fn chars(value: &Value) -> usize {
+        match value {
+            Value::String(text) => text.chars().count(),
+            Value::Array(blocks) => blocks.iter().map(chars).sum(),
+            Value::Object(block) if block.get("type").and_then(Value::as_str) == Some("image") => {
+                4800
+            }
+            Value::Object(block) => {
+                [
+                    "text", "thinking", "summary", "content", "command", "output",
+                ]
+                .iter()
+                .filter_map(|key| block.get(*key))
+                .map(chars)
+                .sum::<usize>()
+                    + block
+                        .get("arguments")
+                        .map_or(0, |args| args.to_string().len())
+            }
+            _ => 0,
+        }
+    }
+    u32::try_from(chars(messages) / 4).ok()
+}
+
 // Tool output and turn summaries are large and unused, so only the records `events_from` reads get a full parse.
 fn read_line(line: &[u8], shown: &mut ShownSession) -> Read {
     match serde_json::from_slice::<Kind>(line) {
@@ -224,6 +271,7 @@ fn read_line(line: &[u8], shown: &mut ShownSession) -> Read {
             serde_json::from_slice::<Value>(line)
                 .ok()
                 .inspect(|record| shown.remember_choice(record))
+                .inspect(|record| shown.remember_estimate(record))
                 .inspect(|record| shown.track_compaction(record))
                 .filter(|record| !shown.repeats(record))
                 .map(|record| Read {

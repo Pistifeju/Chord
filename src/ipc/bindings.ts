@@ -637,6 +637,8 @@ export type HarnessEvent_Deserialize =
 { kind: "message_chunk"; text: string } | 
 /**  The agent replaced the session's earlier messages with this summary to free the context; `tokens_before` is how many tokens they filled, when the agent says. */
 { kind: "compaction"; summary: string; tokens_before?: number | null } | 
+/**  The agent started (`active`) or finished compacting the context. */
+{ kind: "compacting"; active: boolean } | 
 /**  The agent began a new block of reasoning. */
 { kind: "thought_start" } | 
 /**  Text of the reasoning block that is streaming now. */
@@ -651,8 +653,8 @@ export type HarnessEvent_Deserialize =
 { kind: "models"; 
 /**  The `name` of the harness's entry in `HARNESSES`. */
 harness: string; models: ModelOption_Deserialize[] } | 
-/**  How many tokens the session fills of the model's context window; `tokens` is missing right after a compaction, until a reply measures it again; `window` is missing when the model has none, and until the harness tells it. */
-{ kind: "context"; tokens?: number | null; window?: number | null } | 
+/**  How many tokens the session fills of the model's context window; `tokens` is missing right after a compaction when the agent cannot tell, until a reply measures it again; `estimated` says Chord counted `tokens` itself; `window` is missing when the model has none, and until the harness tells it. */
+{ kind: "context"; tokens?: number | null; window?: number | null; estimated: boolean } | 
 /**  The streaming reply is complete; `failed` when it ended in an error; `at` is when the reply was written, in epoch milliseconds, when the agent says. */
 { kind: "message_end"; failed: boolean; at?: number | null } | 
 /**  The agent opened a dialog and waits for an answer; `id` goes back with it. */
@@ -699,6 +701,8 @@ export type HarnessEvent_Serialize =
 { kind: "message_chunk"; text: string } | 
 /**  The agent replaced the session's earlier messages with this summary to free the context; `tokens_before` is how many tokens they filled, when the agent says. */
 { kind: "compaction"; summary: string; tokens_before: number | null } | 
+/**  The agent started (`active`) or finished compacting the context. */
+{ kind: "compacting"; active: boolean } | 
 /**  The agent began a new block of reasoning. */
 { kind: "thought_start" } | 
 /**  Text of the reasoning block that is streaming now. */
@@ -713,8 +717,8 @@ export type HarnessEvent_Serialize =
 { kind: "models"; 
 /**  The `name` of the harness's entry in `HARNESSES`. */
 harness: string; models: ModelOption_Serialize[] } | 
-/**  How many tokens the session fills of the model's context window; `tokens` is missing right after a compaction, until a reply measures it again; `window` is missing when the model has none, and until the harness tells it. */
-{ kind: "context"; tokens: number | null; window: number | null } | 
+/**  How many tokens the session fills of the model's context window; `tokens` is missing right after a compaction when the agent cannot tell, until a reply measures it again; `estimated` says Chord counted `tokens` itself; `window` is missing when the model has none, and until the harness tells it. */
+{ kind: "context"; tokens: number | null; window: number | null; estimated: boolean } | 
 /**  The streaming reply is complete; `failed` when it ended in an error; `at` is when the reply was written, in epoch milliseconds, when the agent says. */
 { kind: "message_end"; failed: boolean; at: number | null } | 
 /**  The agent opened a dialog and waits for an answer; `id` goes back with it. */

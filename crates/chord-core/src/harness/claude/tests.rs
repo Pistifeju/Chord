@@ -300,7 +300,8 @@ fn a_new_session_fills_no_context_until_its_first_message() {
         events(&mut reader, &[unsent]),
         [HarnessEvent::Context {
             tokens: Some(0),
-            window: Some(1000000)
+            window: Some(1000000),
+            estimated: false
         }]
     );
     let turn = [
@@ -313,7 +314,8 @@ fn a_new_session_fills_no_context_until_its_first_message() {
         events(&mut reader, &[replied]),
         [HarnessEvent::Context {
             tokens: Some(26693),
-            window: Some(1000000)
+            window: Some(1000000),
+            estimated: false
         }]
     );
 }

@@ -27,7 +27,7 @@ export type OpenDialog = { id: string; title: string; ask: DialogAsk };
 export type ModelChoice = { id: string | null; name: string; thinking: string | null };
 
 /** The model's context window and the tokens the session fills of it; null tokens right after a compaction; a null window until the agent tells it. */
-type ContextFill = { tokens: number | null; window: number | null };
+type ContextFill = { tokens: number | null; window: number | null; /** Chord counted the tokens itself, until a reply measures them. */ estimated: boolean };
 
 export type Chat = {
   /** idle: no agent runs (the Start button shows); starting: the process is coming up; ready: it takes messages. */
@@ -36,6 +36,8 @@ export type Chat = {
   running: boolean;
   /** When the current run started, in ms since the epoch. */
   since: number | null;
+  /** The agent compacts the context now. */
+  compacting: boolean;
   /** What the harness can do; null until the agent has started. */
   capabilities: Capability[] | null;
   notice: string | null;
@@ -67,7 +69,7 @@ export type Chat = {
   held: string | null;
 };
 
-export const emptyChat: Chat = { agent: "idle", items: [], running: false, since: null, capabilities: null, notice: null, dialog: null, model: null, permissions: null, context: null, commands: [], subagents: [], subagentsAt: null, queued: [], steerImages: [], report: null, historyLength: 0, loading: false, held: null };
+export const emptyChat: Chat = { agent: "idle", items: [], running: false, since: null, compacting: false, capabilities: null, notice: null, dialog: null, model: null, permissions: null, context: null, commands: [], subagents: [], subagentsAt: null, queued: [], steerImages: [], report: null, historyLength: 0, loading: false, held: null };
 
 export type SteerImages = { text: string; images: Image[] };
 
@@ -274,7 +276,7 @@ export function chatAfter(chat: Chat, event: HarnessEvent, now: number): Chat {
     case "model":
       return { ...chat, model: { id: event.id ?? null, name: event.name, thinking: event.thinking ?? null } };
     case "context":
-      return { ...chat, context: { tokens: event.tokens ?? null, window: event.window ?? null } };
+      return { ...chat, context: { tokens: event.tokens ?? null, window: event.window ?? null, estimated: event.estimated } };
     case "permissions":
       return { ...chat, permissions: { mode: event.mode, asks: event.asks } };
     case "commands":
@@ -293,8 +295,11 @@ export function chatAfter(chat: Chat, event: HarnessEvent, now: number): Chat {
         ...chat,
         running: event.running,
         since: event.running && !chat.running ? now : chat.since,
+        compacting: event.running && chat.compacting,
         items: event.running ? chat.items : closed(chat.items),
       };
+    case "compacting":
+      return { ...chat, compacting: event.active };
     case "aborted":
       return { ...chat, items: [...chat.items, { role: "stopped" }] };
     case "compaction":
@@ -317,6 +322,6 @@ export function chatAfter(chat: Chat, event: HarnessEvent, now: number): Chat {
       return chat;
     case "exited":
       // Nobody is left to answer a dialog, a picker menu included.
-      return { ...chat, agent: "idle", running: false, queued: [], steerImages: [], context: null, permissions: null, subagents: [], subagentsAt: null, dialog: null, items: closed(chat.items) };
+      return { ...chat, agent: "idle", running: false, compacting: false, queued: [], steerImages: [], context: null, permissions: null, subagents: [], subagentsAt: null, dialog: null, items: closed(chat.items) };
   }
 }
