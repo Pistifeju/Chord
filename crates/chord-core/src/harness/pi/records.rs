@@ -158,11 +158,19 @@ pub(super) fn events_from(record: &Value) -> Vec<HarnessEvent> {
         Some("agent_settled") => vec![HarnessEvent::State { running: false }],
         // A `/compact` runs outside an agent run, so its start and end are the run; an automatic one happens inside a run.
         Some("compaction_start") if record["reason"] == "manual" => {
-            vec![HarnessEvent::State { running: true }]
+            vec![
+                HarnessEvent::State { running: true },
+                HarnessEvent::Compacting { active: true },
+            ]
         }
         Some("compaction_end") if record["reason"] == "manual" => {
-            vec![HarnessEvent::State { running: false }]
+            vec![
+                HarnessEvent::Compacting { active: false },
+                HarnessEvent::State { running: false },
+            ]
         }
+        Some("compaction_start") => vec![HarnessEvent::Compacting { active: true }],
+        Some("compaction_end") => vec![HarnessEvent::Compacting { active: false }],
         Some("tool_execution_start") => {
             vec![tool_start(
                 record["toolCallId"].as_str(),
@@ -258,6 +266,7 @@ fn response(command: Option<&str>, data: &Value) -> Vec<HarnessEvent> {
         Some("get_session_stats") => vec![HarnessEvent::Context {
             tokens: count(&data["contextUsage"]["tokens"]),
             window: count(&data["contextUsage"]["contextWindow"]),
+            estimated: false,
         }],
         Some("get_available_models") => vec![model_dialog(&data["models"])],
         Some("get_available_thinking_levels") => vec![thinking_dialog(&data["levels"])],

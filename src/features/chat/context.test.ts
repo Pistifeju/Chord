@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { contextMeter } from "./context.ts";
 import { emptyChat } from "./transcript.ts";
 
-const chat = (tokens: number | null) => ({ ...emptyChat, capabilities: ["context" as const], context: { tokens, window: 200000 } });
+const chat = (tokens: number | null) => ({ ...emptyChat, capabilities: ["context" as const], context: { tokens, window: 200000, estimated: false } });
 
 test("the meter shows the fill of the window", () => {
   const meter = contextMeter(chat(60000));

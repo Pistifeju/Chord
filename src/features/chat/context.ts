@@ -2,7 +2,7 @@
 import type { Chat } from "./transcript.ts";
 
 /** What the composer bar shows of the context window. */
-type ContextMeter = { percent: number | null; level: FillLevel; title: string };
+type ContextMeter = { percent: number | null; estimated: boolean; level: FillLevel; title: string };
 
 /** How alarming a meter's fill is: it picks the fill's color. */
 export type FillLevel = "calm" | "warning" | "critical";
@@ -15,10 +15,12 @@ const tokenLabel = (tokens: number): string => (tokens >= 1000 ? `${Math.round(t
 /** Null when the harness lacks the context capability or has not told the window yet; a missing token count (right after a compaction) shows as unknown. */
 export function contextMeter({ capabilities, context }: Chat): ContextMeter | null {
   if (!capabilities?.includes("context") || context === null) return null;
-  if (context.tokens === null) return { percent: null, level: "calm", title: "Context: unknown until the next reply" };
+  if (context.tokens === null) return { percent: null, estimated: false, level: "calm", title: "Context: unknown until the next reply" };
   const percent = Math.min(100, Math.round((context.tokens / context.window) * 100));
   const level = contextLevel(percent);
-  return { percent, level, title: `Context: ${tokenLabel(context.tokens)} of ${tokenLabel(context.window)} tokens${level === "critical" ? ", nearly full" : ""}` };
+  const about = context.estimated ? "about " : "";
+  const until = context.estimated ? ", estimated until the next reply" : "";
+  return { percent, estimated: context.estimated, level, title: `Context: ${about}${tokenLabel(context.tokens)} of ${tokenLabel(context.window)} tokens${level === "critical" ? ", nearly full" : ""}${until}` };
 }
 
 /** The folded line of a compaction in the transcript. */

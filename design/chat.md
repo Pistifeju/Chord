@@ -50,7 +50,7 @@
   No images, no row.
 - **Working:** a row of meta text right above the composer while the agent runs.
   It floats over the foot of the transcript, so a run's start resizes nothing; the transcript's bottom fade moves up to end at the row's top, and the text under the row hides; while it shows, the transcript ends that much lower.
-  The row holds the `status-running` orbit, a verb in `ink-secondary` ending with "…" ("Cooking…", "Locking in…", "Hold my beer…", "Going feral…"), the time since the run started ("14s", "2m 5s") and "esc stops".
+  The row holds the `status-running` orbit, a verb in `ink-secondary` ending with "…" ("Cooking…", "Locking in…", "Hold my beer…", "Going feral…"; "Compacting…" while the agent compacts the context), the time since the run started ("14s", "2m 5s") and "esc stops".
   The run's start time picks the verb, so it holds for the whole run.
 - **Notice:** one line of `danger` meta text above the composer.
 - **Compaction:** where the agent replaced the earlier messages with a summary, the transcript holds one row that reads as a step group's toggle line: the chevron and "Compacted 150K tokens" ("Compacted the context" when the agent gives no count), folded.
@@ -84,6 +84,7 @@
   A click opens the agent menu above the composer (see Agent menu); a second click closes it.
   Before the agent button, when the harness has the context capability and has told its window, the context meter, set off from the agent button by a 1px `line-strong` divider 14px tall after it, so it never reads as part of the label: a 12px ring (2px stroke, `line-strong` track, the fill in `accent-ink`) and, 6px after it, the session's fill of the window as a percentage in 12px `ink-muted` meta text, tabular, 8px padding on both sides, with a tooltip of the tokens used and the window; from 50% the ring and the percentage take `status-waiting`, from 75% `status-error`, and the tooltip adds "nearly full".
   `/new` empties it (0%).
+  After a compaction it shows the agent's count of what the context keeps; when the agent has none, Chord counts it from the messages and the percentage starts with "~" ("~6%") and the tooltip says "about" and "estimated until the next reply", until the next reply measures it.
   The send button sits on the right: a 32px `accent` circle with a white up arrow, `selected` with an `ink-muted` arrow while the draft is empty.
   Its tooltip reads Send, or Steer while the agent runs and the harness has the steer capability; without it the button stays disabled until the run ends.
 - **Dialog:** a dialog an agent opens (select, confirm, input) takes the composer's place as the same `sheet` card: a Heading title, then the body, and the composer returns once it is answered.

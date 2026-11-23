@@ -86,6 +86,8 @@ pub(super) struct Reader {
     settings: Settings,
     /// The model's context window, kept for the meter after a compaction.
     window: Option<u32>,
+    /// A compaction ended and no reply came since; Claude Code's context usage would still count the context before it.
+    compacted: bool,
     /// The content block that streams now had text deltas, so its `assistant` record does not repeat them.
     text_streamed: bool,
     thought_started: bool,
@@ -117,6 +119,7 @@ impl Reader {
             settings,
             window: None,
             text_streamed: false,
+            compacted: false,
             thought_started: false,
             tools: HashMap::new(),
             held: vec![],
@@ -430,6 +433,7 @@ impl Reader {
                 if record["status"] == "compacting" {
                     self.running = true;
                     events.push(HarnessEvent::State { running: true });
+                    events.push(HarnessEvent::Compacting { active: true });
                 }
                 // One follows a pick, and one a change Claude Code makes itself, as after an approved plan.
                 if let Some(mode) = record["permissionMode"].as_str() {
@@ -469,16 +473,21 @@ impl Reader {
                 let id = record["task_id"].as_str().unwrap_or_default();
                 self.subagents.end(id, state).into_iter().collect()
             }
-            Some("compact_boundary") => vec![
-                HarnessEvent::Compaction {
-                    summary: String::new(),
-                    tokens_before: count(&record["compact_metadata"]["pre_tokens"]),
-                },
-                HarnessEvent::Context {
-                    tokens: None,
-                    window: self.window,
-                },
-            ],
+            Some("compact_boundary") => {
+                self.compacted = true;
+                vec![
+                    HarnessEvent::Compacting { active: false },
+                    HarnessEvent::Compaction {
+                        summary: String::new(),
+                        tokens_before: count(&record["compact_metadata"]["pre_tokens"]),
+                    },
+                    HarnessEvent::Context {
+                        tokens: count(&record["compact_metadata"]["post_tokens"]),
+                        window: self.window,
+                        estimated: false,
+                    },
+                ]
+            }
             _ => vec![],
         }
     }
@@ -515,6 +524,7 @@ impl Reader {
 
     // One record per content block, sent before the block's `content_block_stop`.
     fn assistant(&mut self, record: &Value) -> Vec<HarnessEvent> {
+        self.compacted = false;
         let streamed = Streamed {
             text: self.text_streamed,
             thought: self.thought_started,
@@ -584,12 +594,14 @@ impl Reader {
         if aborted {
             events.push(HarnessEvent::Aborted);
         }
+        let context = (!self.compacted)
+            .then(|| self.request(Pending::Context, "get_context_usage", json!({})));
         Read {
             events,
-            lines: vec![
-                self.request(Pending::Context, "get_context_usage", json!({})),
-                self.request(Pending::Usage, "get_usage", json!({})),
-            ],
+            lines: context
+                .into_iter()
+                .chain([self.request(Pending::Usage, "get_usage", json!({}))])
+                .collect(),
             relaunch: None,
         }
     }
@@ -668,6 +680,7 @@ impl Reader {
                 read.events.push(HarnessEvent::Context {
                     tokens: count(&answer["totalTokens"]),
                     window: self.window,
+                    estimated: false,
                 });
             }
             Pending::Usage if error.is_none() => read.events.push(HarnessEvent::Usage {
