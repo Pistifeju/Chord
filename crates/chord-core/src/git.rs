@@ -10,6 +10,11 @@ fn command(dir: &Path, args: &[&str]) -> Command {
     let mut command = Command::new("git");
     // The app has no terminal to ask in: a push without credentials fails with git's reason.
     command.env("GIT_TERMINAL_PROMPT", "0");
+    // Tests run the same on any machine: no user or system git config.
+    #[cfg(test)]
+    command
+        .env("GIT_CONFIG_GLOBAL", "/dev/null")
+        .env("GIT_CONFIG_NOSYSTEM", "1");
     command.arg("-C").arg(dir).args(args);
     command
 }

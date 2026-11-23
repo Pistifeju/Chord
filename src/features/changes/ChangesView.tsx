@@ -1,4 +1,4 @@
-// The Changes view: its branch line (see BranchMenu), its scope control, Uncommitted or Branch while the worktree has a base (see BranchList), then under Uncommitted the worktree's changed files under Staged and Changes, Stash Changes on the Changes heading, the repository's stashes under them (see StashList), with the commit area under them: the push line while the branch has commits to push, then the message card with the subject length and Commit with its mode menu in its foot; each row with its name, folder, line counts and status; a click opens its diff. A checkbox on each row and group heading stages or unstages, and a row's More button and right-click menu hold its Stage or Unstage, and Discard.
+// The Changes view: its branch line (see BranchMenu), its scope control, Uncommitted or Branch while the worktree has a base (see BranchList), then under Uncommitted the worktree's changed files under Staged and Changes, Stash Changes on the Changes heading, the repository's stashes under them (see StashList), with the commit area under them: the message card with the subject length and Commit with its mode menu in its foot; each row with its name, folder, line counts and status; a click opens its diff. A checkbox on each row and group heading stages or unstages, and a row's More button and right-click menu hold its Stage or Unstage, and Discard.
 import { memo, useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from "react";
 import type { Change } from "../../ipc/bindings";
 import { showMenu } from "../../app/commands";
@@ -13,7 +13,7 @@ import { BranchLine } from "./BranchMenu";
 import { ChangeParts } from "./ChangeParts";
 import { StashList } from "./StashList";
 import { changesTarget } from "./commands";
-import { branches, changes, commitMessages, commitOptions, commitStaged, commitTargets, followsAct, optionsOf, pickCommitMode, pushAfterCommit, pushBranch, readChanges, running, scopes, setScope, showDiff, stageChanges, stashChanges, typeCommitMessage, unstageChanges, type Scope } from "./store";
+import { branches, changes, commitMessages, commitOptions, commitStaged, commitTargets, followsAct, optionsOf, pickCommitMode, pushAfterCommit, readChanges, running, scopes, setScope, showDiff, stageChanges, stashChanges, typeCommitMessage, unstageChanges, type Running, type Scope } from "./store";
 import "./changes.css";
 
 const scopeOptions: { value: Scope; label: string }[] = [
@@ -167,8 +167,6 @@ function CommitBox({ worktree, staged }: { worktree: string; staged: boolean }) 
   const options = commitOptions.usePart((all) => optionsOf(all, worktree, savedPush));
   const busy = running.usePart((all) => all[worktree]);
   const ready = canCommit(message, options.amend, staged);
-  // With nothing to commit, Push is the one action left, so it takes the blue.
-  const pushFirst = !ready && busy !== "commit";
   const subject = message.split("\n")[0].length;
   const field = useRef<HTMLTextAreaElement>(null);
   useLayoutEffect(() => {
@@ -179,17 +177,6 @@ function CommitBox({ worktree, staged }: { worktree: string; staged: boolean }) 
   }, [message]);
   return (
     <div className="changes-commit">
-      {target?.pushable && target.pushTo && (
-        <div className="changes-sync">
-          <span className="changes-sync-label">
-            {target.ahead ? <span className="changes-ahead">↑{target.ahead}</span> : "First push"} to {target.pushTo}
-          </span>
-          <button type="button" className={pushFirst ? "button-primary" : "button-secondary"} aria-busy={busy === "push"} onClick={() => void pushBranch(worktree)}>
-            <span className="button-label">Push</span>
-            {busy === "push" && <span className="spinner" aria-label="Pushing" />}
-          </button>
-        </div>
-      )}
       <div className="changes-card">
         <textarea
           ref={field}
@@ -224,7 +211,7 @@ const commitModes = [
 ];
 
 // Commit with its mode on a chevron: Amend only while HEAD has a commit, Push only while the branch has a remote.
-function CommitButton({ worktree, amend, push, ready, busy }: { worktree: string; amend: boolean; push: boolean; ready: boolean; busy: "commit" | "push" | undefined }) {
+function CommitButton({ worktree, amend, push, ready, busy }: { worktree: string; amend: boolean; push: boolean; ready: boolean; busy: Running | undefined }) {
   const target = commitTargets.usePart((all) => all[worktree]);
   const [open, setOpen] = useState(false);
   const menu = useRef<HTMLDivElement>(null);

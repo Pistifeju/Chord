@@ -1334,6 +1334,34 @@
   min-width: 0;
 }
 
+/* A stacked row's More button, shown while the row is highlighted, under the pointer or holds the focus. */
+.chat-dialog-more {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-left: auto;
+  border-radius: var(--radius-inset);
+  opacity: 0;
+  transition: opacity var(--t-fast) var(--ease-out);
+}
+
+.chat-dialog-option[data-active] .chat-dialog-more,
+.chat-dialog-option:hover .chat-dialog-more,
+.chat-dialog-more:focus-visible {
+  opacity: 1;
+}
+
+/* The highlighted row is selected, so the button's hover steps up to the segmented chip's fill. */
+.chat-dialog-option[data-active] .chat-dialog-more:hover {
+  background: var(--control-selected);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-dialog-more {
+    transition: none;
+  }
+}
+
 .chat-dialog-option[data-stacked][data-active] .chat-dialog-description {
   color: var(--ink-secondary);
 }

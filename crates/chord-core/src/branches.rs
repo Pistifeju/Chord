@@ -1,4 +1,4 @@
-//! A worktree's local branches for the composer's branch menu, newest first with the other worktree that holds each, the switch of the worktree to one, and the delete of a branch.
+//! A worktree's local branches for the branch menu, newest first with the other worktree that holds each, the switch of the worktree to one, the new branch it moves to, and the delete of a branch.
 
 use std::path::{Path, PathBuf};
 
@@ -51,6 +51,11 @@ fn parse(line: &str, here: &Path) -> Option<LocalBranch> {
 /// Checks out `branch` in the worktree; git refuses when local changes would be lost or another worktree holds it.
 pub fn switch(worktree: &Path, branch: &str) -> Result<(), Error> {
     git::run(worktree, &["switch", "--no-guess", "--", branch]).map(|_| ())
+}
+
+/// Creates `name` at HEAD and checks it out in the worktree, which keeps its changes; git refuses a name it cannot take.
+pub fn create(worktree: &Path, name: &str) -> Result<(), Error> {
+    git::run(worktree, &["switch", "-q", "-c", name]).map(|_| ())
 }
 
 #[derive(Serialize, Type, Debug, PartialEq)]

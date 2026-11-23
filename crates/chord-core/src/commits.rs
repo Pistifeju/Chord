@@ -1,4 +1,4 @@
-//! A worktree's commit of its staged files, or its amend of the last commit, and the push of its branch: who a commit is by, where a push goes and whether it has anything to push, and the push that sets the upstream the first time.
+//! A worktree's commit of its staged files, or its amend of the last commit, and its branch against its remote: who a commit is by, where a push goes, the commits each side lacks and when the worktree last fetched, the push that sets the upstream the first time, the fetch, the pull, and the merge of another branch.
 
 use std::path::Path;
 
@@ -18,6 +18,10 @@ pub struct CommitTarget {
     pub pushable: bool,
     /// The commits `push_to` lacks; None before the first push sets the upstream.
     pub ahead: Option<u32>,
+    /// The commits of `push_to` the branch lacks, as of the last fetch; None before the first push sets the upstream.
+    pub behind: Option<u32>,
+    /// When the worktree last fetched, in milliseconds since 1970; None before its first fetch.
+    pub fetched: Option<f64>,
     /// Whether HEAD has a commit to amend.
     pub amendable: bool,
 }
@@ -55,8 +59,8 @@ struct Branch {
     born: bool,
     /// The remote of an upstream with the branch's own name; another upstream counts as none, since `git push` refuses it.
     upstream_remote: Option<String>,
-    /// None without such an upstream, or with one that is gone from the remote.
-    ahead: Option<u32>,
+    /// The commits it is behind and ahead of that upstream; None without one, or with one that is gone from the remote.
+    sides: Option<(u32, u32)>,
 }
 
 fn branch(dir: &Path) -> Result<Branch, Error> {
@@ -84,9 +88,9 @@ fn branch(dir: &Path) -> Result<Branch, Error> {
     });
     Ok(Branch {
         born: header("branch.oid ").is_some_and(|oid| oid != "(initial)"),
-        ahead: upstream_remote
+        sides: upstream_remote
             .is_some()
-            .then(|| git_counts::parse_status(&status).0.map(|(_, ahead)| ahead))
+            .then(|| git_counts::parse_status(&status).0)
             .flatten(),
         upstream_remote,
         name,
@@ -109,21 +113,63 @@ pub fn target(dir: &Path) -> Result<CommitTarget, Error> {
         .and_then(|ident| ident.trim_end().rsplitn(3, ' ').nth(2).map(str::to_string));
     Ok(CommitTarget {
         author,
-        pushable: push_to.is_some() && branch.ahead.is_none_or(|ahead| ahead > 0),
+        pushable: push_to.is_some() && branch.sides.is_none_or(|(_, ahead)| ahead > 0),
         push_to,
-        ahead: branch.ahead,
+        ahead: branch.sides.map(|(_, ahead)| ahead),
+        behind: branch.sides.map(|(behind, _)| behind),
+        fetched: fetched(dir),
         amendable: branch.born,
     })
 }
 
+// git writes FETCH_HEAD in the worktree's own git folder on each fetch and pull.
+fn fetched(dir: &Path) -> Option<f64> {
+    let path = git::read(dir, &["rev-parse", "--git-path", "FETCH_HEAD"]).ok()?;
+    let modified = std::fs::metadata(dir.join(path.trim())).ok()?.modified();
+    let since = modified.ok()?.duration_since(std::time::UNIX_EPOCH).ok()?;
+    Some(since.as_millis() as f64)
+}
+
+/// The remote the branch syncs with: its upstream's, else `origin`, else the repository's only remote.
+fn sync_remote(dir: &Path, verb: &str) -> Result<String, Error> {
+    match branch(dir)?.upstream_remote {
+        Some(remote) => Ok(remote),
+        None => remote(dir)?
+            .ok_or_else(|| Error::Message(format!("This repository has no remote to {verb}."))),
+    }
+}
+
 /// Pushes the branch to its own name on the remote, which sets the upstream the first time.
 pub fn push(dir: &Path) -> Result<(), Error> {
-    let remote = match branch(dir)?.upstream_remote {
-        Some(remote) => remote,
-        None => remote(dir)?
-            .ok_or_else(|| Error::Message("This repository has no remote to push to.".into()))?,
-    };
+    let remote = sync_remote(dir, "push to")?;
     git::run(dir, &["push", "-q", "-u", &remote, "HEAD"]).map(drop)
+}
+
+/// Fetches the remote a push goes to, and returns its name.
+pub fn fetch(dir: &Path) -> Result<String, Error> {
+    let remote = sync_remote(dir, "fetch from")?;
+    git::run(dir, &["fetch", "-q", &remote])?;
+    Ok(remote)
+}
+
+/// Pulls the branch's upstream, and tells whether HEAD moved. Branches that diverged join the way the user's git config says, and by a merge while it says nothing.
+pub fn pull(dir: &Path) -> Result<bool, Error> {
+    // git refuses diverged branches while no config or flag picks a way; `--ff` picks the merge and leaves a set `pull.rebase` its rebase.
+    let unset = git::optional(git::read(dir, &["config", "--get", "pull.ff"]))?.is_none();
+    let ff: &[&str] = if unset { &["--ff"] } else { &[] };
+    moves_head(dir, &[&["pull", "-q", "--no-edit"], ff].concat())
+}
+
+/// Merges `branch` into the worktree's branch, and tells whether HEAD moved. A merge that stops on conflicts fails with git's report and leaves the conflicted files in the worktree.
+pub fn merge(dir: &Path, branch: &str) -> Result<bool, Error> {
+    moves_head(dir, &["merge", "-q", "--no-edit", branch])
+}
+
+fn moves_head(dir: &Path, args: &[&str]) -> Result<bool, Error> {
+    let head = || git::optional(git::read(dir, &["rev-parse", "HEAD"]));
+    let before = head()?;
+    git::run(dir, args)?;
+    Ok(head()? != before)
 }
 
 #[cfg(test)]
@@ -195,6 +241,74 @@ mod tests {
             (tracked.push_to.as_deref(), tracked.pushable),
             (Some("up/feat"), false)
         );
+        Ok(())
+    }
+
+    #[test]
+    fn fetch_counts_the_commits_to_pull_and_pull_and_merge_tell_whether_head_moved()
+    -> Result<(), Error> {
+        let root = std::env::temp_dir().join(format!("chord-pull-{}", std::process::id()));
+        let result = pull_in(&root);
+        let _ = std::fs::remove_dir_all(&root);
+        result
+    }
+
+    fn pull_in(root: &Path) -> Result<(), Error> {
+        let (remote, repo, other) = (
+            root.join("remote.git"),
+            root.join("app"),
+            root.join("other"),
+        );
+        std::fs::create_dir_all(&remote)?;
+        git::run(&remote, &["init", "-q", "--bare", "-b", "main"])?;
+        let clone = |to: &Path| -> Result<(), Error> {
+            let from = remote.to_string_lossy();
+            git::run(root, &["clone", "-q", &from, &to.to_string_lossy()])?;
+            git::run(to, &["config", "user.name", "T Tester"])?;
+            git::run(to, &["config", "user.email", "t@t"])?;
+            git::run(to, &["config", "commit.gpgsign", "false"]).map(drop)
+        };
+        let write = |dir: &Path, file: &str, text: &str, message: &str| -> Result<(), Error> {
+            std::fs::write(dir.join(file), text)?;
+            git::run(dir, &["add", file])?;
+            commit(dir, message, false)
+        };
+        clone(&other)?;
+        git::run(&other, &["checkout", "-q", "-b", "main"])?;
+        write(&other, "f", "1\n", "first")?;
+        push(&other)?;
+        clone(&repo)?;
+        assert_eq!(target(&repo)?.fetched, None);
+        write(&other, "f", "2\n", "second")?;
+        push(&other)?;
+
+        assert_eq!(target(&repo)?.behind, Some(0));
+        assert_eq!(fetch(&repo)?, "origin");
+        let fetched = target(&repo)?;
+        assert_eq!(fetched.behind, Some(1));
+        assert!(fetched.fetched.is_some());
+        assert!(pull(&repo)?);
+        assert!(!pull(&repo)?);
+        assert_eq!(target(&repo)?.behind, Some(0));
+
+        write(&other, "h", "theirs\n", "theirs")?;
+        push(&other)?;
+        write(&repo, "i", "ours\n", "ours")?;
+        assert!(pull(&repo)?);
+        assert_eq!(target(&repo)?.behind, Some(0));
+
+        git::run(&repo, &["checkout", "-q", "-b", "side"])?;
+        write(&repo, "g", "side\n", "side")?;
+        git::run(&repo, &["checkout", "-q", "main"])?;
+        assert!(merge(&repo, "side")?);
+        assert!(!merge(&repo, "side")?);
+
+        git::run(&repo, &["checkout", "-q", "side"])?;
+        write(&repo, "f", "side\n", "side again")?;
+        git::run(&repo, &["checkout", "-q", "main"])?;
+        write(&repo, "f", "main\n", "main again")?;
+        let stopped = merge(&repo, "side");
+        assert!(matches!(stopped, Err(Error::Message(reason)) if reason.contains("CONFLICT")));
         Ok(())
     }
 }

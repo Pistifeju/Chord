@@ -2,12 +2,29 @@
 
 - **Branch line:** the view's first line, over the scope control, 8px in: the branch button (tooltip "Switch Branch"), a 28px button with the 16px branch icon and a 12px chevron in `ink-muted`, 6px apart around the worktree's branch at 13px/500 `ink-secondary` ("Detached HEAD" without one), which truncates in a narrow panel; 8px padding, Control radius, no fill, `raised` with `ink` on hover over 120ms with `--ease-out`, `selected` with `ink` when pressed and while its menu is open, pressing it scales it to 97%.
   While any agent in the worktree runs it takes `ink-disabled`, no click and the tooltip "Switch branches after the agent stops", and an open branch menu closes.
+  At the line's right end, 4px after the branch button, which truncates to leave them their room, three icon buttons 2px apart while a push has somewhere to go, so not on a detached HEAD or in a repository without a remote: Fetch (the reload icon), Pull (the down arrow) and Push (the up arrow).
+  Pull and Push show the commits waiting 2px after their arrow, at 11px/500, tabular, as a card's git counts, with 6px side padding; a count of 0 shows no number.
+  The tooltips read "Fetch (fetched 2m ago)" ("Fetch" before the worktree's first fetch), "Pull 3 Commits" ("Pull" with none) and "Push 2 Commits" ("Push to origin/feat" before the upstream exists, "Push" with none).
+  Pull is disabled on a branch without an upstream, Push while its upstream has every commit.
+  A click runs at once and takes no second click until it ends: the Fetch icon turns once every 800ms (once every 2.4s under Reduce Motion), and Pull and Push show the loading spinner in `ink-secondary` in their arrow's place, Push also while a Commit & Push pushes.
+  Each ends in a notice toast: "Fetched origin", "Pulled from origin/main" or "Already up to date", "Pushed 2 commits to origin/main" ("Pushed to origin/feat" the first time).
+  Pull joins branches that diverged the way the user's git config says, and by a merge commit while it says nothing.
+  A pull git refuses shows its reason in a failure toast.
   A click opens the branch menu under it, 2px down and 8px in from both panel edges: the picker menu's card (see `design/chat.md` › Picker menu), fading in and dropping 4px from 96% scale over 200ms with `--ease-out` (a fade under Reduce Motion).
   It lists the worktree's local branches, newest commit first, each a commit mode row: a 14px check column marking the current branch, then the name in `ink`, which truncates, over a 12px `ink-muted` line, "Last commit 3h ago" ("Last commit just now" in the first minute), or "In harbor-flaky · 5h" for a branch another worktree holds, which shows in `ink-disabled` and takes no highlight or pick; 6px 8px 6px 6px padding, Inset radius, the highlighted row `selected` with its line in `ink-secondary`.
   Up to four branches it moves the highlight by typing, as the model picker; from five it starts with a Field (placeholder "Filter", 30px tall) that takes the focus and narrows the rows, reading "No matches" when none is left.
   ↑ and ↓ or the pointer move the highlight, Return or a click picks; Esc, a click outside the card or a second click on the button closes it.
   A pick switches the worktree to the branch; git's refusal shows in a failure toast.
   Right-click on a branch row opens Rename Branch and, for a branch no worktree or the main checkout holds, Delete Branch; either one closes the branch menu.
+  A branch row ends with a 20px More icon button (three dots, Inset radius, tooltip "More") that shows while the row is highlighted, under the pointer or holds the focus, fading in over 120ms with `--ease-out`; `raised` on hover, `control-selected` on the highlighted row.
+  It turns the card into that branch's actions: a 30px back row with a 16px `ink-muted` left arrow 8px before the branch at 500 in `ink`, which truncates (tooltip "Back (←)", Inset radius, `raised` on hover, `selected` pressed), then, 2px apart, commit mode rows without the check column: Switch, "Merge into main", Rename Branch and, in `danger`, Delete Branch.
+  Switch and Delete Branch are disabled in `ink-disabled` on the current branch and on one another worktree holds, which Switch names in its hint ("In harbor-flaky"); Merge is disabled on the current branch.
+  The back row takes the focus; ↑ and ↓ move between the rows, ← or the back row brings the list back, and a pick closes the menu.
+  Merge merges the branch into the worktree's own at once, then shows a notice toast ("Merged fix/a into main", or "Already up to date with fix/a").
+  A merge that stops on conflicts shows git's report in a failure toast and leaves the conflicted files in the Changes group.
+  Under the branch rows, 8px down and past a 1px `line` rule across the card, a New Branch row with the back row's look and a 16px `ink-muted` plus, in `ink-secondary` (`ink` on hover).
+  New Branch opens a sheet with a Branch name field and a primary Create button; the field hint reads "Starts from main", then the typed name or, in `danger`, the live check's or git's reason, which disables Create and keeps the sheet open.
+  Create makes the branch at HEAD and switches the worktree to it, changes and all.
   Rename Branch opens a sheet with a Branch name field, the branch selected in it, and a primary Rename button; the field hint shows the typed name or, in `danger`, the live check's or git's reason, which disables Rename and keeps the sheet open.
   Delete Branch asks with a confirm sheet ("Delete Branch?", the destructive button "Delete"); when git calls the branch unmerged, a second one asks again ("Delete Unmerged Branch?") before it deletes with force.
 - **Scope:** while the worktree has a base, a header over the list, 4px 8px 0 padding: a Segmented control as wide as the panel with Uncommitted and Branch, each segment half of it, its label truncating in a narrow panel.
@@ -19,9 +36,8 @@
   A click, → and ← open and close it to the files it changed against its first parent, 24px in, on the subject's edge.
   A file row is the Changes row without its checkbox and More button, 8px in under Files; a click opens its diff in the preview tab, for the branch since the merge base or for its commit, read-only without hunk buttons; the tab's tooltip adds "(Compared to main)" or "(Commit a41c9e2)".
   ↑ and ↓ move the focus between rows and open a file's diff, as under Uncommitted.
-- **Commit:** under the groups: a 1px `line` top edge and 12px padding, its parts 10px apart.
-  First, while the branch has commits its upstream lacks or no upstream and the repository has a remote, the push line: "↑2 to origin/main" in 12px `ink-muted` with the count at 500 in `ink-secondary`, tabular ("First push to origin/feat" before the upstream exists), truncating, then Push at its right end.
-  Then the message card, as the composer in small: `sheet` fill, a 1px `line-strong` border, Control radius.
+- **Commit:** under the groups: a 1px `line` top edge and 12px padding.
+  The message card, as the composer in small: `sheet` fill, a 1px `line-strong` border, Control radius.
   Inside it the message field with no border of its own, 8px 10px 4px padding, Body line height, placeholder "Message", three lines tall empty and growing with the text to eight, then scrolling; Return adds a line and ⌘Return commits; its tooltip is the author git records.
   The card's foot, 4px padding: the first line's length as "34/50" at 11px tabular `ink-muted`, 6px in, `git-changed` past 50, empty while the field is; then at the right end Commit, a primary button at 24px with the Inset radius, tooltip "Commit (⌘Return)", enabled while the field holds text and a file is staged or the mode amends.
   Its label names the mode: "Commit", "Commit & Push", "Amend" or "Amend & Push".
@@ -31,9 +47,8 @@
   Opening focuses the checked mode; ↑ and ↓ move between modes, Esc and a press outside close it, a pick closes it.
   While Commit cannot run, the chevron takes `raised` and `ink-secondary` and still opens.
   The box opens in Commit or Commit & Push, whichever the last commit without Amend ran, saved in `state.json`; an Amend mode never carries over.
-  Push is the primary button while Commit cannot run, and secondary otherwise, so one blue shows.
   Picking an Amend mode fills an empty field with the last commit's message, and leaving Amend empties the field while that message stands unchanged.
-  A running commit or push shows the loading spinner in its button (in `ink-secondary` on the secondary one) and takes no click until it ends.
+  A running commit shows the loading spinner in Commit, which takes no click until the commit and its push end.
   A commit empties the field and puts the box back in its saved mode; in a Push mode, the push follows it.
   Both read the view and the cards' git counts again when they end.
 - **Groups:** the worktree's changed files from `git status`, under Staged (the index against HEAD), then Changes (the file on disk against the index); both groups always show, so an empty one reads its 0 count; under its heading it reads "No staged files" or "No changes" in meta text on the rows' name edge, its checkbox is disabled (a `line` border, no fill).

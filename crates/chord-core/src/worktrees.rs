@@ -81,6 +81,11 @@ pub fn xcode_bundles(folder: &Path) -> Vec<PathBuf> {
     found
 }
 
+/// None when `name` can become a new branch, else the reason it cannot.
+pub fn check_new_branch(project: &Project, name: &str) -> Result<Option<String>, Error> {
+    branch_problem(project, name, None)
+}
+
 /// None when `name` can become a new branch with a free worktree folder, else the reason it cannot.
 pub fn check_branch(project: &Project, name: &str) -> Result<Option<String>, Error> {
     if let Some(reason) = branch_problem(project, name, None)? {
