@@ -1,7 +1,7 @@
 // The dialog an agent opens, shown in place of the composer: a select with its filter row, a confirm or an input; the menu a composer bar picker floats above it; and the select itself, which the branch menu takes too.
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import type { DialogAnswer } from "../../ipc/bindings";
-import { CheckIcon } from "../../ui/icons";
+import { CheckIcon, MoreIcon } from "../../ui/icons";
 import { useOutsidePointer } from "../../ui/outsidePointer";
 import { steppedPast } from "../../ui/listStep";
 import { openInDefaultBrowser } from "../browser/store";
@@ -24,6 +24,8 @@ type SelectProps = {
   unavailable?: (at: number) => boolean;
   /** The right-click menu of the option at this index. */
   rowMenu?: (at: number, event: MouseEvent) => void;
+  /** A stacked row ends with a More button, which runs this for the option at this index. */
+  rowMore?: (at: number) => void;
   /** One line per option, shown under its label. */
   descriptions?: string[];
   /** Each option takes a checkbox, and Submit answers with the checked ones. */
@@ -41,7 +43,7 @@ const noneUnavailable = () => false;
 const openFrom = (at: number, shown: number[], unavailable: (at: number) => boolean) =>
   shown[at] !== undefined && unavailable(shown[at]) ? steppedPast(at, 1, shown.length, (i) => unavailable(shown[i])) : at;
 
-export function Select({ options, current, answer, filter = "field", meta, unavailable = noneUnavailable, rowMenu, descriptions = [], multi = false, stacked = false, icon, numbered = false }: SelectProps) {
+export function Select({ options, current, answer, filter = "field", meta, unavailable = noneUnavailable, rowMenu, rowMore, descriptions = [], multi = false, stacked = false, icon, numbered = false }: SelectProps) {
   const [query, setQuery] = useState("");
   const [checked, setChecked] = useState<ReadonlySet<number>>(new Set());
   const [active, setActive] = useState(() => openFrom(startIndex(options, current), matchingOptions(options, ""), unavailable));
@@ -136,6 +138,22 @@ export function Select({ options, current, answer, filter = "field", meta, unava
                     <span className="chat-dialog-name">{option}</span>
                     {description && <span className="chat-dialog-description">{description}</span>}
                   </span>
+                  {rowMore && (
+                    <button
+                      type="button"
+                      className="icon-button chat-dialog-more"
+                      title="More"
+                      aria-label={`More for ${option}`}
+                      // Return and Space press the button; the list would take them as a pick.
+                      onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        rowMore(at);
+                      }}
+                    >
+                      <MoreIcon />
+                    </button>
+                  )}
                 </>
               ) : meta ? (
                 <>

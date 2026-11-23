@@ -172,17 +172,15 @@
   --term-bright-white: #eeeeec;
 }
 
-/* The sidebar's open row is a white card with a hairline ring in light, a faint white wash in dark. */
+/* The sidebar's cards: a resting card takes --card, the open one is white in light and a brighter wash in dark. */
 .sidebar {
   --selected: #ffffff;
-  --selected-ring: rgba(228, 228, 231, 0.7);
-  --card-hover: var(--raised);
+  --card: var(--raised);
 }
 
 :root[data-theme="dark"] .sidebar {
   --selected: rgba(255, 255, 255, 0.06);
-  --selected-ring: transparent;
-  --card-hover: rgba(255, 255, 255, 0.03);
+  --card: rgba(255, 255, 255, 0.03);
 }
 
 * { box-sizing: border-box; }

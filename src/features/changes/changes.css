@@ -1,16 +1,20 @@
-/* The Changes view: its scope control and base, its groups and their rows, which take the Files tree and its row, a branch's commit rows, the Stashes group and its stash rows, and the commit area under them. Rules: design/changes-view.md. */
-/* The worktree's branch over the scope control; its menu drops under it. */
+/* The Changes view: its branch line with the sync buttons and the branch menu's own rows, its scope control and base, its groups and their rows, which take the Files tree and its row, a branch's commit rows, the Stashes group and its stash rows, and the commit area under them. Rules: design/changes-view.md. */
+/* The worktree's branch over the scope control, the sync buttons at the line's right end; its menu drops under it. */
 .changes-branch-line {
   position: relative;
+  display: flex;
   flex: none;
+  align-items: center;
+  gap: 4px;
   padding: 0 8px;
 }
 
 .changes-branch-button {
   display: inline-flex;
+  flex: 0 1 auto;
   align-items: center;
   gap: 6px;
-  max-width: 100%;
+  min-width: 0;
   height: 28px;
   padding: 0 8px;
   border: none;
@@ -71,6 +75,119 @@
     opacity: 0;
     transform: translateY(-4px) scale(0.96);
   }
+}
+
+/* Fetch, Pull and Push; the branch button truncates to leave them their room. */
+.changes-sync {
+  display: flex;
+  flex: none;
+  gap: 2px;
+  margin-left: auto;
+}
+
+/* Pull and Push: the arrow, then the commits waiting, as the card's git counts. */
+.changes-sync-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: auto;
+  min-width: 28px;
+  padding: 0 6px;
+  font-size: calc(11px * var(--text-scale));
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The spinner takes the arrow's 16px, so the button holds its width. */
+.changes-sync-count > .spinner {
+  position: static;
+  flex: none;
+  margin: 1px;
+  border-color: var(--ink-secondary);
+  border-right-color: transparent;
+}
+
+.changes-fetch[aria-busy="true"] > svg {
+  animation: spin 800ms linear infinite;
+}
+
+/* New Branch under the menu's rows, past a rule across the card. */
+.changes-branch-foot {
+  flex: none;
+  margin: 8px -6px -6px;
+  padding: 4px 6px 6px;
+  border-top: 1px solid var(--line);
+}
+
+/* A row of the branch menu that is no branch: New Branch, and the way back from a branch's actions. */
+.changes-branch-item {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+  padding: 0 8px 0 6px;
+  border: none;
+  border-radius: var(--radius-inset);
+  background: none;
+  color: var(--ink-secondary);
+  text-align: left;
+  white-space: nowrap;
+  transition:
+    background-color var(--t-fast) var(--ease-out),
+    color var(--t-fast) var(--ease-out);
+}
+
+.changes-branch-item:hover {
+  background: var(--raised);
+  color: var(--ink);
+}
+
+.changes-branch-item:active {
+  background: var(--selected);
+}
+
+.changes-branch-item:focus-visible {
+  outline-offset: -2px;
+}
+
+.changes-branch-item > svg {
+  flex: none;
+  color: var(--ink-muted);
+}
+
+.changes-branch-back {
+  margin-bottom: 2px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+/* A branch's actions, in the list's place: commit mode rows without the check column. */
+.changes-branch-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.changes-branch-action {
+  flex: none;
+  padding-left: 8px;
+  white-space: nowrap;
+}
+
+.changes-branch-action[data-danger] {
+  color: var(--danger);
+}
+
+.changes-commit-mode.changes-branch-action:disabled,
+.changes-branch-action:disabled .changes-commit-hint {
+  background: none;
+  color: var(--ink-disabled);
 }
 
 .changes-header {
@@ -408,41 +525,11 @@
   color: var(--ink-muted);
 }
 
-/* The commit area under the groups: the push line, then the message card with its toggles and Commit in its foot. */
+/* The commit area under the groups: the message card with the subject length and Commit in its foot. */
 .changes-commit {
   flex: none;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
   padding: 12px;
   border-top: 1px solid var(--line);
-}
-
-.changes-sync {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  font-size: calc(12px * var(--text-scale));
-  color: var(--ink-muted);
-}
-
-.changes-sync-label {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.changes-ahead {
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-secondary);
-}
-
-.changes-sync > button {
-  flex: none;
 }
 
 .changes-card {
@@ -517,7 +604,7 @@
   border-radius: 0 var(--radius-inset) var(--radius-inset) 0;
 }
 
-/* While Commit cannot run, Push holds the view's blue, so the chevron goes gray but still opens. */
+/* While Commit cannot run, the chevron goes gray with it but still opens. */
 .button-primary.changes-commit-more[data-quiet] {
   border-left-color: var(--line);
   background: var(--raised);
@@ -611,6 +698,14 @@
 
   .changes-branch-button:active:not(:disabled) {
     transform: none;
+  }
+
+  .changes-fetch[aria-busy="true"] > svg {
+    animation-duration: 2.4s;
+  }
+
+  .changes-branch-item {
+    transition: none;
   }
 
   .changes-commit-more > svg {

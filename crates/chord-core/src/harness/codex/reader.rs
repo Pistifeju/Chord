@@ -81,8 +81,6 @@ pub(super) struct Reader {
     next_id: u64,
     pending: HashMap<u64, Pending>,
     settings: Settings,
-    /// The context window of the thread's model, kept for the meter after a compaction.
-    window: Option<u32>,
     /// Messages and thoughts whose text came as deltas, so their completion does not repeat it.
     streamed: HashSet<String>,
     /// The steers Codex has not taken in yet, oldest first.
@@ -113,7 +111,6 @@ impl Reader {
             next_id: 0,
             pending: HashMap::new(),
             settings: Settings::with_picks(picks),
-            window: None,
             streamed: HashSet::new(),
             steers: vec![],
             calls: OpenCalls::default(),
@@ -526,6 +523,14 @@ impl Reader {
                         events.push(HarnessEvent::SessionInfo { id: thread.into() });
                         events.extend(self.settings.opened(result));
                         let turns = result["thread"]["turns"].as_array();
+                        // Codex tells the window with the first reply; a thread without a turn fills none of it.
+                        if turns.is_none_or(|turns| turns.is_empty()) {
+                            events.push(HarnessEvent::Context {
+                                tokens: Some(0),
+                                window: None,
+                                estimated: false,
+                            });
+                        }
                         events.extend(
                             turns
                                 .into_iter()
@@ -629,6 +634,12 @@ impl Reader {
                         return events.into_iter().chain([self.queue()]).collect();
                     }
                 }
+                if item["type"] == "contextCompaction" {
+                    return events
+                        .into_iter()
+                        .chain([HarnessEvent::Compacting { active: true }])
+                        .collect();
+                }
                 events
             }
             "item/agentMessage/delta" => {
@@ -664,20 +675,18 @@ impl Reader {
                     events.extend(self.asks.push(ask));
                 }
                 if item["type"] == "contextCompaction" {
-                    events.push(HarnessEvent::Context {
-                        tokens: None,
-                        window: self.window,
-                    });
+                    events.push(HarnessEvent::Compacting { active: false });
                 }
                 events
             }
+            // After a compaction Codex sends its count of what the context keeps.
             "thread/tokenUsage/updated" => {
                 let usage = &params["tokenUsage"];
                 let count = |value: &Value| value.as_u64().and_then(|n| u32::try_from(n).ok());
-                self.window = count(&usage["modelContextWindow"]);
                 vec![HarnessEvent::Context {
                     tokens: count(&usage["last"]["totalTokens"]),
-                    window: self.window,
+                    window: count(&usage["modelContextWindow"]),
+                    estimated: false,
                 }]
             }
             "thread/settings/updated" => self.settings.updated(&params["threadSettings"]),

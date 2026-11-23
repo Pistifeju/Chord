@@ -56,6 +56,23 @@ fn a_streamed_turn_runs_says_its_reply_and_settles() {
 }
 
 #[test]
+fn a_thread_without_a_turn_fills_no_context() {
+    let mut reader = Reader::new(Path::new("/w"), None, Default::default(), None);
+    reader.initialize();
+    reader.feed(br#"{"id":1,"result":{}}"#);
+    reader.feed(br#"{"id":2,"result":{"data":[]}}"#);
+    reader.feed(br#"{"id":3,"result":{"data":[]}}"#);
+    let new = r#"{"id":5,"result":{"thread":{"id":"t1","turns":[]},"model":"m1"}}"#;
+    assert!(
+        events(&mut reader, &[new]).contains(&HarnessEvent::Context {
+            tokens: Some(0),
+            window: None,
+            estimated: false
+        })
+    );
+}
+
+#[test]
 fn a_notification_of_another_thread_gives_nothing() {
     let mut reader = started();
     let record = r#"{"method":"item/agentMessage/delta","params":{"threadId":"t2","itemId":"a1","delta":"Hi"}}"#;

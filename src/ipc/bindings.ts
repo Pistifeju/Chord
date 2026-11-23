@@ -13,6 +13,8 @@ export const commands = {
 	removeProject: (project: string) => __TAURI_INVOKE<null>("remove_project", { project }),
 	listWorktrees: (project: string) => __TAURI_INVOKE<Worktree_Serialize[]>("list_worktrees", { project }),
 	checkBranchName: (project: string, name: string) => __TAURI_INVOKE<string | null>("check_branch_name", { project, name }),
+	checkNewBranch: (project: string, name: string) => __TAURI_INVOKE<string | null>("check_new_branch", { project, name }),
+	createBranch: (worktree: string, name: string) => __TAURI_INVOKE<null>("create_branch", { worktree, name }),
 	checkBranchRename: (project: string, branch: string, name: string) => __TAURI_INVOKE<string | null>("check_branch_rename", { project, branch, name }),
 	renameBranch: (project: string, branch: string, name: string) => __TAURI_INVOKE<null>("rename_branch", { project, branch, name }),
 	listBranches: (worktree: string) => __TAURI_INVOKE<LocalBranch_Serialize[]>("list_branches", { worktree }),
@@ -60,6 +62,9 @@ export const commands = {
 	readCommitTarget: (worktree: string) => __TAURI_INVOKE<CommitTarget_Serialize>("read_commit_target", { worktree }),
 	lastCommitMessage: (worktree: string) => __TAURI_INVOKE<string>("last_commit_message", { worktree }),
 	pushBranch: (worktree: string) => __TAURI_INVOKE<null>("push_branch", { worktree }),
+	fetchRemote: (worktree: string) => __TAURI_INVOKE<string>("fetch_remote", { worktree }),
+	pullBranch: (worktree: string) => __TAURI_INVOKE<boolean>("pull_branch", { worktree }),
+	mergeBranch: (worktree: string, branch: string) => __TAURI_INVOKE<boolean>("merge_branch", { worktree, branch }),
 	listStashes: (worktree: string) => __TAURI_INVOKE<Stash[]>("list_stashes", { worktree }),
 	listStashFiles: (worktree: string, stash: string) => __TAURI_INVOKE<CommittedFile_Serialize[]>("list_stash_files", { worktree, stash }),
 	stashChanges: (worktree: string) => __TAURI_INVOKE<null>("stash_changes", { worktree }),
@@ -417,6 +422,10 @@ export type CommitTarget_Deserialize = {
 	pushable: boolean,
 	/**  The commits `push_to` lacks; None before the first push sets the upstream. */
 	ahead?: number | null,
+	/**  The commits of `push_to` the branch lacks, as of the last fetch; None before the first push sets the upstream. */
+	behind?: number | null,
+	/**  When the worktree last fetched, in milliseconds since 1970; None before its first fetch. */
+	fetched?: number | null,
 	/**  Whether HEAD has a commit to amend. */
 	amendable: boolean,
 };
@@ -430,6 +439,10 @@ export type CommitTarget_Serialize = {
 	pushable: boolean,
 	/**  The commits `push_to` lacks; None before the first push sets the upstream. */
 	ahead: number | null,
+	/**  The commits of `push_to` the branch lacks, as of the last fetch; None before the first push sets the upstream. */
+	behind: number | null,
+	/**  When the worktree last fetched, in milliseconds since 1970; None before its first fetch. */
+	fetched: number | null,
 	/**  Whether HEAD has a commit to amend. */
 	amendable: boolean,
 };
@@ -637,6 +650,8 @@ export type HarnessEvent_Deserialize =
 { kind: "message_chunk"; text: string } | 
 /**  The agent replaced the session's earlier messages with this summary to free the context; `tokens_before` is how many tokens they filled, when the agent says. */
 { kind: "compaction"; summary: string; tokens_before?: number | null } | 
+/**  The agent started (`active`) or finished compacting the context. */
+{ kind: "compacting"; active: boolean } | 
 /**  The agent began a new block of reasoning. */
 { kind: "thought_start" } | 
 /**  Text of the reasoning block that is streaming now. */
@@ -651,8 +666,8 @@ export type HarnessEvent_Deserialize =
 { kind: "models"; 
 /**  The `name` of the harness's entry in `HARNESSES`. */
 harness: string; models: ModelOption_Deserialize[] } | 
-/**  How many tokens the session fills of the model's context window; `tokens` is missing right after a compaction, until a reply measures it again; `window` is missing when the model has none. */
-{ kind: "context"; tokens?: number | null; window?: number | null } | 
+/**  How many tokens the session fills of the model's context window; `tokens` is missing right after a compaction when the agent cannot tell, until a reply measures it again; `estimated` says Chord counted `tokens` itself; `window` is missing when the model has none, and until the harness tells it. */
+{ kind: "context"; tokens?: number | null; window?: number | null; estimated: boolean } | 
 /**  The streaming reply is complete; `failed` when it ended in an error; `at` is when the reply was written, in epoch milliseconds, when the agent says. */
 { kind: "message_end"; failed: boolean; at?: number | null } | 
 /**  The agent opened a dialog and waits for an answer; `id` goes back with it. */
@@ -699,6 +714,8 @@ export type HarnessEvent_Serialize =
 { kind: "message_chunk"; text: string } | 
 /**  The agent replaced the session's earlier messages with this summary to free the context; `tokens_before` is how many tokens they filled, when the agent says. */
 { kind: "compaction"; summary: string; tokens_before: number | null } | 
+/**  The agent started (`active`) or finished compacting the context. */
+{ kind: "compacting"; active: boolean } | 
 /**  The agent began a new block of reasoning. */
 { kind: "thought_start" } | 
 /**  Text of the reasoning block that is streaming now. */
@@ -713,8 +730,8 @@ export type HarnessEvent_Serialize =
 { kind: "models"; 
 /**  The `name` of the harness's entry in `HARNESSES`. */
 harness: string; models: ModelOption_Serialize[] } | 
-/**  How many tokens the session fills of the model's context window; `tokens` is missing right after a compaction, until a reply measures it again; `window` is missing when the model has none. */
-{ kind: "context"; tokens: number | null; window: number | null } | 
+/**  How many tokens the session fills of the model's context window; `tokens` is missing right after a compaction when the agent cannot tell, until a reply measures it again; `estimated` says Chord counted `tokens` itself; `window` is missing when the model has none, and until the harness tells it. */
+{ kind: "context"; tokens: number | null; window: number | null; estimated: boolean } | 
 /**  The streaming reply is complete; `failed` when it ended in an error; `at` is when the reply was written, in epoch milliseconds, when the agent says. */
 { kind: "message_end"; failed: boolean; at: number | null } | 
 /**  The agent opened a dialog and waits for an answer; `id` goes back with it. */

@@ -1,4 +1,4 @@
-//! Commands for projects and their worktrees: add, remove, list, create, rename a branch, list the local branches, switch to one and delete one, delete a worktree, git counts.
+//! Commands for projects and their worktrees: add, remove, list, create, rename a branch, list the local branches, switch to one, create one and delete one, delete a worktree, git counts.
 
 use std::path::PathBuf;
 
@@ -78,6 +78,25 @@ pub async fn check_branch_name(
         worktrees::check_branch(&projects::find(store, &project)?, &name)
     })
     .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn check_new_branch(
+    app: AppHandle,
+    project: PathBuf,
+    name: String,
+) -> Result<Option<String>, String> {
+    blocking(app, move |_, store| {
+        worktrees::check_new_branch(&projects::find(store, &project)?, &name)
+    })
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn create_branch(app: AppHandle, worktree: PathBuf, name: String) -> Result<(), String> {
+    blocking(app, move |_, _| branches::create(&worktree, &name)).await
 }
 
 #[tauri::command]

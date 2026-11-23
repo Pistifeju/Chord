@@ -6,7 +6,7 @@ import { diffView, editorView } from "../../app/deferredViews";
 import { imageMime } from "../chat/attachments";
 import { ChatPane } from "../chat/ChatPane";
 import { chats, paneHarnesses, usePaneNames } from "../chat/store";
-import { harnessMarks } from "../harnesses/logos";
+import { chatLogo, harnessMarks } from "../harnesses/logos";
 import { shortcutChanges } from "../settings/store";
 import { seenStatus, statusLabel } from "../status/status";
 import { StatusMark } from "../status/StatusMark";
@@ -16,7 +16,7 @@ import { SidePanel, type SideViewSlot } from "../sidepanel/SidePanel";
 import { sidebar } from "../sidebar/store";
 import { ImageView } from "../editor/ImageView";
 import { selectFile } from "../files/store";
-import { ChatIcon, CloseIcon, DiffIcon, FileIcon, GlobeIcon, PlusIcon } from "../../ui/icons";
+import { CloseIcon, DiffIcon, FileIcon, GlobeIcon, PlusIcon } from "../../ui/icons";
 import { BrowserView } from "../browser/BrowserView";
 import { usePointerDrag } from "../../ui/pointerDrag";
 import { chatPaneIds, dropEdge, dropPreview, edgeDirection, fitsSplit, groupOf, minExtent, paneIds, resizedSizes, type Box, type Group } from "./layout";
@@ -83,7 +83,7 @@ function useTabDrag(worktree: string) {
 const tabIcon = (tab: Tab, harness: string | null) => {
   if (tab.kind === "file") return tab.diff ? <DiffIcon /> : <FileIcon />;
   if (tab.kind === "browser") return <GlobeIcon />;
-  const Logo = (harness && harnessMarks[harness]?.Logo) || ChatIcon;
+  const Logo = chatLogo(harness);
   return <Logo />;
 };
 

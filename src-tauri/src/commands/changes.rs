@@ -1,4 +1,4 @@
-//! Commands for a worktree's changes: list the changed files, read the branch's commits and files against a base, list a commit's files and the bases to pick from, read one file's diff, stage, unstage and discard files and hunks, commit the staged files or amend the last commit, read who commits and where a push goes, push the branch, and list, make, apply, pop and drop the repository's stashes and list a stash's files.
+//! Commands for a worktree's changes: list the changed files, read the branch's commits and files against a base, list a commit's files and the bases to pick from, read one file's diff, stage, unstage and discard files and hunks, commit the staged files or amend the last commit, read who commits and where a push goes, push the branch, fetch its remote, pull it, merge another branch into it, and list, make, apply, pop and drop the repository's stashes and list a stash's files.
 
 use std::path::PathBuf;
 
@@ -145,6 +145,28 @@ pub async fn read_commit_target(
 #[specta::specta]
 pub async fn push_branch(app: tauri::AppHandle, worktree: PathBuf) -> Result<(), String> {
     blocking(app, move |_, _| commits::push(&worktree)).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn fetch_remote(app: tauri::AppHandle, worktree: PathBuf) -> Result<String, String> {
+    blocking(app, move |_, _| commits::fetch(&worktree)).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn pull_branch(app: tauri::AppHandle, worktree: PathBuf) -> Result<bool, String> {
+    blocking(app, move |_, _| commits::pull(&worktree)).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn merge_branch(
+    app: tauri::AppHandle,
+    worktree: PathBuf,
+    branch: String,
+) -> Result<bool, String> {
+    blocking(app, move |_, _| commits::merge(&worktree, &branch)).await
 }
 
 #[tauri::command]
