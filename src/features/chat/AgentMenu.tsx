@@ -28,7 +28,7 @@ export function AgentMenu({ worktree, pane, harness, chat, trigger }: Props) {
   const own = shown === harness;
   const [active, setActive] = useState(() => Math.max(0, models.findIndex((m) => m.id === chat.model?.id)));
   const [hovered, setHovered] = useState<number | null>(null);
-  const [chosen, setChosen] = useState<Record<string, string>>({});
+  const [pickedLevel, setPickedLevel] = useState<string | null>(null);
   const card = useRef<HTMLDivElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const typed = useRef({ text: "", at: 0 });
@@ -36,7 +36,7 @@ export function AgentMenu({ worktree, pane, harness, chat, trigger }: Props) {
 
   const target = models[hovered ?? active] ?? null;
   const slots = levelSlots(models);
-  const level = target ? shownLevel(target, chat.model, chosen) : null;
+  const level = target ? shownLevel(target, chat.model, pickedLevel) : null;
 
   useEffect(() => {
     if (!harnessChecks.get().checks) void checkHarnesses();
@@ -66,13 +66,13 @@ export function AgentMenu({ worktree, pane, harness, chat, trigger }: Props) {
   // The pane's own agent takes the level at once; for another agent it waits for the model pick that starts it.
   const setLevel = (value: string) => {
     if (!target) return;
-    setChosen((was) => ({ ...was, [target.id]: value }));
+    setPickedLevel(value);
     if (own) pickModel(pane, target.id, value);
   };
 
   const pick = (at: number | null) => {
     const option = at === null ? null : models[at];
-    const picked = option ? shownLevel(option, chat.model, chosen) : null;
+    const picked = option ? shownLevel(option, chat.model, pickedLevel) : null;
     if (own) {
       if (option && !(option.id === chat.model?.id && picked === chat.model.thinking)) pickModel(pane, option.id, picked);
       closeAgentPicker();
@@ -97,11 +97,11 @@ export function AgentMenu({ worktree, pane, harness, chat, trigger }: Props) {
       if (levels.length === 0) return;
       e.preventDefault();
       setHovered(null);
-      const at = levels.indexOf(shownLevel(models[active], chat.model, chosen) ?? "");
+      const at = levels.indexOf(shownLevel(models[active], chat.model, pickedLevel) ?? "");
       const by = e.key === "ArrowRight" ? 1 : -1;
       const next = at === -1 ? (by === 1 ? 0 : levels.length - 1) : Math.min(levels.length - 1, Math.max(0, at + by));
       if (next !== at) {
-        setChosen((was) => ({ ...was, [models[active].id]: levels[next] }));
+        setPickedLevel(levels[next]);
         if (own) pickModel(pane, models[active].id, levels[next]);
       }
     } else if (e.key === "Enter" && !e.nativeEvent.isComposing) {
