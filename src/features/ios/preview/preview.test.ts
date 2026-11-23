@@ -43,7 +43,7 @@ test("the list groups previews under their file, hides a closed file's and opens
     { file: "B.swift", index: 0, name: "Login" },
   ];
   const paths = (query: string, closed: string[]) => previewRows(all, query, closed).map((row) => row.entry.path);
-  assert.deepEqual(paths("", ["A.swift"]), ["A.swift", "B.swift", "B.swift#0"]);
+  assert.deepEqual(paths("", ["A.swift"]), ["A.swift", "B.swift#0"]);
   assert.deepEqual(paths("preview 2", ["A.swift"]), ["A.swift", "A.swift#1"]);
 });
 
@@ -65,6 +65,7 @@ test("↑ and ↓ step over file rows, ⌥ jumps between files", () => {
     { file: "A.swift", index: 0, name: "One" },
     { file: "A.swift", index: 1, name: "Two" },
     { file: "B.swift", index: 0, name: "Three" },
+    { file: "B.swift", index: 1, name: "Five" },
     { file: "C.swift", index: 0, name: "Four" },
   ];
   const rows = previewRows(all, "", ["B.swift"]);

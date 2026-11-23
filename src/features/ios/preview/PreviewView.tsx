@@ -214,7 +214,7 @@ function ListRow({ row, selected, onToggle, onPick }: { row: PreviewRow; selecte
       <span className="turn-chevron files-chevron" data-open={open} data-hidden={pick !== null}>
         <ChevronIcon />
       </span>
-      {!pick && (
+      {depth === 0 && (
         <span className="files-icon">
           <FileIcon />
         </span>
