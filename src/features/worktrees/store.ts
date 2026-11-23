@@ -50,8 +50,10 @@ const worktreesGone = (paths: string[]) => paths.forEach(forgetPanes);
 
 export async function refreshWorktrees(project: string) {
   const list = await commands.listWorktrees(project);
-  worktreesGone(goneWorktrees(projects.get(), project, list));
-  update((p) => withWorktrees(p, project, list));
+  const gone = goneWorktrees(projects.get(), project, list);
+  worktreesGone(gone);
+  // A gone selected card hands the selection on, as a delete in Chord does.
+  update((p) => withWorktrees(gone.reduce((q, path) => withoutWorktree(q, project, path), p), project, list));
 }
 
 function show(project: Project) {
