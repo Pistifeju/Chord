@@ -1,8 +1,8 @@
-// Keeps the cards' git counts fresh: on window focus, when a card appears, after a commit or a push, then every 10 seconds while the window is visible. A plain folder whose counts arrive became a repository, so its project's list reads again.
+// Keeps the cards' git counts fresh: on window focus, when a card appears, after a commit or a push, then every 10 seconds while the window is visible. A plain folder whose counts arrive became a repository, and a git card whose counts miss may be gone, so its project's list reads again.
 import { commands, type GitCounts_Serialize as GitCounts } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
 import { gainsPath, nextCounts } from "./gitCounts";
-import { projectsTurnedGit, worktreeOrder } from "./projects";
+import { projectsLosingWorktrees, projectsTurnedGit, worktreeOrder } from "./projects";
 import { projects, refreshWorktrees } from "./store";
 import { fail } from "../../ui/alert";
 
@@ -41,7 +41,10 @@ export function watchGitCounts(): () => void {
     try {
       const fresh = await commands.readGitCounts(paths);
       gitCounts.set(nextCounts(gitCounts.get(), worktreeOrder(projects.get()), paths, fresh));
-      for (const project of projectsTurnedGit(projects.get(), fresh.map((c) => c.path))) refreshWorktrees(project).catch(fail);
+      const read = fresh.map((c) => c.path);
+      for (const project of projectsTurnedGit(projects.get(), read)) refreshWorktrees(project).catch(fail);
+      // An unmounted project fails this every tick, so it logs instead of alerting.
+      for (const project of projectsLosingWorktrees(projects.get(), paths, read)) refreshWorktrees(project).catch(console.error);
     } catch (error) {
       stopped = true;
       stop();
