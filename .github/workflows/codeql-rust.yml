@@ -1,0 +1,27 @@
+# Scans the Rust code with CodeQL on every push to main and once a week; the scan runs 9 minutes, so pull requests skip it.
+name: codeql-rust
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '23 4 * * 1'
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: codeql (rust)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: rust
+          build-mode: none
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:rust

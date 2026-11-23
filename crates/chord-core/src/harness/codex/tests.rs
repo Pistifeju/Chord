@@ -66,7 +66,8 @@ fn a_thread_without_a_turn_fills_no_context() {
     assert!(
         events(&mut reader, &[new]).contains(&HarnessEvent::Context {
             tokens: Some(0),
-            window: None
+            window: None,
+            estimated: false
         })
     );
 }

@@ -92,12 +92,12 @@ function Start({ worktree, pane, blocking }: { worktree: string; pane: string; b
 const VERBS = ["Cooking…", "Locking in…", "Hold my beer…", "Going feral…"];
 
 // The start time picks the verb, so a remount keeps it.
-function Working({ since }: { since: number }) {
+function Working({ since, compacting }: { since: number; compacting: boolean }) {
   const now = useClock(true);
   return (
     <div className="chat-working">
       <StatusMark kind="running" />
-      <span className="chat-working-verb">{VERBS[since % VERBS.length]}</span>
+      <span className="chat-working-verb">{compacting ? "Compacting…" : VERBS[since % VERBS.length]}</span>
       <span>{elapsedText(now - since)}</span>
       <span>esc stops</span>
     </div>
@@ -488,7 +488,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
           <ArrowDownIcon />
         </button>
         {find && <TranscriptFind pane={pane} find={find} transcript={transcript} items={shownItems.current} />}
-        {chat.running && <Working since={chat.since ?? Date.now()} />}
+        {chat.running && <Working since={chat.since ?? Date.now()} compacting={chat.compacting} />}
       </div>
       {viewing && <Lightbox images={viewing.images} index={viewing.index} onStep={(by) => stepLightbox(pane, by)} onClose={() => closeLightbox(pane)} />}
       {dropping && (
@@ -574,7 +574,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
                     <circle cx="7" cy="7" r="5.5" pathLength="100" />
                     <circle cx="7" cy="7" r="5.5" pathLength="100" style={{ strokeDasharray: `${context.percent ?? 0} 100` }} />
                   </svg>
-                  <span className="chat-context-percent">{context.percent === null ? "?" : `${context.percent}%`}</span>
+                  <span className="chat-context-percent">{context.percent === null ? "?" : `${context.estimated ? "~" : ""}${context.percent}%`}</span>
                 </span>
               )}
               {labels && (

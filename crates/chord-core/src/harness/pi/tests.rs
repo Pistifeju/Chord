@@ -357,17 +357,23 @@ fn compact_passes_what_to_keep() {
 fn only_a_manual_compaction_is_a_run() {
     assert_eq!(
         events(r#"{"type":"compaction_start","reason":"manual"}"#),
-        vec![HarnessEvent::State { running: true }]
+        vec![
+            HarnessEvent::State { running: true },
+            HarnessEvent::Compacting { active: true }
+        ]
     );
     assert_eq!(
         events(r#"{"type":"compaction_end","reason":"manual","aborted":false,"willRetry":false}"#),
-        vec![HarnessEvent::State { running: false }]
+        vec![
+            HarnessEvent::Compacting { active: false },
+            HarnessEvent::State { running: false }
+        ]
     );
     assert_eq!(
         events(
             r#"{"type":"compaction_end","reason":"threshold","aborted":false,"willRetry":false}"#
         ),
-        vec![]
+        vec![HarnessEvent::Compacting { active: false }]
     );
 }
 
@@ -689,6 +695,22 @@ fn a_subagents_widget_becomes_the_lineage() {
 }
 
 #[test]
+fn a_compacted_session_counts_its_context_from_its_messages() {
+    let mut shown = Reader::default();
+    let messages = r#"{"type":"response","command":"get_messages","success":true,"data":{"messages":[{"role":"compactionSummary","summary":"Fixed the login, kept the tests.","tokensBefore":150000,"timestamp":1},{"role":"user","content":[{"type":"text","text":"Ship it now"}],"timestamp":2}]}}"#;
+    shown.feed(messages.as_bytes());
+    let stats = r#"{"type":"response","command":"get_session_stats","success":true,"data":{"contextUsage":{"tokens":null,"contextWindow":200000,"percent":null}}}"#;
+    assert_eq!(
+        shown.feed(stats.as_bytes()).events,
+        vec![HarnessEvent::Context {
+            tokens: Some(10),
+            window: Some(200000),
+            estimated: true
+        }]
+    );
+}
+
+#[test]
 fn a_clear_during_an_automatic_compaction_keeps_the_lineage() {
     let mut shown = Reader::default();
     let widget = r#"{"type":"extension_ui_request","id":"w1","method":"setWidget","widgetKey":"jobs","widgetLines":["PI_SUBAGENT_ASYNC_JSON:{\"runs\":[{\"id\":\"r1\",\"kind\":\"subagent\",\"label\":\"worker\",\"state\":\"running\"}]}"]}"#;
@@ -785,7 +807,8 @@ fn the_session_stats_tell_the_context_fill() {
         events(stats),
         vec![HarnessEvent::Context {
             tokens: Some(60000),
-            window: Some(200000)
+            window: Some(200000),
+            estimated: false
         }]
     );
     let no_window = r#"{"type":"response","command":"get_session_stats","success":true,"data":{"contextUsage":{"tokens":null,"contextWindow":null}}}"#;
@@ -793,7 +816,8 @@ fn the_session_stats_tell_the_context_fill() {
         events(no_window),
         vec![HarnessEvent::Context {
             tokens: None,
-            window: None
+            window: None,
+            estimated: false
         }]
     );
     let compacted = r#"{"type":"response","command":"get_session_stats","success":true,"data":{"contextUsage":{"tokens":null,"contextWindow":200000,"percent":null}}}"#;
@@ -801,7 +825,8 @@ fn the_session_stats_tell_the_context_fill() {
         events(compacted),
         vec![HarnessEvent::Context {
             tokens: None,
-            window: Some(200000)
+            window: Some(200000),
+            estimated: false
         }]
     );
 }
