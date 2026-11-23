@@ -26,8 +26,8 @@ export type OpenDialog = { id: string; title: string; ask: DialogAsk };
 /** A model's name and, when it reasons, its thinking level; `id` names it in the harness's model list, when the harness says. */
 export type ModelChoice = { id: string | null; name: string; thinking: string | null };
 
-/** The model's context window and the tokens the session fills of it; null tokens right after a compaction. */
-type ContextFill = { tokens: number | null; window: number; /** Chord counted the tokens itself, until a reply measures them. */ estimated: boolean };
+/** The model's context window and the tokens the session fills of it; null tokens right after a compaction; a null window until the agent tells it. */
+type ContextFill = { tokens: number | null; window: number | null; /** Chord counted the tokens itself, until a reply measures them. */ estimated: boolean };
 
 export type Chat = {
   /** idle: no agent runs (the Start button shows); starting: the process is coming up; ready: it takes messages. */
@@ -276,7 +276,7 @@ export function chatAfter(chat: Chat, event: HarnessEvent, now: number): Chat {
     case "model":
       return { ...chat, model: { id: event.id ?? null, name: event.name, thinking: event.thinking ?? null } };
     case "context":
-      return { ...chat, context: event.window == null ? null : { tokens: event.tokens ?? null, window: event.window, estimated: event.estimated } };
+      return { ...chat, context: { tokens: event.tokens ?? null, window: event.window ?? null, estimated: event.estimated } };
     case "permissions":
       return { ...chat, permissions: { mode: event.mode, asks: event.asks } };
     case "commands":
@@ -310,7 +310,7 @@ export function chatAfter(chat: Chat, event: HarnessEvent, now: number): Chat {
       return { ...chat, notice: event.text };
     // The lineage is not cleared here: the extension empties it itself on a new session, and a snapshot it restores arrives before this event. Rust's `status_for` starts the status over here.
     case "history_start":
-      return { ...chat, items: [], subagentsAt: null, queued: [], steerImages: [], report: null, historyLength: 0 };
+      return { ...chat, items: [], subagentsAt: null, queued: [], steerImages: [], report: null, historyLength: 0, context: null };
     case "history_end":
       return { ...chat, loading: false, historyLength: chat.items.length, subagentsAt: chat.subagents.length > 0 ? chat.items.length : null };
     // Rust saves the session; the intake hands the draft, the export, the usage and the model list to the store; the transcript holds none of them.

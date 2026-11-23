@@ -291,6 +291,36 @@ fn get_usage_becomes_the_five_hour_and_weekly_windows() {
 }
 
 #[test]
+fn a_new_session_fills_no_context_until_its_first_message() {
+    let mut reader = Reader::new(Path::new("/w"), None, Open::default());
+    reader.initialize();
+    reader.feed(br#"{"type":"control_response","response":{"subtype":"success","request_id":"chord-1","response":{}}}"#);
+    let unsent = r#"{"type":"control_response","response":{"subtype":"success","request_id":"chord-4","response":{"totalTokens":15638,"maxTokens":1000000}}}"#;
+    assert_eq!(
+        events(&mut reader, &[unsent]),
+        [HarnessEvent::Context {
+            tokens: Some(0),
+            window: Some(1000000),
+            estimated: false
+        }]
+    );
+    let turn = [
+        r#"{"type":"system","subtype":"init","session_id":"s1"}"#,
+        r#"{"type":"result","subtype":"success","is_error":false,"terminal_reason":"completed"}"#,
+    ];
+    events(&mut reader, &turn);
+    let replied = r#"{"type":"control_response","response":{"subtype":"success","request_id":"chord-6","response":{"totalTokens":26693,"maxTokens":1000000}}}"#;
+    assert_eq!(
+        events(&mut reader, &[replied]),
+        [HarnessEvent::Context {
+            tokens: Some(26693),
+            window: Some(1000000),
+            estimated: false
+        }]
+    );
+}
+
+#[test]
 fn an_api_key_has_no_usage_and_its_refusal_says_nothing() {
     let mut reader = Reader::new(Path::new("/w"), None, Open::default());
     reader.initialize();

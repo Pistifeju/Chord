@@ -308,7 +308,7 @@ pub enum HarnessEvent {
         harness: &'static str,
         models: Vec<ModelOption>,
     },
-    /// How many tokens the session fills of the model's context window; `tokens` is missing right after a compaction when the agent cannot tell, until a reply measures it again; `estimated` says Chord counted `tokens` itself; `window` is missing when the model has none.
+    /// How many tokens the session fills of the model's context window; `tokens` is missing right after a compaction when the agent cannot tell, until a reply measures it again; `estimated` says Chord counted `tokens` itself; `window` is missing when the model has none, and until the harness tells it.
     Context {
         tokens: Option<u32>,
         window: Option<u32>,
