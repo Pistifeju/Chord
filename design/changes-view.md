@@ -78,5 +78,5 @@
   Right-click on a stash: Apply, Pop, a separator, Drop.
   Drop asks with a confirm sheet ("Drop Stash?", the message as its detail, the destructive button "Drop").
   A failed or conflicting Apply or Pop shows git's message in a failure toast and leaves the stash in the list.
-- **Reads:** git is read when the view shows and with each git counts refresh while it shows, so on window focus and every 10 seconds.
+- **Reads:** git is read when the view shows and with each git counts refresh while it shows, so on window focus, when an agent's tool call or turn ends, those reads 3 seconds apart, and every minute.
   A failed read shows git's message in a failure toast and keeps the list.

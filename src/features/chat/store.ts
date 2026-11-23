@@ -6,6 +6,7 @@ import { paneNames, type PaneNames } from "../panes/sessions";
 import { usage } from "../usage/store";
 import { notify } from "../../ui/alert";
 import { fileName } from "../files/paths";
+import { refreshGitCountsAfterAgent } from "../worktrees/gitCountsRefresh";
 import { imageExtensions, imageMime, type Attachment } from "./attachments";
 import { heldMessage } from "./composer";
 import { intakes } from "./intake";
@@ -96,6 +97,7 @@ function received(pane: string, start: number, event: HarnessEvent) {
   if (effect?.kind === "usage") usage.set({ ...usage.get(), [effect.harness]: effect.windows });
   if (effect?.kind === "models") modelCatalogs.set({ ...modelCatalogs.get(), [effect.harness]: effect.models });
   if (effect?.kind === "notify") notify(effect.text);
+  if (effect?.kind === "gitCounts") refreshGitCountsAfterAgent();
   update(pane, () => fed.chat);
   settleHeld(pane);
   rememberOpening(pane);
