@@ -1,9 +1,10 @@
-// The sidebar: the navigator's control over one view at a time, Workspaces, Files or Changes; under Workspaces each project's worktrees as cards under its name, in project order, each with a row per chat session and its status, and the drags that reorder the projects and the cards; the attention dock over its foot; its show/hide button and the Settings and Help buttons at its foot.
+// The sidebar: the navigator's control over one view at a time, Workspaces, Files or Changes; under Workspaces each project's worktrees as cards under its name, in project order, each with a row per chat session, its harness logo and its status, the More buttons that open a project's and a card's menu, and the drags that reorder the projects and the cards; the attention dock over its foot; its show/hide button and the Settings and Help buttons at its foot.
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import type { GitCounts_Serialize as GitCounts, Project, Worktree_Serialize as Worktree } from "../../ipc/bindings";
 import { shortcutLabel, showMenu, tooltip } from "../../app/commands";
 import { openSheet } from "../../app/sheet";
-import { chats, usePaneNames } from "../chat/store";
+import { chats, paneHarnesses, usePaneNames } from "../chat/store";
+import { chatLogo, harnessMarks } from "../harnesses/logos";
 import { chatTabs, groupOf } from "../panes/layout";
 import { tabName } from "../panes/sessions";
 import { focusPane, panes } from "../panes/store";
@@ -12,7 +13,7 @@ import { agentPanes, attentionQueue, nextAttention, runningAgents, type AgentPan
 import { finished, openAgent } from "../status/store";
 import { ageLabel, seenStatus, statusLabel, urgentReport } from "../status/status";
 import { StatusMark } from "../status/StatusMark";
-import { BranchIcon, ChevronIcon, FolderIcon, GearIcon, PlusIcon, QuestionIcon, SidebarIcon, WorkspacesIcon } from "../../ui/icons";
+import { BranchIcon, ChevronIcon, FolderIcon, GearIcon, MoreIcon, PlusIcon, QuestionIcon, SidebarIcon, WorkspacesIcon } from "../../ui/icons";
 import { ChangesView } from "../changes/ChangesView";
 import { FilesView } from "../files/FilesView";
 import { countsLabel, countsTitle } from "../worktrees/gitCounts";
@@ -111,7 +112,7 @@ function useSidebarDrag(scroller: RefObject<HTMLDivElement | null>) {
       scrollNearEdge(box, e.clientY);
       const card = item.kind === "card";
       const items = card ? box.querySelectorAll<HTMLElement>(`[data-project="${CSS.escape(item.project)}"] .worktree-card`) : box.querySelectorAll<HTMLElement>(".project-group");
-      const at = slotAt([...items], e.clientY, card ? 1 : 6);
+      const at = slotAt([...items], e.clientY, card ? 2 : 8);
       slot.current = movesTo(placeOf(item), at.slot) ? at.slot : null;
       const next = slot.current === null ? null : at.line;
       setLine((prev) => (prev && next && prev.top === next.top && prev.left === next.left && prev.width === next.width ? prev : next));
@@ -166,13 +167,18 @@ export function Sidebar({ markers }: { markers: Record<string, CardMarker> }) {
           <div className="sidebar-scroll" ref={scroller}>
             {state.list.map((project) => (
               <section key={project.path} className="project-group" aria-label={project.name} data-project={project.path} data-dragging={drag.dragging === project.path}>
-                <div
-                  className="project-name"
-                  title={project.path}
-                  {...drag.handlers({ kind: "project", project: project.path, path: project.path, name: project.name })}
-                  onContextMenu={(e) => showMenu(e, projectMenu(project.path))}
-                >
-                  {project.name}
+                <div className="project-head">
+                  <div
+                    className="project-name"
+                    title={project.path}
+                    {...drag.handlers({ kind: "project", project: project.path, path: project.path, name: project.name })}
+                    onContextMenu={(e) => showMenu(e, projectMenu(project.path))}
+                  >
+                    {project.name}
+                  </div>
+                  <button type="button" className="icon-button sidebar-more" title="More" aria-label={`More for ${project.name}`} onClick={(e) => showMenu(e, projectMenu(project.path))}>
+                    <MoreIcon />
+                  </button>
                 </div>
                 <ul className="worktree-list">
                   {(state.worktrees[project.path] ?? []).map((worktree) => (
@@ -221,6 +227,17 @@ function useNow(): number {
     return () => clearInterval(timer);
   }, []);
   return now;
+}
+
+// A session row's lead: the logo of its pane's harness, the chat icon until the pane's first start.
+function SessionLogo({ pane }: { pane: string }) {
+  const harness = paneHarnesses.usePart((all) => all[pane] ?? null);
+  const Logo = chatLogo(harness);
+  return (
+    <span className="session-logo" title={harness ? (harnessMarks[harness]?.title ?? harness) : undefined}>
+      <Logo />
+    </span>
+  );
 }
 
 // A session row's right slot: "Done" for a finish nobody opened, the mark and age while an agent runs, the status word while it needs attention, otherwise the age of the last status.
@@ -278,6 +295,7 @@ function AttentionDock() {
       {list.map((entry) => (
         <li key={entry.pane}>
           <button type="button" className="session-row" aria-current={entry.pane === current} onClick={() => openAgent(entry)}>
+            <SessionLogo pane={entry.pane} />
             <span className="session-name">{nameOf(entry)}</span>
             <SessionStatus paneIdList={[entry.pane]} finishedPanes={finishedPanes} />
           </button>
@@ -357,6 +375,7 @@ function WorktreeCard({
   const main = worktree.path === project.path;
   const menu: [string, string][] = worktree.git ? [["worktree.new", project.path]] : [];
   if (!main) menu.push(["worktree.rename", worktree.path], ["worktree.delete", worktree.path]);
+  menu.push(["project.remove", project.path]);
   return (
     <li className="worktree-card" aria-current={selected} data-dragging={drag.dragging === worktree.path}>
       {renaming ? (
@@ -368,7 +387,7 @@ function WorktreeCard({
           title={worktree.path}
           {...drag.handlers({ kind: "card", project: project.path, path: worktree.path, name: branch })}
           onClick={() => drag.clicked() && selectWorktree(worktree.path)}
-          onContextMenu={(e) => showMenu(e, [...menu, ["project.remove", project.path]])}
+          onContextMenu={(e) => showMenu(e, menu)}
         >
           <span className="worktree-line">
             <span className="worktree-title" onDoubleClick={main ? undefined : () => startRename(worktree.path)}>
@@ -391,6 +410,11 @@ function WorktreeCard({
           )}
         </button>
       )}
+      {!renaming && (
+        <button type="button" className="icon-button sidebar-more" title="More" aria-label={`More for ${branch}`} onClick={(e) => showMenu(e, menu)}>
+          <MoreIcon />
+        </button>
+      )}
       {sessions.length > 0 && (
         <ul className="session-list">
           {sessions.map((tab) => (
@@ -404,6 +428,7 @@ function WorktreeCard({
                   focusPane(worktree.path, tab.id);
                 }}
               >
+                <SessionLogo pane={tab.id} />
                 <span className="session-name">{tabName(tab, names)}</span>
                 <SessionStatus paneIdList={[tab.id]} finishedPanes={finishedPanes} />
               </button>
