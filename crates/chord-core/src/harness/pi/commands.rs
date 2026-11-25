@@ -2,7 +2,7 @@
 
 use serde_json::{Value, json};
 
-use super::{EXTENSION_PREFIX, SESSION_PROMPT};
+use super::{EXTENSION_PREFIX, RELOAD_PROMPT, SESSION_PROMPT};
 use crate::harness::{DialogAnswer, Image};
 
 pub(super) fn prompt_command(text: &str, images: &[Image]) -> Value {
@@ -30,7 +30,11 @@ pub(super) fn session_command(text: &str, held_elsewhere: &[String]) -> Option<V
         ("/fork", "") => json!({ "type": "get_fork_messages" }),
         ("/clone", "") => json!({ "type": "clone" }),
         ("/tree", "") => extension("tree"),
-        ("/reload", "") => extension("reload"),
+        ("/reload", "") => {
+            let mut reload = extension("reload");
+            reload["id"] = RELOAD_PROMPT.into();
+            reload
+        }
         _ => return None,
     })
 }
