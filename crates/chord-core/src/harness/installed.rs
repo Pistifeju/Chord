@@ -253,13 +253,13 @@ fn dotted((major, minor, patch): (u32, u32, u32)) -> String {
     format!("{major}.{minor}.{patch}")
 }
 
-/// The first `major.minor.patch` word on the last line that has one, since a login shell's banner comes before the harness's output.
+/// The first `major.minor.patch` word, with or without a leading `v`, on the last line that has one, since a login shell's banner comes before the harness's output.
 fn parse_version(text: &str) -> Option<(u32, u32, u32)> {
     text.lines()
         .rev()
         .flat_map(str::split_whitespace)
         .find_map(|word| {
-            let mut parts = word.split('.');
+            let mut parts = word.strip_prefix('v').unwrap_or(word).split('.');
             let mut number = || {
                 let digits: String = parts
                     .next()?
@@ -282,6 +282,7 @@ mod tests {
         assert_eq!(parse_version("1.5.2\n"), Some((1, 5, 2)));
         assert_eq!(parse_version("codex-cli 0.158.0"), Some((0, 158, 0)));
         assert_eq!(parse_version("2.1.328 (Claude Code)"), Some((2, 1, 328)));
+        assert_eq!(parse_version("opencode v2.4.1"), Some((2, 4, 1)));
         assert_eq!(parse_version("Shell 5.9.0 ready\n1.5.2\n"), Some((1, 5, 2)));
         assert_eq!(parse_version("welcome back"), None);
     }

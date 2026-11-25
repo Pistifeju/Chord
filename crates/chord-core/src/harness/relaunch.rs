@@ -1,8 +1,10 @@
-//! A harness process a session command can swap for a new one: the running process and the reader of its stdout, the swap, the order events and lines go out in, and the pane's `Agent`. The Codex and Claude Code adapters build on it.
+//! A harness process a session command can swap for a new one: the running process and the reader of its stdout, the swap, the order events and lines go out in, the reader's quiet timer, and the pane's `Agent`. The Codex, Claude Code and OpenCode adapters build on it.
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, Condvar, Mutex, PoisonError};
+use std::thread;
+use std::time::{Duration, Instant};
 
 use serde_json::Value;
 
@@ -46,10 +48,68 @@ pub(super) trait Reader: Send + 'static {
     ) -> Result<Read<Self::Open>, Error>;
     fn answer(&mut self, id: &str, answer: &DialogAnswer) -> Result<Read<Self::Open>, Error>;
     fn pick_model(&mut self, id: &str, level: Option<&str>) -> Read<Self::Open>;
-    /// The line that stops the running turn; none when no turn runs.
-    fn interrupt(&mut self) -> Option<Value>;
+    /// What stops the running turn; nothing when no turn runs.
+    fn interrupt(&mut self) -> Read<Self::Open>;
     /// Stdout closed: the events that end what the process left open.
     fn end(&mut self) -> Vec<HarnessEvent>;
+    /// How long the harness may stay silent before `quiet` ends the turn it started on its own; none while no such turn runs.
+    fn quiet_after(&self) -> Option<Duration> {
+        None
+    }
+    /// The harness stayed silent for `quiet_after`: the events that end its turn.
+    fn quiet(&mut self) -> Vec<HarnessEvent> {
+        vec![]
+    }
+}
+
+struct Deadline {
+    at: Option<Instant>,
+    ended: bool,
+}
+
+/// The end of the reader's quiet period, which its own thread waits for.
+struct Quiet {
+    deadline: Mutex<Deadline>,
+    wake: Condvar,
+}
+
+impl Quiet {
+    fn arm(&self, after: Option<Duration>) {
+        lock(&self.deadline).at = after.map(|after| Instant::now() + after);
+        self.wake.notify_one();
+    }
+
+    fn end(&self) {
+        lock(&self.deadline).ended = true;
+        self.wake.notify_one();
+    }
+
+    /// Blocks until the quiet period passes; false once the process ended.
+    fn wait(&self) -> bool {
+        let mut deadline = lock(&self.deadline);
+        loop {
+            if deadline.ended {
+                return false;
+            }
+            let now = Instant::now();
+            deadline = match deadline.at {
+                Some(at) if at <= now => {
+                    deadline.at = None;
+                    return true;
+                }
+                Some(at) => {
+                    self.wake
+                        .wait_timeout(deadline, at - now)
+                        .unwrap_or_else(PoisonError::into_inner)
+                        .0
+                }
+                None => self
+                    .wake
+                    .wait(deadline)
+                    .unwrap_or_else(PoisonError::into_inner),
+            };
+        }
+    }
 }
 
 /// The arguments and the reader of a new process that opens `Open`.
@@ -58,6 +118,7 @@ type Launch<R> = Box<dyn Fn(<R as Reader>::Open) -> (Vec<String>, R) + Send>;
 struct Running<R> {
     process: Process,
     reader: Arc<Mutex<R>>,
+    quiet: Arc<Quiet>,
     /// Cleared when a relaunch replaces the process.
     current: Arc<AtomicBool>,
 }
@@ -125,6 +186,10 @@ impl<R: Reader> Relaunchable<R> {
             .into_iter()
             .for_each(|event| (lock(&self.on_event))(event));
         read.lines.iter().try_for_each(|line| self.write(line))?;
+        {
+            let running = lock(&self.running);
+            running.quiet.arm(lock(&running.reader).quiet_after());
+        }
         read.relaunch.map_or(Ok(()), |open| self.relaunch(open))
     }
 
@@ -158,8 +223,8 @@ impl<R: Reader> Agent for Relaunchable<R> {
     }
 
     fn abort(&self) -> Result<(), Error> {
-        let interrupt = lock(&self.reader()).interrupt();
-        interrupt.map_or(Ok(()), |line| self.write(&line))
+        let read = lock(&self.reader()).interrupt();
+        self.deliver(read)
     }
 
     fn answer_dialog(&self, id: &str, answer: &DialogAnswer) -> Result<(), Error> {
@@ -190,15 +255,30 @@ fn run<R: Reader>(
     let mut command = login_shell(harness.binary, &args);
     command.current_dir(dir);
     let current = Arc::new(AtomicBool::new(true));
-    let (records, emit, live) = (
+    let quiet = Arc::new(Quiet {
+        deadline: Mutex::new(Deadline {
+            at: None,
+            ended: false,
+        }),
+        wake: Condvar::new(),
+    });
+    let (records, emit, live, silence) = (
         Arc::clone(&reader),
         Arc::clone(on_event),
         Arc::clone(&current),
+        Arc::clone(&quiet),
     );
+    // The channel is held from the record to its events, so the quiet's end never lands between them.
     let process = Process::start(command, move |output, stdin| {
+        let emit = lock(&emit);
         let read = match output {
-            Output::Line(line) => lock(&records).feed(line),
+            Output::Line(line) => {
+                let read = lock(&records).feed(line);
+                silence.arm(lock(&records).quiet_after());
+                read
+            }
             Output::Closed { exited } => {
+                silence.end();
                 let mut events = lock(&records).end();
                 events.extend(exited.map(|code| HarnessEvent::Exited { code }));
                 Read {
@@ -210,17 +290,32 @@ fn run<R: Reader>(
         for line in read.lines {
             let _ = stdin.write(&line);
         }
-        let emit = lock(&emit);
         if live.load(Ordering::SeqCst) {
             read.events.into_iter().for_each(&*emit);
         }
     })
     .map_err(|error| Error::start_failed(harness.binary, harness.install, error))?;
+    let (records, emit, live, silence) = (
+        Arc::clone(&reader),
+        Arc::clone(on_event),
+        Arc::clone(&current),
+        Arc::clone(&quiet),
+    );
+    thread::spawn(move || {
+        while silence.wait() {
+            let emit = lock(&emit);
+            let events = lock(&records).quiet();
+            if live.load(Ordering::SeqCst) {
+                events.into_iter().for_each(&*emit);
+            }
+        }
+    });
     let initialize = lock(&reader).initialize();
     process.write(&initialize)?;
     Ok(Running {
         process,
         reader,
+        quiet,
         current,
     })
 }

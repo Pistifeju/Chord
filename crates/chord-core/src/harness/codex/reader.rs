@@ -839,8 +839,10 @@ impl relaunch::Reader for Reader {
         Reader::pick_model(self, id, level).into()
     }
 
-    fn interrupt(&mut self) -> Option<Value> {
+    fn interrupt(&mut self) -> relaunch::Read<Relaunch> {
         Reader::interrupt(self)
+            .map_or_else(Read::default, lines)
+            .into()
     }
 
     fn end(&mut self) -> Vec<HarnessEvent> {

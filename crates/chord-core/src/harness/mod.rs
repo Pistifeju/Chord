@@ -9,6 +9,7 @@ mod earlier;
 pub mod installed;
 pub mod models;
 mod numbered;
+pub mod opencode;
 pub mod pi;
 mod process;
 mod relaunch;
@@ -54,7 +55,12 @@ pub struct SignIn {
 }
 
 /// Every harness, in the order a new pane's default takes them.
-pub const HARNESSES: [Harness; 3] = [pi::HARNESS, codex::HARNESS, claude::HARNESS];
+pub const HARNESSES: [Harness; 4] = [
+    pi::HARNESS,
+    codex::HARNESS,
+    claude::HARNESS,
+    opencode::HARNESS,
+];
 
 /// One running agent of a pane. Each harness adapter implements it in `harness/<name>/`, emits `HarnessEvent`s and keeps its own records private; `start` names it. Dropping the agent ends its process and returns once it has ended.
 pub trait Agent: Send {
@@ -88,6 +94,7 @@ pub fn start(
         )?)),
         codex::NAME => codex::start(dir, session, tools, on_event),
         claude::NAME => claude::start(dir, session, tools, on_event),
+        opencode::NAME => opencode::start(dir, session, tools, on_event),
         other => Err(Error::Message(format!(
             "Chord cannot run the harness \"{other}\""
         ))),
@@ -482,6 +489,25 @@ pub(crate) fn relative(path: &str, cwd: &Path) -> String {
 /// A JSON string as it is; any other value as an empty string.
 pub(crate) fn text(value: &Value) -> String {
     value.as_str().unwrap_or_default().into()
+}
+
+/// An image content block, `{ "type": "image", "data", "mimeType" }`; none for any other block.
+pub(crate) fn image(block: &Value) -> Option<Image> {
+    (block["type"] == "image").then_some(())?;
+    Some(Image {
+        data: block["data"].as_str()?.into(),
+        mime_type: block["mimeType"].as_str()?.into(),
+    })
+}
+
+/// The image blocks of a content list.
+pub(crate) fn images(blocks: &Value) -> Vec<Image> {
+    blocks
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(image)
+        .collect()
 }
 
 /// A JSON count that fits a `u32`.

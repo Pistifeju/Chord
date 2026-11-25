@@ -1,18 +1,19 @@
-# Onboarding and the Claude Code and Codex harnesses
+# Onboarding and the Claude Code, Codex and OpenCode harnesses
 
-Chord runs Codex over `codex app-server` and Claude Code over `claude -p` with stream-json in and out, each as its own adapter next to pi.
+Chord runs Codex over `codex app-server`, Claude Code over `claude -p` with stream-json in and out, and OpenCode over `opencode acp`, each as its own adapter next to pi.
 
 ## 1. Features
 
-- N1 core: one list describes every harness: its name, binary, install, sign-in and upgrade step, and oldest tested version. One check reads each harness's version and sign-in state on the login shell. A pane saves its harness; a new pane takes the default: the harness the user picked while it is installed (sign-in is a hint, as K2 says), else the first signed-in one in the list's order, pi, Codex, Claude Code, older than the tested version or not.
-- K2 Onboarding: the window with no project lists every harness Chord can start in the list's order (pi, then Codex, then Claude Code) in one group, each row with its state: ready with its version, not installed, not signed in, or older than the tested version. A row that needs something shows the install, sign-in or upgrade command with a copy button. The checks run when the view shows and on window focus. The first ready harness becomes the default for new sessions; a click on another ready row changes it. Add Project adds the first project. A missing `git` shows its install step.
+- N1 core: one list describes every harness: its name, binary, install, sign-in and upgrade step, and oldest tested version. One check reads each harness's version and sign-in state on the login shell. A pane saves its harness; a new pane takes the default: the harness the user picked while it is installed (sign-in is a hint, as K2 says), else the first signed-in one in the list's order, pi, Codex, Claude Code, OpenCode, older than the tested version or not.
+- K2 Onboarding: the window with no project lists every harness Chord can start in the list's order (pi, then Codex, then Claude Code, then OpenCode) in one group, each row with its state: ready with its version, not installed, not signed in, or older than the tested version. A row that needs something shows the install, sign-in or upgrade command with a copy button. The checks run when the view shows and on window focus. The first ready harness becomes the default for new sessions; a click on another ready row changes it. Add Project adds the first project. A missing `git` shows its install step.
 - K5 Settings section Agents: K2's rows and the default harness for new sessions. A chat pane whose harness is missing shows its row in place of the Start button.
 - N2 Codex over `codex app-server`: chat, tool calls, thinking, stop, steer, attachments, approvals and questions as dialogs, model and thinking level, context meter, slash menu, resume with history, and the permission mode picker: a composer bar button with the session's approval and sandbox mode, next to the model picker, and a `/permissions` session command that opens the same picker. A chat tab shows its harness's logo.
 - N3 Claude Code over `claude -p` with stream-json in and out: N2's list, with the picker holding Claude Code's permission mode.
-- N4 Build and run tools for Codex and Claude Code through a stdio MCP server that Chord's own binary serves.
-- N5 Session commands for Codex and Claude Code: new, fork, clone, rewind, reload and compact.
-- N6 Usage and subagents for Codex and Claude Code, from what each CLI reports itself. The status bar shows the usage of each harness that reported, after its logo.
+- N4 Build and run tools for Codex, Claude Code and OpenCode through a stdio MCP server that Chord's own binary serves.
+- N5 Session commands for Codex and Claude Code: new, fork, clone, rewind, reload and compact. OpenCode takes new, clone, resume, reload and compact.
+- N6 Usage for Codex and Claude Code, and subagents for Codex, Claude Code and OpenCode, from what each CLI reports itself. The status bar shows the usage of each harness that reported, after its logo.
 - N7 The oldest version of each harness Chord runs: its `oldest_tested` is the oldest released version where every feature of Chord's list works. To find it, step the harness back through its released versions and run the list on each one. Section 2's tested versions list each harness's oldest and newest passing versions.
+- N8 OpenCode over `opencode acp`: N2's list without the permission mode picker, fork at a message, rewind and usage. `docs/features/opencode-adapter.md` holds its plan.
 
 Edge cases:
 - K2: Chord never asks for a credential and never runs a sign-in or an install; it shows the command.
@@ -42,42 +43,42 @@ Edge cases:
 
 ## 2. How each CLI runs
 
-Tested versions: pi 1.5.2, Claude Code 2.1.328, codex-cli 0.158.0.
+Tested versions: pi 1.5.2, Claude Code 2.1.328, codex-cli 0.158.0, OpenCode 2.4.1.
 
-| | Claude Code | Codex | pi |
-|---|---|---|---|
-| Start | `claude -p --input-format stream-json --output-format stream-json --verbose --include-partial-messages --replay-user-messages --permission-prompt-tool stdio`, then the control request `initialize` | `codex app-server`, then `initialize` | `pi --mode rpc` |
-| Version | `claude --version`: "2.1.328 (Claude Code)" | `codex --version`: "codex-cli 0.158.0" | `pi --version` |
-| Sign-in check | `claude auth status` (JSON, `loggedIn`) | `codex login status` | none: `pi auth check` needs a provider |
-| Sign-in step | `claude auth login` | `codex login` | none |
+| | Claude Code | Codex | OpenCode | pi |
+|---|---|---|---|---|
+| Start | `claude -p --input-format stream-json --output-format stream-json --verbose --include-partial-messages --replay-user-messages --permission-prompt-tool stdio`, then the control request `initialize` | `codex app-server`, then `initialize` | `opencode acp`, then `initialize` | `pi --mode rpc` |
+| Version | `claude --version`: "2.1.328 (Claude Code)" | `codex --version`: "codex-cli 0.158.0" | `opencode --version`: "opencode v2.4.1" | `pi --version` |
+| Sign-in check | `claude auth status` (JSON, `loggedIn`) | `codex login status` | none: OpenCode signs in per provider | none: `pi auth check` needs a provider |
+| Sign-in step | `claude auth login` | `codex login` | none | none |
 
 - Claude Code: the first message is the control request `initialize`. It returns the slash commands, the models with their effort levels, and the agents. A transcript lives at `<projectsDirectory>/<encoded cwd>/<session id>.jsonl`; `claude auth status` prints `projectsDirectory`.
 - Codex: `codex app-server generate-ts` writes the protocol's types for the installed version. The adapter follows them and never sets `experimentalApi`.
 
 ## 3. Each feature on each harness
 
-| Feature | Claude Code | Codex |
-|---|---|---|
-| Stream | `stream_event` deltas, `assistant`, `result` | `item/agentMessage/delta`, `turn/completed` |
-| Stop | control `interrupt` | `turn/interrupt` |
-| Steer | a user message on stdin mid-run; Claude Code takes it in after the running tool call, in the same turn, and its `--replay-user-messages` echo takes it off the queue | `turn/steer` |
-| Tools, thinking | `tool_use` and `tool_result` blocks, thinking deltas after `set_max_thinking_tokens` with `thinking_display: "summarized"` | `item/started` and `item/completed` for `commandExecution`, `fileChange`, `mcpToolCall`, `webSearch`; `item/reasoning/*Delta` |
-| Attachments | base64 image blocks in the user message | `image` input with a data URL |
-| Tool images | image blocks in a `tool_result` | `imageView` items, MCP results |
-| Dialogs, Waiting status | control `can_use_tool` (permission asks and `AskUserQuestion`), `elicitation` | `item/*/requestApproval`, `item/tool/requestUserInput`, `mcpServer/elicitation/request` |
-| Slash menu | `initialize` commands, `commands_changed`; a command goes out as the message text | `skills/list`; a pick goes out as a `skill` input |
-| Model, thinking level | `initialize` models, `set_model`, `apply_flag_settings` with `effortLevel`, then `get_settings` | `model/list`, `model` and `effort` on `turn/start` |
-| Context | `get_context_usage` (`totalTokens`, `maxTokens`) | `thread/tokenUsage/updated` (`modelContextWindow`) |
-| Usage | `get_usage`, `rate_limit_event` (`five_hour`, `seven_day`) | `account/rateLimits/read` and `/updated` (`primary`, `secondary`: `usedPercent`, `resetsAt`) |
-| Subagents | `task_started`, `task_progress`, `task_notification`, `parent_tool_use_id` | `collabAgentToolCall`, `subAgentActivity` items |
-| Resume, history | `--resume <id>` on a new process; list and history from the transcript files, since Claude Code replays nothing | `thread/list` by cwd, `thread/resume` returns the turns |
-| New | a new process | a new process |
-| Fork, clone | `--resume <id> --fork-session`, with `--resume-session-at` at the last reply before the picked message | `thread/fork`, with `lastTurnId` the turn before the picked message |
-| Rewind | `--resume <id> --resume-session-at` the last reply before the picked message; later turns leave the context | `thread/revert` with `beforeTurnId`, then `thread/resume` for the shortened history |
-| Reload | restart the process on the same session | restart the process on the same thread |
-| Compact | `/compact` sent as a message, then `compact_boundary` | `thread/compact/start`, then a `contextCompaction` item |
-| Export | Chord writes the transcript it holds as Markdown | same |
-| Build, run tools | stdio MCP server through `--mcp-config` | stdio MCP server through a `mcp_servers.chord` config override |
+| Feature | Claude Code | Codex | OpenCode |
+|---|---|---|---|
+| Stream | `stream_event` deltas, `assistant`, `result` | `item/agentMessage/delta`, `turn/completed` | `session/update` chunks, the answer to `session/prompt` |
+| Stop | control `interrupt` | `turn/interrupt` | `session/cancel` |
+| Steer | a user message on stdin mid-run; Claude Code takes it in after the running tool call, in the same turn, and its `--replay-user-messages` echo takes it off the queue | `turn/steer` | `_session/steering` |
+| Tools, thinking | `tool_use` and `tool_result` blocks, thinking deltas after `set_max_thinking_tokens` with `thinking_display: "summarized"` | `item/started` and `item/completed` for `commandExecution`, `fileChange`, `mcpToolCall`, `webSearch`; `item/reasoning/*Delta` | `tool_call`, `tool_call_update`, `agent_thought_chunk` |
+| Attachments | base64 image blocks in the user message | `image` input with a data URL | `image` blocks in the prompt |
+| Tool images | image blocks in a `tool_result` | `imageView` items, MCP results | `image` blocks in a call's `content` |
+| Dialogs, Waiting status | control `can_use_tool` (permission asks and `AskUserQuestion`), `elicitation` | `item/*/requestApproval`, `item/tool/requestUserInput`, `mcpServer/elicitation/request` | `session/request_permission`, `elicitation/create` |
+| Slash menu | `initialize` commands, `commands_changed`; a command goes out as the message text | `skills/list`; a pick goes out as a `skill` input | `available_commands_update`; a command goes out as the prompt text |
+| Model, thinking level | `initialize` models, `set_model`, `apply_flag_settings` with `effortLevel`, then `get_settings` | `model/list`, `model` and `effort` on `turn/start` | `configOptions`, `session/set_config_option` |
+| Context | `get_context_usage` (`totalTokens`, `maxTokens`) | `thread/tokenUsage/updated` (`modelContextWindow`) | `usage_update` |
+| Usage | `get_usage`, `rate_limit_event` (`five_hour`, `seven_day`) | `account/rateLimits/read` and `/updated` (`primary`, `secondary`: `usedPercent`, `resetsAt`) | none |
+| Subagents | `task_started`, `task_progress`, `task_notification`, `parent_tool_use_id` | `collabAgentToolCall`, `subAgentActivity` items | `opencode/session/child_update` |
+| Resume, history | `--resume <id>` on a new process; list and history from the transcript files, since Claude Code replays nothing | `thread/list` by cwd, `thread/resume` returns the turns | `session/list` by cwd, `session/load` replays the session |
+| New | a new process | a new process | a new process |
+| Fork, clone | `--resume <id> --fork-session`, with `--resume-session-at` at the last reply before the picked message | `thread/fork`, with `lastTurnId` the turn before the picked message | clone only: `session/fork` |
+| Rewind | `--resume <id> --resume-session-at` the last reply before the picked message; later turns leave the context | `thread/revert` with `beforeTurnId`, then `thread/resume` for the shortened history | none |
+| Reload | restart the process on the same session | restart the process on the same thread | restart the process and `session/load` |
+| Compact | `/compact` sent as a message, then `compact_boundary` | `thread/compact/start`, then a `contextCompaction` item | `/compact` sent as the prompt, then `compaction_update` |
+| Export | Chord writes the transcript it holds as Markdown | same | same |
+| Build, run tools | stdio MCP server through `--mcp-config` | stdio MCP server through a `mcp_servers.chord` config override | stdio MCP server in each session's `mcpServers` |
 
 Permission asks open as dialogs, and the card reports Waiting while one is open. The permission mode picker switches the mode the same way the model picker does: `openPicker(pane, "/permissions")`, a dialog, then the adapter applies the pick. Every adapter takes `/model`, `/thinking` and `/permissions` as text, as the frontend sends them (`openPicker` in `chat/store.ts`).
 
@@ -86,7 +87,7 @@ Permission asks open as dialogs, and the card reports Waiting while one is open.
 The window with no project, without the sidebar and the status bar. Once, on the first launch: three steps, Welcome, Agent, Project. After the first project, a window whose projects were all removed shows the plain "No projects yet", also without the sidebar and the status bar, with Add Project; the agent rows live in Settings › Agents (K5). `design/onboarding.md` holds the details.
 
 - A centered column. The agent step's title says what the check found; one muted line under it.
-- A group "Agent": a `panel` card with one 44px Settings row per harness, each with its logo and name: pi, Codex, Claude Code. A secondary "Check Again" sits in the group's heading.
+- A group "Agent": a `panel` card with one 44px Settings row per harness, each with its logo and name: pi, Codex, Claude Code, OpenCode. A secondary "Check Again" sits in the group's heading.
 - A row's meta line is its state. Its right side holds what the state needs:
 
 | State | Meta line | Right side |
