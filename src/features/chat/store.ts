@@ -137,6 +137,12 @@ export async function startChat(worktree: string, pane: string, switchTo: string
   return history;
 }
 
+/** A chat with nothing in it takes the other harness in its own pane; the old agent stops once the new one runs. */
+export function switchEmptyChat(worktree: string, pane: string, harness: string, pick: ModelPick | null) {
+  update(pane, () => emptyChat);
+  return startChat(worktree, pane, harness, pick);
+}
+
 // The images waiting in each pane's composer.
 export const attachments = externalStore<Record<string, Attachment[]>>({});
 
