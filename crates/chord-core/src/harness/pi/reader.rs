@@ -5,7 +5,7 @@ use serde_json::{Value, json};
 
 use super::commands::session_requests;
 use super::records::{events_from, message_update, newest_first, subagent_nodes};
-use super::{PICKED_LEVEL, Picker, SESSION_PROMPT, SUBAGENTS_PREFIX};
+use super::{PICKED_LEVEL, Picker, RELOAD_PROMPT, SESSION_PROMPT, SUBAGENTS_PREFIX};
 use crate::harness::calls::OpenCalls;
 use crate::harness::{DialogAsk, HarnessEvent, capitalized};
 
@@ -275,7 +275,9 @@ fn requests_after(record: &Value) -> Vec<Value> {
         (Some("response"), Some("new_session" | "fork" | "clone" | "compact")) if changed => {
             session_requests().into()
         }
-        (Some("response"), Some("prompt")) if changed && record["id"] == SESSION_PROMPT => {
+        (Some("response"), Some("prompt"))
+            if changed && (record["id"] == SESSION_PROMPT || record["id"] == RELOAD_PROMPT) =>
+        {
             let mut requests = session_requests().to_vec();
             requests.push(json!({ "type": "get_commands" }));
             requests

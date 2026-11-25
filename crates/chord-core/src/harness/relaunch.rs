@@ -8,6 +8,7 @@ use serde_json::Value;
 
 use super::installed::require;
 use super::process::{Output, Process, login_shell};
+use super::session_commands::reloaded;
 use super::{Agent, Capability, DialogAnswer, Harness, HarnessEvent, Image, OnEvent};
 use crate::{Error, lock};
 
@@ -128,7 +129,7 @@ impl<R: Reader> Relaunchable<R> {
         }
         let on_event: OnEvent = Arc::new(Mutex::new(on_event));
         let launch: Launch<R> = Box::new(launch);
-        let running = run(harness, dir, &launch, open, &on_event)?;
+        let running = run(harness, dir, &launch, open, &on_event, false)?;
         Ok(Relaunchable {
             harness,
             dir: dir.to_path_buf(),
@@ -138,9 +139,16 @@ impl<R: Reader> Relaunchable<R> {
         })
     }
 
-    pub(super) fn relaunch(&self, open: R::Open) -> Result<(), Error> {
+    pub(super) fn relaunch(&self, open: R::Open, reload: bool) -> Result<(), Error> {
         let emit = lock(&self.on_event);
-        let new = run(self.harness, &self.dir, &self.launch, open, &self.on_event)?;
+        let new = run(
+            self.harness,
+            &self.dir,
+            &self.launch,
+            open,
+            &self.on_event,
+            reload,
+        )?;
         let old = std::mem::replace(&mut *lock(&self.running), new);
         old.current.store(false, Ordering::SeqCst);
         let ended = lock(&old.reader).end();
@@ -160,7 +168,7 @@ impl<R: Reader> Relaunchable<R> {
         lock(&self.running).process.write(line)
     }
 
-    pub(super) fn deliver(&self, read: Read<R::Open>) -> Result<(), Error> {
+    pub(super) fn deliver(&self, read: Read<R::Open>, reload: bool) -> Result<(), Error> {
         read.events
             .into_iter()
             .for_each(|event| (lock(&self.on_event))(event));
@@ -169,7 +177,8 @@ impl<R: Reader> Relaunchable<R> {
             let running = lock(&self.running);
             running.quiet.arm(lock(&running.reader).quiet_after());
         }
-        read.relaunch.map_or(Ok(()), |open| self.relaunch(open))
+        read.relaunch
+            .map_or(Ok(()), |open| self.relaunch(open, reload))
     }
 
     pub(super) fn end_reported(self) {
@@ -198,22 +207,23 @@ impl<R: Reader> Agent for Relaunchable<R> {
         let took = lock(&reader).takes_images(text);
         let images = if took { images } else { &[] };
         let read = lock(&reader).send(text, images, held_elsewhere)?;
-        self.deliver(read).map(|()| took)
+        let reload = text.split_whitespace().next() == Some("/reload");
+        self.deliver(read, reload).map(|()| took)
     }
 
     fn abort(&self) -> Result<(), Error> {
         let read = lock(&self.reader()).interrupt();
-        self.deliver(read)
+        self.deliver(read, false)
     }
 
     fn answer_dialog(&self, id: &str, answer: &DialogAnswer) -> Result<(), Error> {
         let read = lock(&self.reader()).answer(id, answer)?;
-        self.deliver(read)
+        self.deliver(read, false)
     }
 
     fn pick_model(&self, id: &str, level: Option<&str>) -> Result<(), Error> {
         let read = lock(&self.reader()).pick_model(id, level);
-        self.deliver(read)
+        self.deliver(read, false)
     }
 
     fn end_reported(self: Box<Self>) {
@@ -227,6 +237,7 @@ fn run<R: Reader>(
     launch: &Launch<R>,
     open: R::Open,
     on_event: &OnEvent,
+    reload: bool,
 ) -> Result<Running<R>, Error> {
     let (args, reader) = launch(open);
     let reader = Arc::new(Mutex::new(reader));
@@ -247,6 +258,7 @@ fn run<R: Reader>(
         Arc::clone(&current),
         Arc::clone(&quiet),
     );
+    let mut reply = reload;
     let process = Process::start(command, move |output, stdin| {
         let emit = lock(&emit);
         let read = match output {
@@ -268,8 +280,13 @@ fn run<R: Reader>(
         for line in read.lines {
             let _ = stdin.write(&line);
         }
+        let mut events = read.events;
+        if reply && events.contains(&HarnessEvent::HistoryEnd) {
+            reply = false;
+            events.extend(reloaded());
+        }
         if live.load(Ordering::SeqCst) {
-            read.events.into_iter().for_each(&*emit);
+            events.into_iter().for_each(&*emit);
         }
     })
     .map_err(|error| Error::start_failed(harness.binary, harness.install, error))?;

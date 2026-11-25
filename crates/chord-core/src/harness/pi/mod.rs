@@ -47,6 +47,7 @@ const WORKTREE_ENV: &str = "CHORD_WORKTREE";
 const TOOL_TEXTS_ENV: &str = "CHORD_TOOL_TEXTS";
 const SUBAGENTS_PREFIX: &str = "PI_SUBAGENT_ASYNC_JSON:";
 const SESSION_PROMPT: &str = "chord-session";
+const RELOAD_PROMPT: &str = "chord-reload";
 const FORK_DIALOG: &str = "chord-fork:";
 const MODEL_DIALOG: &str = "chord-model";
 const THINKING_DIALOG: &str = "chord-thinking";

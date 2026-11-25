@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { levelSlots, shownLevel } from "./agentPicker.ts";
+import { levelSlots, shownLevel, switchesInPlace } from "./agentPicker.ts";
+import { emptyChat } from "./transcript.ts";
 
 const sonnet = { id: "sonnet", name: "Sonnet", provider: null, levels: ["low", "medium", "high"], default_level: "medium" };
 
@@ -20,4 +21,10 @@ test("the bar's segments hold every model's levels in order, a level one model l
     { ...sonnet, levels: [] },
   ];
   assert.deepEqual(levelSlots(models), ["off", "minimal", "low", "medium", "high", "xhigh"]);
+});
+
+test("another agent's pick switches in place only on an empty chat whose history has loaded and holds no message", () => {
+  assert.equal(switchesInPlace(emptyChat), true);
+  assert.equal(switchesInPlace({ ...emptyChat, loading: true }), false);
+  assert.equal(switchesInPlace({ ...emptyChat, held: "hi" }), false);
 });

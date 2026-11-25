@@ -1,7 +1,7 @@
 import type { Checks, ModelOption } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore.ts";
 import { shownHarnesses } from "../harnesses/harnessCheck.ts";
-import type { ModelChoice } from "./transcript.ts";
+import type { Chat, ModelChoice } from "./transcript.ts";
 
 export const agentPickerPane = externalStore<string | null>(null);
 
@@ -20,6 +20,8 @@ export function shownLevel(model: ModelOption, running: ModelChoice | null, pick
   if (running?.thinking && model.levels.includes(running.thinking)) return running.thinking;
   return model.default_level ?? null;
 }
+
+export const switchesInPlace = (chat: Chat): boolean => chat.items.length === 0 && !chat.loading && chat.held === null;
 
 export function levelSlots(models: ModelOption[]): string[] {
   const slots: string[] = [];

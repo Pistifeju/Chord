@@ -1080,3 +1080,20 @@ fn the_model_list_gives_each_model_the_levels_pi_allows_it() {
         }]
     );
 }
+
+#[test]
+fn a_finished_reload_shows_as_a_reply() {
+    let record = r#"{"type":"response","id":"chord-reload","command":"prompt","success":true}"#;
+    assert_eq!(
+        Reader::default().feed(record.as_bytes()).events,
+        vec![
+            HarnessEvent::MessageChunk {
+                text: "Reloaded extensions, skills, prompts and context files".into()
+            },
+            HarnessEvent::MessageEnd {
+                failed: false,
+                at: None
+            }
+        ]
+    );
+}

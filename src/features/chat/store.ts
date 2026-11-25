@@ -122,6 +122,11 @@ export async function startChat(worktree: string, pane: string, switchTo: string
   return history;
 }
 
+export function switchEmptyChat(worktree: string, pane: string, harness: string, pick: ModelPick | null) {
+  update(pane, () => emptyChat);
+  return startChat(worktree, pane, harness, pick);
+}
+
 export const attachments = externalStore<Record<string, Attachment[]>>({});
 
 let attachmentCount = 0;

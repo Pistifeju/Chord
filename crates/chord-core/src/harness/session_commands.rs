@@ -63,3 +63,15 @@ pub(crate) fn thinking(id: &str, options: Vec<String>, current: Option<String>) 
     }
     menu(Picker::Thinking, id, options, current)
 }
+
+pub(crate) fn reloaded() -> [HarnessEvent; 2] {
+    [
+        HarnessEvent::MessageChunk {
+            text: "Reloaded extensions, skills, prompts and context files".into(),
+        },
+        HarnessEvent::MessageEnd {
+            failed: false,
+            at: None,
+        },
+    ]
+}
