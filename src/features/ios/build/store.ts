@@ -64,6 +64,7 @@ export function startBuild(worktree: string, run: boolean, agentRequest: number 
   const channel = new Channel<BuildEvent_Deserialize>();
   channel.onmessage = (event) => {
     if (!current()) return;
+    if (event.kind === "runs_on_simulator") openSideView(worktree, "simulator");
     apply(worktree, (state) => appliedEvent(state, event, Date.now()));
     const view = bottomPanelOf(bottomPanels.get(), worktree).view;
     const next = viewAfterEvent(view, event);
@@ -76,14 +77,10 @@ export function startBuild(worktree: string, run: boolean, agentRequest: number 
   commands.startBuild(worktree, run, target, schemePickOf(worktree), agentRequest, channel).catch(fail);
 }
 
-export function runApp(worktree: string) {
-  if (runDestinationOf(worktree)?.kind !== "device") openSideView(worktree, "simulator");
-  startBuild(worktree, true);
-}
+export const runApp = (worktree: string) => startBuild(worktree, true);
 
 export function watchAgentBuilds(): () => void {
   const unlisten = events.agentBuildRequested.listen(({ payload }) => {
-    if (payload.run) openSideView(payload.worktree, "simulator");
     startBuild(payload.worktree, payload.run, payload.request);
   });
   return () => void unlisten.then((off) => off());

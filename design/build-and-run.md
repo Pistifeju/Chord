@@ -10,7 +10,7 @@ A failure is `danger` text and the toolbar's Run and Stop icons take `success` a
   The scheme button (tooltip "Scheme and Build Configuration", 10px left and 4px right padding): an `ink-muted` scheme icon, the scheme's name, then the configuration at 400 in `ink-secondary` after an `ink-muted` "·".
   The name and configuration always show: the project's pick at once, else what a build used at the project's last listing, then what it uses once the new listing came.
   A click opens the scheme menu under it.
-  The destination button (tooltip "Run Destination", 4px left and 8px right padding): an `ink-muted` phone icon, the destination's name (without a pick, the simulator a run uses: the newest iOS version's iPhone Pro that is not a Max; nothing until the listing comes) and a simulator's iOS version at 400 in `ink-muted`.
+  The destination button (tooltip "Run Destination", 4px left and 8px right padding): an `ink-muted` phone icon (a Mac icon for My Mac), the destination's name (without a pick, the simulator a run uses: the newest iOS version's iPhone Pro that is not a Max, or My Mac for a project that builds for macOS alone; nothing until the listing comes) and a simulator's iOS version at 400 in `ink-muted`.
   A click opens the run menu under it.
   A long scheme or destination name truncates.
   The rest of the field holds the status, left aligned with 10px on each side, truncating, its full text as the tooltip: a lead at 500 in `ink`, then a detail in `ink-secondary` that carries its own lead-in.
@@ -30,7 +30,7 @@ A failure is `danger` text and the toolbar's Run and Stop icons take `success` a
   Esc closes it and puts the focus back on the count; a click outside, the count, ⌘' again, a resize and a new build close it too.
   ⌘' (Show Build Errors in the Product menu) opens it while the worktree's last build failed.
 - **Run menu:** a native menu, as the worktree card's.
-  Run (⌘R), Build (⌘B) and Stop (⌘., disabled while nothing builds or runs), a separator, then the run destinations: connected devices under a disabled "Devices" line, then the simulator models under a disabled line per iOS version ("iOS 27.0"), newest first, a separator before each group after the first, iPhones before iPads.
+  Run (⌘R), Build (⌘B) and Stop (⌘., disabled while nothing builds or runs), a separator, then the run destinations: My Mac and a separator when the project builds for macOS, connected devices under a disabled "Devices" line, then the simulator models under a disabled line per iOS version ("iOS 27.0"), newest first, a separator before each group after the first, iPhones before iPads.
   The project's pick carries a check mark.
   Without a simulator the list is one disabled "No Simulators" line.
   A pick that is gone falls back to the first simulator, and a notice toast names both.

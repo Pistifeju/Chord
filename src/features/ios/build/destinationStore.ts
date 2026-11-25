@@ -3,7 +3,8 @@ import { commands, type Destinations, type RunDestination } from "../../../ipc/b
 import { externalStore } from "../../../ui/externalStore";
 import { notify } from "../../../ui/alert";
 import { projectPicks } from "../projectPicks";
-import { pickAfterListing } from "./destination";
+import { fallbackDestination, pickAfterListing } from "./destination";
+import { schemeListings } from "./schemeStore";
 
 const runDestinations = projectPicks<RunDestination | null>((project, destination) => commands.changeState({ runDestination: { project, destination } }));
 export const destinations = externalStore<Destinations | null>(null);
@@ -23,13 +24,23 @@ export function useFallbackSimulator(worktree: string): RunDestination | null {
   return destinations.usePart((listing) => listing?.fallback ?? null);
 }
 
-export async function refreshDestinations(worktree: string) {
-  const listing = await commands.listDestinations();
-  destinations.set(listing);
+export function useFallbackDestination(worktree: string): RunDestination | null {
+  const simulator = useFallbackSimulator(worktree);
+  return fallbackDestination(schemeListings.usePart((all) => all[worktree]?.mac), simulator);
+}
+
+function keepPickAvailable(worktree: string) {
   const current = runDestinations.of(worktree);
   if (!current) return;
-  const { pick: kept, notice } = pickAfterListing(current, listing);
+  const { pick, notice } = pickAfterListing(current, destinations.get(), schemeListings.get()[worktree]?.mac);
   if (!notice) return;
-  runDestinations.choose(worktree, kept);
+  runDestinations.choose(worktree, pick);
   notify(notice);
+}
+
+schemeListings.subscribe(() => Object.keys(schemeListings.get()).forEach(keepPickAvailable));
+
+export async function refreshDestinations(worktree: string) {
+  destinations.set(await commands.listDestinations());
+  keepPickAvailable(worktree);
 }

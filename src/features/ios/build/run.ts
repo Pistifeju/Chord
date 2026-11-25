@@ -65,6 +65,8 @@ export function appliedEvent(state: BuildAndLog, event: BuildEvent_Deserialize, 
       return { ...state, build: { ...build, phase: "stopped", endedAt: now } };
     case "failed":
       return { ...state, build: { ...build, phase: "failed", issues: event.issues, more: event.more, endedAt: now } };
+    case "runs_on_simulator":
+      return state;
   }
 }
 

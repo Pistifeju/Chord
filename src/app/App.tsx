@@ -11,6 +11,7 @@ import { SimulatorToggle, SimulatorView } from "../features/ios/simulator/Simula
 import { PreviewToggle, PreviewView } from "../features/ios/preview/PreviewView";
 import { markerText } from "../features/ios/build/run";
 import { builds, watchAgentBuilds } from "../features/ios/build/store";
+import { useMacOnly } from "../features/ios/build/schemeStore";
 import { watchBrowsers } from "../features/browser/store";
 import { OpenFileByNamePopup } from "../features/files/OpenFileByNamePopup";
 import { TrashFilePopup } from "../features/files/TrashFilePopup";
@@ -98,6 +99,8 @@ export default function App() {
   const buildStates = builds.use();
   const projectHasXcode = hasXcodeProject(state);
   const xcode = worktreeAt(state, selected)?.xcode === true;
+  const macOnly = useMacOnly(selected);
+  const simulator = xcode && !macOnly;
   const owner = selected === null ? undefined : ownerOf(state, selected);
   const project = list.find((entry) => entry.path === owner);
   const markers = useMemo(
@@ -167,10 +170,12 @@ export default function App() {
                         <Toolbar
                           worktree={selected}
                           viewButtons={
-                            <>
-                              <SimulatorToggle worktree={selected} />
-                              <PreviewToggle worktree={selected} />
-                            </>
+                            simulator && (
+                              <>
+                                <SimulatorToggle worktree={selected} />
+                                <PreviewToggle worktree={selected} />
+                              </>
+                            )
                           }
                         />
                       ) : null
@@ -184,7 +189,7 @@ export default function App() {
                         : []
                     }
                     sideViews={
-                      xcode
+                      simulator
                         ? [
                             { id: "simulator", title: "Simulator", body: <SimulatorView worktree={selected} /> },
                             { id: "preview", title: "Preview", body: <PreviewView worktree={selected} /> },

@@ -12,6 +12,8 @@ mod device;
 mod hid;
 mod hot_reload;
 mod issues;
+mod mac;
+mod plist;
 mod preview;
 mod preview_list;
 mod process;

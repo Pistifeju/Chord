@@ -45,13 +45,16 @@ pub(crate) struct Pumped {
 pub(crate) fn pump(
     lines: &Receiver<Vec<u8>>,
     records: Option<&Receiver<(String, ConsoleTone)>>,
-    is_launch_line: impl Fn(&str) -> bool,
+    is_launch_line: Option<&dyn Fn(&str) -> bool>,
     launched: &dyn Fn(),
     console: &dyn Fn(String, ConsoleTone),
     ended: impl FnOnce(),
 ) -> Pumped {
     let mut output = String::new();
-    let mut up = false;
+    let mut up = is_launch_line.is_none();
+    if up {
+        launched();
+    }
     let mut pending = Console::default();
     let mut flushed = Instant::now();
     let drain = |pending: &mut Console| {
@@ -66,7 +69,7 @@ pub(crate) fn pump(
                 let text = String::from_utf8_lossy(&bytes).replace("\r\n", "\n");
                 if up {
                     pending.push(&text, ConsoleTone::Output);
-                } else if is_launch_line(&text) {
+                } else if is_launch_line.is_some_and(|is_launch| is_launch(&text)) {
                     up = true;
                     launched();
                 } else {
