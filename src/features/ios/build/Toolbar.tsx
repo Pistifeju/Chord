@@ -6,10 +6,10 @@ import { menuItem, tooltip } from "../../../app/commands";
 import { openContextMenu } from "../../../app/contextMenu";
 import { shortcutChanges } from "../../settings/store";
 import { fail } from "../../../ui/alert";
-import { ChevronIcon, PhoneIcon, PlayIcon, SchemeIcon, StopIcon, WarningIcon } from "../../../ui/icons";
+import { ChevronIcon, MacIcon, PhoneIcon, PlayIcon, SchemeIcon, StopIcon, WarningIcon } from "../../../ui/icons";
 import { sidebar } from "../../sidebar/store";
-import { sameDestination } from "./destination";
-import { chooseRunDestination, destinations, refreshDestinations, runDestinationOf, useFallbackSimulator, useRunDestination } from "./destinationStore";
+import { myMac, sameDestination } from "./destination";
+import { chooseRunDestination, destinations, refreshDestinations, runDestinationOf, useFallbackDestination, useRunDestination } from "./destinationStore";
 import { closeErrorList, errorList, toggleErrorList } from "./errorListStore";
 import { ErrorList } from "./ErrorList";
 import { activityOf, failedBuild, isRunning, isStarting } from "./run";
@@ -63,6 +63,9 @@ async function runMenu(worktree: string) {
   const build = builds.get()[worktree];
   const stop = await MenuItem.new({ ...menuItem("build.stop", worktree), enabled: isStarting(build) || isRunning(build) });
   const items = [await MenuItem.new(menuItem("build.run", worktree)), await MenuItem.new(menuItem("build.start", worktree)), stop, await PredefinedMenuItem.new({ item: "Separator" })];
+  const mac = schemeListings.get()[worktree]?.mac;
+  if (mac === "only") return Menu.new({ items: [...items, await choiceItem(pick, myMac, choose)] });
+  if (mac === "also") items.push(await choiceItem(pick, myMac, choose), await PredefinedMenuItem.new({ item: "Separator" }));
   if (listing?.devices.length) {
     items.push(await disabledLine("Devices"));
     for (const device of listing.devices) items.push(await choiceItem(pick, device, choose));
@@ -147,7 +150,7 @@ export function Toolbar({ worktree, viewButtons }: { worktree: string; viewButto
   shortcutChanges.use();
   const { hidden } = sidebar.use();
   const busy = builds.usePart((all) => isStarting(all[worktree]) || isRunning(all[worktree]));
-  const fallback = useFallbackSimulator(worktree);
+  const fallback = useFallbackDestination(worktree);
   const destination = useRunDestination(worktree) ?? fallback;
   const { scheme, configuration } = useShownPick(worktree);
   const name = destination?.name ?? "";
@@ -192,7 +195,7 @@ export function Toolbar({ worktree, viewButtons }: { worktree: string; viewButto
               aria-label={`Run Destination: ${[name, os].filter(Boolean).join(", ")}`}
               onClick={(e: MouseEvent<HTMLButtonElement>) => popUpUnder(worktree, e.currentTarget, () => runMenu(worktree)).catch(fail)}
             >
-              <PhoneIcon />
+              {destination?.kind === "mac" ? <MacIcon /> : <PhoneIcon />}
               <span className="toolbar-destination">{name}</span>
               {os && <span className="toolbar-destination-os">{os}</span>}
             </button>

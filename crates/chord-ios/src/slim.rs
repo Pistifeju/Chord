@@ -5,9 +5,10 @@ use std::process::Command;
 
 use chord_core::Error;
 
+use crate::plist::PLUTIL;
 use crate::process;
 use crate::service_groups::{GROUPS, ServiceGroup, ServiceRow, Subgroup, SubgroupRow};
-use crate::simulator::{DeviceSet, PLUTIL, simctl};
+use crate::simulator::{DeviceSet, simctl};
 
 const FIRST_SLIM_RUNTIME: (u32, u32) = (18, 5);
 

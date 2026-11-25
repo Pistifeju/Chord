@@ -3,7 +3,7 @@ use std::process::{Command, Stdio};
 
 use md5::{Digest, Md5};
 
-use crate::simulator;
+use crate::plist;
 
 pub(crate) const LSOF: &str = "/usr/sbin/lsof";
 
@@ -30,8 +30,7 @@ pub(crate) fn projects() -> Vec<(PathBuf, PathBuf)> {
         .flatten()
         .filter_map(|entry| {
             let folder = entry.path();
-            let recorded =
-                simulator::plist_value(&folder.join("info.plist"), "WorkspacePath", &|_| {});
+            let recorded = plist::value(&folder.join("info.plist"), "WorkspacePath", &|_| {});
             Some((folder, PathBuf::from(recorded.ok()?)))
         })
         .collect()

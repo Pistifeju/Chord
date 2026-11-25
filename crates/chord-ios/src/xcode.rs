@@ -11,8 +11,9 @@ use serde_json::Value;
 use specta::Type;
 
 use crate::derived_data::LSOF;
+use crate::plist::PLUTIL;
 use crate::process;
-use crate::simulator::{OPEN, PLUTIL};
+use crate::simulator::OPEN;
 
 pub(crate) struct Project {
     pub path: PathBuf,
@@ -77,10 +78,65 @@ pub(crate) fn project_in(worktree: &Path) -> Result<Project, Error> {
 }
 
 #[derive(Serialize, Type, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct Schemes {
     pub schemes: Vec<Scheme>,
     pub configurations: Vec<String>,
     pub default: String,
+    pub mac: MacSupport,
+}
+
+#[derive(Serialize, Type, Clone, Copy, Debug, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum MacSupport {
+    None,
+    Also,
+    Only,
+}
+
+pub(crate) fn mac_support(worktree: &Path) -> MacSupport {
+    let projects: String = xcode_bundles(worktree)
+        .into_iter()
+        .filter_map(|bundle| fs::read_to_string(bundle.join("project.pbxproj")).ok())
+        .collect();
+    mac_support_in(&projects)
+}
+
+fn mac_support_in(pbxproj: &str) -> MacSupport {
+    let values: Vec<&str> = pbxproj
+        .lines()
+        .filter_map(|line| {
+            let line = line.trim();
+            line.strip_prefix("SDKROOT = ")
+                .or_else(|| line.strip_prefix("SUPPORTED_PLATFORMS = "))
+        })
+        .collect();
+    let has = |platform: &str| values.iter().any(|value| value.contains(platform));
+    match (has("macosx"), has("iphone")) {
+        (false, _) => MacSupport::None,
+        (true, true) => MacSupport::Also,
+        (true, false) => MacSupport::Only,
+    }
+}
+
+pub(crate) fn mac_destination() -> String {
+    let arch = if apple_silicon() { "arm64" } else { "x86_64" };
+    format!("platform=macOS,arch={arch}")
+}
+
+fn apple_silicon() -> bool {
+    let mut value: i32 = 0;
+    let mut size = size_of::<i32>();
+    let found = unsafe {
+        libc::sysctlbyname(
+            c"hw.optional.arm64".as_ptr(),
+            (&raw mut value).cast(),
+            &raw mut size,
+            std::ptr::null_mut(),
+            0,
+        )
+    } == 0;
+    found && value == 1
 }
 
 #[derive(Serialize, Type, Clone, Debug, PartialEq)]
@@ -115,6 +171,7 @@ pub fn list_schemes(worktree: &Path) -> Result<Schemes, Error> {
         }
     }
     Ok(Schemes {
+        mac: mac_support(worktree),
         schemes: strings(&info(&listed)?["schemes"])
             .into_iter()
             .map(|name| Scheme {
@@ -173,7 +230,7 @@ pub(crate) fn build_args(
     project: &Project,
     scheme: &str,
     configuration: &str,
-    target: Option<&str>,
+    destination: &str,
 ) -> Vec<String> {
     [
         project.flag,
@@ -183,7 +240,7 @@ pub(crate) fn build_args(
         "-configuration",
         configuration,
         "-destination",
-        &destination(target),
+        destination,
     ]
     .map(String::from)
     .into()
@@ -214,13 +271,13 @@ pub(crate) fn built_app(
     project: &Project,
     scheme: &str,
     configuration: &str,
-    target: Option<&str>,
+    destination: &str,
     worktree: &Path,
     register: &dyn Fn(u32),
 ) -> Result<PathBuf, Error> {
     type Found = HashMap<Vec<String>, (Vec<Option<SystemTime>>, PathBuf)>;
     static FOUND: Mutex<Option<Found>> = Mutex::new(None);
-    let mut args = build_args(project, scheme, configuration, target);
+    let mut args = build_args(project, scheme, configuration, destination);
     let stamp = project_stamp(worktree);
     let known = lock(&FOUND)
         .as_ref()
@@ -369,6 +426,16 @@ mod tests {
             app_in_settings(text).unwrap(),
             PathBuf::from("/b/Debug-iphonesimulator/My App.app")
         );
+    }
+
+    #[test]
+    fn reads_mac_support_from_the_sdk_and_supported_platforms() {
+        let mac = "\t\t\t\tSDKROOT = macosx;\n";
+        let multiplatform = "\t\t\t\tSDKROOT = auto;\n\t\t\t\tSUPPORTED_PLATFORMS = \"iphoneos iphonesimulator macosx\";\n";
+        let ios = "\t\t\t\tSDKROOT = iphoneos;\n";
+        assert_eq!(mac_support_in(mac), MacSupport::Only);
+        assert_eq!(mac_support_in(multiplatform), MacSupport::Also);
+        assert_eq!(mac_support_in(ios), MacSupport::None);
     }
 
     #[test]

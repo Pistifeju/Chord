@@ -16,7 +16,6 @@ use crate::process::{self, end_group, xcrun};
 use crate::slim;
 use crate::xcode;
 
-pub(crate) const PLUTIL: &str = "/usr/bin/plutil";
 pub(crate) const OPEN: &str = "/usr/bin/open";
 const STREAM_START: Duration = Duration::from_secs(3);
 const BOOT_LIMIT: Duration = Duration::from_secs(180);
@@ -467,22 +466,6 @@ pub(crate) fn show_home_screen(udid: &str) -> Result<(), Error> {
     .map(drop)
 }
 
-pub(crate) fn plist_text(app: &Path, key: &str, register: &dyn Fn(u32)) -> Result<String, Error> {
-    plist_value(&app.join("Info.plist"), key, register)
-}
-
-pub(crate) fn plist_value(file: &Path, key: &str, register: &dyn Fn(u32)) -> Result<String, Error> {
-    let mut command = Command::new(PLUTIL);
-    command.args(["-extract", key, "raw", "-o", "-"]).arg(file);
-    let output = process::captured(command, register)?;
-    let value = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    if output.status.success() && !value.is_empty() {
-        Ok(value)
-    } else {
-        Err(Error::Message(format!("No {key} in {}", file.display())))
-    }
-}
-
 pub(crate) fn install(
     set: DeviceSet,
     udid: &str,
@@ -585,7 +568,7 @@ pub(crate) fn launch(
     let pumped = console::pump(
         &lines,
         Some(&received_records),
-        |text| text.starts_with(&format!("{bundle_id}: ")),
+        Some(&|text| text.starts_with(&format!("{bundle_id}: "))),
         launched,
         console,
         || end_stream(&mut stream),

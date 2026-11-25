@@ -20,12 +20,14 @@ use crate::derived_data;
 use crate::device;
 use crate::hot_reload;
 use crate::issues::{BuildIssue, Issues};
+use crate::mac;
+use crate::plist;
 use crate::preview::{self, PreviewState};
 use crate::process::{self, BATCH_BYTES, BATCH_INTERVAL, GROUP_GRACE, end_group};
 use crate::simulator::{self, DeviceSet, Simulator};
 use crate::simulator_kit;
 use crate::slot::{Slots, Start};
-use crate::xcode::{self, Project};
+use crate::xcode::{self, MacSupport, Project};
 
 mod preview_session;
 
@@ -48,14 +50,16 @@ enum Target {
     AnySimulator,
     Simulator(Simulator),
     Device(String),
+    Mac,
 }
 
 impl Target {
-    fn id(&self) -> Option<&str> {
+    fn destination(&self) -> String {
         match self {
-            Target::AnySimulator => None,
-            Target::Simulator(device) => Some(&device.udid),
-            Target::Device(udid) => Some(udid),
+            Target::AnySimulator => xcode::destination(None),
+            Target::Simulator(device) => xcode::destination(Some(&device.udid)),
+            Target::Device(udid) => xcode::destination(Some(udid)),
+            Target::Mac => xcode::mac_destination(),
         }
     }
 }
@@ -64,6 +68,7 @@ impl Target {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum BuildEvent {
     Phase { phase: BuildPhase },
+    RunsOnSimulator,
     Log { text: String },
     Console { text: String, tone: ConsoleTone },
     Succeeded,
@@ -339,6 +344,11 @@ impl Build {
         self.say(BuildEvent::Phase {
             phase: BuildPhase::Preparing,
         });
+        let on_mac = self.on_mac();
+        let on_device = matches!(self.destination, Some(RunDestination::Device { .. }));
+        if self.run && !on_mac && !on_device {
+            self.say(BuildEvent::RunsOnSimulator);
+        }
         let scheme = match self.scheme() {
             Ok(scheme) => scheme,
             Err(_) if self.stopped() => return BuildEvent::Stopped,
@@ -347,7 +357,7 @@ impl Build {
         if !self.wait_for_database() {
             return BuildEvent::Stopped;
         }
-        let target = match self.target() {
+        let target = match self.target(on_mac) {
             Ok(target) => target,
             Err(_) if self.stopped() => return BuildEvent::Stopped,
             Err(error) => return self.failed(error.to_string()),
@@ -371,7 +381,7 @@ impl Build {
         self.say(BuildEvent::Phase {
             phase: BuildPhase::Building,
         });
-        let end = self.xcodebuild(&scheme, target.id());
+        let end = self.xcodebuild(&scheme, &target.destination());
         if end == BuildEvent::Succeeded
             && lock(&self.builds.0.previews).contains_key(&self.worktree)
         {
@@ -384,11 +394,23 @@ impl Build {
             (BuildEvent::Succeeded, Target::Device(udid), _) if self.run => {
                 self.run_on_device(&scheme, &udid)
             }
+            (BuildEvent::Succeeded, Target::Mac, _) if self.run => self.run_on_mac(&scheme),
             (end, _, _) => end,
         }
     }
 
-    fn target(&self) -> Result<Target, Error> {
+    fn on_mac(&self) -> bool {
+        match &self.destination {
+            Some(RunDestination::Mac { .. }) => true,
+            None => xcode::mac_support(&self.worktree) == MacSupport::Only,
+            _ => false,
+        }
+    }
+
+    fn target(&self, on_mac: bool) -> Result<Target, Error> {
+        if on_mac {
+            return Ok(Target::Mac);
+        }
         if let Some(RunDestination::Device { id, .. }) = &self.destination {
             return Ok(Target::Device(id.clone()));
         }
@@ -465,15 +487,15 @@ impl Build {
                     &self.project,
                     scheme,
                     &self.configuration(scheme),
-                    Some(udid),
+                    &xcode::destination(Some(udid)),
                     &self.worktree,
                     register,
                 )
             })?;
             let id =
-                self.step(|register| simulator::plist_text(&app, "CFBundleIdentifier", register))?;
+                self.step(|register| plist::app_value(&app, "CFBundleIdentifier", register))?;
             let executable =
-                self.step(|register| simulator::plist_text(&app, "CFBundleExecutable", register))?;
+                self.step(|register| plist::app_value(&app, "CFBundleExecutable", register))?;
             self.step(|register| simulator::install(DeviceSet::Run, udid, &app, register))?;
             if self.stopped() {
                 return Ok(None);
@@ -513,13 +535,13 @@ impl Build {
                     &self.project,
                     scheme,
                     &self.configuration(scheme),
-                    Some(udid),
+                    &xcode::destination(Some(udid)),
                     &self.worktree,
                     register,
                 )
             })?;
             let id =
-                self.step(|register| simulator::plist_text(&app, "CFBundleIdentifier", register))?;
+                self.step(|register| plist::app_value(&app, "CFBundleIdentifier", register))?;
             self.step(|register| device::install(udid, &app, register))?;
             if self.stopped() {
                 return Ok(None);
@@ -535,6 +557,36 @@ impl Build {
                     &|| self.app_launched(),
                     &|text, tone| self.say(BuildEvent::Console { text, tone }),
                 )
+            })
+        })();
+        self.finished_run(ended, drop)
+    }
+
+    fn run_on_mac(&self, scheme: &str) -> BuildEvent {
+        let ended = (|| {
+            if self.stopped() {
+                return Ok(None);
+            }
+            self.say(BuildEvent::Phase {
+                phase: BuildPhase::Launching,
+            });
+            let app = self.step(|register| {
+                xcode::built_app(
+                    &self.project,
+                    scheme,
+                    &self.configuration(scheme),
+                    &xcode::mac_destination(),
+                    &self.worktree,
+                    register,
+                )
+            })?;
+            if self.stopped() {
+                return Ok(None);
+            }
+            self.step(|register| {
+                mac::launch(&app, register, &|| self.app_launched(), &|text, tone| {
+                    self.say(BuildEvent::Console { text, tone })
+                })
             })
         })();
         self.finished_run(ended, drop)
@@ -627,9 +679,13 @@ impl Build {
         }
     }
 
-    fn xcodebuild(&self, scheme: &str, target: Option<&str>) -> BuildEvent {
-        let mut args =
-            xcode::build_args(&self.project, scheme, &self.configuration(scheme), target);
+    fn xcodebuild(&self, scheme: &str, destination: &str) -> BuildEvent {
+        let mut args = xcode::build_args(
+            &self.project,
+            scheme,
+            &self.configuration(scheme),
+            destination,
+        );
         args.push("build".into());
         let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
         let mut command = login_shell("xcodebuild", &arg_refs);

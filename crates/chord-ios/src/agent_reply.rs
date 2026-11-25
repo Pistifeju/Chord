@@ -59,7 +59,8 @@ pub(crate) fn agent_reply(events: impl IntoIterator<Item = BuildEvent>, run: boo
                     more.unwrap_or_default()
                 ));
             }
-            BuildEvent::Phase { .. } | BuildEvent::Console { .. } => {}
+            BuildEvent::Phase { .. } | BuildEvent::Console { .. } | BuildEvent::RunsOnSimulator => {
+            }
         }
     }
     AgentReply::ok("Stopped")

@@ -206,9 +206,9 @@ export type BrowserRect = {
 
 export type BuildEvent = BuildEvent_Serialize | BuildEvent_Deserialize;
 
-export type BuildEvent_Deserialize = { kind: "phase"; phase: BuildPhase } | { kind: "log"; text: string } | { kind: "console"; text: string; tone: ConsoleTone } | { kind: "succeeded" } | { kind: "exited" } | { kind: "stopped" } | { kind: "failed"; issues: BuildIssue_Deserialize[]; more: number };
+export type BuildEvent_Deserialize = { kind: "phase"; phase: BuildPhase } | { kind: "runs_on_simulator" } | { kind: "log"; text: string } | { kind: "console"; text: string; tone: ConsoleTone } | { kind: "succeeded" } | { kind: "exited" } | { kind: "stopped" } | { kind: "failed"; issues: BuildIssue_Deserialize[]; more: number };
 
-export type BuildEvent_Serialize = { kind: "phase"; phase: BuildPhase } | { kind: "log"; text: string } | { kind: "console"; text: string; tone: ConsoleTone } | { kind: "succeeded" } | { kind: "exited" } | { kind: "stopped" } | { kind: "failed"; issues: BuildIssue_Serialize[]; more: number };
+export type BuildEvent_Serialize = { kind: "phase"; phase: BuildPhase } | { kind: "runs_on_simulator" } | { kind: "log"; text: string } | { kind: "console"; text: string; tone: ConsoleTone } | { kind: "succeeded" } | { kind: "exited" } | { kind: "stopped" } | { kind: "failed"; issues: BuildIssue_Serialize[]; more: number };
 
 export type BuildIssue = BuildIssue_Serialize | BuildIssue_Deserialize;
 
@@ -512,6 +512,8 @@ export type LocalBranch_Serialize = {
 	heldBy: string | null,
 };
 
+export type MacSupport = "none" | "also" | "only";
+
 export type ModelOption = ModelOption_Serialize | ModelOption_Deserialize;
 
 export type ModelOption_Deserialize = {
@@ -605,7 +607,7 @@ export type Removal_Serialize = ({ Removed: {
 	reason: string,
 } }) & { Removed?: never };
 
-export type RunDestination = { kind: "device"; id: string; name: string } | { kind: "simulator"; model: string; runtime: string; name: string; os: string };
+export type RunDestination = { kind: "device"; id: string; name: string } | { kind: "simulator"; model: string; runtime: string; name: string; os: string } | { kind: "mac"; name: string };
 
 export type RunningSimulator = {
 	worktree: string,
@@ -635,6 +637,7 @@ export type Schemes = {
 	schemes: Scheme[],
 	configurations: string[],
 	default: string,
+	mac: MacSupport,
 };
 
 export type ScreenButtons = ScreenButtons_Serialize | ScreenButtons_Deserialize;
