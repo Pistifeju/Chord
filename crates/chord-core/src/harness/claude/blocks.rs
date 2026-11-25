@@ -1,5 +1,3 @@
-//! What Claude Code's content blocks mean as harness events: a user message's text and images, a tool call's start and end. Live records and a transcript's lines share it.
-
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -8,14 +6,12 @@ use serde_json::Value;
 use crate::harness::shell::read_only_title;
 use crate::harness::{HarnessEvent, Image, LineChanges, ToolOutcome, relative, text, timestamp};
 
-/// What of an `assistant` record's block already came as deltas.
 #[derive(Clone, Copy, Default)]
 pub(super) struct Streamed {
     pub(super) text: bool,
     pub(super) thought: bool,
 }
 
-/// The events of an `assistant` record's blocks: the text, the thought and the tool calls, whose names `tools` keeps by id until they end.
 pub(super) fn assistant(
     record: &Value,
     streamed: Streamed,
@@ -58,7 +54,6 @@ pub(super) fn assistant(
     events
 }
 
-/// The ends of the tool calls a user record's `tool_result` blocks answer; `result` is the record's tool result. A call `tools` does not hold, as `ExitPlanMode`, has no card to end.
 pub(super) fn tool_results(
     content: &Value,
     result: &Value,
@@ -76,7 +71,6 @@ pub(super) fn tool_results(
         .collect()
 }
 
-// A tool card, or for `ExitPlanMode` the plan as a reply.
 fn tool_use(block: &Value, cwd: &Path) -> Vec<HarnessEvent> {
     let name = text(&block["name"]);
     let input = &block["input"];
@@ -138,7 +132,6 @@ fn tool_use(block: &Value, cwd: &Path) -> Vec<HarnessEvent> {
     }]
 }
 
-// The end of the tool call a `tool_result` block answers; `name` is the tool's.
 fn tool_result(block: &Value, name: &str, result: &Value) -> HarnessEvent {
     let changes = (name == "Edit").then(|| {
         let lines: Vec<&str> = result["structuredPatch"]
@@ -166,7 +159,6 @@ fn tool_result(block: &Value, name: &str, result: &Value) -> HarnessEvent {
     }
 }
 
-/// A user message's text: a string, or its `text` blocks joined. A slash command's markup reads as the user typed it.
 pub(super) fn user_text(content: &Value) -> String {
     let text = match content {
         Value::String(text) => text.clone(),
@@ -189,7 +181,6 @@ pub(super) fn user_text(content: &Value) -> String {
     }
 }
 
-/// The base64 `image` blocks of a message or a tool's result.
 pub(super) fn images(content: &Value) -> Vec<Image> {
     content
         .as_array()
@@ -211,7 +202,6 @@ fn tagged<'a>(text: &'a str, tag: &str) -> Option<&'a str> {
     Some(&text[start..end])
 }
 
-/// The input as JSON after `lead`, nothing for an empty object.
 pub(super) fn arguments(input: &Value, lead: &str) -> String {
     match input {
         Value::Null => String::new(),

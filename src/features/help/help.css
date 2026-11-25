@@ -1,4 +1,3 @@
-/* The Help sheet: basics and statuses as short labeled lists. Rules: design/sheets.md. */
 .help {
   width: min(440px, calc(100vw - 40px));
   gap: 20px;

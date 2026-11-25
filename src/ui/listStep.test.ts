@@ -1,4 +1,3 @@
-// Tests for the list highlight's step.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { steppedIndex } from "./listStep.ts";

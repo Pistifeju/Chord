@@ -1,5 +1,3 @@
-//! The saved app state and the store that writes it to `state.json`.
-
 use crate::lock;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -18,75 +16,47 @@ pub struct State {
     pub projects: Vec<Project>,
     pub sidebar: Sidebar,
     pub appearance: Appearance,
-    /// Keep the Mac awake while an agent runs.
     pub keep_awake: bool,
-    /// No macOS notification for a done or waiting agent.
     pub mute_notifications: bool,
-    /// Web links open in the default browser instead of a browser tab.
     pub links_in_default_browser: bool,
-    /// The last commit without Amend pushed after it, so Commit & Push is the mode the commit box opens with.
     pub push_after_commit: bool,
-    /// Shortcuts the user changed, by command id. `None` means the command lost its key.
     #[serde(deserialize_with = "valid_shortcuts")]
     #[specta(type = BTreeMap<String, Option<Shortcut>>)]
     pub shortcuts: BTreeMap<String, Option<Shortcut>>,
-    /// The worktree open when the app last ran.
     pub selected: Option<PathBuf>,
-    /// Each worktree's tab groups and their split layout.
     pub panes: BTreeMap<PathBuf, WorktreePanes>,
-    /// Each worktree's side panel: open or not, and its width.
     pub side_panels: BTreeMap<PathBuf, SidePanel>,
-    /// Each worktree's bottom panel: open or not, and its height.
     pub bottom_panels: BTreeMap<PathBuf, BottomPanel>,
-    /// The panes whose agent was started and not stopped; they start again on launch.
     pub running_panes: BTreeSet<String>,
-    /// What each pane's agent runs: its harness and the session it last held.
     pub agents: BTreeMap<String, PaneAgent>,
-    /// The harness the user picked for new panes; none until a pick.
     pub default_harness: Option<String>,
-    /// The models each harness listed when it last ran, by harness name, so the agent picker shows them while another harness runs.
     pub models: BTreeMap<String, Vec<ModelOption>>,
-    /// A project was added once, so a window without projects shows no welcome. A removal sets it too, for projects added before this flag existed.
     pub welcomed: bool,
-    /// The switches of the simulator service subgroups, by subgroup id or group id: `true` keeps it on, `false` lets a boot switch it off. A group id covers the group's subgroups without a switch of their own; with neither, the group's default applies.
     pub kept_services: BTreeMap<String, bool>,
-    /// Each project's run destination; a project without one runs on the listing's fallback simulator.
     pub run_destinations: BTreeMap<PathBuf, RunDestination>,
-    /// Each project's preview simulator model; a project without one previews on the listing's fallback simulator.
     pub preview_models: BTreeMap<PathBuf, RunDestination>,
-    /// Each project's scheme and build configuration for ⌘R and ⌘B; a project without one builds the default scheme in its default configuration.
     pub scheme_picks: BTreeMap<PathBuf, SchemePick>,
-    /// The scheme and configuration each project builds without a pick, from its last listing, so the toolbar shows them while `xcodebuild -list` runs.
     pub scheme_defaults: BTreeMap<PathBuf, SchemePick>,
-    /// The `#Preview` each worktree's Preview view shows.
     pub preview_picks: BTreeMap<PathBuf, PreviewPick>,
-    /// Where the Simulator view's screenshots and recordings go; none puts them on the Desktop.
     pub screenshot_folder: Option<PathBuf>,
-    /// Each project's worktrees in the order the user dragged them to; the ones missing follow in git's order.
     pub worktree_order: BTreeMap<PathBuf, Vec<PathBuf>>,
 }
 
-/// Where `path` sits in a saved order; a path the order misses goes after every saved one.
 pub fn place_in(order: &[PathBuf], path: &Path) -> usize {
     order.iter().position(|o| o == path).unwrap_or(usize::MAX)
 }
 
-/// Where ⌘R runs the app: a connected device, or a simulator model and iOS version that exist among the user's simulators.
 #[derive(Serialize, Deserialize, Type, Clone, Debug, PartialEq)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum RunDestination {
     Device {
-        /// The device's hardware UDID.
         id: String,
         name: String,
     },
     Simulator {
-        /// The device type identifier.
         model: String,
-        /// The runtime identifier.
         runtime: String,
         name: String,
-        /// "iOS 27.0".
         os: String,
     },
 }
@@ -99,7 +69,6 @@ impl RunDestination {
     }
 }
 
-/// The scheme and build configuration ⌘R and ⌘B build; `None` keeps the default.
 #[derive(Serialize, Deserialize, Type, Clone, Debug, Default, PartialEq)]
 #[serde(default, rename_all = "camelCase")]
 pub struct SchemePick {
@@ -107,27 +76,21 @@ pub struct SchemePick {
     pub configuration: Option<String>,
 }
 
-/// One `#Preview` of a worktree: its file and its place among the file's previews.
 #[derive(Serialize, Deserialize, Type, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct PreviewPick {
-    /// Relative to the worktree, `/`-separated.
     pub file: String,
     pub index: u32,
-    /// The macro's name argument; none for an unnamed preview.
     pub name: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Type, Clone, Debug, Default, PartialEq)]
 #[serde(default, rename_all = "camelCase")]
 pub struct PaneAgent {
-    /// None until the pane's first start takes the default harness.
     pub harness: Option<String>,
-    /// What the harness opens the session by; none until it reports one.
     pub session: Option<String>,
 }
 
-/// One change the frontend saves.
 #[derive(Deserialize, Type, Debug)]
 #[serde(rename_all = "camelCase")]
 pub enum StateChange {
@@ -142,7 +105,6 @@ pub enum StateChange {
     PushAfterCommit(bool),
     DefaultHarness(String),
     Shortcuts(BTreeMap<String, Option<Shortcut>>),
-    /// `None` forgets the worktree's layouts.
     Panes {
         worktree: PathBuf,
         panes: Option<WorktreePanes>,
@@ -155,24 +117,20 @@ pub enum StateChange {
         worktree: PathBuf,
         panel: BottomPanel,
     },
-    /// `ids` are subgroup ids, or a group id for a group without subgroups; all are set in one save.
     KeptServices {
         ids: Vec<String>,
         kept: bool,
     },
     ScreenshotFolder(Option<PathBuf>),
-    /// The project paths in sidebar order; a project missing from it goes last.
     ProjectOrder(Vec<PathBuf>),
     WorktreeOrder {
         project: PathBuf,
         worktrees: Vec<PathBuf>,
     },
-    /// `None` returns the project to the default.
     RunDestination {
         project: PathBuf,
         destination: Option<RunDestination>,
     },
-    /// `None` returns the project to the default.
     PreviewModel {
         project: PathBuf,
         model: Option<RunDestination>,
@@ -181,7 +139,6 @@ pub enum StateChange {
         worktree: PathBuf,
         pick: PreviewPick,
     },
-    /// A pick of all defaults returns the project to the default.
     SchemePick {
         project: PathBuf,
         pick: SchemePick,
@@ -267,7 +224,6 @@ impl State {
         }
     }
 
-    /// The worktree is gone: everything saved under it and its panes goes. Project-keyed picks stay.
     pub fn forget_worktree(&mut self, worktree: &Path) {
         let panes = self
             .panes
@@ -285,7 +241,6 @@ impl State {
         }
     }
 
-    /// A pane that is gone no longer starts on launch, and its next start opens a new session.
     pub fn forget_pane(&mut self, pane: &str) {
         self.running_panes.remove(pane);
         self.agents.remove(pane);
@@ -296,7 +251,6 @@ impl State {
 #[serde(default, rename_all = "camelCase")]
 pub struct SidePanel {
     pub open: bool,
-    /// In pixels.
     pub width: u16,
     pub view: SideView,
 }
@@ -311,7 +265,6 @@ impl Default for SidePanel {
     }
 }
 
-/// The view the side panel shows.
 #[derive(Serialize, Deserialize, Type, Clone, Copy, Debug, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub enum SideView {
@@ -325,12 +278,9 @@ pub enum SideView {
 #[derive(Serialize, Deserialize, Type, Clone, Debug, PartialEq)]
 #[serde(default, rename_all = "camelCase")]
 pub struct BottomPanel {
-    /// The terminal shows.
     pub open: bool,
-    /// In pixels.
     pub height: u16,
     pub view: BottomView,
-    /// The view column's width beside the terminal, in pixels.
     pub side_width: u16,
 }
 
@@ -345,7 +295,6 @@ impl Default for BottomPanel {
     }
 }
 
-/// The view beside the terminal; `Terminal` means none.
 #[derive(Serialize, Deserialize, Type, Clone, Copy, Debug, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub enum BottomView {
@@ -374,11 +323,8 @@ pub enum Theme {
 #[serde(default, rename_all = "camelCase")]
 pub struct Appearance {
     pub theme: Theme,
-    /// Text size as a percent of the default. The frontend's steps (`settings/appearance.ts`) keep both sizes in range.
     pub text_percent: u8,
-    /// In pixels.
     pub terminal_font_size: u8,
-    /// In pixels.
     pub editor_font_size: u8,
 }
 
@@ -396,7 +342,6 @@ impl Default for Appearance {
 #[derive(Serialize, Deserialize, Type, Clone, Debug, Default, PartialEq)]
 #[serde(default)]
 pub struct Shortcut {
-    /// The lowercase `KeyboardEvent.key`.
     pub key: String,
     pub cmd: bool,
     pub ctrl: bool,
@@ -405,7 +350,6 @@ pub struct Shortcut {
 }
 
 impl Shortcut {
-    /// A key that is not typing: a lowercase, visible key with cmd, ctrl or alt, or escape alone.
     fn is_valid(&self) -> bool {
         let named = !self.key.is_empty()
             && self.key == self.key.to_lowercase()
@@ -414,7 +358,6 @@ impl Shortcut {
     }
 }
 
-/// Entries that are not valid shortcuts are dropped, so those commands load with their defaults.
 fn valid_shortcuts<'de, D: Deserializer<'de>>(
     deserializer: D,
 ) -> Result<BTreeMap<String, Option<Shortcut>>, D::Error> {
@@ -443,7 +386,6 @@ impl Store {
     pub fn open(file: PathBuf) -> Result<Store, Error> {
         let state = match fs::read(&file) {
             Ok(bytes) => serde_json::from_slice(&bytes).or_else(|_| {
-                // A file Chord cannot read stays beside the new one instead of being overwritten.
                 fs::rename(&file, file.with_extension("json.bad"))?;
                 Ok::<_, Error>(State::default())
             })?,
@@ -467,11 +409,9 @@ impl Store {
         if next == *state {
             return Ok(result);
         }
-        // shortcut: writes on every change, debounce once a feature saves while you type or drag.
         let temp = self.file.with_extension("json.tmp");
         let mut written = fs::File::create(&temp)?;
         written.write_all(&serde_json::to_vec_pretty(&next)?)?;
-        // On disk before the rename, so a power loss never leaves an empty state file.
         written.sync_all()?;
         fs::rename(&temp, &self.file)?;
         *state = next;

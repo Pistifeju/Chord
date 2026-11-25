@@ -1,4 +1,3 @@
-// Tests for the Preview view's rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { appliedState, previewLine, previewRows, rebuilding, shownError, steppedPreview } from "./preview.ts";

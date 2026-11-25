@@ -1,7 +1,5 @@
-// Find bars' state: which views have one open, keyed by view, and what each searches for.
 import { externalStore } from "./externalStore";
 
-// `focus` counts the requests to put the caret in the field, so a second ⌘F selects the query again.
 export type Find = { query: string; focus: number };
 
 export function findStore() {

@@ -1,5 +1,3 @@
-//! The replies a Codex session file records, with their tokens, and the folder Codex keeps its session files in.
-
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
@@ -38,7 +36,6 @@ struct Usage {
     output_tokens: f64,
 }
 
-/// The `token_usage_record`s of a session file, keyed by `response_id`. A record without a model takes the last `turn_context`'s.
 pub(crate) fn replies(text: &str) -> Vec<Reply> {
     let mut model = String::new();
     let mut replies = vec![];
@@ -66,7 +63,6 @@ pub(crate) fn replies(text: &str) -> Vec<Reply> {
                 else {
                     continue;
                 };
-                // Codex's input holds the cached and the cache write parts.
                 let cached = usage.cached_input_tokens + usage.cache_write_input_tokens;
                 replies.push(Reply {
                     id,
@@ -86,7 +82,6 @@ pub(crate) fn replies(text: &str) -> Vec<Reply> {
     replies
 }
 
-/// Codex's sessions folder: the `codexHome` its app server names in the `initialize` answer, plus `sessions`. Asked until Codex answers once per app run.
 pub(crate) fn folder() -> Option<PathBuf> {
     static FOLDER: OnceLock<PathBuf> = OnceLock::new();
     if let Some(folder) = FOLDER.get() {

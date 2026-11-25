@@ -1,4 +1,3 @@
-// The New Worktree popup's form: project, branch name and its live git check.
 import { commands } from "../../ipc/bindings";
 import { closeSheet, openSheet } from "../../app/sheet";
 import { externalStore } from "../../ui/externalStore";
@@ -11,11 +10,9 @@ import { fail, notify } from "../../ui/alert";
 type NewWorktree = {
   project: string | null;
   branch: string;
-  // null while the name is empty, being checked, or valid
   problem: string | null;
   checked: boolean;
   creating: boolean;
-  // set only when git refused the create itself
   createError: string | null;
 };
 
@@ -25,10 +22,8 @@ export const newWorktree = externalStore(closed);
 
 const update = (change: Partial<NewWorktree>) => newWorktree.set({ ...newWorktree.get(), ...change });
 const branchCheck = nameCheck();
-// Bumped on every open and close, so a create that outlives its popup cannot touch the next one.
 let session = 0;
 
-// A project's menu passes the project; the shortcut takes the selected worktree's, or the first git project's while that one is a plain folder.
 export function openNewWorktree(target?: string) {
   const state = projects.get();
   const preferred = target ?? defaultProject(state);

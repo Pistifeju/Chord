@@ -1,12 +1,9 @@
-//! A connected device: the app installed and launched on it with its console, through `devicectl`.
-
 use chord_core::{Error, login_shell};
 use std::path::Path;
 
 use crate::console::{self, ConsoleTone};
 use crate::process::{self, xcrun};
 
-/// The line `devicectl` prints once the app's process runs.
 const LAUNCHED: &str = "Launched application with";
 
 pub(crate) fn install(udid: &str, app: &Path, register: &dyn Fn(u32)) -> Result<(), Error> {
@@ -25,7 +22,6 @@ pub(crate) fn install(udid: &str, app: &Path, register: &dyn Fn(u32)) -> Result<
     .map(drop)
 }
 
-/// Launches the app, replacing a running copy, and returns its exit code when it ends. Its stdout and stderr go to `console` as they come; `launched` is called once `devicectl` reports the process. An app that never launches fails with `devicectl`'s message. The console stays attached to the group `register` receives, so a stop ends it.
 pub(crate) fn launch(
     udid: &str,
     bundle_id: &str,

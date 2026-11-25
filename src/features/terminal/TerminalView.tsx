@@ -1,4 +1,3 @@
-// The worktree's terminal in the bottom panel: the xterm and its find bar.
 import { useEffect, useRef } from "react";
 import { terminalFinds } from "./find";
 import { showTerminal } from "./store";

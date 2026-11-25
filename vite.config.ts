@@ -1,4 +1,3 @@
-// Vite config for the Tauri window: fixed port, no watching of Rust folders.
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 

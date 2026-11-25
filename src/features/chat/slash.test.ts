@@ -1,4 +1,3 @@
-// Tests for the slash menu rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { commandTitle, markedTitle, slashMenu } from "./slash.ts";

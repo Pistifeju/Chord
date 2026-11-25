@@ -1,5 +1,3 @@
-//! The thread's settings and the slash commands: the models, the model and thinking level in effect, the permission mode, the skills, the picker menus, and the picks every later turn carries.
-
 use serde_json::{Map, Value, json};
 
 use super::NAME;
@@ -16,7 +14,6 @@ const MODEL_DIALOG: &str = "codex-model";
 const THINKING_DIALOG: &str = "codex-thinking";
 const PERMISSIONS_DIALOG: &str = "codex-permissions";
 
-/// The commands of Codex itself that act on the thread: each name and its description.
 const SESSION_COMMANDS: [Entry; 10] = [
     MODEL,
     THINKING,
@@ -46,25 +43,15 @@ struct Skill {
     path: String,
 }
 
-/// What a typed command becomes.
 pub(super) enum Command {
-    /// A picker menu opens.
     Menu(HarnessEvent),
-    /// The user picks another thread of the worktree to open.
     Resume,
-    /// A new Codex process opens a new thread.
     New,
-    /// A new Codex process opens the same thread.
     Reload,
-    /// The user picks an earlier message to go back to.
     Back(Back),
     Clone,
     Compact,
-    /// A skill runs: the text Codex reads and the skill's input.
-    Skill {
-        text: String,
-        skill: Value,
-    },
+    Skill { text: String, skill: Value },
 }
 
 #[derive(Default)]
@@ -74,15 +61,12 @@ pub(super) struct Settings {
     effort: Option<String>,
     approval: Value,
     sandbox: Value,
-    /// The `workspaceWrite` policy the thread opened with, so a pick of Workspace keeps its roots and network setting.
     workspace: Option<Value>,
-    /// The user's picks, sent with every turn so they hold whatever Codex keeps between turns.
     picks: Map<String, Value>,
     skills: Vec<Skill>,
 }
 
 impl Settings {
-    /// Reads `model/list`; without it a model shows its id.
     pub(super) fn read_models(&mut self, result: &Value) -> HarnessEvent {
         self.models = list(&result["data"])
             .filter_map(|model| {
@@ -113,7 +97,6 @@ impl Settings {
         }
     }
 
-    /// Switches to the model `id` for the next turn, at `level`, else at the current effort when the model has it, else at its default. Before `model/list` answers, the effort stays.
     pub(super) fn choose(&mut self, id: &str, level: Option<&str>) -> HarnessEvent {
         let model = self.models.iter().find(|model| model.id == id);
         let effort = match (level, model) {
@@ -133,7 +116,6 @@ impl Settings {
         self.model_event()
     }
 
-    /// Reads `skills/list`: the session commands, then each enabled skill.
     pub(super) fn read_skills(&mut self, result: &Value) -> HarnessEvent {
         self.skills = list(&result["data"])
             .flat_map(|entry| list(&entry["skills"]))
@@ -162,7 +144,6 @@ impl Settings {
         }
     }
 
-    /// Settings that carry `picks`, the user's picks of an earlier process on the thread.
     pub(super) fn with_picks(picks: Map<String, Value>) -> Self {
         Settings {
             picks,
@@ -170,7 +151,6 @@ impl Settings {
         }
     }
 
-    /// The thread's answer, whether started or resumed; the user's picks override it.
     pub(super) fn opened(&mut self, result: &Value) -> Vec<HarnessEvent> {
         let picked = |key: &str, opened: &Value| self.picks.get(key).unwrap_or(opened).clone();
         let model = picked("model", &result["model"]);
@@ -180,7 +160,6 @@ impl Settings {
         self.read(&model, &effort, &approval, &sandbox)
     }
 
-    /// `thread/settings/updated`.
     pub(super) fn updated(&mut self, settings: &Value) -> Vec<HarnessEvent> {
         self.read(
             &settings["model"],
@@ -190,12 +169,10 @@ impl Settings {
         )
     }
 
-    /// The picks a new turn carries.
     pub(super) fn picks(&self) -> &Map<String, Value> {
         &self.picks
     }
 
-    /// The session command or skill `text` names; none for a plain message.
     pub(super) fn command(&self, text: &str) -> Option<Command> {
         let text = text.trim();
         let (name, rest) = text
@@ -243,7 +220,6 @@ impl Settings {
         }
     }
 
-    /// A picker's answer, applied to the next turn and told at once; none when `id` is no picker of the adapter.
     pub(super) fn pick(&mut self, id: &str, answer: &DialogAnswer) -> Option<Vec<HarnessEvent>> {
         if ![MODEL_DIALOG, THINKING_DIALOG, PERMISSIONS_DIALOG].contains(&id) {
             return None;

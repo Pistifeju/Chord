@@ -1,5 +1,3 @@
-//! The session's settings and the slash commands: the models, the model and effort in effect, the permission mode, Claude Code's commands, and the picker menus.
-
 use serde_json::Value;
 
 use super::{NAME, permissions};
@@ -14,7 +12,6 @@ const MODEL_DIALOG: &str = "claude-model";
 const THINKING_DIALOG: &str = "claude-thinking";
 const PERMISSIONS_DIALOG: &str = "claude-permissions";
 
-/// Chord's commands that act on the session: each name and its description.
 const SESSION_COMMANDS: [Entry; 10] = [
     MODEL,
     THINKING,
@@ -28,14 +25,11 @@ const SESSION_COMMANDS: [Entry; 10] = [
         "reload",
         "Restart Claude Code on this session, with its settings, skills and MCP servers read again",
     ),
-    // Claude Code runs it from the message text.
     COMPACT,
 ];
 
-/// Claude Code's own commands the menu leaves out: Chord's `model`, `thinking` and `new` stand in for them.
 const LEFT_OUT: [&str; 3] = ["model", "effort", "clear"];
 
-/// The name of the Chord session command `typed` starts with; none for any other text.
 pub(super) fn session_command(typed: &str) -> Option<&'static str> {
     let name = typed.split_whitespace().next()?.strip_prefix('/')?;
     SESSION_COMMANDS
@@ -44,15 +38,12 @@ pub(super) fn session_command(typed: &str) -> Option<&'static str> {
         .find(|command| *command == name)
 }
 
-/// What a picker's answer asks Claude Code to change.
 pub(super) enum Change {
-    /// The picked entry's `value`.
     Model(String),
     Effort(String),
     Mode(String),
 }
 
-/// The user's picks, which a reload's new process starts with: the model entry's `value`, the effort and the permission mode.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(super) struct Picks {
     pub(super) model: Option<String>,
@@ -64,16 +55,13 @@ pub(super) struct Picks {
 pub(super) struct Settings {
     picks: Picks,
     models: Vec<Value>,
-    /// The `value` of the model entry the user picked, whose name the label shows.
     picked: Option<String>,
-    /// The model id and effort `get_settings` applied.
     model: Option<String>,
     effort: Option<String>,
     mode: String,
 }
 
 impl Settings {
-    /// Settings for a process started with `picks`, the user's picks of an earlier process on the session.
     pub(super) fn with_picks(picks: Picks) -> Self {
         Settings {
             picked: picks.model.clone(),
@@ -86,9 +74,7 @@ impl Settings {
         &self.picks
     }
 
-    /// The `initialize` answer: the models, the commands and the permission mode.
     pub(super) fn initialized(&mut self, answer: &Value) -> Vec<HarnessEvent> {
-        // `default` only repeats one of the listed models under another name.
         self.models = answer["models"]
             .as_array()
             .into_iter()
@@ -117,7 +103,6 @@ impl Settings {
         ]
     }
 
-    /// The model and effort `get_settings` applied.
     pub(super) fn applied(&mut self, applied: &Value) -> Option<HarnessEvent> {
         self.model = Some(applied["model"].as_str()?.into());
         self.effort = applied["effort"].as_str().map(String::from);
@@ -135,7 +120,6 @@ impl Settings {
         })
     }
 
-    /// A set model took hold.
     pub(super) fn model_set(&mut self, value: String) {
         self.picked = Some(value);
     }
@@ -148,7 +132,6 @@ impl Settings {
         }
     }
 
-    /// The picker or notice a typed session command opens; none for any other text.
     pub(super) fn command(&self, typed: &str) -> Option<HarnessEvent> {
         match typed.trim() {
             "/model" => Some(session_commands::menu(
@@ -190,12 +173,10 @@ impl Settings {
         }
     }
 
-    /// Whether `id` names one of the adapter's pickers.
     pub(super) fn owns(id: &str) -> bool {
         [MODEL_DIALOG, THINKING_DIALOG, PERMISSIONS_DIALOG].contains(&id)
     }
 
-    /// What a picker's answer changes, kept as the user's pick; none for a cancel.
     pub(super) fn pick(&mut self, id: &str, answer: &DialogAnswer) -> Option<Change> {
         let change = self.change(id, answer)?;
         let (Change::Model(pick) | Change::Effort(pick) | Change::Mode(pick)) = &change;
@@ -218,7 +199,6 @@ impl Settings {
                 .iter()
                 .find(|model| model["displayName"] == value.as_str())
                 .map(|model| Change::Model(text(&model["value"]))),
-            // Claude Code takes any string as the effort, so only a level of the model goes out.
             THINKING_DIALOG => self
                 .levels()
                 .into_iter()
@@ -231,7 +211,6 @@ impl Settings {
         }
     }
 
-    // The picked entry, else the first that resolves to the applied model.
     fn current(&self) -> Option<&Value> {
         let picked = self.picked.as_deref();
         let model = self.model.as_deref();
@@ -251,7 +230,6 @@ impl Settings {
         self.current().map(levels).unwrap_or_default()
     }
 
-    /// The model entry's `value` and the effort the user picked in the agent picker, kept as the user's picks.
     pub(super) fn chose(&mut self, model: &str, effort: Option<&str>) {
         self.picks.model = Some(model.into());
         if let Some(effort) = effort {
@@ -272,7 +250,6 @@ fn levels(model: &Value) -> Vec<String> {
         .collect()
 }
 
-/// Chord's session commands, then Claude Code's: a built-in one acts on the session, any other is a skill named after its plugin.
 pub(super) fn commands(list: &Value) -> HarnessEvent {
     let session = session_commands::listed(&SESSION_COMMANDS);
     let own = list.as_array().into_iter().flatten().filter_map(|command| {

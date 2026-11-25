@@ -1,5 +1,3 @@
-//! The replies a Claude Code session file records, with their tokens, and the folder Claude Code keeps its session files in.
-
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -27,7 +25,6 @@ struct Message {
     usage: Option<Usage>,
 }
 
-/// Claude Code writes null for a count it lacks.
 #[derive(Deserialize)]
 struct Usage {
     input_tokens: Option<f64>,
@@ -36,7 +33,6 @@ struct Usage {
     output_tokens: Option<f64>,
 }
 
-/// The `assistant` messages of a session file, keyed by `message.id`. A message spans several lines; the last one holds its final counts.
 pub(crate) fn replies(text: &str) -> Vec<Reply> {
     let mut replies: Vec<Reply> = vec![];
     let mut index: HashMap<String, usize> = HashMap::new();
@@ -74,7 +70,6 @@ pub(crate) fn replies(text: &str) -> Vec<Reply> {
     replies
 }
 
-/// Claude Code's projects folder, which holds a folder of session files per project.
 pub(crate) fn folder() -> Option<PathBuf> {
     transcript::projects()
 }

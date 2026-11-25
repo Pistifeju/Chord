@@ -1,4 +1,3 @@
-// The agent menu floating above the composer: the agents the user can run in a sliding bar, the shown agent's models, and a thinking bar whose thumb follows the model under the pointer. A pick switches the model, or opens a new chat tab on the other agent.
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type RefObject } from "react";
 import type { ModelOption } from "../../ipc/bindings";
 import { CheckIcon } from "../../ui/icons";
@@ -42,7 +41,6 @@ export function AgentMenu({ worktree, pane, harness, chat, trigger }: Props) {
     if (!harnessChecks.get().checks) void checkHarnesses();
   }, []);
 
-  // The card grows out of the button: its CSS entrance scales from the button's center on the card's bottom edge.
   useLayoutEffect(() => {
     const el = card.current;
     if (!el) return;
@@ -63,7 +61,6 @@ export function AgentMenu({ worktree, pane, harness, chat, trigger }: Props) {
     setHovered(null);
   };
 
-  // The pane's own agent takes the level at once; for another agent it waits for the model pick that starts it.
   const setLevel = (value: string) => {
     if (!target) return;
     setPickedLevel(value);
@@ -183,7 +180,6 @@ export function AgentMenu({ worktree, pane, harness, chat, trigger }: Props) {
         {models.length > 0 && (
           <div className="chat-agent-thinking">
             <span className="chat-agent-note">Thinking</span>
-            {/* The levels a highlighted model lacks stay in place, disabled, so no segment shifts as the highlight moves. */}
             {slots.length > 0 ? (
               <Segmented sliding label="Thinking" value={level} onChange={setLevel} options={slots.map((value) => ({ value, label: levelLabel(value), disabled: !target?.levels.includes(value) }))} />
             ) : (

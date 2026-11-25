@@ -1,4 +1,3 @@
-// The window's layout. Each feature adds its own region.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { BuildView } from "../features/ios/build/BuildView";
@@ -53,7 +52,6 @@ import { sheet } from "./sheet";
 import { launch, launched } from "./launch";
 import "./app.css";
 
-// A shortcut during launch would open a sheet the window does not show yet.
 const shortcutWhenLaunched = (e: KeyboardEvent) => launched.get() && runShortcut(e);
 
 function SeeThroughHole() {
@@ -74,8 +72,6 @@ export default function App() {
   const sheetOpen = sheet.use() !== null;
   const ready = launched.use();
   const overlay = sheetOpen || settings || usagePanel;
-  // A sheet and Settings blur the window, and the blur cannot reach the native view under the hole: the hole closes under them.
-  // Only open or closed here: the hole's rect moves on every resize frame and redraws just `SeeThroughHole`.
   const holeOpen = seeThrough.usePart((open) => open !== null);
   const hole = !overlay && holeOpen;
   const [fullscreen, setFullscreen] = useState(false);
@@ -87,7 +83,6 @@ export default function App() {
     return () => void unlisten.then((stop) => stop());
   }, []);
   const lastFocus = useRef<HTMLElement | null>(null);
-  // inert drops the focus when a sheet or Settings opens; it goes back once they close, unless their action placed it.
   useEffect(() => {
     const remember = (e: FocusEvent) => {
       if (e.target instanceof HTMLElement && e.target.closest(".app-content")) lastFocus.current = e.target;
@@ -105,7 +100,6 @@ export default function App() {
   const xcode = worktreeAt(state, selected)?.xcode === true;
   const owner = selected === null ? undefined : ownerOf(state, selected);
   const project = list.find((entry) => entry.path === owner);
-  // The iOS parts of the sidebar, the toolbar, the side panel and the bottom panel are slots, so no core feature imports features/ios.
   const markers = useMemo(
     () => Object.fromEntries(Object.entries(buildStates).flatMap(([path, build]) => { const marker = markerText(build); return marker ? [[path, marker]] : []; })),
     [buildStates],
@@ -143,7 +137,6 @@ export default function App() {
   return (
     <div className="app" data-see-through={hole ? true : undefined} data-fullscreen={fullscreen || undefined}>
       {hole && <SeeThroughHole />}
-      {/* An open sheet or Settings keeps keyboard focus and clicks inside itself. */}
       <div className="app-content" inert={overlay}>
         <div className="titlebar" data-tauri-drag-region>
           {!empty && !hidden && project && (

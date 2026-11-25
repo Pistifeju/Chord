@@ -1,4 +1,3 @@
-// Tests for the merge of fresh git counts into the cards' counts.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { nextCounts } from "./gitCounts.ts";

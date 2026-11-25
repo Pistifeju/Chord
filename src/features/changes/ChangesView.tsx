@@ -1,4 +1,3 @@
-// The Changes view: its branch line (see BranchMenu), its scope control, Uncommitted or Branch while the worktree has a base (see BranchList), then under Uncommitted the worktree's changed files under Staged and Changes, Stash Changes on the Changes heading, the repository's stashes under them (see StashList), with the commit area under them: the message card with the subject length and Commit with its mode menu in its foot; each row with its name, folder, line counts and status; a click opens its diff. A checkbox on each row and group heading stages or unstages, and a row's More button and right-click menu hold its Stage or Unstage, and Discard.
 import { memo, useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from "react";
 import type { Change } from "../../ipc/bindings";
 import { showMenu } from "../../app/commands";
@@ -21,17 +20,14 @@ const scopeOptions: { value: Scope; label: string }[] = [
   { value: "branch", label: "Branch" },
 ];
 
-// The sidebar re-renders with every git count and project change; the view reads its own stores.
 export const ChangesView = memo(function ChangesView({ worktree }: { worktree: string }) {
   const branch = branches.usePart((all) => all[worktree]);
   const picked = scopes.usePart((all) => all[worktree] ?? "uncommitted");
-  // Reads when it shows, then with each git counts refresh, which also runs on window focus.
   useEffect(() => {
     void readChanges(worktree);
     const unsubscribe = gitCounts.subscribe(() => void readChanges(worktree));
     return () => void unsubscribe();
   }, [worktree]);
-  // Without a base, on a detached HEAD or a main checkout without an upstream, Uncommitted is the only scope, so no control shows.
   const scope = branch ? picked : "uncommitted";
   return (
     <>
@@ -55,13 +51,11 @@ function UncommittedList({ worktree }: { worktree: string }) {
     tree.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" });
   }, [selected]);
   const groups = list ? changeGroups(list) : [];
-  // Kept across renders, so a selection change mid-animation does not cut a row's arrival short.
   const arrived = useRef({ worktree, list, keys: new Set<string>() });
   if (arrived.current.list !== list) {
     const last = arrived.current;
     arrived.current = { worktree, list, keys: last.worktree === worktree ? arrivals(last.list, list, last.keys) : new Set() };
   }
-  // The rows a shift-click or shift-arrow picked, from the anchor of the last plain click or arrow; a read drops the ones that moved or went.
   const [pick, setPick] = useState<{ anchor: string | null; keys: string[] }>({ anchor: null, keys: [] });
   const rows = groups.flatMap((group) => group.changes.map((change) => ({ group, change, key: diffKey(group.side, change.path) })));
   const picked = rows.filter((row) => pick.keys.includes(row.key));
@@ -73,7 +67,6 @@ function UncommittedList({ worktree }: { worktree: string }) {
     const anchor = pick.anchor ?? selected;
     setPick(extend ? { anchor, keys: pickRange(row.group, anchor, key) } : { anchor: key, keys: [key] });
   };
-  // Stage, unstage, discard or a hunk that takes the selected row out of its group selects the next row.
   const before = useRef({ worktree, list });
   useEffect(() => {
     const last = before.current;
@@ -83,11 +76,9 @@ function UncommittedList({ worktree }: { worktree: string }) {
     if (!key || !change) return;
     setPick({ anchor: key, keys: [key] });
     showDiff(worktree, change);
-    // The focus moves along only from the tree, or from the row that just left it.
     const active = document.activeElement;
     if (active === document.body || tree.current?.contains(active)) tree.current?.querySelector<HTMLElement>(`[data-key="${CSS.escape(key)}"]`)?.focus();
   }, [worktree, list]);
-  // Space stages or unstages the focused row, or the picked rows with it.
   const toggleFrom = (key: string) => {
     const row = rows.find((r) => r.key === key);
     if (row) void toggleStaged(worktree, many && pick.keys.includes(key) ? pickedChanges : [row.change], row.change.staged);
@@ -104,7 +95,6 @@ function UncommittedList({ worktree }: { worktree: string }) {
           if (e.key === "Escape" && many) return setPick({ ...pick, keys: [] });
           const key = (e.target as HTMLElement).dataset.key;
           if (e.key === " " && key && rows.some((r) => r.key === key)) {
-            // Space ticks the row's checkbox instead of opening the diff; a stash's file has no checkbox, so Space opens it.
             e.preventDefault();
             if (!e.repeat) toggleFrom(key);
             return;
@@ -118,9 +108,7 @@ function UncommittedList({ worktree }: { worktree: string }) {
           const next = items[at + step];
           if (!next) return;
           next.focus();
-          // The Stashes heading and a stash only take the focus.
           if (!next.dataset.key) return;
-          // A plain arrow opens the next file's diff, as a click does; shift only picks.
           if (e.shiftKey) pickTo(next.dataset.key, true);
           else next.click();
         }}
@@ -210,7 +198,6 @@ const commitModes = [
   { amend: true, push: true, label: "Amend & Push" },
 ];
 
-// Commit with its mode on a chevron: Amend only while HEAD has a commit, Push only while the branch has a remote.
 function CommitButton({ worktree, amend, push, ready, busy }: { worktree: string; amend: boolean; push: boolean; ready: boolean; busy: Running | undefined }) {
   const target = commitTargets.usePart((all) => all[worktree]);
   const [open, setOpen] = useState(false);
@@ -277,9 +264,7 @@ function CommitButton({ worktree, amend, push, ready, busy }: { worktree: string
   );
 }
 
-// Checked while the files sit in the index: a click stages them or takes them out.
 function StageBox({ worktree, list, staged, label, focusable = false }: { worktree: string; list: Change[]; staged: boolean; label: string; focusable?: boolean }) {
-  // A row's checkbox takes no focus of its own, so a click hands it to its row, where Space and the arrows carry on.
   const focusRow = (box: HTMLElement) => !focusable && box.nextElementSibling instanceof HTMLElement && box.nextElementSibling.focus();
   return (
     <button
@@ -303,7 +288,6 @@ function StageBox({ worktree, list, staged, label, focusable = false }: { worktr
 
 const toggleStaged = (worktree: string, list: Change[], staged: boolean) => (staged ? unstageChanges(worktree, list) : stageChanges(worktree, list));
 
-// The picked rows all sit in one group, so the first one says which. git restores no conflicted file, so a pick with one offers no Discard.
 const showRowMenu = (e: MouseEvent, list: Change[]) => {
   const target = changesTarget(list);
   const discards = !list.some((c) => c.status === "conflicted");
@@ -317,7 +301,6 @@ const showRowMenu = (e: MouseEvent, list: Change[]) => {
 
 type RowProps = { worktree: string; change: Change; rowKey: string; arrived: boolean; selected: boolean; actsOn: Change[]; onPick: (key: string, extend: boolean) => void };
 
-// A row's checkbox, Space, More and right-click act on all the picked rows while it is one of them.
 function ChangeRow({ worktree, change, rowKey, arrived, selected, actsOn, onPick }: RowProps) {
   const word = statusWord(change.status);
   return (
@@ -333,13 +316,11 @@ function ChangeRow({ worktree, change, rowKey, arrived, selected, actsOn, onPick
         title={change.oldPath ? `${change.oldPath} → ${change.path}` : change.path}
         aria-label={[change.path, word, change.added && `${change.added} added`, change.removed && `${change.removed} removed`].filter(Boolean).join(", ")}
         onClick={(e) => {
-          // WebKit drops the focus when the mouse presses a button, so the click puts it back: ↑, ↓ and Space act on the focused row.
           e.currentTarget.focus();
           onPick(rowKey, e.shiftKey);
           if (!e.shiftKey) showDiff(worktree, change);
         }}
         onDoubleClick={(e) => !e.shiftKey && showDiff(worktree, change, false)}
-        // The tree handles Space; the key's release must not click the row.
         onKeyUp={(e) => e.key === " " && e.preventDefault()}
         onContextMenu={(e) => showRowMenu(e, actsOn)}
       >

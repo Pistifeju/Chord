@@ -1,5 +1,3 @@
-//! What a harness tells the chat: the events every adapter emits.
-
 pub mod agent_tools;
 mod asks;
 mod calls;
@@ -32,29 +30,22 @@ use specta::Type;
 
 use crate::Error;
 
-/// One harness Chord knows: what it is called, how to get it, and the oldest version Chord was tested with.
 pub struct Harness {
-    /// The name a pane saves.
     pub name: &'static str,
     pub title: &'static str,
-    /// Found on the login shell's PATH.
     pub binary: &'static str,
     pub install: &'static str,
-    /// None for a harness without one sign-in for all its providers.
     pub sign_in: Option<SignIn>,
     pub upgrade: &'static str,
     pub oldest_tested: (u32, u32, u32),
-    /// Chord has its adapter, so `start` runs it.
     pub starts: bool,
 }
 
 pub struct SignIn {
-    /// The arguments of the command that exits with 0 when the user is signed in.
     pub check: &'static [&'static str],
     pub step: &'static str,
 }
 
-/// Every harness, in the order a new pane's default takes them.
 pub const HARNESSES: [Harness; 4] = [
     pi::HARNESS,
     codex::HARNESS,
@@ -62,24 +53,15 @@ pub const HARNESSES: [Harness; 4] = [
     opencode::HARNESS,
 ];
 
-/// One running agent of a pane. Each harness adapter implements it in `harness/<name>/`, emits `HarnessEvent`s and keeps its own records private; `start` names it. Dropping the agent ends its process and returns once it has ended.
 pub trait Agent: Send {
-    /// What this harness can do; the UI hides a control whose capability is missing.
     fn capabilities(&self) -> Vec<Capability>;
-    /// Sends the user's message, or runs it as a session command. `held_elsewhere` are the sessions other panes hold, which a resume must not open.
-    /// Returns whether the message took the images; a session command leaves them for the next message.
     fn send(&self, text: &str, images: &[Image], held_elsewhere: &[String]) -> Result<bool, Error>;
-    /// Answers the dialog the agent opened with `id`.
     fn answer_dialog(&self, id: &str, answer: &DialogAnswer) -> Result<(), Error>;
-    /// Switches to the model with `id` from its `Models` list and, when given, to one of its thinking levels; without one the harness keeps or clamps its own.
     fn pick_model(&self, id: &str, level: Option<&str>) -> Result<(), Error>;
-    /// Stops the run; the agent keeps running.
     fn abort(&self) -> Result<(), Error>;
-    /// Ends the agent and reports it as exited, for a pane that stays.
     fn end_reported(self: Box<Self>);
 }
 
-/// Starts the agent of the harness named `harness` in `dir`. `session` is what the harness reported in `SessionInfo`, to open it again; `data_dir` is a folder the adapter may write its own files to. `tools` is the socket of the build and run tools, for an agent that gets them. `on_event` hears every event, from the adapter's own thread.
 pub fn start(
     harness: &str,
     dir: &Path,
@@ -101,25 +83,17 @@ pub fn start(
     }
 }
 
-/// What a harness can do; the adapter returns its list when a session starts, and the UI hides a control whose capability is missing.
 #[derive(Serialize, Type, Debug, Clone, Copy, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum Capability {
-    /// Streaming replies, a composer and stopping a run.
     Chat,
-    /// Images sent with a message.
     Attachments,
-    /// A message sent while the agent runs steers the run.
     Steer,
-    /// The model and the thinking level can be read and picked.
     Models,
-    /// The size of the model's context window and how much of it the session fills.
     Context,
-    /// Background subagent runs, reported as a lineage.
     Subagents,
 }
 
-/// One subscription usage window: its label, e.g. "5h 42%", and when it resets, in ms since the epoch; none when the harness does not say.
 #[derive(Serialize, Type, Debug, Clone, PartialEq)]
 pub struct UsageWindow {
     pub label: String,
@@ -127,7 +101,6 @@ pub struct UsageWindow {
 }
 
 impl UsageWindow {
-    /// The window named `name`, e.g. "5h", with `percent` of it used.
     pub(crate) fn used(name: &str, percent: f64, resets_at: Option<f64>) -> Self {
         UsageWindow {
             label: format!("{name} {}%", percent.round()),
@@ -144,22 +117,17 @@ pub enum SubagentState {
     Error,
 }
 
-/// One row of the subagent lineage: a background run, or a step or agent inside it; `depth` is 0 for a run, 1 for what it holds, and so on.
 #[derive(Serialize, Type, Debug, Clone, PartialEq)]
 pub struct SubagentNode {
     pub id: String,
     pub depth: u32,
     pub name: String,
     pub state: SubagentState,
-    /// The tool it runs right now.
     pub tool: Option<String>,
-    /// Epoch milliseconds.
     pub started_at: Option<f64>,
-    /// Epoch milliseconds, set once it ended.
     pub ended_at: Option<f64>,
 }
 
-/// One model a harness offers. `id` goes back in a pick; `provider` is set when the harness reaches models through several; `levels` are its thinking levels as the harness names them, lowest first, empty for a model that does not think; `default_level` is the one it starts on, when the harness says.
 #[derive(Serialize, Deserialize, Type, Debug, Clone, PartialEq)]
 pub struct ModelOption {
     pub id: String,
@@ -169,39 +137,33 @@ pub struct ModelOption {
     pub default_level: Option<String>,
 }
 
-/// A model and thinking level the user picked for a pane whose harness is not running yet.
 #[derive(Deserialize, Type, Debug, Clone, PartialEq)]
 pub struct ModelPick {
     pub id: String,
     pub level: Option<String>,
 }
 
-/// An image in a message: base64 data and its MIME type.
 #[derive(Serialize, Deserialize, Type, Debug, Clone, PartialEq)]
 pub struct Image {
     pub data: String,
     pub mime_type: String,
 }
 
-/// The lines a call added to and removed from a file.
 #[derive(Serialize, Type, Debug, Clone, Copy, PartialEq)]
 pub struct LineChanges {
     pub added: u32,
     pub removed: u32,
 }
 
-/// Where a slash command is defined.
 #[derive(Serialize, Type, Debug, Clone, Copy, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum SlashKind {
     Skill,
     Prompt,
     Extension,
-    /// A command of the harness itself that acts on the pane's session, such as picking the model or resuming another session; the adapter runs it when `send` gets it.
     Session,
 }
 
-/// A command the user can type after a slash; `name` has no slash. `origin` names the package it comes from; it is empty for a local file.
 #[derive(Serialize, Type, Debug, Clone, PartialEq)]
 pub struct SlashCommand {
     pub name: String,
@@ -210,11 +172,9 @@ pub struct SlashCommand {
     pub origin: Option<String>,
 }
 
-/// What a dialog asks.
 #[derive(Serialize, Type, Debug, Clone, PartialEq)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum DialogAsk {
-    /// `current` is the option now in effect, which the dialog marks. `detail` is the command or file the ask is about; `descriptions` holds one line per option, empty when the options have none; `multi` takes several options, answered with `Values`.
     Select {
         options: Vec<String>,
         current: Option<String>,
@@ -222,13 +182,11 @@ pub enum DialogAsk {
         descriptions: Vec<String>,
         multi: bool,
     },
-    /// A select the user opened from the composer bar; it floats over the composer as a menu, with a filter row only when `filter`.
     Menu {
         options: Vec<String>,
         current: Option<String>,
         filter: bool,
     },
-    /// `detail` is the shell command the confirm is about, shown as code in place of `message`. With a `url`, the buttons read Open and Decline, and Open opens the link before it answers.
     Confirm {
         message: String,
         detail: Option<String>,
@@ -239,21 +197,12 @@ pub enum DialogAsk {
     },
 }
 
-/// The user's answer to a dialog.
 #[derive(Deserialize, Type, Debug, Clone, PartialEq)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum DialogAnswer {
-    /// The chosen option or the entered text.
-    Value {
-        value: String,
-    },
-    /// The options picked in a `multi` select.
-    Values {
-        values: Vec<String>,
-    },
-    Confirmed {
-        confirmed: bool,
-    },
+    Value { value: String },
+    Values { values: Vec<String> },
+    Confirmed { confirmed: bool },
     Cancelled,
 }
 
@@ -268,26 +217,25 @@ pub enum ToolOutcome {
 #[derive(Serialize, Type, Debug, Clone, PartialEq)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum HarnessEvent {
-    /// A user message the agent took in, whether it started the run or steered it; `at` is when it was sent, in epoch milliseconds, when the agent says.
     UserMessageChunk {
         text: String,
         images: Vec<Image>,
         at: Option<f64>,
     },
-    /// Text of the reply that is streaming now.
-    MessageChunk { text: String },
-    /// The agent replaced the session's earlier messages with this summary to free the context; `tokens_before` is how many tokens they filled, when the agent says.
+    MessageChunk {
+        text: String,
+    },
     Compaction {
         summary: String,
         tokens_before: Option<u32>,
     },
-    /// The agent started (`active`) or finished compacting the context.
-    Compacting { active: bool },
-    /// The agent began a new block of reasoning.
+    Compacting {
+        active: bool,
+    },
     ThoughtStart,
-    /// Text of the reasoning block that is streaming now.
-    ThoughtChunk { text: String },
-    /// A tool call began; `title` is what it does (Read, Search, List, Run, Edit, Write, a tool's name) and `detail` its path, command or arguments. `command` says `detail` is a shell command. `changes` holds the lines a write puts in its file, known before it runs.
+    ThoughtChunk {
+        text: String,
+    },
     ToolStart {
         id: String,
         title: String,
@@ -295,7 +243,6 @@ pub enum HarnessEvent {
         command: bool,
         changes: Option<LineChanges>,
     },
-    /// A tool call ended; `Stopped` means the run ended or was aborted before it reported. `images` are the ones the tool returned; `ms` is how long it ran, missing when the agent did not measure it; `changes` the lines an edit added and removed.
     ToolEnd {
         id: String,
         outcome: ToolOutcome,
@@ -303,71 +250,72 @@ pub enum HarnessEvent {
         ms: Option<u32>,
         changes: Option<LineChanges>,
     },
-    /// The model the agent runs and, when that model reasons, its thinking level; sent when a session starts and after each pick. `id` is the model's id in `Models`, when the harness says.
     Model {
         id: Option<String>,
         name: String,
         thinking: Option<String>,
     },
-    /// Every model the harness offers; sent once it lists them.
     Models {
-        /// The `name` of the harness's entry in `HARNESSES`.
         harness: &'static str,
         models: Vec<ModelOption>,
     },
-    /// How many tokens the session fills of the model's context window; `tokens` is missing right after a compaction when the agent cannot tell, until a reply measures it again; `estimated` says Chord counted `tokens` itself; `window` is missing when the model has none, and until the harness tells it.
     Context {
         tokens: Option<u32>,
         window: Option<u32>,
         estimated: bool,
     },
-    /// The streaming reply is complete; `failed` when it ended in an error; `at` is when the reply was written, in epoch milliseconds, when the agent says.
-    MessageEnd { failed: bool, at: Option<f64> },
-    /// The agent opened a dialog and waits for an answer; `id` goes back with it.
+    MessageEnd {
+        failed: bool,
+        at: Option<f64>,
+    },
     Dialog {
         id: String,
         title: String,
         ask: DialogAsk,
     },
-    /// The commands the agent offers after a slash.
-    Commands { commands: Vec<SlashCommand> },
-    /// The subscription usage windows of the harness's account, shortest first; the whole list each time, empty when none applies, as for an API key.
+    Commands {
+        commands: Vec<SlashCommand>,
+    },
     Usage {
-        /// The `name` of the harness's entry in `HARNESSES`.
         harness: &'static str,
         windows: Vec<UsageWindow>,
     },
-    /// The background subagent runs as a lineage, each node before its children; the whole list each time, empty when none applies.
-    Subagents { nodes: Vec<SubagentNode> },
-    /// The steering messages the agent has not taken in yet, oldest first; the whole queue each time.
-    Queue { steering: Vec<String> },
-    /// The agent started or finished work.
-    State { running: bool },
-    /// The user stopped the run; follows the run's `State { running: false }`.
+    Subagents {
+        nodes: Vec<SubagentNode>,
+    },
+    Queue {
+        steering: Vec<String>,
+    },
+    State {
+        running: bool,
+    },
     Aborted,
-    /// Something the user should read: a refused command or a failed reply.
-    Notice { text: String },
-    /// The session the pane's agent holds: what the harness opens it again by.
-    SessionInfo { id: String },
-    /// The transcript starts over; the session's saved messages follow as the events a live reply produces, up to `HistoryEnd`.
+    Notice {
+        text: String,
+    },
+    SessionInfo {
+        id: String,
+    },
     HistoryStart,
-    /// The saved messages are all in; what follows is live.
     HistoryEnd,
-    /// Text the harness puts in the composer, as the message a fork or a tree step went back to.
-    Draft { text: String },
-    /// The session was written to a file for reading outside the app.
-    Exported { path: String },
-    /// The harness process ended; `code` is missing when a signal ended it.
-    Exited { code: Option<i32> },
-    /// The pane's status changed or a reply ended; `last_message` is the text of the last reply; `changed` is false when a reply end repeats the status. Core adds it, no adapter emits it.
+    Draft {
+        text: String,
+    },
+    Exported {
+        path: String,
+    },
+    Exited {
+        code: Option<i32>,
+    },
     Status {
         status: Status,
         last_message: String,
         changed: bool,
     },
-    /// The session's permission mode and whether it still asks before it acts; sent when a session starts and after each pick, as `Model` is.
-    Permissions { mode: String, asks: bool },
-    /// The agent went on past its open dialog. The adapter emits it.
+    Permissions {
+        mode: String,
+        asks: bool,
+    },
     DialogClosed,
 }
 
@@ -375,16 +323,12 @@ pub enum HarnessEvent {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Status {
     Running,
-    /// A dialog is open, or the last message ends with a question.
     Waiting,
     Done,
     Error,
-    Exited {
-        code: Option<i32>,
-    },
+    Exited { code: Option<i32> },
 }
 
-/// What `status_for` remembers of one agent between events.
 #[derive(Default)]
 pub struct StatusTracker {
     running: bool,
@@ -428,14 +372,12 @@ impl StatusTracker {
     }
 }
 
-/// A status to report. A message end reports the status again for its fresh last message; `changed` is false then.
 #[derive(Debug, PartialEq)]
 pub struct StatusReport {
     pub status: Status,
     pub changed: bool,
 }
 
-/// Folds an event into the agent's status; the status to report, or none when nothing changed. The only function that decides a status.
 pub fn status_for(tracker: &mut StatusTracker, event: &HarnessEvent) -> Option<StatusReport> {
     match event {
         HarnessEvent::State { running: true } => {
@@ -458,9 +400,7 @@ pub fn status_for(tracker: &mut StatusTracker, event: &HarnessEvent) -> Option<S
             tracker.failed |= failed;
         }
         HarnessEvent::Exited { code } => tracker.exited = Some(*code),
-        // Another session's runs are not this one's: the status starts over until it runs.
         HarnessEvent::HistoryStart => {
-            // The view keeps a dialog open across a history, so the tracker keeps it too, to close it later.
             *tracker = StatusTracker {
                 dialog: tracker.dialog,
                 ..StatusTracker::default()
@@ -478,7 +418,6 @@ pub fn status_for(tracker: &mut StatusTracker, event: &HarnessEvent) -> Option<S
         .map(|status| StatusReport { status, changed })
 }
 
-/// `path` inside `cwd` as relative to it; any other path as it is.
 pub(crate) fn relative(path: &str, cwd: &Path) -> String {
     Path::new(path).strip_prefix(cwd).map_or_else(
         |_| path.into(),
@@ -486,12 +425,10 @@ pub(crate) fn relative(path: &str, cwd: &Path) -> String {
     )
 }
 
-/// A JSON string as it is; any other value as an empty string.
 pub(crate) fn text(value: &Value) -> String {
     value.as_str().unwrap_or_default().into()
 }
 
-/// An image content block, `{ "type": "image", "data", "mimeType" }`; none for any other block.
 pub(crate) fn image(block: &Value) -> Option<Image> {
     (block["type"] == "image").then_some(())?;
     Some(Image {
@@ -500,7 +437,6 @@ pub(crate) fn image(block: &Value) -> Option<Image> {
     })
 }
 
-/// The image blocks of a content list.
 pub(crate) fn images(blocks: &Value) -> Vec<Image> {
     blocks
         .as_array()
@@ -510,15 +446,12 @@ pub(crate) fn images(blocks: &Value) -> Vec<Image> {
         .collect()
 }
 
-/// A JSON count that fits a `u32`.
 pub(crate) fn count(value: &Value) -> Option<u32> {
     value.as_u64().and_then(|count| u32::try_from(count).ok())
 }
 
-/// The callback an adapter's reader thread hands its events to.
 pub(crate) type OnEvent = Arc<Mutex<dyn Fn(HarnessEvent) + Send>>;
 
-/// A record's `timestamp`, ISO 8601 in UTC, as epoch milliseconds.
 pub(crate) fn timestamp(value: &Value) -> Option<f64> {
     let stamp = value.as_str()?.strip_suffix('Z')?;
     let (date, time) = stamp.split_once('T')?;
@@ -528,7 +461,6 @@ pub(crate) fn timestamp(value: &Value) -> Option<f64> {
     let mut clock = clock.split(':').map(|part| part.parse::<i64>().ok());
     let (hour, minute, second) = (clock.next()??, clock.next()??, clock.next()??);
     let millis = format!("{fraction:0<3}").get(..3)?.parse::<i64>().ok()?;
-    // Days since 1970-01-01 in the proleptic Gregorian calendar, by Howard Hinnant's days_from_civil.
     let year = if month <= 2 { year - 1 } else { year };
     let era = year.div_euclid(400);
     let of_era = year - era * 400;
@@ -539,7 +471,6 @@ pub(crate) fn timestamp(value: &Value) -> Option<f64> {
     Some((seconds * 1_000 + millis) as f64)
 }
 
-/// A level as its menu label shows it: "high" reads "High".
 pub(crate) fn capitalized(word: &str) -> String {
     let mut chars = word.chars();
     chars

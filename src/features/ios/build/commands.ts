@@ -1,4 +1,3 @@
-// The build's commands for the commands table: run, build, clean, stop, show the errors, show or hide the Build or Console view, and find in it.
 import type { AppCommand } from "../../../app/commands";
 import { onTarget } from "../../../app/commandTarget";
 import type { BottomViewSlot } from "../../bottompanel/BottomPanel";
@@ -8,14 +7,12 @@ import { toggleErrorList } from "./errorListStore";
 import { failedBuild, isStarting, isRunning } from "./run";
 import { builds, cleanBuild, runApp, startBuild, stopBuild, toggleLogView } from "./store";
 
-// The worktree whose build or app runs.
 const busyWorktree = (): string | null => {
   const worktree = xcodeWorktree();
   const build = worktree ? builds.get()[worktree] : undefined;
   return isStarting(build) || isRunning(build) ? worktree : null;
 };
 
-// The worktree whose last build failed with errors to list.
 const failedWorktree = (): string | null => {
   const worktree = xcodeWorktree();
   const failed = worktree ? failedBuild(builds.get()[worktree]) : null;
@@ -24,7 +21,6 @@ const failedWorktree = (): string | null => {
 
 type LogFocus = { worktree: string; view: BottomViewSlot["id"] };
 
-// The worktree whose Build or Console view has the focus, and which of the two.
 const focusedLogView = (): LogFocus | null => {
   const worktree = xcodeWorktree();
   const view = document.activeElement?.closest<HTMLElement>(".log-part")?.dataset.view;

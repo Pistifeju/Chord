@@ -1,4 +1,3 @@
-// The sheet that asks before changes on disk or in the index, or one hunk of them, are discarded.
 import { closeSheet, sheet, sheetOf } from "../../app/sheet";
 import { ConfirmSheet } from "../../ui/ConfirmSheet";
 import { fileName } from "../files/paths";

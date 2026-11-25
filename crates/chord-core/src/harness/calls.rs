@@ -1,8 +1,5 @@
-//! The tool calls a run left open, ended as stopped when the run settles or the agent dies.
-
 use super::{HarnessEvent, ToolOutcome};
 
-// A run that settles or dies leaves calls the harness never closed; they end as stopped so none shows as running.
 #[derive(Default)]
 pub(crate) struct OpenCalls(Vec<String>);
 

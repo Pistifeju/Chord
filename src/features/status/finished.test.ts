@@ -1,4 +1,3 @@
-// Tests for the finished marker rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { keptMarks, turnedFinished } from "./finished.ts";

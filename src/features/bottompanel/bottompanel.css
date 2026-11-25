@@ -1,16 +1,13 @@
-/* The bottom panel: one row under the panes. Rules: design/bottom-panel-and-terminal.md. */
 .bottom-panel {
   position: relative;
   display: flex;
   flex: 0 0 240px;
   min-height: 0;
-  /* The panes above keep room to work in. */
   max-height: calc(100% - 160px);
   border-top: 1px solid var(--line);
   background: var(--canvas);
 }
 
-/* Snapped shut mid-drag: the views keep their height, so the terminal does not refit to one row. */
 .bottom-panel[data-snapped] {
   overflow: hidden;
 }
@@ -27,10 +24,8 @@
   min-height: 0;
 }
 
-/* The view beside the terminal: its own column behind a 1px rule. */
 .bottom-main + .bottom-side {
   position: relative;
-  /* The terminal keeps room to work in. */
   max-width: calc(100% - 200px);
   border-left: 1px solid var(--line);
 }
@@ -51,7 +46,6 @@
   color: var(--ink-secondary);
 }
 
-/* Tabs of the side column's views: the tab bar's square cells, at the header's height, from its left edge. */
 .bottom-tabs {
   display: flex;
   align-self: stretch;

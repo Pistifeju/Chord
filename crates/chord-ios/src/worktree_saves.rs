@@ -1,5 +1,3 @@
-//! The saves in a worktree whose Preview view opened, from FSEvents: bursts 75 ms apart, each split into its `.swift` files and whether another file the app is built from changed. A file written with the contents it had counts once, so a build that rewrites a file starts no second build.
-
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{BTreeSet, HashMap};
 use std::fs;
@@ -12,14 +10,11 @@ use std::time::Duration;
 use chord_core::Error;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 
-/// An editor's save, its temporary file and rename, lands within a few milliseconds.
 const BURST: Duration = Duration::from_millis(75);
 
 #[derive(Default, Debug)]
 pub(crate) struct Saves {
-    /// Real paths.
     pub swift: BTreeSet<String>,
-    /// Any other file the app is built from: only a build picks it up.
     pub other: bool,
 }
 
@@ -29,7 +24,6 @@ enum Change {
     Other,
 }
 
-/// What a change means for the worktree's preview; None outside the worktree, in build and version control folders, and for files the app is not built from.
 fn change(worktree: &Path, path: &Path) -> Option<Change> {
     let relative = path.strip_prefix(worktree).ok()?;
     let names: Vec<&str> = relative
@@ -65,13 +59,11 @@ fn contents_hash(path: &Path) -> Option<u64> {
     Some(hasher.finish())
 }
 
-/// Watches the worktree until the watcher drops. `on_saves` hears each burst on a thread of its own, one at a time.
 pub(crate) fn watch(
     worktree: &Path,
     on_saves: impl Fn(Saves) + Send + 'static,
 ) -> Result<RecommendedWatcher, Error> {
     let (sender, received) = mpsc::channel::<(PathBuf, Change)>();
-    // FSEvents names real paths.
     let root = fs::canonicalize(worktree)?;
     let mut watcher = notify::recommended_watcher(move |event: notify::Result<notify::Event>| {
         if let Ok(event) = event

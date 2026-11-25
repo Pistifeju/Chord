@@ -1,4 +1,3 @@
-// The slash menu floating above the composer card: the commands that match what the draft holds, the typed part marked.
 import { useEffect, useRef } from "react";
 import type { SlashCommand } from "../../ipc/bindings";
 import { ChatIcon, ExtensionIcon, PromptIcon, SkillIcon } from "../../ui/icons";
@@ -26,7 +25,6 @@ export function SlashMenu({ commands, query, active, onActive, onPick, onDismiss
               aria-selected={i === active}
               data-active={i === active || undefined}
               className="chat-slash-option"
-              // The composer keeps focus through a click.
               onMouseDown={(e) => e.preventDefault()}
               onMouseMove={() => i !== active && onActive(i)}
               onClick={() => onPick(command)}

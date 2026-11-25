@@ -1,5 +1,3 @@
-//! The session's settings and the slash commands: the models and thinking levels of `configOptions`, the levels seen per model, the model and level in effect, OpenCode's own commands, and the picker menus.
-
 use std::collections::HashMap;
 
 use serde_json::Value;
@@ -15,7 +13,6 @@ use crate::harness::{
 const MODEL_DIALOG: &str = "opencode-model";
 const THINKING_DIALOG: &str = "opencode-thinking";
 
-/// Chord's commands that act on the session: each name and its description.
 const SESSION_COMMANDS: [Entry; 7] = [
     MODEL,
     THINKING,
@@ -26,47 +23,36 @@ const SESSION_COMMANDS: [Entry; 7] = [
         "reload",
         "Restart OpenCode on this session, with its config and MCP servers read again",
     ),
-    // OpenCode runs it from the prompt text.
     COMPACT_PLAIN,
 ];
 
-/// What a typed session command becomes.
 pub(super) enum Command {
-    /// A picker menu opens.
     Menu(HarnessEvent),
-    /// A new OpenCode process opens a new session.
     New,
     Resume,
-    /// A new OpenCode process opens the pane's session.
     Reload,
     Clone,
     Compact,
 }
 
-/// A config option as OpenCode last reported it.
 #[derive(Default)]
 struct Choice {
     id: String,
     current: Option<String>,
-    /// Each value with its name.
     values: Vec<(String, String)>,
 }
 
-/// A config option to set: its id and the value.
 pub(super) type Pick = (String, String);
 
 #[derive(Default)]
 pub(super) struct Settings {
     model: Choice,
     effort: Option<Choice>,
-    /// The thinking levels of each model a session ran, for the process's life: OpenCode reports the session's model's alone.
     levels: HashMap<String, Vec<String>>,
-    /// OpenCode's own commands, without its `compact`.
     commands: Vec<SlashCommand>,
 }
 
 impl Settings {
-    /// Reads a whole `configOptions` list: the models and the model in effect; nothing when it holds no model.
     pub(super) fn read(&mut self, options: &Value) -> Vec<HarnessEvent> {
         let find = |category: &str| {
             options
@@ -87,7 +73,6 @@ impl Settings {
         vec![self.models(), self.model_event()]
     }
 
-    /// Keeps the thinking levels `options` lists for `model`, the probe session's model in effect.
     pub(super) fn learn(&mut self, model: &str, options: &Value) {
         let effort = options
             .as_array()
@@ -98,12 +83,10 @@ impl Settings {
         self.levels.insert(model.into(), levels.unwrap_or_default());
     }
 
-    /// The ids of the models the session offers.
     pub(super) fn model_ids(&self) -> Vec<String> {
         self.model.values.iter().map(|(id, _)| id.clone()).collect()
     }
 
-    /// Reads `available_commands_update`.
     pub(super) fn read_commands(&mut self, list: &Value) -> HarnessEvent {
         self.commands = list
             .as_array()
@@ -120,7 +103,6 @@ impl Settings {
         self.commands_event()
     }
 
-    /// The session commands, then OpenCode's own.
     pub(super) fn commands_event(&self) -> HarnessEvent {
         HarnessEvent::Commands {
             commands: session_commands::listed(&SESSION_COMMANDS)
@@ -129,10 +111,8 @@ impl Settings {
         }
     }
 
-    /// The session command `text` names; none for a message or one of OpenCode's commands.
     pub(super) fn command(&self, text: &str) -> Option<Command> {
         match text.split_whitespace().next()?.strip_prefix('/')? {
-            // Full names with the provider: two providers can serve models of the same short name.
             "model" => Some(Command::Menu(session_commands::menu(
                 Picker::Model,
                 MODEL_DIALOG,
@@ -170,7 +150,6 @@ impl Settings {
         }
     }
 
-    /// The option a picker's answer sets; none when `id` is no picker of the adapter, and an empty pick when the user picked nothing.
     pub(super) fn pick(&self, id: &str, answer: &DialogAnswer) -> Option<Option<Pick>> {
         if ![MODEL_DIALOG, THINKING_DIALOG].contains(&id) {
             return None;
@@ -194,7 +173,6 @@ impl Settings {
         (!self.model.id.is_empty()).then(|| (self.model.id.clone(), id.into()))
     }
 
-    /// The thinking level pick; none when the model in effect lacks `level`.
     pub(super) fn effort_pick(&self, level: &str) -> Option<Pick> {
         let effort = self.effort.as_ref()?;
         effort
@@ -237,7 +215,6 @@ impl Settings {
         }
     }
 
-    /// The name OpenCode gives the model `id`, else the id.
     fn named<'a>(&'a self, id: &'a str) -> &'a str {
         self.model
             .values
@@ -247,7 +224,6 @@ impl Settings {
     }
 }
 
-/// A model's name without the `provider/` its id starts with.
 fn short<'a>(id: &str, name: &'a str) -> &'a str {
     let provider = id.split_once('/').map_or("", |(provider, _)| provider);
     name.strip_prefix(provider)
@@ -255,7 +231,6 @@ fn short<'a>(id: &str, name: &'a str) -> &'a str {
         .unwrap_or(name)
 }
 
-// A value sits in the option's list, or in a group's.
 fn choice(option: &Value) -> Choice {
     Choice {
         id: text(&option["id"]),

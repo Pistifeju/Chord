@@ -1,14 +1,11 @@
-// The view of an open image file: the image fit to the work area, read again when the file changes on disk.
 import { useEffect, useState } from "react";
 import { commands } from "../../ipc/bindings";
 import { imageUrl } from "../chat/attachments";
 import { fail } from "../../ui/alert";
 import "./editor.css";
 
-/** Milliseconds between two looks at the file's change time. */
 const CHANGE_CHECK_DELAY = 1000;
 
-// `onGone` closes whatever shows the file, a tab or a pane, once it is gone from disk.
 export function ImageView({ worktree, path, mime, onGone }: { worktree: string; path: string; mime: string; onGone: () => void }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
@@ -27,7 +24,6 @@ export function ImageView({ worktree, path, mime, onGone }: { worktree: string; 
         setUrl(imageUrl({ data, mime_type: mime }));
       } catch (error) {
         if (gone) return;
-        // A file gone from disk closes its tab or pane; only the first read reports why.
         if (shown === null) fail(error);
         onGone();
       } finally {

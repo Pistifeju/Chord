@@ -1,9 +1,7 @@
-/* The window's layout: title bar row, the sidebar and the main area, the status bar under both. */
 .app {
   --sidebar-width: 280px;
   --sidebar-inset: 8px;
   --titlebar-height: 40px;
-  /* Where the project name, and the toggle while the sidebar hides, start: right of the traffic lights. */
   --titlebar-lead: 92px;
   display: flex;
   flex-direction: column;
@@ -28,7 +26,6 @@
   background: var(--canvas);
 }
 
-/* Full screen hides the traffic lights; the name or the toggle starts 12px in. */
 .app[data-fullscreen="true"] {
   --titlebar-lead: 12px;
 }
@@ -44,7 +41,6 @@
   height: var(--titlebar-height);
 }
 
-/* The project of the open worktree, in the toggle's old place. */
 .titlebar-project {
   position: absolute;
   left: var(--titlebar-lead);
@@ -56,7 +52,6 @@
   color: var(--ink-secondary);
 }
 
-/* On the navigator's right edge while the sidebar shows, right of the traffic lights while it hides. */
 .titlebar-sidebar {
   position: absolute;
   left: calc(var(--sidebar-width) - 36px);
@@ -66,7 +61,6 @@
   left: var(--titlebar-lead);
 }
 
-/* The tab bar sits above the title bar; lift only its toggle area so the toggle stays clickable. */
 .app:has(.panes) .titlebar:has([data-hidden="true"]) {
   z-index: 3;
   right: auto;
@@ -194,7 +188,6 @@
   border-right-color: transparent;
 }
 
-/* The see-through hole (src/ui/seeThrough.ts): the backgrounds over it go clear, and its shadow paints the canvas everywhere else, under every other part of the window. */
 :root:has(.app[data-see-through]) {
   background: transparent;
 }

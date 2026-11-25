@@ -1,4 +1,3 @@
-// The editor of the open file: CodeMirror with syntax highlighting, closing brackets, several cursors, folding and word completion, saved as you type, read again when an agent changes the file.
 import { autocompletion, closeBrackets, closeBracketsKeymap, completeAnyWord, completionKeymap } from "@codemirror/autocomplete";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { bracketMatching, foldGutter, foldKeymap, indentOnInput, LanguageDescription, type LanguageSupport } from "@codemirror/language";
@@ -17,14 +16,11 @@ import { requestedLine, lineRequests, takeLine } from "./reveal";
 import { changedOnDisk, closeFile, readFile, scheduleSave } from "./store";
 import { editorTheme } from "./theme";
 
-/** Milliseconds between two looks at the file's change time. */
 const CHANGE_CHECK_DELAY = 1000;
 
-// `onGone` closes whatever shows the file, a tab or a pane, once it cannot be read; `onEdit` keeps a preview tab once you type; `autoFocus` is off for a pane the focus is not on, so it does not take it from the agent.
 export function Editor({ worktree, path, autoFocus, onGone, onEdit }: { worktree: string; path: string; autoFocus: boolean; onGone: () => void; onEdit: () => void }) {
   const host = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView>(undefined);
-  // The load finishes later than the render, so it reads the focus the pane has then.
   const focusRef = useRef(autoFocus);
   focusRef.current = autoFocus;
   const [loading, setLoading] = useState(true);
@@ -39,7 +35,6 @@ export function Editor({ worktree, path, autoFocus, onGone, onEdit }: { worktree
     const language = new Compartment();
     let support: LanguageSupport | undefined;
     const stateOf = (text: string) => {
-      // A CRLF file keeps its line breaks; CodeMirror would write LF otherwise.
       const lineBreak = text.includes("\r\n") ? [EditorState.lineSeparator.of("\r\n")] : [];
       return EditorState.create({
         doc: text,
@@ -90,7 +85,6 @@ export function Editor({ worktree, path, autoFocus, onGone, onEdit }: { worktree
         fail(error);
         onGone();
       });
-    // An agent's change on disk replaces the text while the editor holds no unsaved edit.
     let seen: string | null = null;
     let checking = false;
     const timer = window.setInterval(async () => {
@@ -110,7 +104,6 @@ export function Editor({ worktree, path, autoFocus, onGone, onEdit }: { worktree
         view.dispatch({ selection: { anchor: clamp(anchor), head: clamp(head) }, effects: folds });
         setVersion((v) => v + 1);
       } catch {
-        // A file gone from disk keeps its text in the editor until the tab closes.
       } finally {
         checking = false;
       }
@@ -127,7 +120,6 @@ export function Editor({ worktree, path, autoFocus, onGone, onEdit }: { worktree
   useEffect(() => {
     if (autoFocus) viewRef.current?.focus();
   }, [autoFocus]);
-  // A click on a build error asks for a line; it waits here until the file is read.
   const line = lineRequests.usePart((all) => requestedLine(all, worktree, path));
   useEffect(() => {
     const view = viewRef.current;

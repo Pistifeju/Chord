@@ -1,5 +1,3 @@
-//! The lines the adapter writes to Claude Code: the user message, the control requests, and the answers to Claude Code's own control requests.
-
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::{Value, json};
@@ -28,7 +26,6 @@ pub(super) fn control_error(id: &str, error: &str) -> Value {
     })
 }
 
-/// The user's message: its text alone, or its text and each image as content blocks.
 pub(super) fn user(uuid: &str, text: &str, images: &[Image]) -> Value {
     let content = match images {
         [] => json!(text),
@@ -51,13 +48,11 @@ pub(super) fn user(uuid: &str, text: &str, images: &[Image]) -> Value {
     })
 }
 
-/// A message id in UUID form, from the clock and `count`, new for each message of the process.
 pub(super) fn uuid(count: u64) -> String {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |since| since.as_nanos() as u64);
     let bits = (u128::from(nanos) << 64) | u128::from(count);
-    // Version 4 and the RFC 4122 variant, so a check of the UUID form passes.
     let bits = (bits & !(0xf << 76) & !(0x3 << 62)) | (0x4 << 76) | (0x2 << 62);
     let hex = format!("{bits:032x}");
     format!(

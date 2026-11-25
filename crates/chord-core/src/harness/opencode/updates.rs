@@ -1,5 +1,3 @@
-//! What a `session/update` means as harness events: the open reply, thought or replayed user message, the tool calls, the context, the commands and the compaction. Live updates and a loaded session's replay share it.
-
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -9,7 +7,6 @@ use super::commands::Settings;
 use crate::harness::shell::read_only_title;
 use crate::harness::{HarnessEvent, Image, LineChanges, ToolOutcome, count, image, relative, text};
 
-/// The message whose chunks stream now; a chunk of the same message joins it.
 enum Open {
     Reply(String),
     Thought(String),
@@ -20,25 +17,20 @@ enum Open {
     },
 }
 
-/// A tool call OpenCode announced, with the latest of its fields.
 struct Call {
     name: String,
     kind: String,
     title: String,
     input: Value,
     locations: Value,
-    /// Its `ToolStart` went out.
     started: bool,
 }
 
-/// Reads one session's updates.
 pub(super) struct Updates {
     cwd: PathBuf,
     open: Option<Open>,
     calls: HashMap<String, Call>,
-    /// The model's context window, from the last `usage_update`.
     window: Option<u32>,
-    /// The summary chunks of each running compaction.
     summaries: HashMap<String, String>,
 }
 
@@ -53,7 +45,6 @@ impl Updates {
         }
     }
 
-    /// Ends the message that streams: a reply's end, or a replayed user message whole. A thought ends without an event.
     pub(super) fn close(&mut self) -> Option<HarnessEvent> {
         match self.open.take()? {
             Open::Reply(_) => Some(HarnessEvent::MessageEnd {
@@ -73,7 +64,6 @@ impl Updates {
         !self.calls.is_empty()
     }
 
-    /// The turn ended: its open calls end with it, and a late update of one gives nothing.
     pub(super) fn settle(&mut self) {
         self.calls.clear();
     }
@@ -151,7 +141,6 @@ impl Updates {
         events
     }
 
-    // A call starts at its first `in_progress`, which carries its input, or at its end when none came.
     fn call(&mut self, update: &Value) -> Vec<HarnessEvent> {
         let id = text(&update["toolCallId"]);
         if update["sessionUpdate"] == "tool_call" {
@@ -170,7 +159,6 @@ impl Updates {
         let Some(call) = self.calls.get_mut(&id) else {
             return vec![];
         };
-        // An update carries what changed.
         for (field, key) in [
             (&mut call.name, "name"),
             (&mut call.kind, "kind"),
@@ -217,7 +205,6 @@ impl Updates {
                 let held = held.unwrap_or_default();
                 let summary = blocks_text(&update["summary"]);
                 let summary = if summary.is_empty() { held } else { summary };
-                // OpenCode reports no usage until the next reply; the context then holds the summary, counted as pi does: a token per four characters.
                 let tokens = (summary.chars().count() / 4) as u32;
                 vec![
                     HarnessEvent::Compacting { active: false },

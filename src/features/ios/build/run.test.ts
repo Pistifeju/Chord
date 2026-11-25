@@ -1,4 +1,3 @@
-// Tests for the build state rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { activityOf, appliedEvent, appliedSideEvent, buildStep, markerText, noBuild, pathInWorktree, seenEnd } from "./run.ts";

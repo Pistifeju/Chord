@@ -1,5 +1,3 @@
-//! Tests for the OpenCode adapter: hand-written records fed to the reader, and the lines written to OpenCode.
-
 use std::path::Path;
 
 use serde_json::{Value, json};
@@ -11,13 +9,11 @@ use crate::harness::{
     DialogAnswer, DialogAsk, HarnessEvent, LineChanges, ModelOption, SubagentState, ToolOutcome,
 };
 
-// A reader past the handshake, on session "s1".
 fn started() -> Reader {
     let mut reader = Reader::new(Path::new("/w"), None, None, None);
     reader.initialize();
     reader.feed(br#"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1}}"#);
     reader.feed(br#"{"jsonrpc":"2.0","id":2,"result":{"sessionId":"s1"}}"#);
-    // Request 3 opens the probe session, which these tests leave unanswered.
     reader
 }
 
@@ -87,7 +83,6 @@ fn the_commands_list_compact_once_and_opencodes_own() {
     assert_eq!((count("compact"), count("init")), (1, 1));
 }
 
-// Two models, `openai/luna` in effect at effort `default`.
 fn options(current: &str) -> Value {
     let mut options = vec![json!({
         "id": "model", "category": "model", "currentValue": current,
@@ -128,7 +123,6 @@ fn a_model_pick_with_a_level_sets_the_level_once_the_model_answers_and_keeps_its
             json!({"jsonrpc":"2.0","id":5,"method":"session/set_config_option","params":{"sessionId":"s1","configId":"effort","value":"low"}})
         ]
     );
-    // Back on a model without levels, Luna's stay in the list.
     let back = update(
         json!({ "sessionUpdate": "config_option_update", "configOptions": options("opencode/big-pickle") }),
     );
@@ -346,7 +340,6 @@ fn a_cancelled_turn_stops_its_open_calls_once_and_aborts() {
     assert_eq!(reader.interrupt().lines, Vec::<Value>::new());
 }
 
-// Steers 5 and 6 come back after the turn ended, before prompt 4's answer.
 fn two_late_steers() -> Reader {
     let mut reader = started();
     reader.send("first", &[], &[]).unwrap();

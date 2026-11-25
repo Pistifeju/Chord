@@ -1,4 +1,3 @@
-// The worktree whose terminal takes the focus once it shows, and ⌘T that sets it, apart from the xterm store so the commands skip loading xterm.
 import { bottomPanelOf, bottomPanels, changeBottomPanel } from "../bottompanel/store";
 
 let focusOnShow: string | null = null;

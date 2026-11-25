@@ -1,4 +1,3 @@
-// The service group rows of Settings' Simulators section: each group's name, what stops working while it is off and its memory, and a switch to keep it on; a group with subgroups opens to one row each with the same.
 import { useEffect, useState } from "react";
 import type { ServiceRow } from "../../../ipc/bindings";
 import { ChevronIcon } from "../../../ui/icons";
@@ -13,7 +12,6 @@ const keep = (ids: string[], kept: boolean) => setServiceKept(ids, kept).catch(f
 function GroupRows({ group }: { group: ServiceRow }) {
   const [open, setOpen] = useState(false);
   const expandable = group.subgroups.length > 0;
-  // The name and the description both sit inside the toggle, so a click on either opens the group.
   const label = (
     <>
       <span className="turn-chevron" data-open={open} data-hidden={!expandable || undefined}>

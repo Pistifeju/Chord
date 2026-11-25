@@ -1,5 +1,3 @@
-//! The appearance of the worktree's run or preview simulator: light or dark and the Dynamic Type size through `simctl ui`, which act at once, and the language and region in the simulator's global preferences, which an app reads when it next launches. The languages and regions offered are the ones the Mac's own locales list.
-
 use std::collections::BTreeSet;
 use std::io::ErrorKind;
 use std::path::Path;
@@ -22,7 +20,6 @@ pub enum InterfaceStyle {
     Dark,
 }
 
-/// `simctl ui content_size`'s categories.
 #[derive(Serialize, Deserialize, Type, Clone, Copy, Debug, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub enum ContentSize {
@@ -40,7 +37,6 @@ pub enum ContentSize {
     AccessibilityExtraExtraExtraLarge,
 }
 
-/// Smallest first.
 const CONTENT_SIZES: [ContentSize; 12] = [
     ContentSize::ExtraSmall,
     ContentSize::Small,
@@ -56,15 +52,12 @@ const CONTENT_SIZES: [ContentSize; 12] = [
     ContentSize::AccessibilityExtraExtraExtraLarge,
 ];
 
-/// What the Appearance menu shows: the simulator's current settings, and what it can be set to.
 #[derive(Serialize, Type, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct SimulatorAppearance {
     pub style: Option<InterfaceStyle>,
     pub content_size: Option<ContentSize>,
-    /// A language code like "de" or "zh-Hans".
     pub language: Option<String>,
-    /// A region code like "AT".
     pub region: Option<String>,
     pub content_sizes: Vec<ContentSize>,
     pub languages: Vec<String>,
@@ -84,7 +77,6 @@ pub enum SimulatorAppearanceChange {
     Region { region: String },
 }
 
-/// The `simctl ui` word for a setting, which is its serde name.
 fn word<T: Serialize>(setting: T) -> String {
     match serde_json::to_value(setting) {
         Ok(Value::String(word)) => word,
@@ -96,7 +88,6 @@ fn setting<T: DeserializeOwned>(word: &str) -> Option<T> {
     serde_json::from_value(Value::String(word.into())).ok()
 }
 
-/// The language codes and the region codes of `locale -a`'s lines ("de_AT.UTF-8" is "de" and "AT"), sorted. Chinese takes the script iOS names it by: "zh_TW" is "zh-Hant".
 fn locale_codes(listing: &str) -> (Vec<String>, Vec<String>) {
     let mut languages = BTreeSet::new();
     let mut regions = BTreeSet::new();
@@ -120,7 +111,6 @@ fn locale_codes(listing: &str) -> (Vec<String>, Vec<String>) {
     )
 }
 
-/// "de", or a language with its script: "zh-Hans".
 fn is_language(code: &str) -> bool {
     let (base, script) = code.split_once('-').unwrap_or((code, ""));
     (2..=3).contains(&base.len())
@@ -138,7 +128,6 @@ fn is_region(code: &str) -> bool {
     code.len() == 2 && code.bytes().all(|byte| byte.is_ascii_uppercase())
 }
 
-/// The language of a locale identifier, with its script if it has one: "de-AT" and "de_AT" are "de", "zh-Hans-CN" is "zh-Hans".
 fn language_of(identifier: &str) -> Option<String> {
     let mut parts = identifier.split(['-', '_', '@', '.']);
     let base = parts.next()?;
@@ -149,7 +138,6 @@ fn language_of(identifier: &str) -> Option<String> {
     is_language(&language).then_some(language)
 }
 
-/// The first entry of `defaults read -g AppleLanguages` ("(\n    \"de-AT\"\n)").
 fn first_language(text: &str) -> Option<String> {
     let first = text
         .trim_start_matches(|c: char| c == '(' || c == '"' || c.is_whitespace())
@@ -158,7 +146,6 @@ fn first_language(text: &str) -> Option<String> {
     language_of(first)
 }
 
-/// The region of an `AppleLocale` like "de_AT"; a region override wins: "en_US@rg=huzzzz" is "HU".
 fn region_of_locale(text: &str) -> Option<String> {
     let text = text.trim();
     let region = match text.split_once("@rg=") {
@@ -173,14 +160,12 @@ fn region_of_locale(text: &str) -> Option<String> {
     is_region(&region).then_some(region)
 }
 
-/// A booted simulator of a device set.
 struct Device {
     set: DeviceSet,
     udid: String,
 }
 
 impl Device {
-    /// The worktree's booted run simulator, or with `preview` its preview simulator.
     fn booted(worktree: &Path, preview: bool) -> Result<Device, Error> {
         let (set, udid) = simulator::booted(worktree, preview)?;
         Ok(Device { set, udid })
@@ -209,7 +194,6 @@ impl Device {
         self.simctl(&command).map(drop)
     }
 
-    /// The simulator's first language; a device without `AppleLanguages` takes its `AppleLocale`'s.
     fn language(&self) -> Option<String> {
         self.preference("AppleLanguages")
             .and_then(|text| first_language(&text))
@@ -245,7 +229,6 @@ fn locale_listing() -> Result<String, Error> {
     Ok(String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
-/// The worktree's booted run simulator's settings, or with `preview` its preview simulator's, with the languages and regions the Mac offers.
 pub fn read(worktree: &Path, preview: bool) -> Result<SimulatorAppearance, Error> {
     let device = Device::booted(worktree, preview)?;
     let (languages, regions) = locale_codes(&locale_listing()?);
@@ -260,7 +243,6 @@ pub fn read(worktree: &Path, preview: bool) -> Result<SimulatorAppearance, Error
     })
 }
 
-/// Applies `change` to the worktree's booted run simulator, or with `preview` its preview simulator. A language or region reaches an app the next time it launches.
 pub fn set(
     worktree: &Path,
     preview: bool,
@@ -272,7 +254,6 @@ pub fn set(
         SimulatorAppearanceChange::ContentSize { size } => {
             device.set_ui("content_size", word(size))
         }
-        // The locale carries the language too, so it follows, as iOS's Settings does it.
         SimulatorAppearanceChange::Language { language } if is_language(language) => {
             device.write_preference(&["AppleLanguages", "-array", language])?;
             match device.region() {

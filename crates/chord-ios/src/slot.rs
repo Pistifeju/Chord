@@ -1,43 +1,32 @@
-//! The build slots of each worktree: one build at a time, and a newer build takes over from the one that runs. A ⌘B while the app runs builds beside the run that holds the app and leaves it. A preview build waits for the worktree's ⌘R or ⌘B build, then follows it, and either takes over from a preview build. Pure rules, no processes; build.rs keeps one `Slots` behind a mutex and does the signalling.
-
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 #[derive(Debug)]
 pub(crate) struct Run {
     pub id: u64,
-    /// Process group of the tool that runs now; a stop signals the whole group, compilers included. While the app runs it is the app's console, and only a stop may signal it.
     pub pid: Option<u32>,
     pub stopped: bool,
-    /// The app this run launched runs.
     pub app: bool,
 }
 
 #[derive(Debug, PartialEq)]
 pub(crate) struct Start {
     pub id: u64,
-    /// The process groups of the builds this one replaced.
     pub kill: Vec<u32>,
-    /// A build beside the run that holds the app: it replaced no app run.
     pub beside_app: bool,
 }
 
 #[derive(Default)]
 pub(crate) struct Slots {
     runs: HashMap<PathBuf, Run>,
-    /// The build of a ⌘B that came while the worktree's run held the app.
     beside_app: HashMap<PathBuf, Run>,
     previews: HashMap<PathBuf, Run>,
-    /// Worktrees whose preview build follows their ⌘R or ⌘B build.
     waiting_previews: HashSet<PathBuf>,
-    /// Runs a stop reached; kept after a takeover so the stopped run still knows it was stopped.
     stop_requests: HashSet<u64>,
     next_id: u64,
 }
 
 impl Slots {
-    /// Takes a slot of the worktree for a new build. A build without `run` leaves a run that holds the app, and a newer one of its kind replaces it; any other build takes over every slot, so the app's console ends and a launch replaces the app.
-    /// A preview build it takes over follows it.
     pub fn ask(&mut self, worktree: &Path, run: bool) -> Start {
         let fresh = self.fresh();
         let id = fresh.id;
@@ -81,7 +70,6 @@ impl Slots {
         }
     }
 
-    /// Takes the worktree's preview slot, unless a ⌘R or ⌘B build holds the worktree: then the preview build follows it and this returns None. A newer preview build takes over from the one that runs.
     pub fn ask_preview(&mut self, worktree: &Path) -> Option<Start> {
         if self.building(worktree) {
             self.waiting_previews.insert(worktree.to_path_buf());
@@ -97,13 +85,11 @@ impl Slots {
         })
     }
 
-    /// A ⌘R or ⌘B build is on before its app runs.
     fn building(&self, worktree: &Path) -> bool {
         self.runs.get(worktree).is_some_and(|run| !run.app)
             || self.beside_app.contains_key(worktree)
     }
 
-    /// A preview build runs or waits, or a ⌘R or ⌘B build before its app runs: the preview app is about to change.
     pub fn holds_preview(&self, worktree: &Path) -> bool {
         self.building(worktree) || self.preview_runs(worktree) || self.preview_waits(worktree)
     }
@@ -116,17 +102,14 @@ impl Slots {
         self.waiting_previews.contains(worktree)
     }
 
-    /// A preview build follows the worktree's ⌘R or ⌘B build.
     pub fn follow_with_preview(&mut self, worktree: &Path) {
         self.waiting_previews.insert(worktree.to_path_buf());
     }
 
-    /// True once, when a preview build waits and no ⌘R or ⌘B build holds the worktree any longer.
     pub fn take_waiting_preview(&mut self, worktree: &Path) -> bool {
         !self.building(worktree) && self.waiting_previews.remove(worktree)
     }
 
-    /// For a worktree that was deleted: stops its preview build, drops a waiting one, returns the process group to signal.
     pub fn forget_preview(&mut self, worktree: &Path) -> Option<u32> {
         self.waiting_previews.remove(worktree);
         self.previews.remove(worktree).and_then(|run| run.pid)
@@ -138,7 +121,6 @@ impl Slots {
             .find_map(|slots| slots.get_mut(worktree).filter(|run| run.id == id))
     }
 
-    /// Records the process group run `id` started. True when the group must end at once: the run was stopped or replaced meanwhile.
     pub fn register(&mut self, worktree: &Path, id: u64, pid: u32) -> bool {
         match self.run_mut(worktree, id) {
             Some(run) => {
@@ -149,21 +131,18 @@ impl Slots {
         }
     }
 
-    /// Run `id`'s process group ended.
     pub fn clear_pid(&mut self, worktree: &Path, id: u64) {
         if let Some(run) = self.run_mut(worktree, id) {
             run.pid = None;
         }
     }
 
-    /// The app of run `id` runs.
     pub fn app_launched(&mut self, worktree: &Path, id: u64) {
         if let Some(run) = self.run_mut(worktree, id) {
             run.app = true;
         }
     }
 
-    /// The worktrees with a ⌘R or ⌘B build or a running app: a run that still builds installs on its simulator next.
     pub fn held_worktrees(&self) -> Vec<PathBuf> {
         self.runs.keys().cloned().collect()
     }
@@ -172,17 +151,14 @@ impl Slots {
         self.run_mut(worktree, id).is_some()
     }
 
-    /// Run `id` should give up: it was stopped, or a newer build took over.
     pub fn stopped(&mut self, worktree: &Path, id: u64) -> bool {
         self.run_mut(worktree, id).is_none_or(|run| run.stopped)
     }
 
-    /// True once, when a stop reached run `id`, even if a newer build took the slot since: only then does the run end its app. A takeover alone leaves the app.
     pub fn take_stop_request(&mut self, id: u64) -> bool {
         self.stop_requests.remove(&id)
     }
 
-    /// Marks the worktree's runs stopped; returns the process groups to signal.
     pub fn stop(&mut self, worktree: &Path) -> Vec<u32> {
         let Self {
             runs,
@@ -220,7 +196,6 @@ impl Slots {
             .collect()
     }
 
-    /// Run `id` ended: frees its slot and returns the run, unless a newer build holds the slot.
     pub fn finished(&mut self, worktree: &Path, id: u64) -> Option<Run> {
         self.stop_requests.remove(&id);
         [&mut self.runs, &mut self.beside_app, &mut self.previews]

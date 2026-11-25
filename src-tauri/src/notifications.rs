@@ -1,5 +1,3 @@
-//! macOS notifications for an agent that is done or waits, and the click that opens its pane.
-
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
@@ -7,11 +5,9 @@ use chord_core::{Status, Store, worktrees};
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_notification::NotificationExt;
 
-/// The event a click on a notification sends the window: the worktree and the pane to open.
 const OPENED_EVENT: &str = "notification-opened";
 const BODY_CHARS: usize = 140;
 
-/// The panes the window shows now, as the frontend last reported them.
 #[derive(Default)]
 pub struct ShownPanes(pub Mutex<Vec<String>>);
 
@@ -28,7 +24,6 @@ fn is_watched(app: &AppHandle, pane: &str) -> bool {
             .is_ok_and(|shown| shown.iter().any(|id| id == pane))
 }
 
-/// Lets a click on a notification bring the window forward and tell it which pane to open.
 pub fn listen_for_clicks(app: &AppHandle) -> tauri_plugin_notification::Result<()> {
     let handle = app.clone();
     app.notification().on_action(move |performed| {
@@ -51,7 +46,6 @@ pub fn listen_for_clicks(app: &AppHandle) -> tauri_plugin_notification::Result<(
     })
 }
 
-/// Notifies for a done or waiting agent, naming its project and branch. Never fails the agent.
 pub fn announce(app: &AppHandle, worktree: PathBuf, pane: String, status: &Status, message: &str) {
     let headline = match status {
         Status::Done => "Done",
@@ -91,7 +85,6 @@ fn body(headline: &str, message: &str) -> String {
     }
 }
 
-// The owning project's name and the worktree's branch, or its folder name when it has none.
 fn names(projects: &[chord_core::Project], worktree: &Path) -> (String, String) {
     for project in projects {
         let Ok(list) = worktrees::list(&project.path) else {

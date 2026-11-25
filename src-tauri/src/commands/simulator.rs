@@ -1,5 +1,3 @@
-//! Commands for the simulators and the build data of the worktrees: the running simulators, shutting the others down, the build data's size and its prune, and the Simulator view's screen and input.
-
 use std::path::PathBuf;
 
 use chord_core::{Error, StateChange};
@@ -15,7 +13,6 @@ use tauri_specta::Event;
 
 use super::blocking;
 
-/// The booted simulators Chord created; `open` marks the open worktree's.
 #[tauri::command]
 #[specta::specta]
 pub async fn running_simulators(
@@ -28,11 +25,9 @@ pub async fn running_simulators(
     .await
 }
 
-/// A simulator was added, removed, booted or shut down: the window reads the running ones again.
 #[derive(Serialize, specta::Type, tauri_specta::Event, Clone)]
 pub struct SimulatorsChanged;
 
-/// Sends `SimulatorsChanged` from now on. False when the simulator frameworks did not load, so the window asks on a timer instead.
 #[tauri::command]
 #[specta::specta]
 pub async fn watch_simulators(app: AppHandle) -> Result<bool, String> {
@@ -55,14 +50,12 @@ pub async fn watch_simulators(app: AppHandle) -> Result<bool, String> {
         .map_err(|error| error.to_string())
 }
 
-/// Shuts down every booted simulator Chord created except the worktree's own.
 #[tauri::command]
 #[specta::specta]
 pub async fn shut_down_other_simulators(app: AppHandle, keep: PathBuf) -> Result<(), String> {
     blocking(app, move |_, _| chord_ios::shut_down_others(&keep)).await
 }
 
-/// The disk the DerivedData folders and simulators of the created worktrees take, in bytes, without the main checkouts'; a number the bindings can carry exactly up to 8 PB.
 #[tauri::command]
 #[specta::specta]
 pub async fn build_data_size(app: AppHandle) -> Result<f64, String> {
@@ -72,14 +65,12 @@ pub async fn build_data_size(app: AppHandle) -> Result<f64, String> {
     .await
 }
 
-/// Removes the build data of worktrees that are gone. It does nothing while any project's worktrees cannot be listed: a project that is not mounted must not look empty.
 #[tauri::command]
 #[specta::specta]
 pub async fn prune_build_data(app: AppHandle) -> Result<(), String> {
     blocking(app, |_, store| chord_ios::prune(&store.get().projects)).await
 }
 
-/// The service groups Settings lists, each with whether it stays on.
 #[tauri::command]
 #[specta::specta]
 pub async fn simulator_service_groups(app: AppHandle) -> Result<Vec<ServiceRow>, String> {
@@ -89,7 +80,6 @@ pub async fn simulator_service_groups(app: AppHandle) -> Result<Vec<ServiceRow>,
     .await
 }
 
-/// Shows the worktree's simulator, or with `preview` its preview simulator, under the webview at `rect`, the screen's CSS pixels in the window, in `bezel`; the channel carries its state.
 #[tauri::command]
 #[specta::specta]
 pub async fn show_simulator_screen(
@@ -112,7 +102,6 @@ pub async fn show_simulator_screen(
             let send = move |state| {
                 let _ = on_state.send(state);
             };
-            // SAFETY: Tauri hands over the window's live WKWebView on the main thread.
             unsafe { chord_ios::show_screen(webview.inner(), turn, &worktree, preview, send) };
         })
         .map_err(|error| error.to_string())
@@ -125,7 +114,6 @@ pub fn move_simulator_screen(app: AppHandle, rect: ScreenRect, bezel: Bezel) -> 
         .map_err(|error| error.to_string())
 }
 
-/// Draws Home, Lock and Shake natively under the screen, as the view laid them out.
 #[tauri::command]
 #[specta::specta]
 pub fn set_simulator_buttons(app: AppHandle, buttons: ScreenButtons) -> Result<(), String> {
@@ -140,7 +128,6 @@ pub fn hide_simulator_screen(app: AppHandle) -> Result<(), String> {
         .map_err(|error| error.to_string())
 }
 
-/// Sends a touch or key of the Simulator view to the worktree's simulator, in order: the main thread runs them one by one. Buttons go through `press_simulator_button`.
 #[tauri::command]
 #[specta::specta]
 pub fn send_simulator_input(app: AppHandle, worktree: PathBuf, input: Input) -> Result<(), String> {
@@ -152,7 +139,6 @@ pub fn send_simulator_input(app: AppHandle, worktree: PathBuf, input: Input) -> 
     .map_err(|error| error.to_string())
 }
 
-/// Presses Home, Lock or Shake on the worktree's simulator. Shake, and Home before CoreSimulator 1155.4, run a tool; its error comes back.
 #[tauri::command]
 #[specta::specta]
 pub async fn press_simulator_button(
@@ -173,14 +159,12 @@ pub async fn press_simulator_button(
     .map_err(|error| error.to_string())?
 }
 
-/// The Simulator view's fallback when the private API did not load.
 #[tauri::command]
 #[specta::specta]
 pub async fn open_simulator_app(app: AppHandle) -> Result<(), String> {
     blocking(app, |_, _| chord_ios::open_app(true)).await
 }
 
-/// Takes a screenshot of the worktree's simulator, or with `preview` its preview simulator, into the folder of Settings, else the Desktop.
 #[tauri::command]
 #[specta::specta]
 pub async fn take_simulator_screenshot(
@@ -195,7 +179,6 @@ pub async fn take_simulator_screenshot(
     .await
 }
 
-/// Records the worktree's simulator, or with `preview` its preview simulator, into the folder of Settings, else the Desktop: `on_started` once it records, then the video and its preview when the recording ends.
 #[tauri::command]
 #[specta::specta]
 pub async fn record_simulator(
@@ -213,7 +196,6 @@ pub async fn record_simulator(
     .await
 }
 
-/// Stops the recording of the worktree's simulator, or with `preview` its preview simulator; `record_simulator` returns the video.
 #[tauri::command]
 #[specta::specta]
 pub async fn stop_simulator_recording(
@@ -228,7 +210,6 @@ pub async fn stop_simulator_recording(
     .await
 }
 
-/// The worktree's booted simulator's appearance settings, or with `preview` its preview simulator's, and the choices the Mac offers.
 #[tauri::command]
 #[specta::specta]
 pub async fn simulator_appearance(
@@ -242,7 +223,6 @@ pub async fn simulator_appearance(
     .await
 }
 
-/// Changes one appearance setting of the worktree's booted simulator, or with `preview` its preview simulator.
 #[tauri::command]
 #[specta::specta]
 pub async fn set_simulator_appearance(
@@ -257,7 +237,6 @@ pub async fn set_simulator_appearance(
     .await
 }
 
-/// Asks for the folder of screenshots and recordings and saves the pick; no pick keeps the setting and returns `None`.
 #[tauri::command]
 #[specta::specta]
 pub async fn pick_screenshot_folder(app: AppHandle) -> Result<Option<PathBuf>, String> {
@@ -279,7 +258,6 @@ pub async fn pick_screenshot_folder(app: AppHandle) -> Result<Option<PathBuf>, S
     .await
 }
 
-/// Starts a native drag of a file, shown as `preview`, out of the window: Finder and other apps take it, and so does a chat pane.
 #[tauri::command]
 #[specta::specta]
 pub async fn drag_file_out(

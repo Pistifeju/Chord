@@ -1,4 +1,3 @@
-// The Settings panel over the blurred window: a section list on the left, the chosen section's grouped rows on the right.
 import { useEffect, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { Theme } from "../../ipc/bindings";
 import { changeShortcut, commandTitles, resetShortcut, shortcutLabel, tooltip } from "../../app/commands";
@@ -14,7 +13,6 @@ import { AppearanceIcon, ChatIcon, CloseIcon, KeyboardIcon, MinusIcon, PhoneIcon
 import { appearance, changeFontSize, changeTextSize, closeSettings, keepAwake, linksInDefaultBrowser, muteNotifications, setKeepAwake, setLinksInDefaultBrowser, setMuteNotifications, setTheme, settingsSection, shortcutChanges, type FontSizeSetting, type SettingsSection } from "./store";
 import "./settings.css";
 
-// The value is whether links open in the default browser.
 const linkTargets = [
   { value: false, label: "Chord" },
   { value: true, label: "Default Browser" },
@@ -87,7 +85,6 @@ function General({ buildDataSize }: { buildDataSize: ReactNode }) {
   );
 }
 
-// The rows draw their own card, so the section skips `Group`.
 function Agents() {
   useEffect(watchHarnessChecks, []);
   const checks = harnessChecks.usePart((s) => s.checks);
@@ -224,7 +221,6 @@ function Simulators({ screenshots, services }: { screenshots: ReactNode; service
   );
 }
 
-// `buildDataSize` is the Build Data row's value, `simulatorScreenshots` and `simulatorServices` the Simulators section's rows, passed in by a window that has an Xcode project, so settings imports nothing from features/ios.
 export function SettingsPage({ buildDataSize, simulatorScreenshots, simulatorServices }: { buildDataSize: ReactNode; simulatorScreenshots: ReactNode; simulatorServices: ReactNode }) {
   const [shown, setShown] = useState(settingsSection.get);
   const sheetOpen = sheet.use() !== null;

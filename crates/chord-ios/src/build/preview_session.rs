@@ -1,5 +1,3 @@
-//! The Preview view's session in a worktree: its preview simulator booted on open, the pick it shows, the saves that hot reload or rebuild it, and the preview build that launches the app on it.
-
 use chord_core::lock;
 use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -16,7 +14,6 @@ use crate::simulator::{self, DeviceSet};
 use crate::worktree_saves::{self, Saves};
 use crate::xcode;
 
-/// What an opened Preview view does next.
 #[derive(Debug, PartialEq)]
 enum OnOpen {
     ShowPick,
@@ -26,7 +23,6 @@ enum OnOpen {
     StartBuild,
 }
 
-/// `launched`: the preview app runs the current code on this simulator. `picked`: the view opened with another pick than before.
 fn on_open(launched: bool, picked: bool, waits: bool, runs: bool) -> OnOpen {
     match (launched, picked) {
         (true, true) => OnOpen::ShowPick,
@@ -37,28 +33,19 @@ fn on_open(launched: bool, picked: bool, waits: bool, runs: bool) -> OnOpen {
     }
 }
 
-/// A worktree whose Preview view opened, with its preview simulator.
 pub(super) struct Preview {
     udid: String,
-    /// The simulator's boot; a preview build launches once it ended.
     boot: preview::Boot,
-    /// The preview app launched on the simulator since its boot.
     launched: bool,
-    /// The preview build whose launch runs the app, or starts it now.
     launch: Option<u64>,
-    /// The app of `launch` ended before its build marked it launched, and why.
     ended: Option<String>,
-    /// The view shows: saves reload or rebuild the preview.
     open: bool,
-    /// A save landed while the view was closed: the app runs old code.
     missed: bool,
-    /// The `#Preview` the next launch shows.
     pick: Option<PreviewPick>,
     on_state: Arc<dyn Fn(PreviewState) + Send + Sync>,
 }
 
 impl Builds {
-    /// The Preview view opened: boots the worktree's preview simulator of the destination's model, unless two others run, and starts a preview build of `pick` beside the boot unless the preview app already runs there. `on_state` hears the preview's states from then on, from any thread. Blocks while another worktree's preview simulator boots.
     pub fn open_preview(
         &self,
         worktree: PathBuf,
@@ -67,7 +54,6 @@ impl Builds {
         on_state: impl Fn(PreviewState) + Send + Sync + 'static,
     ) {
         let on_state: Arc<dyn Fn(PreviewState) + Send + Sync> = Arc::new(on_state);
-        // No simulator boots for nothing to show; the first pick opens the view again.
         if pick.is_none() {
             return on_state(PreviewState::Unpicked);
         }
@@ -144,7 +130,6 @@ impl Builds {
             OnOpen::Building => on_state(PreviewState::Building),
             OnOpen::StartBuild => self.start_preview(&worktree),
         }
-        // A boot that failed meanwhile told Failed before the state above.
         if let Some(Err(message)) = boot_outcome.get() {
             on_state(PreviewState::Failed {
                 message: message.clone(),
@@ -152,7 +137,6 @@ impl Builds {
         }
     }
 
-    /// The Preview view picked another `#Preview`: the preview app shows it at once, or the next launch does.
     pub fn pick_preview(&self, worktree: &Path, pick: PreviewPick) {
         match lock(&self.0.previews).get_mut(worktree) {
             Some(preview) => preview.pick = Some(pick),
@@ -161,7 +145,6 @@ impl Builds {
         self.show_pick(worktree);
     }
 
-    /// Shows the pick in the running preview app with the saves since its launch, else rebuilds; a preview build that runs or waits launches with it anyway.
     fn show_pick(&self, worktree: &Path) {
         let (launched, pick) = match lock(&self.0.previews).get(worktree) {
             Some(preview) => (preview.launched, preview.pick.clone()),
@@ -170,7 +153,6 @@ impl Builds {
         {
             let mut slots = lock(&self.0.slots);
             if slots.holds_preview(worktree) {
-                // A build that fails or launched with the old pick still leaves a preview build to follow.
                 return slots.follow_with_preview(worktree);
             }
         }
@@ -192,7 +174,6 @@ impl Builds {
             return;
         }
         let (builds, path) = (self.clone(), worktree.to_path_buf());
-        // Without a watcher the preview still works; it catches up on the next build.
         if let Ok(watcher) =
             worktree_saves::watch(worktree, move |saves| builds.saved(&path, saves))
         {
@@ -200,14 +181,12 @@ impl Builds {
         }
     }
 
-    /// The Preview view closed: saves no longer reload or rebuild its preview until it opens again.
     pub fn close_preview(&self, worktree: &Path) {
         if let Some(preview) = lock(&self.0.previews).get_mut(worktree) {
             preview.open = false;
         }
     }
 
-    /// A hot reload when only `.swift` files changed and the preview app runs with no build on, else a preview build. A closed view's next open rebuilds instead.
     fn saved(&self, worktree: &Path, saves: Saves) {
         hot_reload::saved(worktree, saves.swift);
         let launched = match lock(&self.0.previews).get_mut(worktree) {
@@ -228,7 +207,6 @@ impl Builds {
         }
     }
 
-    /// Tells the worktree's Preview view, the one that opened last.
     pub(super) fn tell_preview(&self, worktree: &Path, state: PreviewState) {
         let on_state = lock(&self.0.previews)
             .get(worktree)
@@ -238,10 +216,8 @@ impl Builds {
         }
     }
 
-    /// A preview build of a worktree whose Preview view opened: it waits for the worktree's ⌘R or ⌘B build, else takes over from its preview build.
     fn start_preview(&self, worktree: &Path) {
         let pick = match lock(&self.0.previews).get_mut(worktree) {
-            // A closed view's next open rebuilds instead.
             Some(preview) if !preview.open => {
                 preview.missed = true;
                 return;
@@ -267,7 +243,6 @@ impl Builds {
         };
         let (builds, path) = (self.clone(), worktree.to_path_buf());
         let on_state = move |state| builds.tell_preview(&path, state);
-        // The preview build writes no log; its states stand in for the phases.
         let sink = move |event| match event {
             BuildEvent::Phase {
                 phase: BuildPhase::Waiting,
@@ -296,7 +271,6 @@ impl Builds {
                 run: false,
                 preview: true,
                 destination: None,
-                // The preview builds the default scheme in its default configuration, whose compile commands the hot reload reuses.
                 pick: SchemePick::default(),
                 kept_services: BTreeMap::new(),
                 project,
@@ -305,7 +279,6 @@ impl Builds {
         );
     }
 
-    /// The preview app that build `launch` started ended. One that ran tells the view why, unless its simulator shut down, which the view shows already; one still launching leaves the reason for its build.
     fn preview_ended(&self, worktree: &Path, launch: u64, udid: &str, message: String) {
         match lock(&self.0.previews).get_mut(worktree) {
             Some(preview) if preview.launch == Some(launch) && preview.launched => {
@@ -322,7 +295,6 @@ impl Builds {
         }
     }
 
-    /// Starts the worktree's preview build if one waits and no ⌘R or ⌘B build holds the worktree any longer.
     pub(super) fn follow_with_preview(&self, worktree: &Path) {
         let waits = lock(&self.0.slots).take_waiting_preview(worktree);
         if waits {
@@ -332,7 +304,6 @@ impl Builds {
 }
 
 impl Build {
-    /// A preview build: builds like ⌘B for a simulator while the preview simulator boots, then launches the app on it. One whose preview simulator was shut down meanwhile builds nothing.
     pub(super) fn preview_outcome(&self) -> BuildEvent {
         let found = lock(&self.builds.0.previews)
             .get(&self.worktree)
@@ -351,7 +322,6 @@ impl Build {
         self.say(BuildEvent::Phase {
             phase: BuildPhase::Building,
         });
-        // After Building: a boot that failed before it still has the last word.
         if let Some(Err(message)) = boot.get() {
             let message = message.clone();
             self.builds
@@ -366,7 +336,6 @@ impl Build {
         if !self.wait_for_database() {
             return BuildEvent::Stopped;
         }
-        // The worktree's run simulator, so ⌘R and the preview build the same thing.
         let target = self.build_simulator().map(|device| device.udid);
         match self.xcodebuild(&scheme, target.as_deref()) {
             BuildEvent::Succeeded => {}
@@ -415,7 +384,6 @@ impl Build {
                 })
             })
             .and_then(|()| {
-                // The pick after launch: a pick made during the build shows without another one.
                 let pick = lock(&self.builds.0.previews)
                     .get(&self.worktree)
                     .and_then(|preview| preview.pick.clone());
@@ -446,7 +414,6 @@ impl Build {
         }
     }
 
-    /// Marks the preview app launched, unless it ended meanwhile: then why.
     fn mark_launched(&self) -> Option<String> {
         let mut previews = lock(&self.builds.0.previews);
         let preview = previews.get_mut(&self.worktree)?;

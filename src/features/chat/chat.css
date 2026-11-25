@@ -1,4 +1,3 @@
-/* The chat pane: transcript column, composer, empty state. Rules: design/chat.md. */
 .chat {
   position: relative;
   display: flex;
@@ -21,9 +20,7 @@
 .chat-transcript {
   flex: 1;
   min-height: 0;
-  /* The 10px scrollbar always takes its gutter; the matching left padding keeps the column centered over the composer. */
   overflow-y: scroll;
-  /* The pane pins to the end itself; WebKit's scroll anchoring nudged a scrolled-up transcript on each layout of any pane. */
   overflow-anchor: none;
   padding-left: 10px;
   mask-image: linear-gradient(to bottom, transparent, black 16px, black calc(100% - 16px), transparent);
@@ -97,7 +94,6 @@
   flex-direction: column;
 }
 
-/* A message's copy button and time, shown while the pointer is over the message. */
 .chat-message-meta {
   display: flex;
   align-items: center;
@@ -112,9 +108,7 @@
   opacity: 0;
   transform: translateY(-3px);
   filter: blur(2px);
-  /* WebKit draws a stray stripe when it builds the blur layer mid-transition; a layer kept from the start has nothing to build. */
   will-change: opacity, transform, filter;
-  /* The short delay keeps the row from flickering when the pointer crosses the gap between messages. */
   transition: opacity var(--t-fast) var(--ease-out) 60ms, transform var(--t-fast) var(--ease-out) 60ms, filter var(--t-fast) var(--ease-out) 60ms;
 }
 
@@ -213,7 +207,6 @@
   white-space: nowrap;
 }
 
-/* `--ease-out` reaches most of its opacity in the first 40ms, too fast to see on meta text. */
 .chat-steps-summary[data-changed] {
   animation: chat-reveal var(--t-slow) ease-out;
 }
@@ -344,7 +337,6 @@
   color: var(--ink-muted);
 }
 
-/* The Working row floats over the transcript's foot, so a run's start resizes nothing and the jump button stays put. */
 .chat-working {
   position: absolute;
   right: 0;
@@ -373,7 +365,6 @@
   color: var(--ink-secondary);
 }
 
-/* New items, the Working row and the notice rise 4px into place while they fade in; the image row is skipped so an image arriving mid-run does not replay it. */
 .chat-turn[data-fresh],
 .chat-message[data-fresh],
 .chat-stopped[data-fresh],
@@ -392,7 +383,6 @@
   text-decoration: underline 2px var(--accent-ink);
 }
 
-/* Visibility waits for the fade-out, so the hidden button leaves the tab order after it has faded. */
 .chat-jump {
   position: absolute;
   bottom: calc(4px + var(--working-height));
@@ -476,7 +466,6 @@
   box-shadow: var(--shadow-composer);
 }
 
-/* A file dragged from the Files tree over the composer. */
 .chat-composer[data-path-drop] {
   outline: 2px dashed var(--accent-ink);
   outline-offset: -1px;
@@ -530,7 +519,6 @@
   color: var(--ink-secondary);
 }
 
-/* Dark --raised and --selected are translucent: tint over the opaque canvas or the image shows through. */
 .chat-attachment-remove:hover {
   background: linear-gradient(var(--raised), var(--raised)), var(--canvas);
   color: var(--ink);
@@ -540,7 +528,6 @@
   background: linear-gradient(var(--selected), var(--selected)), var(--canvas);
 }
 
-/* Inside the pane, not the window: the transcript shows faintly through the wash. */
 .chat-drop {
   position: absolute;
   inset: 8px;
@@ -709,7 +696,6 @@
   flex: none;
 }
 
-/* Nothing in the bar overlaps: as it narrows, the model name ellipsizes, then the context percentage and the permissions hide (the icons, the ring and their tooltips stay), then the thinking level, then the agent button. */
 .chat-composer-bar {
   container-type: inline-size;
 }
@@ -744,7 +730,6 @@
   margin-left: auto;
 }
 
-/* The permissions button: the mode's icon, then its name. */
 .chat-permissions {
   display: inline-flex;
   flex: none;
@@ -768,7 +753,6 @@
   color: var(--ink-secondary);
 }
 
-/* A permission mode that never asks reads in the warning color, its icon too. */
 .chat-permissions:not([data-asks]),
 .chat-permissions:not([data-asks]):hover:not(:disabled),
 .chat-permissions:not([data-asks])[aria-expanded="true"] {
@@ -815,7 +799,6 @@
   color: var(--ink-disabled);
 }
 
-/* The agent button: the agent's logo, the model and the thinking level, read as one label. */
 .chat-agent {
   display: inline-flex;
   align-items: center;
@@ -872,7 +855,6 @@
   margin-left: 0;
 }
 
-/* The divider sets the meter off from the agent button's label. */
 .chat-context:has(+ .chat-pickers) {
   margin-right: 4px;
   border-right: 1px solid var(--line-strong);
@@ -1029,7 +1011,6 @@
   gap: 8px;
 }
 
-/* The filter field keeps its 30px whatever the list's length. */
 .chat-dialog-select > .input {
   flex: none;
 }
@@ -1064,7 +1045,6 @@
   color: var(--ink);
 }
 
-/* A multi select's row starts with its checkbox. */
 .chat-dialog-option[aria-checked] {
   justify-content: flex-start;
 }
@@ -1080,7 +1060,6 @@
   color: var(--ink-muted);
 }
 
-/* The command or the files an approval is about. */
 .chat-dialog-detail {
   margin: 0 8px;
   max-height: 160px;
@@ -1096,7 +1075,6 @@
   color: var(--ink-secondary);
 }
 
-/* The number that picks a row, at the row's end. */
 .chat-dialog-key {
   display: inline-grid;
   place-items: center;
@@ -1264,7 +1242,6 @@
   white-space: nowrap;
 }
 
-/* A row's meta line, as the slash menu's source label, with a slot for the check so every line ends on one edge. */
 .chat-dialog-meta {
   display: inline-flex;
   flex: none;
@@ -1289,7 +1266,6 @@
   color: var(--ink-disabled);
 }
 
-/* A row with an icon: the icon, the name, then the current mode's check at the end. */
 .chat-dialog-option:has(.chat-dialog-icon) {
   justify-content: flex-start;
 }
@@ -1314,7 +1290,6 @@
   color: var(--ink-muted);
 }
 
-/* A stacked row, as the branch menu's: the check column, then the name over its description, as a commit mode row. */
 .chat-dialog-menu .chat-dialog-option[data-stacked] {
   align-items: flex-start;
   justify-content: flex-start;
@@ -1334,7 +1309,6 @@
   min-width: 0;
 }
 
-/* A stacked row's More button, shown while the row is highlighted, under the pointer or holds the focus. */
 .chat-dialog-more {
   flex: none;
   width: 20px;
@@ -1351,7 +1325,6 @@
   opacity: 1;
 }
 
-/* The highlighted row is selected, so the button's hover steps up to the segmented chip's fill. */
 .chat-dialog-option[data-active] .chat-dialog-more:hover {
   background: var(--control-selected);
 }
@@ -1383,7 +1356,6 @@
   gap: 8px;
 }
 
-/* The agent picker: right-aligned over the agent button; the component sets its transform origin on the button. */
 .chat-agent-menu {
   left: auto;
   width: min(460px, 100%);

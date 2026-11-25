@@ -1,5 +1,3 @@
-//! A harness process a session command can swap for a new one: the running process and the reader of its stdout, the swap, the order events and lines go out in, the reader's quiet timer, and the pane's `Agent`. The Codex, Claude Code and OpenCode adapters build on it.
-
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex, PoisonError};
@@ -13,7 +11,6 @@ use super::process::{Output, Process, login_shell};
 use super::{Agent, Capability, DialogAnswer, Harness, HarnessEvent, Image, OnEvent};
 use crate::{Error, lock};
 
-/// What one record or call leads to: events for the chat, lines to write the harness, and what a new process opens in place of this one.
 pub(super) struct Read<O> {
     pub(super) events: Vec<HarnessEvent>,
     pub(super) lines: Vec<Value>,
@@ -30,16 +27,11 @@ impl<O> Default for Read<O> {
     }
 }
 
-/// The reader of one process's stdout, and what the pane's calls ask of the process.
 pub(super) trait Reader: Send + 'static {
-    /// What a new process opens.
     type Open;
-    /// The first line the process gets.
     fn initialize(&mut self) -> Value;
     fn feed(&mut self, line: &[u8]) -> Read<Self::Open>;
-    /// Whether `text` sends its images: a message does, a session command does not.
     fn takes_images(&self, text: &str) -> bool;
-    /// The user's message or session command; `held_elsewhere` are the sessions other panes hold.
     fn send(
         &mut self,
         text: &str,
@@ -48,15 +40,11 @@ pub(super) trait Reader: Send + 'static {
     ) -> Result<Read<Self::Open>, Error>;
     fn answer(&mut self, id: &str, answer: &DialogAnswer) -> Result<Read<Self::Open>, Error>;
     fn pick_model(&mut self, id: &str, level: Option<&str>) -> Read<Self::Open>;
-    /// What stops the running turn; nothing when no turn runs.
     fn interrupt(&mut self) -> Read<Self::Open>;
-    /// Stdout closed: the events that end what the process left open.
     fn end(&mut self) -> Vec<HarnessEvent>;
-    /// How long the harness may stay silent before `quiet` ends the turn it started on its own; none while no such turn runs.
     fn quiet_after(&self) -> Option<Duration> {
         None
     }
-    /// The harness stayed silent for `quiet_after`: the events that end its turn.
     fn quiet(&mut self) -> Vec<HarnessEvent> {
         vec![]
     }
@@ -67,7 +55,6 @@ struct Deadline {
     ended: bool,
 }
 
-/// The end of the reader's quiet period, which its own thread waits for.
 struct Quiet {
     deadline: Mutex<Deadline>,
     wake: Condvar,
@@ -84,7 +71,6 @@ impl Quiet {
         self.wake.notify_one();
     }
 
-    /// Blocks until the quiet period passes; false once the process ended.
     fn wait(&self) -> bool {
         let mut deadline = lock(&self.deadline);
         loop {
@@ -112,14 +98,12 @@ impl Quiet {
     }
 }
 
-/// The arguments and the reader of a new process that opens `Open`.
 type Launch<R> = Box<dyn Fn(<R as Reader>::Open) -> (Vec<String>, R) + Send>;
 
 struct Running<R> {
     process: Process,
     reader: Arc<Mutex<R>>,
     quiet: Arc<Quiet>,
-    /// Cleared when a relaunch replaces the process.
     current: Arc<AtomicBool>,
 }
 
@@ -132,7 +116,6 @@ pub(super) struct Relaunchable<R: Reader> {
 }
 
 impl<R: Reader> Relaunchable<R> {
-    /// Starts `harness` in `dir` on `open`, with the arguments and reader `launch` builds.
     pub(super) fn start(
         harness: &'static Harness,
         dir: &Path,
@@ -155,9 +138,7 @@ impl<R: Reader> Relaunchable<R> {
         })
     }
 
-    // The old process ends after the new one started, so a failed start leaves the pane on its session; a turn the old one ran ends with it.
     pub(super) fn relaunch(&self, open: R::Open) -> Result<(), Error> {
-        // Holding the channel keeps the new process's events behind the old one's last ones.
         let emit = lock(&self.on_event);
         let new = run(self.harness, &self.dir, &self.launch, open, &self.on_event)?;
         let old = std::mem::replace(&mut *lock(&self.running), new);
@@ -165,7 +146,6 @@ impl<R: Reader> Relaunchable<R> {
         let ended = lock(&old.reader).end();
         ended.into_iter().for_each(&*emit);
         emit(HarnessEvent::State { running: false });
-        // The chat takes no message until the new process's history ends.
         emit(HarnessEvent::HistoryStart);
         drop(emit);
         drop(old);
@@ -180,7 +160,6 @@ impl<R: Reader> Relaunchable<R> {
         lock(&self.running).process.write(line)
     }
 
-    // The events go out before the lines, so a steer's queue lands before the steer's echo, which empties it.
     pub(super) fn deliver(&self, read: Read<R::Open>) -> Result<(), Error> {
         read.events
             .into_iter()
@@ -268,7 +247,6 @@ fn run<R: Reader>(
         Arc::clone(&current),
         Arc::clone(&quiet),
     );
-    // The channel is held from the record to its events, so the quiet's end never lands between them.
     let process = Process::start(command, move |output, stdin| {
         let emit = lock(&emit);
         let read = match output {

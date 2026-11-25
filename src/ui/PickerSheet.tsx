@@ -1,4 +1,3 @@
-// The picker sheet: a search field over the items that match it; ↑ ↓ move the highlight, Return or a click picks one.
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { steppedIndex } from "./listStep";
 import "./pickerSheet.css";
@@ -7,14 +6,11 @@ type Props<T> = {
   label: string;
   placeholder: string;
   fieldLabel: string;
-  /** Null while the items load. */
   items: T[] | null;
   matching: (items: T[], query: string) => T[];
   keyOf: (item: T) => string;
   titleOf: (item: T) => string;
-  /** The row's content: a name in `picker-sheet-name`, a muted detail in `picker-sheet-folder`. */
   row: (item: T) => ReactNode;
-  /** What the list says when there are no items at all. */
   noItems?: string;
   onPick: (item: T) => void;
   onClose: () => void;

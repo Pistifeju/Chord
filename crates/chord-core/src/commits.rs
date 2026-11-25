@@ -1,5 +1,3 @@
-//! A worktree's commit of its staged files, or its amend of the last commit, and its branch against its remote: who a commit is by, where a push goes, the commits each side lacks and when the worktree last fetched, the push that sets the upstream the first time, the fetch, the pull, and the merge of another branch.
-
 use std::path::Path;
 
 use serde::Serialize;
@@ -10,23 +8,15 @@ use crate::{Error, git, git_counts};
 #[derive(Serialize, Type, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct CommitTarget {
-    /// "Name <email>", as a commit records it.
     pub author: Option<String>,
-    /// The remote branch a push goes to; None on a detached HEAD, a branch with no commit yet or without a remote.
     pub push_to: Option<String>,
-    /// Whether the branch has commits `push_to` lacks, or no upstream.
     pub pushable: bool,
-    /// The commits `push_to` lacks; None before the first push sets the upstream.
     pub ahead: Option<u32>,
-    /// The commits of `push_to` the branch lacks, as of the last fetch; None before the first push sets the upstream.
     pub behind: Option<u32>,
-    /// When the worktree last fetched, in milliseconds since 1970; None before its first fetch.
     pub fetched: Option<f64>,
-    /// Whether HEAD has a commit to amend.
     pub amendable: bool,
 }
 
-/// Commits the staged files with the message, or with `amend` replaces the last commit; a hook that rejects it fails with its output.
 pub fn commit(dir: &Path, message: &str, amend: bool) -> Result<(), Error> {
     let mut args = vec!["commit", "-q", "-F", "-"];
     if amend {
@@ -35,14 +25,12 @@ pub fn commit(dir: &Path, message: &str, amend: bool) -> Result<(), Error> {
     git::run_with_input(dir, &args, message.as_bytes()).map(drop)
 }
 
-/// The last commit's message, which an amend starts from.
 pub fn last_message(dir: &Path) -> Result<String, Error> {
     Ok(git::run(dir, &["log", "-1", "--format=%B"])?
         .trim_end()
         .to_string())
 }
 
-/// The remote a push goes to: `origin`, else the repository's only remote.
 fn remote(dir: &Path) -> Result<Option<String>, Error> {
     let output = git::run(dir, &["remote"])?;
     let remotes: Vec<&str> = output.lines().collect();
@@ -53,13 +41,9 @@ fn remote(dir: &Path) -> Result<Option<String>, Error> {
 }
 
 struct Branch {
-    /// None on a detached HEAD.
     name: Option<String>,
-    /// False on a branch with no commit yet.
     born: bool,
-    /// The remote of an upstream with the branch's own name; another upstream counts as none, since `git push` refuses it.
     upstream_remote: Option<String>,
-    /// The commits it is behind and ahead of that upstream; None without one, or with one that is gone from the remote.
     sides: Option<(u32, u32)>,
 }
 
@@ -107,7 +91,6 @@ pub fn target(dir: &Path) -> Result<CommitTarget, Error> {
         .map(|remote| format!("{remote}/{name}")),
         _ => None,
     };
-    // `git var` gives "Name <email> time zone", or fails while git has no identity.
     let author = git::run(dir, &["var", "GIT_AUTHOR_IDENT"])
         .ok()
         .and_then(|ident| ident.trim_end().rsplitn(3, ' ').nth(2).map(str::to_string));
@@ -122,7 +105,6 @@ pub fn target(dir: &Path) -> Result<CommitTarget, Error> {
     })
 }
 
-// git writes FETCH_HEAD in the worktree's own git folder on each fetch and pull.
 fn fetched(dir: &Path) -> Option<f64> {
     let path = git::read(dir, &["rev-parse", "--git-path", "FETCH_HEAD"]).ok()?;
     let modified = std::fs::metadata(dir.join(path.trim())).ok()?.modified();
@@ -130,7 +112,6 @@ fn fetched(dir: &Path) -> Option<f64> {
     Some(since.as_millis() as f64)
 }
 
-/// The remote the branch syncs with: its upstream's, else `origin`, else the repository's only remote.
 fn sync_remote(dir: &Path, verb: &str) -> Result<String, Error> {
     match branch(dir)?.upstream_remote {
         Some(remote) => Ok(remote),
@@ -139,28 +120,23 @@ fn sync_remote(dir: &Path, verb: &str) -> Result<String, Error> {
     }
 }
 
-/// Pushes the branch to its own name on the remote, which sets the upstream the first time.
 pub fn push(dir: &Path) -> Result<(), Error> {
     let remote = sync_remote(dir, "push to")?;
     git::run(dir, &["push", "-q", "-u", &remote, "HEAD"]).map(drop)
 }
 
-/// Fetches the remote a push goes to, and returns its name.
 pub fn fetch(dir: &Path) -> Result<String, Error> {
     let remote = sync_remote(dir, "fetch from")?;
     git::run(dir, &["fetch", "-q", &remote])?;
     Ok(remote)
 }
 
-/// Pulls the branch's upstream, and tells whether HEAD moved. Branches that diverged join the way the user's git config says, and by a merge while it says nothing.
 pub fn pull(dir: &Path) -> Result<bool, Error> {
-    // git refuses diverged branches while no config or flag picks a way; `--ff` picks the merge and leaves a set `pull.rebase` its rebase.
     let unset = git::optional(git::read(dir, &["config", "--get", "pull.ff"]))?.is_none();
     let ff: &[&str] = if unset { &["--ff"] } else { &[] };
     moves_head(dir, &[&["pull", "-q", "--no-edit"], ff].concat())
 }
 
-/// Merges `branch` into the worktree's branch, and tells whether HEAD moved. A merge that stops on conflicts fails with git's report and leaves the conflicted files in the worktree.
 pub fn merge(dir: &Path, branch: &str) -> Result<bool, Error> {
     moves_head(dir, &["merge", "-q", "--no-edit", branch])
 }
@@ -223,7 +199,6 @@ mod tests {
         push(&repo)?;
         assert!(!target(&repo)?.pushable);
 
-        // A branch tracking another branch's name pushes to its own.
         git::run(
             &repo,
             &["checkout", "-q", "-b", "feat", "--track", "up/main"],
@@ -234,7 +209,6 @@ mod tests {
             (Some("up/feat"), true)
         );
         push(&repo)?;
-        // A second remote, neither one origin, leaves the upstream's remote in place.
         git::run(&repo, &["remote", "add", "other", "/nowhere"])?;
         let tracked = target(&repo)?;
         assert_eq!(

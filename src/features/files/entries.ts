@@ -1,4 +1,3 @@
-// A Files tree entry renamed, created or moved to the Trash: the change on disk, then every file tab and tree path that held it.
 import { closeSheet, sheet, sheetOf } from "../../app/sheet";
 import { commands } from "../../ipc/bindings";
 import { showFile } from "../editor/showing";
@@ -17,7 +16,6 @@ function entryGone(worktree: string, path: string) {
   closeFilePanesAt(worktree, path);
 }
 
-// An empty or unchanged name cancels.
 export async function finishNameEdit(name: string) {
   const edit = nameEdit.get();
   nameEdit.set(null);
@@ -28,14 +26,12 @@ export async function finishNameEdit(name: string) {
     if (edit.kind === "rename") {
       const to = joinPath(parentFolder(edit.path), name);
       if (to === edit.path) return;
-      // Pending edits land under the old name first, so no save goes to a path that is gone.
       await flushAllSaves();
       await commands.renameFile(worktree, edit.path, to);
       entryMoved(worktree, edit.path, to);
     } else {
       const path = joinPath(edit.folder, name);
       await commands.createFile(worktree, path, edit.kind === "newFolder");
-      // A pane can still show a file of this name deleted outside the app; a second editor would save over it.
       if (edit.kind === "newFile") showFile(worktree, path, false);
     }
   } catch (error) {

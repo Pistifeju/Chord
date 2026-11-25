@@ -1,4 +1,3 @@
-// The panes of one worktree: the split layout of its tab groups, each group's tab bar over the tab it shows, and a tab's drag between them.
 import { Fragment, useEffect, useRef, useState, type PointerEvent, type ReactNode, type RefObject } from "react";
 import type { DiffSide, Direction, Layout, Status, Tab } from "../../ipc/bindings";
 import { tooltip } from "../../app/commands";
@@ -27,13 +26,10 @@ import "./panes.css";
 
 type Drop = TabDrop & { box: Box };
 
-/** The tab drag shared by every group's bar. */
 type TabDrag = { handlers: (tab: string) => object; clicked: () => boolean; dragging: string | null };
 
-/** Which window edges a group touches: a bar along the window's top is the title bar row and holds the room for the traffic lights. */
 type Edges = { top: boolean; left: boolean };
 
-// seen: the tabs already shown, so a tab that remounts after a split or a move does not animate in again.
 type Place = { worktree: string; focused: string; split: boolean; names: PaneNames; drag: TabDrag; seen: Set<string> };
 
 const rectOf = (element: Element): Box => {
@@ -41,7 +37,6 @@ const rectOf = (element: Element): Box => {
   return { left, top, width, height };
 };
 
-// Where a drop under the pointer lands: a group's tab bar adds the tab there, a group's body splits it at the nearest edge. A divider keeps the last drop, so the mark does not blink between groups.
 function dropAt(x: number, y: number, last: Drop | null): Drop | null {
   const under = document.elementFromPoint(x, y);
   if (under?.closest(".divider")) return last;
@@ -79,7 +74,6 @@ function useTabDrag(worktree: string) {
   return { tabDrag: { handlers: drag.handlers, clicked: drag.clicked, dragging }, drop, ghost: drag.ghost };
 }
 
-// A chat tab shows its pane's harness; a pane that never started has none yet.
 const tabIcon = (tab: Tab, harness: string | null) => {
   if (tab.kind === "file") return tab.diff ? <DiffIcon /> : <FileIcon />;
   if (tab.kind === "browser") return <GlobeIcon />;
@@ -93,7 +87,6 @@ function TabView({ tab, group, place, status }: { tab: Tab; group: Group; place:
   const { worktree, drag } = place;
   const open = tab.id === group.active;
   const file = tab.kind === "file";
-  // A file or a page tab closes on purpose, so its close button always shows.
   const kept = tab.kind !== "chat";
   const harness = paneHarnesses.usePart((all) => (tab.kind === "chat" ? (all[tab.id] ?? null) : null));
   const [fresh] = useState(() => !place.seen.has(tab.id));
@@ -143,7 +136,6 @@ function GroupTabs({ group, place, edges }: { group: Group; place: Place; edges:
   const statuses: (Status | null)[] = JSON.parse(statusesJson);
   const dialogs = chats.usePart((all) => chatIds.map((tab) => all[tab]?.dialog != null).join());
   const finishedPanes = finished.use();
-  // The open tab's pane shows its own Working row, so its tab shows no status; a done or a question you already saw shows none either.
   const statusOf = (tab: Tab): Status | null => {
     const report = tab.id === group.active ? null : statuses[chatIds.indexOf(tab.id)] ?? null;
     return seenStatus(report?.kind, [tab.id], finishedPanes, dialogs.split(",")[chatIds.indexOf(tab.id)] === "true") ? null : report;
@@ -160,7 +152,6 @@ function GroupTabs({ group, place, edges }: { group: Group; place: Place; edges:
   );
 }
 
-/** mins: the pixels the children before and after the divider need. */
 type DividerProps = { worktree: string; path: number[]; index: number; direction: Direction; sizes: number[]; mins: [number, number]; container: RefObject<HTMLDivElement | null> };
 type Drag = { start: number; sizes: number[]; total: number; frame: number; moved: number | null };
 
@@ -179,7 +170,6 @@ function Divider({ worktree, path, index, direction, sizes, mins, container }: D
     drag.current = { start: along(e), sizes, total: direction === "row" ? box.width : box.height, frame: 0, moved: null };
   };
 
-  // At most one layout update per frame.
   const onPointerMove = (e: PointerEvent) => {
     const d = drag.current;
     if (!d) return;
@@ -207,7 +197,6 @@ function Divider({ worktree, path, index, direction, sizes, mins, container }: D
       role="separator"
       aria-orientation={direction === "row" ? "vertical" : "horizontal"}
       onPointerDown={onPointerDown}
-      // A press here starts no text selection in the panes beside it.
       onMouseDown={(e) => e.preventDefault()}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerEnd}
@@ -217,7 +206,6 @@ function Divider({ worktree, path, index, direction, sizes, mins, container }: D
   );
 }
 
-// An open file: its diff for a diff tab, the image view for an image, otherwise the editor.
 function FileView({ worktree, path, diff, autoFocus, onGone, onEdit }: { worktree: string; path: string; diff: DiffSide | undefined; autoFocus: boolean; onGone: () => void; onEdit: () => void }) {
   const mime = imageMime(path);
   const editor = editorView.use();
@@ -290,7 +278,6 @@ function LayoutView({ layout, path, place, edges }: { layout: Layout; path: numb
   );
 }
 
-// The chip that follows the pointer while a tab drags: the tab's icon and name.
 function TabGhost({ tab, ghost, names }: { tab: Tab; ghost: (el: HTMLElement | null) => void; names: PaneNames }) {
   const harness = paneHarnesses.usePart((all) => all[tab.id] ?? null);
   return (
@@ -301,7 +288,6 @@ function TabGhost({ tab, ghost, names }: { tab: Tab; ghost: (el: HTMLElement | n
   );
 }
 
-// `toolbar`, `bottomViews` and `sideViews` are the iOS parts of the window, passed in by App. The toolbar takes the title bar row, and the tab bars sit under it.
 export function PaneArea({ worktree, toolbar, bottomViews, sideViews }: { worktree: string; toolbar: ReactNode; bottomViews: BottomViewSlot[]; sideViews: SideViewSlot[] }) {
   const current = panes.use()[worktree];
   useEffect(() => ensurePanes(worktree), [worktree]);
@@ -309,7 +295,6 @@ export function PaneArea({ worktree, toolbar, bottomViews, sideViews }: { worktr
   const { tabDrag, drop, ghost } = useTabDrag(worktree);
   const seen = useRef<Set<string> | null>(null);
   if (!current) return null;
-  // The tabs a worktree opens with show still.
   seen.current ??= new Set(paneIds(current.layout));
   const place: Place = { worktree, focused: current.focused, split: current.layout.kind === "split", names, drag: tabDrag, seen: seen.current };
   const dragged = tabDrag.dragging ? groupOf(current.layout, tabDrag.dragging)?.tabs.find((t) => t.id === tabDrag.dragging) : undefined;

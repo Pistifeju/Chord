@@ -1,4 +1,3 @@
-// The Usage panel over the blurred window: every harness and its models ranked on the left, the picked row's spend on the right.
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import type { Spend } from "../../ipc/bindings";
 import { tooltip } from "../../app/commands";
@@ -28,7 +27,6 @@ export function UsagePanel() {
   const [metric, setMetric] = useState<Metric>("cost");
   const [pick, setPick] = useState("all");
   useEffect(() => readSpend(range), [range]);
-  // The last read shows while a new one runs; a longer range's read holds this one's rows.
   const spend = useMemo(() => last && inRange(last.read, range, last.at), [last, range]);
 
   return (
@@ -60,7 +58,6 @@ export function UsagePanel() {
 function Body({ spend, range, metric, now, pick, onPick }: { spend: Spend; range: Range; metric: Metric; now: number; pick: string; onPick: (key: string) => void }) {
   const rows = useMemo(() => list(spend, metric), [spend, metric]);
   const listbox = useRef<HTMLDivElement>(null);
-  // A pick the new read lacks falls back to All agents.
   const index = Math.max(0, rows.findIndex((row) => row.key === pick));
   useEffect(() => listbox.current?.focus(), []);
   useEffect(() => {

@@ -1,4 +1,3 @@
-// The confirm sheet: a title, one description line, an optional detail, then Cancel and the confirming action.
 import { useId, type ReactNode } from "react";
 
 type Props = {

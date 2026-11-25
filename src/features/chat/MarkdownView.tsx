@@ -1,4 +1,3 @@
-// The agent's message as Markdown: headings, lists, tasks, quotes, tables, links and code blocks with a copy button.
 import { memo, type ReactNode } from "react";
 import { openLink } from "../browser/store";
 import { CopyButton } from "../../ui/CopyButton";

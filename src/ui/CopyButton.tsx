@@ -1,4 +1,3 @@
-// An icon button that copies a text and shows a check for 1.5s after it copied.
 import { useEffect, useState } from "react";
 import { CheckIcon, CopyIcon } from "./icons";
 

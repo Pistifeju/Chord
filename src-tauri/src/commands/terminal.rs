@@ -1,5 +1,3 @@
-//! Commands for a worktree's terminal: start its shell, type into it, resize it.
-
 use std::path::PathBuf;
 
 use chord_core::{TerminalEvent, Terminals};

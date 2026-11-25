@@ -1,4 +1,3 @@
-// The New Branch sheet's form: the worktree that moves to the new branch, the typed name's live git check, and the create on Return.
 import { closeSheet, openSheet, sheet } from "../../app/sheet";
 import { commands } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
@@ -11,10 +10,8 @@ import { projects } from "./store";
 type NewBranch = {
   worktree: string;
   project: string;
-  // the branch the new one starts from; null on a detached HEAD
   from: string | null;
   name: string;
-  // null while the name is empty, being checked, or valid; also holds git's refusal of the create
   problem: string | null;
   creating: boolean;
 };
@@ -50,7 +47,6 @@ export async function setNewBranchName(name: string) {
   await check.run(() => commands.checkNewBranch(form.project, typed), (problem) => update({ problem }));
 }
 
-// Return during the live check creates anyway: git checks the name again.
 export async function createBranch() {
   const form = newBranch.get();
   if (!form || form.creating || form.problem) return;

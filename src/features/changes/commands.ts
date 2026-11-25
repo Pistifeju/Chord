@@ -1,4 +1,3 @@
-// The Changes view's commands for the commands table: show or hide the view, a branch's Rename and Delete from the branch menu and the menu's close, the right-click actions of a row or the picked rows: stage and discard under Changes, unstage and discard under Staged, and a stash's apply, pop and drop.
 import type { AppCommand } from "../../app/commands";
 import { onTarget } from "../../app/commandTarget";
 import type { Change, Stash } from "../../ipc/bindings";
@@ -9,10 +8,8 @@ import { gitWorktree, projects } from "../worktrees/store";
 import { branchMenuOpen, closeBranchMenu } from "./branch";
 import { actOnStash, changes, requestDiscard, requestDropStash, stageChanges, stashes, unstageChanges } from "./store";
 
-/** A menu's target for the rows it acts on: their paths, NUL apart, since a path holds any other character. */
 export const changesTarget = (list: Change[]) => list.map((c) => c.path).join("\0");
 
-// Runs `act` on the open worktree's changes at the menu's paths, in the group the command acts on.
 const onChanges = (staged: boolean, act: (worktree: string, list: Change[]) => void) => (target?: string) => {
   const worktree = projects.get().selected;
   const paths = new Set(target?.split("\0"));
@@ -20,14 +17,12 @@ const onChanges = (staged: boolean, act: (worktree: string, list: Change[]) => v
   if (worktree && list.length > 0) act(worktree, list);
 };
 
-// Runs `act` on the open worktree's stash whose hash is the menu's target.
 const onStash = (act: (worktree: string, stash: Stash) => void) => (target?: string) => {
   const worktree = projects.get().selected;
   const stash = worktree && stashes.get()[worktree]?.find((s) => s.hash === target);
   if (worktree && stash) act(worktree, stash);
 };
 
-// Runs `act` on the open worktree's branch the menu names; the branch menu closes first.
 const onBranch = (act: (worktree: string, branch: string) => void) => (target?: string) => {
   const worktree = projects.get().selected;
   closeBranchMenu();

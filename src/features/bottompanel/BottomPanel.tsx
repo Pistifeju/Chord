@@ -1,4 +1,3 @@
-// The bottom panel under the panes: the worktree's terminal and, right of it, the views the window passes in, one at a time in a column of its own with a header, tabs when there are several, and a Hide button; each column shows on its own.
 import { useState, type CSSProperties, type ReactNode } from "react";
 import { tooltip } from "../../app/commands";
 import type { BottomView } from "../../ipc/bindings";
@@ -20,16 +19,13 @@ import {
 } from "./store";
 import "./bottompanel.css";
 
-/** A view beside the terminal, with the command that shows or hides it. */
 export type BottomViewSlot = { id: Exclude<BottomView, "terminal">; title: string; toggleCommand: string; body: ReactNode };
 
 export function BottomPanel({ worktree, views }: { worktree: string; views: BottomViewSlot[] }) {
   const { open, height, view, sideWidth } = bottomPanelOf(bottomPanels.use(), worktree);
   const terminal = terminalView.use();
-  // A drag past half the smallest height snaps the panel shut but keeps it, so dragging back snaps it open at the smallest height.
   const [snapped, setSnapped] = useState(false);
   const snapsBelow = bottomPanelMin / 2;
-  // A saved view this worktree no longer has stays hidden.
   const shown = views.find((slot) => slot.id === view);
   if (!open && !shown) return null;
   return (

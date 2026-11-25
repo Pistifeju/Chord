@@ -1,4 +1,3 @@
-// The sheet that asks before a file or folder of the Files tree moves to the Trash.
 import { closeSheet, sheet, sheetOf } from "../../app/sheet";
 import { ConfirmSheet } from "../../ui/ConfirmSheet";
 import { confirmTrash } from "./entries";

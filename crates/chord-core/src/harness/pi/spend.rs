@@ -1,5 +1,3 @@
-//! The replies a pi session file records, with their tokens, cost and cache saving, and the folder pi keeps its session files in.
-
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
@@ -50,7 +48,6 @@ struct Cost {
     total: f64,
 }
 
-/// The assistant replies of a session file, keyed by `responseId`, else by the entry's `id`.
 pub(crate) fn replies(text: &str) -> Vec<Reply> {
     text.lines()
         .filter(|line| line.contains("\"usage\""))
@@ -70,7 +67,6 @@ fn reply(entry: Entry) -> Option<Reply> {
         return None;
     }
     let at = message.timestamp.or_else(|| timestamp(&entry.timestamp))?;
-    // shortcut: a reply with no uncached input gives no input price, so it adds no saving; take the price from another reply of the same model if those savings matter.
     let saved = usage.cost.as_ref().map(|cost| {
         if usage.input > 0.0 {
             usage.cache_read * cost.input / usage.input - cost.cache_read
@@ -91,7 +87,6 @@ fn reply(entry: Entry) -> Option<Reply> {
     })
 }
 
-/// pi's sessions folder: `PI_CODING_AGENT_SESSION_DIR`, else `PI_CODING_AGENT_DIR` plus `sessions`, else `.pi/agent/sessions` in the home folder. pi's RPC has no call that names it. The login shell's variables, read once per app run: an app started from the Finder lacks them.
 pub(crate) fn folder() -> Option<PathBuf> {
     static FOLDER: OnceLock<Option<PathBuf>> = OnceLock::new();
     FOLDER
@@ -102,7 +97,6 @@ pub(crate) fn folder() -> Option<PathBuf> {
             let text = output.map_or_else(String::new, |output| {
                 String::from_utf8_lossy(&output.stdout).into_owned()
             });
-            // A shell profile can print lines of its own before ours.
             let variable = |name: &str| {
                 text.lines()
                     .rev()

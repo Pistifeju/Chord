@@ -1,5 +1,3 @@
-//! Each Swift module's compile commands for the preview hot reload, without a build setting: the driver line a Chord build of the worktree printed for an arm64 simulator, kept in the worktree's hot reload folder, and the one `swift-frontend` command per file the driver lists for it with `-###`.
-
 use chord_core::lock;
 use std::collections::{BTreeMap, HashMap};
 use std::fs;
@@ -17,7 +15,6 @@ use crate::process;
 const DRIVER: &str = "builtin-SwiftDriver -- ";
 const DRIVERS: &str = "drivers.json";
 
-/// A module's `swiftc` line and the folder the build ran it in.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash)]
 pub(crate) struct Driver {
     cwd: String,
@@ -29,7 +26,6 @@ impl Driver {
         value_of(&self.args, "-module-name")
     }
 
-    /// The module's `.swift` files from the file list its last build wrote, symbolic links resolved.
     pub(crate) fn files(&self) -> Vec<String> {
         self.file_lists()
             .lines()
@@ -48,7 +44,6 @@ impl Driver {
     }
 }
 
-/// The driver lines of a build's output, each with the folder of the `cd` line before it.
 #[derive(Default)]
 pub(crate) struct DriverLines {
     cwd: String,
@@ -74,7 +69,6 @@ impl DriverLines {
         }
     }
 
-    /// Keeps the lines in the worktree's hot reload folder over the ones of earlier builds: a build prints only the modules it compiled.
     pub(crate) fn record(self, worktree: &Path) {
         let Some(folder) = preview::hot_reload_folder(worktree) else {
             return;
@@ -82,7 +76,6 @@ impl DriverLines {
         if self.found.is_empty() {
             return;
         }
-        // Two builds of a worktree can end at once; a reload reads the file meanwhile.
         static WRITING: Mutex<()> = Mutex::new(());
         let _writing = lock(&WRITING);
         let mut drivers: BTreeMap<String, Driver> = read(&folder.join(DRIVERS)).unwrap_or_default();
@@ -101,7 +94,6 @@ impl DriverLines {
     }
 }
 
-/// The modules the worktree's builds compiled for a simulator.
 pub(crate) fn drivers(worktree: &Path) -> Vec<Driver> {
     preview::hot_reload_folder(worktree)
         .and_then(|folder| read::<BTreeMap<String, Driver>>(&folder.join(DRIVERS)))
@@ -109,7 +101,6 @@ pub(crate) fn drivers(worktree: &Path) -> Vec<Driver> {
         .unwrap_or_default()
 }
 
-/// One file's `swift-frontend` command, and the object the build wrote for it.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub(crate) struct Job {
     pub args: Vec<String>,
@@ -122,7 +113,6 @@ struct Jobs {
     files: HashMap<String, Job>,
 }
 
-/// The module's command per source file, by its real path: asked of the driver once per driver line and file list, then read back from the folder. A caching driver is asked again after any source or `launched` changed, since its commands pin the sources and imported modules of when it ran.
 pub(crate) fn jobs(
     worktree: &Path,
     driver: &Driver,
@@ -154,7 +144,6 @@ pub(crate) fn jobs(
         .args
         .split_first()
         .ok_or("the driver line is empty")?;
-    // The driver's temporary files, the module map of the explicit module build among them, stay as long as its commands and go with the folder.
     let temporary = folder.join(format!("driver-{module}"));
     let _ = fs::remove_dir_all(&temporary);
     fs::create_dir_all(&temporary).map_err(|error| error.to_string())?;
@@ -203,7 +192,6 @@ fn read<T: DeserializeOwned>(file: &Path) -> Option<T> {
     serde_json::from_slice(&fs::read(file).ok()?).ok()
 }
 
-/// The path with symbolic links resolved, as file events name it; the path itself when it is gone.
 pub(crate) fn real(path: &str) -> String {
     fs::canonicalize(path).map_or_else(
         |_| path.to_string(),
@@ -211,7 +199,6 @@ pub(crate) fn real(path: &str) -> String {
     )
 }
 
-/// The command line compiles through the compilation cache: its commands read their inputs from a snapshot the driver took, never from disk.
 pub(crate) fn caches(args: &[String]) -> bool {
     args.iter().any(|arg| arg == "-cache-compile-job")
 }
@@ -222,7 +209,6 @@ pub(crate) fn value_of<'a>(args: &'a [String], flag: &str) -> Option<&'a str> {
         .map(|pair| pair[1].as_str())
 }
 
-/// A command line split as the shell would: the build log escapes with backslashes (`-DDEBUG\=1`), `-###` quotes.
 pub(crate) fn split(line: &str) -> Vec<String> {
     let (mut out, mut current, mut quote, mut any) = (Vec::new(), String::new(), None, false);
     let mut chars = line.chars();

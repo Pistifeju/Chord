@@ -1,4 +1,3 @@
-// The extension Chord loads into pi: the session commands RPC lacks, a pick of a session to resume and of a point in the session tree, the subscription usage windows, and the build and run tools of a worktree with an Xcode project.
 import { connect } from "node:net";
 import { SessionManager, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
@@ -15,10 +14,8 @@ const textOf = (content: Content): string =>
 
 const firstLine = (text: string): string => (text.split("\n").find((line) => line.trim()) ?? "").trim().slice(0, 80);
 
-// No-break spaces, so the indent of a branch survives in a one-line option.
 const indent = "\u00a0\u00a0\u00a0\u00a0";
 
-// Options are numbered, so two with the same text stay apart and the pick is found by its place.
 const numbered = (labels: string[]): string[] => labels.map((label, i) => `${i + 1}. ${label}`);
 
 const USAGE_STATUS = "chord-usage";
@@ -27,13 +24,11 @@ const unitMs: Record<string, number> = { d: 86400000, h: 3600000, m: 60000 };
 
 type UsageWindow = { label: string; resetsAt: number | null };
 
-// A reset left as a point in time stays right between updates. The time left follows the window's name, so a bare "5h" is the name of a window that has not started.
 function usageWindow(update: { text?: string; suffix?: string }): UsageWindow {
   const text = String(update.text ?? "");
   const left = text.match(/\s(now|\d+[dhm](?:\d+[hm])*)$/);
   const name = (left ? text.slice(0, left.index) : text).trim();
   if (!left) return { label: `${name} ${update.suffix ?? ""}`.trim(), resetsAt: null };
-  // A window whose reset has passed is empty until the next request starts a new one.
   if (left[1] === "now") return { label: `${name} 0%`, resetsAt: null };
   const label = `${name} ${update.suffix ?? ""}`.trim();
   const ms = [...left[1].matchAll(/(\d+)([dhm])/g)].reduce((total, [, n, unit]) => total + Number(n) * unitMs[unit], 0);
@@ -42,7 +37,6 @@ function usageWindow(update: { text?: string; suffix?: string }): UsageWindow {
 
 type Reply = { text: string; failed: boolean };
 
-// One call per connection: Chord answers with one JSON line when the build ends, or when the app launches.
 function callChord(socket: string, tool: string, worktree: string, signal: AbortSignal | undefined): Promise<Reply> {
   return new Promise((resolve, reject) => {
     const connection = connect(socket, () => connection.write(`${JSON.stringify({ tool, worktree })}\n`));
@@ -73,7 +67,6 @@ function registerBuildTools(pi: ExtensionAPI, socket: string, worktree: string, 
   texts.tools.forEach((tool, index) => {
     pi.registerTool({
       ...tool,
-      // pi puts every tool's guidelines in one system prompt list, so the first tool carries them for both.
       promptGuidelines: index === 0 ? texts.instructions : [],
       parameters: Type.Object({}),
       async execute(_id, _params, signal) {
@@ -85,17 +78,14 @@ function registerBuildTools(pi: ExtensionAPI, socket: string, worktree: string, 
 }
 
 export default function (pi: ExtensionAPI) {
-  // Chord sets all three only for a worktree with an Xcode project.
   const socket = process.env.CHORD_TOOLS;
   const worktree = process.env.CHORD_WORKTREE;
   const texts = process.env.CHORD_TOOL_TEXTS;
   if (socket && worktree && texts) registerBuildTools(pi, socket, worktree, JSON.parse(texts) as ToolTexts);
 
-  // RPC drops the usage bar's TUI component, so the windows travel as a status text the adapter reads.
   const usage: Record<string, UsageWindow> = {};
   let ui: { setStatus(key: string, text: string | undefined): void } | undefined;
   let queued = false;
-  // The usage is the account's, so a new chat that has not read it yet leaves the bar as it is; both windows of one update go out together.
   const showUsage = () => {
     if (queued) return;
     queued = true;
@@ -120,7 +110,6 @@ export default function (pi: ExtensionAPI) {
   pi.registerCommand("chord-resume", {
     description: "Open another session of this worktree",
     handler: async (args, ctx) => {
-      // Chord passes the session files other panes hold, so no two agents write one file.
       const held = new Set<string>(args.trim() ? JSON.parse(args) : []);
       const current = ctx.sessionManager.getSessionFile();
       const all = await SessionManager.list(ctx.cwd, ctx.sessionManager.getSessionDir());
@@ -144,7 +133,6 @@ export default function (pi: ExtensionAPI) {
     description: "Go back to an earlier point of this session",
     handler: async (_args, ctx) => {
       const rows: { id: string; user: boolean; text: string; label: string }[] = [];
-      // A branch point indents what follows it, so a straight run of messages stays flat.
       const walk = (nodes: ReturnType<typeof ctx.sessionManager.getTree>, depth: number) => {
         for (const { entry, children } of nodes) {
           if (entry.type === "message" && (entry.message.role === "user" || entry.message.role === "assistant")) {
@@ -157,7 +145,6 @@ export default function (pi: ExtensionAPI) {
       };
       walk(ctx.sessionManager.getTree(), 0);
       if (rows.length === 0) throw new Error("The session has no message to go back to");
-      // The leaf is often an entry the list leaves out, so the last listed message of its branch is marked.
       const branch = new Set(ctx.sessionManager.getBranch().map((entry) => entry.id));
       const current = rows.findLast((row) => branch.has(row.id));
       if (current) current.label += " (current)";
@@ -166,7 +153,6 @@ export default function (pi: ExtensionAPI) {
       const picked = choice === undefined ? undefined : rows[options.indexOf(choice)];
       if (!picked) return;
       const result = await ctx.navigateTree(picked.id, { summarize: false });
-      // A user message is left out of the branch and goes back in the composer to edit and send again.
       if (!result.cancelled && picked.user) ctx.ui.setEditorText(picked.text);
     },
   });

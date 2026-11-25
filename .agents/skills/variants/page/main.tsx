@@ -1,4 +1,3 @@
-// The variants page: four versions of one request side by side, in light or dark.
 import { StrictMode, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";

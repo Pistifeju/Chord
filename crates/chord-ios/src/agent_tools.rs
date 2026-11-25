@@ -1,5 +1,3 @@
-//! The agents' build and run tools: the socket their calls arrive on, each call handed to whoever starts its build like ⌘B or ⌘R, and the reply its events add up to.
-
 use chord_core::lock;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
@@ -19,10 +17,8 @@ use crate::agent_reply::{AgentReply, agent_reply};
 use crate::build::BuildEvent;
 use crate::issues::BuildIssue;
 
-/// How long a call waits for its build to start before it fails.
 const START_WAIT: Duration = Duration::from_secs(10);
 
-/// A call to start: `request` names it when the build starts.
 #[derive(Serialize, Type, Clone, Debug)]
 pub struct AgentBuild {
     pub request: u32,
@@ -36,7 +32,6 @@ struct Call {
     worktree: PathBuf,
 }
 
-/// The calls whose build has not started yet, each with where its build's events go. Clones share them.
 #[derive(Clone, Default)]
 pub struct AgentTools(Arc<Waiting>);
 
@@ -47,7 +42,6 @@ struct Waiting {
 }
 
 impl AgentTools {
-    /// Takes calls on `socket`, readable by the user alone. `start` hears each call and starts its build with the events going to `take(request)`.
     pub fn listen(
         &self,
         socket: &Path,
@@ -67,7 +61,6 @@ impl AgentTools {
         Ok(())
     }
 
-    /// Where the events of call `request` go; none once the call stopped waiting.
     pub fn take(&self, request: u32) -> Option<Sender<BuildEvent>> {
         lock(&self.0.calls).remove(&request)
     }

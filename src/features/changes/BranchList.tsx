@@ -1,4 +1,3 @@
-// The Changes view's Branch scope: the base it compares with and its menu, the branch's commits since the merge base, each opening to the files it changed, then the files the branch changed; a click on a file opens its diff for the branch or for that commit. Also the commit row and the file row the Stashes group takes.
 import { CheckMenuItem, Menu, MenuItem, PredefinedMenuItem } from "@tauri-apps/api/menu";
 import { LogicalPosition } from "@tauri-apps/api/dpi";
 import { useEffect, useRef, useState, type CSSProperties, type MouseEventHandler, type ReactNode } from "react";
@@ -13,7 +12,6 @@ import { ChangeParts } from "./ChangeParts";
 import { commitFiles, pickBase, readCommitFiles } from "./store";
 
 async function showBaseMenu(worktree: string, button: HTMLElement, branch: BranchChanges) {
-  // Listed outside the menu lock, so a slow git cannot block every other menu.
   const listed = await commands.listBaseBranches(worktree);
   const choice = (name: string) => CheckMenuItem.new({ text: name, checked: name === branch.base, action: () => pickBase(worktree, name) });
   const items: (MenuItem | CheckMenuItem | PredefinedMenuItem)[] = [await choice(branch.defaultBase)];
@@ -75,7 +73,6 @@ export function BranchList({ worktree, branch }: { worktree: string; branch: Bra
         e.preventDefault();
         e.currentTarget.dataset.keys = "";
         next.focus();
-        // A file opens its diff as a click does; a commit only takes the focus.
         if (!next.dataset.commit) next.click();
       }}
       onMouseMove={(e) => delete e.currentTarget.dataset.keys}
@@ -104,7 +101,6 @@ export function BranchList({ worktree, branch }: { worktree: string; branch: Bra
   );
 }
 
-/** The commits or stashes opened to their files, and their toggle; opening one reads its files. */
 export function useOpenCommits(read: (hash: string) => void) {
   const [open, setOpen] = useState<string[]>([]);
   const toggle = (hash: string, opens: boolean) => {
@@ -120,14 +116,11 @@ type CommitRowProps = {
   time: number | null;
   opened: boolean;
   toggle: (hash: string, opens: boolean) => void;
-  /** What sits between the subject and the age: a commit's short hash, a stash's branch. */
   detail: ReactNode;
   onContextMenu?: MouseEventHandler;
-  /** Its files' rows, shown while it is open. */
   children: ReactNode;
 };
 
-/** A commit's or a stash's row: a click opens it to its files and closes it again. */
 export function CommitRow({ hash, subject, time, opened, toggle, detail, onContextMenu, children }: CommitRowProps) {
   const now = Date.now();
   return (
@@ -159,7 +152,6 @@ export function CommitRow({ hash, subject, time, opened, toggle, detail, onConte
 
 type RowProps = { worktree: string; file: CommittedFile; side: DiffSide; rowKey: string; depth: number; selected: boolean };
 
-/** A committed file's row, of the branch, a commit or a stash: a click opens its read-only diff. */
 export function CommittedRow({ worktree, file, side, rowKey, depth, selected }: RowProps) {
   return (
     <button
@@ -171,7 +163,6 @@ export function CommittedRow({ worktree, file, side, rowKey, depth, selected }: 
       data-key={rowKey}
       title={file.oldPath ? `${file.oldPath} → ${file.path}` : file.path}
       onClick={(e) => {
-        // WebKit drops the focus when the mouse presses a button, so the click puts it back for ↑ and ↓.
         e.currentTarget.focus();
         openFileTab(worktree, file.path, true, side);
       }}

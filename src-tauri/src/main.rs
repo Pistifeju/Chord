@@ -1,5 +1,3 @@
-//! Binary entry: runs the app, or with `agent-tools <socket> <worktree>` serves the build and run tools over stdio MCP for Codex and Claude Code.
-
 use chord_core::harness::agent_tools;
 use std::path::Path;
 

@@ -1,5 +1,3 @@
-//! The OpenCode reader: one stdout line in, the harness events it means and the lines to write OpenCode next out. Holds the session, whether a prompt runs, the requests waiting for an answer, OpenCode's asks, the session's settings, its subagents and what the session's updates left open.
-
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -18,79 +16,54 @@ use crate::harness::session_dialogs::{Answered, Picked, SessionDialogs};
 use crate::harness::subagents::Subagents;
 use crate::harness::{DialogAnswer, HarnessEvent, Image, SubagentState, text, timestamp};
 
-/// A message of the user's, as a prompt or a steer carries it.
 struct Message {
     text: String,
     images: Vec<Image>,
 }
 
-/// What a new process opens: the session to load, else a new one.
 type Read = relaunch::Read<Option<String>>;
 
-// A model may pause this long between records mid-reply.
 const QUIET: Duration = Duration::from_secs(20);
-// A running call may be a slow command.
 const QUIET_CALL: Duration = Duration::from_secs(120);
 
-/// ACP's error code for a request that needs a sign-in.
 const AUTH_REQUIRED: i64 = -32000;
 
-/// A request the adapter wrote, waiting for its answer.
 enum Pending {
     Initialize,
     Session,
-    /// A session to load, and the pane's session before a `/resume` pick, which loads again when OpenCode cannot load this one. Without it a new session opens instead.
     Load {
         session: String,
         previous: Option<String>,
     },
-    /// The worktree's sessions, for `/resume`, without those other panes hold.
     List {
         held: Vec<String>,
     },
     Prompt,
-    /// A config pick, with the thinking level to pick once the model's answer lists it.
     Config(Option<String>),
     Fork,
-    /// The session that reads each model's thinking levels, which OpenCode reports for a session's model alone.
     ProbeSession,
-    /// The probe session switched to this model.
     Probe(String),
-    /// A steer, with its message to send again as a prompt when the turn ended first.
     Steer(Message),
 }
 
-/// Reads one OpenCode process's stdout, line by line.
 pub(super) struct Reader {
     cwd: PathBuf,
-    /// The `mcpServers` each session opens with.
     mcp: Value,
-    /// The guidelines of Chord's tools, when the agent has them.
     instructions: Option<String>,
-    /// The session opened new on this process, and its first prompt has yet to carry the guidelines; a loaded or cloned session holds them already.
     instruct: bool,
-    /// The pane's saved session, until the handshake loads it.
     saved: Option<String>,
     next_id: u64,
     pending: HashMap<u64, Pending>,
     session: Option<String>,
-    /// Why OpenCode opened no session, so a send says it.
     session_error: Option<String>,
-    /// A `session/prompt` waits for its answer.
     running: bool,
-    /// The steers the turn's end beat while the prompt's answer was still on its way, oldest first: the first goes out as the next prompt, the rest steer it.
     next: Vec<Message>,
-    /// The user stopped the run and sent nothing since, so a steer the turn's end beat goes nowhere.
     stopped: bool,
-    /// OpenCode runs a turn it started itself, as when a subagent ends; no record marks its end.
     own_turn: bool,
     updates: Updates,
     settings: Settings,
-    /// A model pick that came before the session opened, with its level; the opened session takes it.
     wanted: Option<(String, Option<String>)>,
-    /// The probe session and the models it has yet to pick, the next last.
     probe: Option<(String, Vec<String>)>,
-    /// The probe ran on this process.
     probed: bool,
     calls: OpenCalls,
     asks: Asks,
@@ -99,7 +72,6 @@ pub(super) struct Reader {
 }
 
 impl Reader {
-    /// `saved` is the session to load; `server` is the command of Chord's MCP server and `instructions` its tools' guidelines, when the agent gets them.
     pub(super) fn new(
         cwd: &Path,
         saved: Option<String>,
@@ -136,7 +108,6 @@ impl Reader {
         self.cwd.to_string_lossy().into_owned()
     }
 
-    /// The id of a request nobody waits on the answer of.
     fn new_id(&mut self) -> u64 {
         self.next_id += 1;
         self.next_id
@@ -154,7 +125,6 @@ impl Reader {
             .any(|pending| matches!(pending, Pending::Load { .. }))
     }
 
-    /// The pane's session, for a send; none while OpenCode starts or loads one.
     fn open_session(&self) -> Result<String, Error> {
         if self.loading() {
             return Err(Error::Message(
@@ -168,7 +138,6 @@ impl Reader {
         })
     }
 
-    // ACP has no record of a turn's start, and OpenCode echoes no live message, so both go out with the prompt.
     fn prompt(&mut self, session: &str, message: Message) -> Read {
         self.running = true;
         self.own_turn = false;
@@ -216,7 +185,6 @@ impl Reader {
                 (None, Some(session)) => {
                     self.instruct = true;
                     let mut read = self.opened(session, result);
-                    // The chat takes a message once a history ends, an empty one too.
                     read.events
                         .extend([HarnessEvent::HistoryStart, HarnessEvent::HistoryEnd]);
                     read
@@ -225,7 +193,6 @@ impl Reader {
                     self.no_session(error.unwrap_or_else(|| "OpenCode opened no session".into()))
                 }
             },
-            // A session never prompted has nothing to load, so the start opens a new one; a `/resume` pick loads the pane's session again.
             Pending::Load { session, previous } => match error {
                 Some(error) => match previous {
                     Some(previous) => {
@@ -286,7 +253,6 @@ impl Reader {
             Pending::Fork => match (error, result["sessionId"].as_str()) {
                 (None, Some(session)) => {
                     self.instruct = false;
-                    // The old session's subagents stay with it.
                     let cleared = self.subagents.clear();
                     let mut read = self.opened(session, result);
                     read.events.splice(0..0, cleared);
@@ -322,7 +288,6 @@ impl Reader {
         lines(requests::session_new(id, &self.cwd(), &self.mcp))
     }
 
-    // OpenCode replays the session before its answer, so the history starts here; the old session's subagents stay with it.
     fn load(&mut self, session: String, previous: Option<String>) -> Read {
         self.own_turn = false;
         self.instruct = false;
@@ -341,7 +306,6 @@ impl Reader {
         }
     }
 
-    /// The session OpenCode opened: the end of its replay, its settings, and the first time on the process, the probe of each model's levels.
     fn opened(&mut self, session: &str, result: &Value) -> Read {
         self.session = Some(session.into());
         self.updates.settle();
@@ -366,7 +330,6 @@ impl Reader {
         read
     }
 
-    // The worktree's other sessions, newest first: each one's title and age.
     fn sessions(&self, list: &Value, held: &[String]) -> Vec<Session> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -389,7 +352,6 @@ impl Reader {
             .collect()
     }
 
-    // A subagent's status and its running tool feed its row; its replies stay out of the transcript.
     fn child(&mut self, params: &Value) -> Vec<HarnessEvent> {
         if self.session.is_none() || params["rootSessionId"].as_str() != self.session.as_deref() {
             return vec![];
@@ -397,7 +359,6 @@ impl Reader {
         let child = text(&params["childSessionId"]);
         let title = text(&params["title"]);
         let event = match (params["type"].as_str(), params["status"].as_str()) {
-            // A child runs again for each follow-up its parent sends it.
             (Some("status"), Some("created" | "running")) => Some(
                 self.subagents.start(
                     &child,
@@ -425,7 +386,6 @@ impl Reader {
         event.into_iter().collect()
     }
 
-    // The chat waits for a history before it takes a message, so a failed start ends an empty one.
     fn no_session(&mut self, error: String) -> Read {
         self.session_error = Some(error.clone());
         events_only(vec![
@@ -436,7 +396,6 @@ impl Reader {
 
     fn prompt_answered(&mut self, record: &Value) -> Read {
         self.running = false;
-        // `calls` ends the calls the turn left open.
         self.updates.settle();
         let mut events = self.asks.withdraw(|_| true);
         events.extend(self.updates.close());
@@ -491,8 +450,6 @@ impl Reader {
         read
     }
 
-    // OpenCode answers picks sent at once with whichever model the session holds then, so they go one at a time.
-    /// The probe session's next model pick; once none is left, the probe session's delete.
     fn probe_next(&mut self) -> Read {
         let Some((probe, models)) = self.probe.as_mut() else {
             return Read::default();
@@ -514,7 +471,6 @@ impl Reader {
         self.set(pick, level)
     }
 
-    /// The line that sets a config option on the session; none before a session opens.
     fn set(&mut self, (config, value): Pick, level: Option<String>) -> Option<Value> {
         let session = self.session.clone()?;
         let id = self.request(Pending::Config(level));
@@ -557,14 +513,12 @@ impl relaunch::Reader for Reader {
         let mut read = match (&record["id"], record["method"].as_str()) {
             (Value::Null, Some("session/update")) => {
                 let params = &record["params"];
-                // A session the pane left may still speak.
                 if self.session.is_none() || params["sessionId"].as_str() != self.session.as_deref()
                 {
                     return Read::default();
                 }
                 let update = &params["update"];
                 let mut events = vec![];
-                // A replay is no turn, and a late update of an ended call starts none.
                 let loading = self.loading();
                 let opens = matches!(
                     update["sessionUpdate"].as_str(),
@@ -598,12 +552,10 @@ impl relaunch::Reader for Reader {
         read
     }
 
-    /// A session command leaves the images for the next message.
     fn takes_images(&self, text: &str) -> bool {
         self.settings.command(text).is_none()
     }
 
-    /// A new prompt, or a steer of the running one. A session command opens its picker or acts on the session.
     fn send(
         &mut self,
         text: &str,
@@ -612,7 +564,6 @@ impl relaunch::Reader for Reader {
     ) -> Result<Read, Error> {
         let busy = self.running || self.own_turn;
         match self.settings.command(text) {
-            // A new process needs no session of the old one's.
             Some(Command::New) => Ok(Read {
                 relaunch: Some(None),
                 ..Read::default()
@@ -644,7 +595,6 @@ impl relaunch::Reader for Reader {
                     &self.mcp,
                 )))
             }
-            // The compaction shows itself, as under the other harnesses, so the command stays out of the transcript.
             Some(Command::Compact) => {
                 let session = self.open_session()?;
                 let message = Message {
@@ -663,7 +613,6 @@ impl relaunch::Reader for Reader {
                     text: text.into(),
                     images: images.to_vec(),
                 };
-                // OpenCode takes a steer into its own turn; a prompt would cut that turn's updates off.
                 Ok(if busy {
                     self.steer(&session, message)
                 } else {
@@ -674,7 +623,6 @@ impl relaunch::Reader for Reader {
     }
 
     fn answer(&mut self, id: &str, answer: &DialogAnswer) -> Result<Read, Error> {
-        // The adapter offers no fork or rewind select.
         if let Some(Answered { events, picked }) = self.dialogs.answer(id, answer) {
             let mut read = events_only(events);
             if let Picked::Session(Some(session)) = picked {
@@ -707,7 +655,6 @@ impl relaunch::Reader for Reader {
         })
     }
 
-    // OpenCode lists a model's levels only once the model is the session's, so the level waits for the model's answer.
     fn pick_model(&mut self, id: &str, level: Option<&str>) -> Read {
         let level = level.map(String::from);
         let line = self.pick_line(id, level.clone());
@@ -720,9 +667,7 @@ impl relaunch::Reader for Reader {
         }
     }
 
-    // ACP has the client answer each ask still open with `cancelled` after the cancel.
     fn interrupt(&mut self) -> Read {
-        // A cancel reaches only a prompt, so OpenCode's own turn ends in the pane alone; its next update starts another.
         if self.own_turn && !self.running {
             return events_only(self.quiet());
         }
@@ -749,7 +694,6 @@ impl relaunch::Reader for Reader {
         events
     }
 
-    // An open ask waits for the user, however long.
     fn quiet_after(&self) -> Option<Duration> {
         let asking = self.asks.replies().next().is_some();
         (self.own_turn && !asking).then(|| {

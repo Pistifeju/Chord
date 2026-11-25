@@ -1,4 +1,3 @@
-// A browser tab's view: back, forward and the address field with Reload and Open in Browser in its right end over the page, which Rust shows as a web view of its own in the space below and hides while a sheet, Settings or a tab drag covers the window.
 import { useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { BrowserRect } from "../../ipc/bindings";
 import { sheet } from "../../app/sheet";
@@ -21,7 +20,6 @@ export function BrowserView({ tab, url, dragging }: { tab: string; url: string; 
   const [draft, setDraft] = useState<string | null>(null);
   const busy = loading.usePart((all) => all[tab] ?? false);
   const covered = sheet.use() !== null || settingsOpen.use() || dragging;
-  // The page loads its first address once; later addresses come from the page itself.
   const firstUrl = useRef(url);
 
   useLayoutEffect(() => {

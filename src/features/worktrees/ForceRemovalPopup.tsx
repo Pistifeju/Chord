@@ -1,4 +1,3 @@
-// The sheet that asks before a worktree git refused to remove is removed with force.
 import { closeSheet, sheet, sheetOf } from "../../app/sheet";
 import { ConfirmSheet } from "../../ui/ConfirmSheet";
 import { confirmForceRemoval } from "./store";

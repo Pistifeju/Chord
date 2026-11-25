@@ -1,4 +1,3 @@
-// The Changes view's branch line: the worktree's branch as a button over the scope control, locked while an agent in the worktree runs, with Fetch, Pull and Push at its right end while the repository has a remote, and the branch menu it drops under itself: the local branches newest first, read when it opens, a pick switching the worktree to one, a row's More button turning the card into that branch's Switch, Merge, Rename Branch and Delete Branch, a row's right-click menu with Rename Branch and, for a branch no worktree holds, Delete Branch, and New Branch under the rows.
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { showMenu } from "../../app/commands";
 import { commands, type LocalBranch } from "../../ipc/bindings";
@@ -21,7 +20,6 @@ import { commitTargets, fetchRemote, mergeBranch, pullBranch, pushBranch, runnin
 
 export function BranchLine({ worktree }: { worktree: string }) {
   const branch = projects.usePart((p) => worktreeAt(p, worktree)?.branch ?? null);
-  // A switch changes the folder every pane of the worktree works in, so any running agent locks it.
   const busy = chats.usePart((all) => anyRunning(all, allPaneIds(panes.get()[worktree])));
   const open = branchMenuOpen.use() && !busy;
   useEffect(() => {
@@ -80,7 +78,6 @@ function SyncButton({ title, count, busy, disabled, onClick, children }: { title
 
 function BranchMenu({ worktree, current }: { worktree: string; current: string | null }) {
   const [branches, setBranches] = useState<LocalBranch[] | null>(null);
-  // The branch whose actions the card shows in place of the list.
   const [picked, setPicked] = useState<LocalBranch | null>(null);
 
   useEffect(() => {
@@ -98,7 +95,6 @@ function BranchMenu({ worktree, current }: { worktree: string; current: string |
     };
   }, [worktree]);
 
-  // The card shows once the list is read, so it opens at its height.
   if (!branches) return null;
   const now = Date.now();
   return (

@@ -1,4 +1,3 @@
-// Tests for the command each harness row needs and the rows a chat pane shows in place of Start.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Checks, HarnessCheck, Install } from "../../ipc/bindings";

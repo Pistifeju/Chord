@@ -1,4 +1,3 @@
-// The sheet that asks before a stash is dropped.
 import { closeSheet, sheet, sheetOf } from "../../app/sheet";
 import { ConfirmSheet } from "../../ui/ConfirmSheet";
 import { confirmDropStash } from "./store";

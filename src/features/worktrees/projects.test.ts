@@ -1,4 +1,3 @@
-// Tests for the project list rules.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { branchName, goneWorktrees, moved, noProjects, withFirstWorktreeSelected, withProject, withoutProject, withoutWorktree, withSavedSelection, withSelectionRestored, withWorktrees } from "./projects.ts";
@@ -54,7 +53,6 @@ test("the saved worktree is selected only if it still exists and nothing is sele
   assert.equal(withSavedSelection(projects, "/gone").selected, null);
   assert.equal(withSavedSelection({ ...projects, selected: "/a" }, "/a-one").selected, "/a");
 });
-
 
 test("a project's worktrees missing from its new list are gone", () => {
   const list = [

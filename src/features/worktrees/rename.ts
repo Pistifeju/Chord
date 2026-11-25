@@ -1,4 +1,3 @@
-// The branch being renamed, in the field on its worktree's card or in the branch menu's Rename Branch sheet, the typed name's live git check, and the rename on Return.
 import { closeSheet, openSheet } from "../../app/sheet";
 import { commands } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
@@ -9,11 +8,9 @@ import { projects, refreshWorktrees } from "./store";
 
 type Rename = {
   project: string;
-  // the card that shows the field; null for the sheet
   path: string | null;
   branch: string | null;
   name: string;
-  // null while the name is empty, being checked, or valid; also holds git's refusal of the rename
   problem: string | null;
   renaming: boolean;
 };
@@ -47,7 +44,6 @@ const close = () => {
   closeSheet("renameBranch");
 };
 
-// A rename already sent finishes; leaving the field only drops the field.
 export const cancelRename = () => {
   check.drop();
   close();
@@ -63,7 +59,6 @@ export async function setRenameName(name: string) {
   await check.run(() => commands.checkBranchRename(project, branch, typed), (problem) => update({ problem }));
 }
 
-// Return during the live check renames anyway: Rust checks the name again before `git branch -m`.
 export async function finishRename() {
   const form = rename.get();
   if (!form?.branch || form.renaming || form.problem) return;

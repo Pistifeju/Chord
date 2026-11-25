@@ -1,5 +1,3 @@
-//! A worktree's local branches for the branch menu, newest first with the other worktree that holds each, the switch of the worktree to one, the new branch it moves to, and the delete of a branch.
-
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
@@ -11,13 +9,10 @@ use crate::{Error, git};
 #[serde(rename_all = "camelCase")]
 pub struct LocalBranch {
     pub name: String,
-    /// When its last commit was made, in milliseconds since 1970.
     pub time: f64,
-    /// The other worktree that has it checked out, which keeps git from switching to it here.
     pub held_by: Option<PathBuf>,
 }
 
-/// The local branches, newest commit first.
 pub fn list(worktree: &Path) -> Result<Vec<LocalBranch>, Error> {
     let here = worktree.canonicalize()?;
     let refs = git::read(
@@ -48,12 +43,10 @@ fn parse(line: &str, here: &Path) -> Option<LocalBranch> {
     })
 }
 
-/// Checks out `branch` in the worktree; git refuses when local changes would be lost or another worktree holds it.
 pub fn switch(worktree: &Path, branch: &str) -> Result<(), Error> {
     git::run(worktree, &["switch", "--no-guess", "--", branch]).map(|_| ())
 }
 
-/// Creates `name` at HEAD and checks it out in the worktree, which keeps its changes; git refuses a name it cannot take.
 pub fn create(worktree: &Path, name: &str) -> Result<(), Error> {
     git::run(worktree, &["switch", "-q", "-c", name]).map(|_| ())
 }
@@ -61,11 +54,9 @@ pub fn create(worktree: &Path, name: &str) -> Result<(), Error> {
 #[derive(Serialize, Type, Debug, PartialEq)]
 pub enum Deletion {
     Deleted,
-    /// `git branch -d` refused: the branch has commits that neither HEAD nor its upstream holds.
     Unmerged,
 }
 
-/// Deletes `branch` with `git branch -d` run in `repo`, or with `-D` when `force`; git refuses a branch a worktree holds.
 pub fn delete(repo: &Path, branch: &str, force: bool) -> Result<Deletion, Error> {
     let flag = if force { "-D" } else { "-d" };
     match git::run(repo, &["branch", flag, "--", branch]) {

@@ -1,4 +1,3 @@
-// Tests for the split layout rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Layout } from "../../ipc/bindings.ts";

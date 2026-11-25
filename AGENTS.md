@@ -4,7 +4,7 @@ A macOS workspace for coding agents: one git worktree per task, each with its ow
 
 - Architecture: `ARCHITECTURE.md`. UI rules: `DESIGN.md`.
 - Docs: a development plan goes in `docs/features/<feature>.md` and stays there. A doc spanning several features (a contract, a platform) goes in `docs/`.
-- Module map: `npm run map` prints every source folder with its file count. `npm run map <folder>` prints that folder's files, each with its line 1, which says what the file holds. When you look for code, run the first, then the second on the folders the task names, and read only the files you need, by name.
+- Module map: `npm run map` prints every source folder with its file count. `npm run map <folder>` prints that folder's files. When you look for code, run the first, then the second on the folders the task names, and read only the files you need, picked by name.
 - ripgrep has no `tsx` type: `rg -t ts` searches `.ts` and `.tsx`.
 
 ## Boundaries
@@ -22,13 +22,13 @@ A macOS workspace for coding agents: one git worktree per task, each with its ow
 
 - Build nothing before a feature needs it: no empty container, no option nobody asked for.
 - Before you write new logic at any scale, search the repo for the same thing. Extend or generalize it instead of building a parallel version.
+- When a new API replaces an old one, migrate every caller and delete the old one in the same change. The codebase holds one way to do each thing, with no shim between old and new.
 - State rules live in a pure module outside React.
 - Every UI change follows `DESIGN.md` and the `design/` file of each component you touch. `DESIGN.md` lists the files under `Components`.
 - In a `design/` file, start each sentence on its own line, so a diff shows the one sentence that changed.
 - CSS variables from `src/ui/tokens.css`. No raw hex in components.
 - Name a file, folder or module after the domain concept it holds. Never `utils`, `helpers`, `common`, `misc` or `shared`. Reaching for one of those means the file holds two jobs: split it, or find the name in what its functions operate on.
-- Line 1 of every source file is a comment that says what the file holds. `npm run map` prints it.
-- A `///` doc comment states an item's contract. Write any other comment only where the code cannot say it: one line, the why, never the how.
+- Code carries no comments, doc comments included. Put what a comment would say into a name, a type, a test or the commit message. `npm run check` fails on a comment line.
 
 ## Tests
 
@@ -58,5 +58,6 @@ Never test copy, CSS classes, constants, third-party libraries, private state, t
 - `npm run fix` formats the Rust code. Run it before `npm run check`.
 - `npm run check` passes. It prints one `step=<name> exit=<code> secs=<n>` line per step, the last 20 lines of each failing step, and the path of its full log. `exit=skipped` means your change touched no Rust. Never report a check you did not run.
 - Run `npm run check` once, after your last code edit. A commit request alone needs no check.
+- Prove a logic change works on the real thing before you report it: run the code path against a real git repo, file or pi process (a throwaway test or script works, delete it after) and read the value it returns. A passing `npm run check` proves it compiles and the kept tests pass.
 - Skip visual checks: no screenshots, no launching the app to look at the UI. The user checks it.
 - Commit messages: `type(area): what changed`, lower case. Types: `feat`, `fix`, `perf`, `refactor`, `test`, `docs`, `chore`. The area is a feature folder (`sidebar`, `chat`, `ios`, ...) and may be left out: `docs: add the harness contract`.

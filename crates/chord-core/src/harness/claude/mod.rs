@@ -1,5 +1,3 @@
-//! The Claude Code adapter: runs `claude -p` with stream-json in and out as a process and hands its stdout to the reader. The only module that knows Claude Code's records.
-
 mod asks;
 mod blocks;
 mod commands;
@@ -22,7 +20,6 @@ use crate::Error;
 use commands::Settings;
 use reader::{Open, Reader};
 
-/// The harness name a pane saves.
 pub const NAME: &str = "claude";
 
 pub const HARNESS: Harness = Harness {
@@ -39,7 +36,6 @@ pub const HARNESS: Harness = Harness {
     starts: true,
 };
 
-// `--replay-user-messages` echoes each message once a turn takes it in: the chat's user message, and the moment a steer leaves the queue.
 const ARGS: [&str; 10] = [
     "-p",
     "--input-format",
@@ -53,10 +49,8 @@ const ARGS: [&str; 10] = [
     "stdio",
 ];
 
-/// The request id of the handshake that lists the models.
 const MODELS_REQUEST: &str = "chord-models";
 
-/// Claude Code's models, from the handshake of a process that saves no session and gets no message.
 pub(crate) fn models() -> Result<Vec<ModelOption>, Error> {
     let mut settings = Settings::default();
     let args = &ARGS[..7];
@@ -78,7 +72,6 @@ pub(crate) fn models() -> Result<Vec<ModelOption>, Error> {
     )
 }
 
-/// Starts the pane's Claude Code in `dir` on the saved session `session` when its file exists, else on a new session; a session command that opens another session, or the same one again, swaps its process. With `tools`, the socket Chord's tools listen on, the agent gets the build and run tools.
 pub fn start(
     dir: &Path,
     session: Option<&str>,
@@ -96,7 +89,6 @@ pub fn start(
         .map(|agent| Box::new(agent) as Box<dyn Agent>)
 }
 
-// A saved session without its file starts a new one: `--resume` on an unknown id prints an error and exits.
 fn launch(
     dir: &Path,
     folder: Option<&Path>,
@@ -132,7 +124,6 @@ fn launch(
     for (flag, pick) in picks {
         args.extend(pick.iter().flat_map(|pick| [flag.into(), pick.clone()]));
     }
-    // The tools are Chord's own, so they ask no permission, as in pi.
     if let Some((command, server_args)) = tools.and_then(|socket| agent_tools::command(socket, dir))
     {
         let config =

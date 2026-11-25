@@ -1,4 +1,3 @@
-/* The Simulator view in the side panel. Rules: design/simulator-view.md. */
 .simulator {
   position: relative;
   display: flex;
@@ -12,19 +11,15 @@
   container: simulator / inline-size;
   flex: 1;
   min-height: 0;
-  /* 12px clear of the panel, plus the bezel. */
   margin: 21px;
 }
 
-/* Clear: the native view under the webview draws the screen here. */
 .simulator-screen {
   position: fixed;
   touch-action: none;
-  /* The bezel around it is native too (screen_view.rs), so frame and screen move together. */
   outline: none;
 }
 
-/* One hairline rail under the screen: Home, Lock and Shake, then screenshot and record, then Appearance, the groups split by 16px hairlines; icons only. Each fill sits 1px inside the hairline, its radius concentric with the rail's. The native view draws them (screen_buttons.rs) so they move with the screen; these clear buttons lay them out and take clicks, focus and tooltips. `--outlined` tells SimulatorView which boxes take a hairline. */
 .simulator-buttons {
   --outlined: 1;
   position: fixed;
@@ -50,7 +45,6 @@
   margin: 0 4px;
 }
 
-/* A view too narrow for the rail wraps it: each group takes its own hairline pill, the dividers go. SimulatorView caps the row's width. */
 @container simulator (width < 220px) {
   .simulator-buttons {
     --outlined: 0;
@@ -88,7 +82,6 @@
   color: transparent;
 }
 
-/* The recording's time, which the native view draws; the rail grows to hold it before the record button. Fixed 13px, as the native row does not follow the text size. */
 .simulator-timer {
   display: flex;
   align-items: center;
@@ -148,7 +141,6 @@
   color: var(--ink-muted);
 }
 
-/* The thumbnail of the last shot at the view's bottom left, its bottom level with the button row's bottom (bottom set inline). */
 .simulator-thumbnail {
   position: absolute;
   left: 8px;

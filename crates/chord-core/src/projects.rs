@@ -1,5 +1,3 @@
-//! Projects: the git repositories Chord shows, keyed by their main checkout, and plain folders outside any repository.
-
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -48,7 +46,6 @@ pub fn find(store: &Store, path: &Path) -> Result<Project, Error> {
 fn open(folder: &Path) -> Result<Project, Error> {
     if !git::in_repository(folder) {
         worktrees::folder_at(folder)?;
-        // Canonical, since git lists real paths and the card must keep its path after `git init`.
         return Ok(named(folder.canonicalize()?));
     }
     let entries = worktrees::entries(folder).map_err(|error| match error {

@@ -1,11 +1,8 @@
-//! Commands for a browser tab: its web view over the tab's pane, shown, moved, hidden and closed, and its back, forward, reload and address; the page's loads and title come back as events.
-
 use serde::{Deserialize, Serialize};
 use tauri::webview::{NewWindowResponse, PageLoadEvent};
 use tauri::{AppHandle, LogicalPosition, LogicalSize, Manager, Url, WebviewBuilder, WebviewUrl};
 use tauri_specta::Event;
 
-/// Where the page shows: CSS pixels in the window.
 #[derive(Deserialize, specta::Type, Clone, Copy)]
 pub struct BrowserRect {
     pub x: f64,
@@ -31,7 +28,6 @@ pub enum BrowserPage {
     Title { title: String },
 }
 
-/// A browser tab's page started or finished a load, or changed its title.
 #[derive(Serialize, specta::Type, tauri_specta::Event, Clone)]
 pub struct BrowserChanged {
     pub tab: String,
@@ -42,7 +38,6 @@ fn label(tab: &str) -> String {
     format!("browser-{tab}")
 }
 
-/// Only web addresses load: the tab's address comes from agent output and the address field.
 fn web_url(url: &str) -> Result<Url, String> {
     let parsed = Url::parse(url).map_err(|_| format!("Cannot open {url}"))?;
     if is_web(&parsed) {
@@ -61,7 +56,6 @@ fn place(webview: &tauri::Webview, rect: BrowserRect) -> tauri::Result<()> {
     webview.set_size(LogicalSize::new(rect.width, rect.height))
 }
 
-/// Shows the tab's page at `rect`, loading `url` the first time; a tab keeps its page and history while hidden.
 #[tauri::command]
 #[specta::specta]
 pub fn show_browser(
@@ -79,9 +73,7 @@ pub fn show_browser(
     let (loads, titles, popups) = (app.clone(), app.clone(), app.clone());
     let (load_tab, title_tab, popup_tab) = (tab.clone(), tab.clone(), tab.clone());
     let builder = WebviewBuilder::new(label(&tab), WebviewUrl::External(url))
-        // A page that navigates to Chord's own origin would get the app's commands.
         .on_navigation(is_web)
-        // An about:blank or other non-web load never reaches the tab, so the saved address stays one that reopens.
         .on_page_load(move |_, payload| {
             if !is_web(payload.url()) {
                 return;
@@ -104,7 +96,6 @@ pub fn show_browser(
             }
             .emit(&titles);
         })
-        // A link that asks for a new window opens in the same tab.
         .on_new_window(move |url, _| {
             if !is_web(&url) {
                 return NewWindowResponse::Deny;
@@ -142,7 +133,6 @@ pub fn hide_browser(app: AppHandle, tab: String) -> Result<(), String> {
     }
 }
 
-/// The tab went: its page and history go with it.
 #[tauri::command]
 #[specta::specta]
 pub fn close_browser(app: AppHandle, tab: String) -> Result<(), String> {

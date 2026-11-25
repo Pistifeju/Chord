@@ -23,22 +23,17 @@ export const commands = {
 	createWorktree: (project: string, branch: string) => __TAURI_INVOKE<Worktree_Serialize>("create_worktree", { project, branch }),
 	removeWorktree: (project: string, worktree: string, force: boolean) => __TAURI_INVOKE<Removal_Serialize>("remove_worktree", { project, worktree, force }),
 	readGitCounts: (worktrees: string[]) => __TAURI_INVOKE<GitCounts_Serialize[]>("read_git_counts", { worktrees }),
-	/**  Starts the pane's agent; `switch_to` names another harness the pane takes on a new session, at the model `pick`. */
 	startChat: (worktree: string, pane: string, switchTo: string | null, pick: ModelPick_Deserialize | null, onEvent: Channel<HarnessEvent_Deserialize>) => __TAURI_INVOKE<Started>("start_chat", { worktree, pane, switchTo, pick, onEvent }),
 	sendMessage: (pane: string, text: string, images: Image[]) => __TAURI_INVOKE<boolean>("send_message", { pane, text, images }),
 	answerDialog: (pane: string, id: string, answer: DialogAnswer) => __TAURI_INVOKE<null>("answer_dialog", { pane, id, answer }),
 	pickModel: (pane: string, id: string, level: string | null) => __TAURI_INVOKE<null>("pick_model", { pane, id, level }),
-	/**  Asks for image files with one of the extensions; no pick gives an empty list. */
 	pickImages: (extensions: string[]) => __TAURI_INVOKE<string[]>("pick_images", { extensions }),
 	readImageFile: (path: string) => __TAURI_INVOKE<string>("read_image_file", { path }),
 	abortRun: (pane: string) => __TAURI_INVOKE<null>("abort_run", { pane }),
 	stopChat: (pane: string) => __TAURI_INVOKE<null>("stop_chat", { pane }),
-	/**  Tells Rust which panes the window shows, so a notification skips a pane the user is looking at. */
 	showPanes: (panes: string[]) => __TAURI_INVOKE<void>("show_panes", { panes }),
 	checkHarnesses: () => __TAURI_INVOKE<Checks_Serialize>("check_harnesses"),
-	/**  Reads every harness's models without opening a session, saves them and returns every saved list. */
 	refreshModels: () => __TAURI_INVOKE<{ [key in string]: ModelOption_Serialize[] }>("refresh_models"),
-	/**  The spend of every session file's replies at or after `since`, epoch ms. */
 	readSpend: (since: number | null) => __TAURI_INVOKE<Spend_Serialize>("read_spend", { since }),
 	listFolder: (worktree: string, folder: string) => __TAURI_INVOKE<FileEntry[]>("list_folder", { worktree, folder }),
 	listFiles: (worktree: string) => __TAURI_INVOKE<string[]>("list_files", { worktree }),
@@ -72,78 +67,44 @@ export const commands = {
 	startTerminal: (worktree: string, cols: number, rows: number, onEvent: Channel<TerminalEvent>) => __TAURI_INVOKE<null>("start_terminal", { worktree, cols, rows, onEvent }),
 	writeTerminal: (worktree: string, text: string) => __TAURI_INVOKE<null>("write_terminal", { worktree, text }),
 	resizeTerminal: (worktree: string, cols: number, rows: number) => __TAURI_INVOKE<null>("resize_terminal", { worktree, cols, rows }),
-	/**  Builds the worktree's Xcode project in the scheme and configuration of `pick`, and with `run` runs the app on the destination. The channel carries the build's phases, log and end. `agent_request` is the agent's tool call the build answers. */
 	startBuild: (worktree: string, run: boolean, destination: RunDestination | null, pick: SchemePick_Deserialize, agentRequest: number | null, onEvent: Channel<BuildEvent_Deserialize>) => __TAURI_INVOKE<null>("start_build", { worktree, run, destination, pick, agentRequest, onEvent }),
 	stopBuild: (worktree: string) => __TAURI_INVOKE<null>("stop_build", { worktree }),
-	/**  Clean Build Folder: stops the worktree's build and removes its build products. */
 	cleanBuild: (worktree: string) => __TAURI_INVOKE<null>("clean_build", { worktree }),
-	/**  The user opened the worktree in the window; the oldest opened worktree's simulator is the first one shut down for room. */
 	worktreeOpened: (worktree: string) => __TAURI_INVOKE<null>("worktree_opened", { worktree }),
-	/**  The connected devices and the simulator models to run on. */
 	listDestinations: () => __TAURI_INVOKE<Destinations_Serialize>("list_destinations"),
-	/**  The schemes and build configurations of the worktree's project. */
 	listSchemes: (worktree: string) => __TAURI_INVOKE<Schemes>("list_schemes", { worktree }),
-	/**  Boots the worktree's preview simulator of the destination's model and shows the picked preview there, building it unless it runs already. The channel carries the preview's states until the view opens again. */
 	openPreview: (worktree: string, destination: RunDestination | null, pick: PreviewPick_Deserialize | null, onState: Channel<PreviewState_Deserialize>) => __TAURI_INVOKE<null>("open_preview", { worktree, destination, pick, onState }),
-	/**  The view closed: saves stop rebuilding its preview, and its next open catches up. */
 	closePreview: (worktree: string) => __TAURI_INVOKE<void>("close_preview", { worktree }),
-	/**  Every `#Preview` in the worktree's Swift files, by file. */
 	listPreviews: (worktree: string) => __TAURI_INVOKE<PreviewPick_Serialize[]>("list_previews", { worktree }),
-	/**  Shows another `#Preview` in the worktree's open Preview view. */
 	pickPreview: (worktree: string, pick: PreviewPick_Deserialize) => __TAURI_INVOKE<null>("pick_preview", { worktree, pick }),
-	/**  The booted simulators Chord created; `open` marks the open worktree's. */
 	runningSimulators: (open: string | null) => __TAURI_INVOKE<RunningSimulator[]>("running_simulators", { open }),
-	/**  Sends `SimulatorsChanged` from now on. False when the simulator frameworks did not load, so the window asks on a timer instead. */
 	watchSimulators: () => __TAURI_INVOKE<boolean>("watch_simulators"),
-	/**  Shuts down every booted simulator Chord created except the worktree's own. */
 	shutDownOtherSimulators: (keep: string) => __TAURI_INVOKE<null>("shut_down_other_simulators", { keep }),
-	/**  The disk the DerivedData folders and simulators of the created worktrees take, in bytes, without the main checkouts'; a number the bindings can carry exactly up to 8 PB. */
 	buildDataSize: () => __TAURI_INVOKE<number | null>("build_data_size"),
-	/**  Removes the build data of worktrees that are gone. It does nothing while any project's worktrees cannot be listed: a project that is not mounted must not look empty. */
 	pruneBuildData: () => __TAURI_INVOKE<null>("prune_build_data"),
-	/**  The service groups Settings lists, each with whether it stays on. */
 	simulatorServiceGroups: () => __TAURI_INVOKE<ServiceRow_Serialize[]>("simulator_service_groups"),
-	/**  Shows the worktree's simulator, or with `preview` its preview simulator, under the webview at `rect`, the screen's CSS pixels in the window, in `bezel`; the channel carries its state. */
 	showSimulatorScreen: (worktree: string, preview: boolean, rect: ScreenRect, bezel: Bezel, onState: Channel<ScreenState_Deserialize>) => __TAURI_INVOKE<null>("show_simulator_screen", { worktree, preview, rect, bezel, onState }),
 	moveSimulatorScreen: (rect: ScreenRect, bezel: Bezel) => __TAURI_INVOKE<null>("move_simulator_screen", { rect, bezel }),
-	/**  Draws Home, Lock and Shake natively under the screen, as the view laid them out. */
 	setSimulatorButtons: (buttons: ScreenButtons_Deserialize) => __TAURI_INVOKE<null>("set_simulator_buttons", { buttons }),
 	hideSimulatorScreen: () => __TAURI_INVOKE<null>("hide_simulator_screen"),
-	/**  Sends a touch or key of the Simulator view to the worktree's simulator, in order: the main thread runs them one by one. Buttons go through `press_simulator_button`. */
 	sendSimulatorInput: (worktree: string, input: Input_Deserialize) => __TAURI_INVOKE<null>("send_simulator_input", { worktree, input }),
-	/**  Presses Home, Lock or Shake on the worktree's simulator. Shake, and Home before CoreSimulator 1155.4, run a tool; its error comes back. */
 	pressSimulatorButton: (worktree: string, button: Button) => __TAURI_INVOKE<null>("press_simulator_button", { worktree, button }),
-	/**  The Simulator view's fallback when the private API did not load. */
 	openSimulatorApp: () => __TAURI_INVOKE<null>("open_simulator_app"),
-	/**  Takes a screenshot of the worktree's simulator, or with `preview` its preview simulator, into the folder of Settings, else the Desktop. */
 	takeSimulatorScreenshot: (worktree: string, preview: boolean) => __TAURI_INVOKE<Screenshot>("take_simulator_screenshot", { worktree, preview }),
-	/**  Records the worktree's simulator, or with `preview` its preview simulator, into the folder of Settings, else the Desktop: `on_started` once it records, then the video and its preview when the recording ends. */
 	recordSimulator: (worktree: string, preview: boolean, onStarted: Channel<null>) => __TAURI_INVOKE<Screenshot>("record_simulator", { worktree, preview, onStarted }),
-	/**  Stops the recording of the worktree's simulator, or with `preview` its preview simulator; `record_simulator` returns the video. */
 	stopSimulatorRecording: (worktree: string, preview: boolean) => __TAURI_INVOKE<null>("stop_simulator_recording", { worktree, preview }),
-	/**  The worktree's booted simulator's appearance settings, or with `preview` its preview simulator's, and the choices the Mac offers. */
 	simulatorAppearance: (worktree: string, preview: boolean) => __TAURI_INVOKE<SimulatorAppearance_Serialize>("simulator_appearance", { worktree, preview }),
-	/**  Changes one appearance setting of the worktree's booted simulator, or with `preview` its preview simulator. */
 	setSimulatorAppearance: (worktree: string, preview: boolean, change: SimulatorAppearanceChange) => __TAURI_INVOKE<null>("set_simulator_appearance", { worktree, preview, change }),
-	/**  Asks for the folder of screenshots and recordings and saves the pick; no pick keeps the setting and returns `None`. */
 	pickScreenshotFolder: () => __TAURI_INVOKE<string | null>("pick_screenshot_folder"),
-	/**  Starts a native drag of a file, shown as `preview`, out of the window: Finder and other apps take it, and so does a chat pane. */
 	dragFileOut: (file: string, preview: string) => __TAURI_INVOKE<null>("drag_file_out", { file, preview }),
-	/**  Stops the app's work and ends the app once the user confirmed the quit. */
 	quitApp: () => __TAURI_INVOKE<null>("quit_app"),
-	/**  The version of a newer release, or none. */
 	checkUpdate: () => __TAURI_INVOKE<string | null>("check_update"),
-	/**  Downloads the newer release over the installed app, then stops the app's work and starts the new version. A failed download stops nothing. `on_percent` gets the download's percentage as it grows, when the server tells the size, and 100 once the download ended. */
 	installUpdate: (onPercent: Channel<number>) => __TAURI_INVOKE<null>("install_update", { onPercent }),
-	/**  Saves the setting and applies it; a missing `caffeinate` fails before anything is saved, even with no agent working. */
 	setKeepAwake: (enabled: boolean) => __TAURI_INVOKE<null>("set_keep_awake", { enabled }),
-	/**  Opens a link of the chat in the default app. */
 	openLink: (url: string) => __TAURI_INVOKE<null>("open_link", { url }),
-	/**  Shows the tab's page at `rect`, loading `url` the first time; a tab keeps its page and history while hidden. */
 	showBrowser: (tab: string, url: string, rect: BrowserRect) => __TAURI_INVOKE<null>("show_browser", { tab, url, rect }),
 	moveBrowser: (tab: string, rect: BrowserRect) => __TAURI_INVOKE<null>("move_browser", { tab, rect }),
 	hideBrowser: (tab: string) => __TAURI_INVOKE<null>("hide_browser", { tab }),
-	/**  The tab went: its page and history go with it. */
 	closeBrowser: (tab: string) => __TAURI_INVOKE<null>("close_browser", { tab }),
 	browse: (tab: string, action: BrowserAction) => __TAURI_INVOKE<null>("browse", { tab, action }),
 };
@@ -157,105 +118,78 @@ export const events = {
 };
 
 /* Types */
-/**  A call to start: `request` names it when the build starts. */
 export type AgentBuild = {
 	request: number,
 	worktree: string,
 	run: boolean,
 };
 
-/**  The window starts an agent's build or run on this event, like ⌘B or ⌘R. */
 export type AgentBuildRequested = AgentBuild;
 
 export type Appearance = Appearance_Serialize | Appearance_Deserialize;
 
 export type Appearance_Deserialize = {
 	theme?: Theme,
-	/**  Text size as a percent of the default. The frontend's steps (`settings/appearance.ts`) keep both sizes in range. */
 	textPercent?: number,
-	/**  In pixels. */
 	terminalFontSize?: number,
-	/**  In pixels. */
 	editorFontSize?: number,
 };
 
 export type Appearance_Serialize = {
 	theme: Theme,
-	/**  Text size as a percent of the default. The frontend's steps (`settings/appearance.ts`) keep both sizes in range. */
 	textPercent: number,
-	/**  In pixels. */
 	terminalFontSize: number,
-	/**  In pixels. */
 	editorFontSize: number,
 };
 
 export type BaseBranches = {
-	/**  Without the worktree's own branch. */
 	local: string[],
-	/**  As `origin/main`, without the remotes' HEAD. */
 	remote: string[],
 };
 
-/**  The phone's frame around the screen: the screen's corner radius and the window's colors as sRGB bytes. Drawn natively, so frame and screen move in the same frame. */
 export type Bezel = {
 	radius: number | null,
-	/**  The canvas under the frame's rounded corners. */
 	canvas: [number, number, number],
 	frame: [number, number, number],
-	/**  The 1px line outside the frame. */
 	edge: [number, number, number],
 };
 
 export type BottomPanel = BottomPanel_Serialize | BottomPanel_Deserialize;
 
 export type BottomPanel_Deserialize = {
-	/**  The terminal shows. */
 	open?: boolean,
-	/**  In pixels. */
 	height?: number,
 	view?: BottomView,
-	/**  The view column's width beside the terminal, in pixels. */
 	sideWidth?: number,
 };
 
 export type BottomPanel_Serialize = {
-	/**  The terminal shows. */
 	open: boolean,
-	/**  In pixels. */
 	height: number,
 	view: BottomView,
-	/**  The view column's width beside the terminal, in pixels. */
 	sideWidth: number,
 };
 
-/**  The view beside the terminal; `Terminal` means none. */
 export type BottomView = "terminal" | "build" | "console";
 
 export type BranchChanges = BranchChanges_Serialize | BranchChanges_Deserialize;
 
 export type BranchChanges_Deserialize = {
-	/**  The base the commits and files compare with: the one asked for while it exists, else the default. */
 	base: string,
-	/**  The main checkout's branch, or the upstream on the main checkout itself. */
 	defaultBase: string,
-	/**  Newest first. */
 	commits: Commit[],
 	files: CommittedFile_Deserialize[],
 };
 
 export type BranchChanges_Serialize = {
-	/**  The base the commits and files compare with: the one asked for while it exists, else the default. */
 	base: string,
-	/**  The main checkout's branch, or the upstream on the main checkout itself. */
 	defaultBase: string,
-	/**  Newest first. */
 	commits: Commit[],
 	files: CommittedFile_Serialize[],
 };
 
 export type BrowserAction = { kind: "back" } | { kind: "forward" } | { kind: "reload" } | { kind: "open"; url: string };
 
-/**  A browser tab's page started or finished a load, or changed its title. */
 export type BrowserChanged = {
 	tab: string,
 	page: BrowserPage,
@@ -263,7 +197,6 @@ export type BrowserChanged = {
 
 export type BrowserPage = { kind: "loading"; url: string } | { kind: "loaded"; url: string } | { kind: "title"; title: string };
 
-/**  Where the page shows: CSS pixels in the window. */
 export type BrowserRect = {
 	x: number | null,
 	y: number | null,
@@ -273,55 +206,28 @@ export type BrowserRect = {
 
 export type BuildEvent = BuildEvent_Serialize | BuildEvent_Deserialize;
 
-export type BuildEvent_Deserialize = { kind: "phase"; phase: BuildPhase } | { kind: "log"; text: string } | 
-/**  Whole lines of the running app's output. */
-{ kind: "console"; text: string; tone: ConsoleTone } | { kind: "succeeded" } | 
-/**  The app that ran ended on its own. */
-{ kind: "exited" } | 
-/**  Stopped by the user; a build a newer one replaced sends nothing. */
-{ kind: "stopped" } | 
-/**  The first errors of the build, and how many more it printed. */
-{ kind: "failed"; issues: BuildIssue_Deserialize[]; more: number };
+export type BuildEvent_Deserialize = { kind: "phase"; phase: BuildPhase } | { kind: "log"; text: string } | { kind: "console"; text: string; tone: ConsoleTone } | { kind: "succeeded" } | { kind: "exited" } | { kind: "stopped" } | { kind: "failed"; issues: BuildIssue_Deserialize[]; more: number };
 
-export type BuildEvent_Serialize = { kind: "phase"; phase: BuildPhase } | { kind: "log"; text: string } | 
-/**  Whole lines of the running app's output. */
-{ kind: "console"; text: string; tone: ConsoleTone } | { kind: "succeeded" } | 
-/**  The app that ran ended on its own. */
-{ kind: "exited" } | 
-/**  Stopped by the user; a build a newer one replaced sends nothing. */
-{ kind: "stopped" } | 
-/**  The first errors of the build, and how many more it printed. */
-{ kind: "failed"; issues: BuildIssue_Serialize[]; more: number };
+export type BuildEvent_Serialize = { kind: "phase"; phase: BuildPhase } | { kind: "log"; text: string } | { kind: "console"; text: string; tone: ConsoleTone } | { kind: "succeeded" } | { kind: "exited" } | { kind: "stopped" } | { kind: "failed"; issues: BuildIssue_Serialize[]; more: number };
 
 export type BuildIssue = BuildIssue_Serialize | BuildIssue_Deserialize;
 
 export type BuildIssue_Deserialize = {
-	/**  The path as the compiler printed it. */
 	file?: string | null,
 	line?: number | null,
 	message: string,
 };
 
 export type BuildIssue_Serialize = {
-	/**  The path as the compiler printed it. */
 	file: string | null,
 	line: number | null,
 	message: string,
 };
 
-export type BuildPhase = 
-/**  Before xcodebuild: the project's scheme is looked up. */
-"preparing" | 
-/**  A build Chord did not start holds the build database. */
-"waiting" | "building" | 
-/**  The build succeeded: the simulator boots, then the app installs. */
-"installing" | "launching" | 
-/**  The app runs on the destination. */
-"running";
+export type BuildPhase = "preparing" | "waiting" | "building" | "installing" | "launching" | "running";
 
 export type Button = "home" | "lock" | "shake";
 
-/**  Opaque sRGB bytes, as the web paints them over the canvas. */
 export type ButtonColors = {
 	icon: [number, number, number],
 	text: [number, number, number],
@@ -337,26 +243,12 @@ export type ButtonFace = {
 	y: number | null,
 	width: number | null,
 	height: number | null,
-	/**  The 16px icon's top left. */
 	iconX: number | null,
 	iconY: number | null,
 	look: FaceLook,
 };
 
-/**  What a harness can do; the adapter returns its list when a session starts, and the UI hides a control whose capability is missing. */
-export type Capability = 
-/**  Streaming replies, a composer and stopping a run. */
-"chat" | 
-/**  Images sent with a message. */
-"attachments" | 
-/**  A message sent while the agent runs steers the run. */
-"steer" | 
-/**  The model and the thinking level can be read and picked. */
-"models" | 
-/**  The size of the model's context window and how much of it the session fills. */
-"context" | 
-/**  Background subagent runs, reported as a lineage. */
-"subagents";
+export type Capability = "chat" | "attachments" | "steer" | "models" | "context" | "subagents";
 
 export type Change = Change_Serialize | Change_Deserialize;
 
@@ -364,39 +256,30 @@ export type ChangeStatus = "modified" | "added" | "deleted" | "renamed" | "untra
 
 export type Change_Deserialize = {
 	path: string,
-	/**  The path a rename came from. */
 	oldPath?: string | null,
-	/**  Under Staged: the index against HEAD; else the file on disk against the index. */
 	staged: boolean,
 	status: ChangeStatus,
-	/**  None for a binary file. */
 	added?: number | null,
 	removed?: number | null,
 };
 
 export type Change_Serialize = {
 	path: string,
-	/**  The path a rename came from. */
 	oldPath: string | null,
-	/**  Under Staged: the index against HEAD; else the file on disk against the index. */
 	staged: boolean,
 	status: ChangeStatus,
-	/**  None for a binary file. */
 	added: number | null,
 	removed: number | null,
 };
 
-/**  Every harness's check in the list's order, git's install step when git does not run, and the default harness for new panes. */
 export type Checks = Checks_Serialize | Checks_Deserialize;
 
-/**  Every harness's check in the list's order, git's install step when git does not run, and the default harness for new panes. */
 export type Checks_Deserialize = {
 	harnesses: HarnessCheck_Deserialize[],
 	gitInstall?: string | null,
 	defaultHarness?: string | null,
 };
 
-/**  Every harness's check in the list's order, git's install step when git does not run, and the default harness for new panes. */
 export type Checks_Serialize = {
 	harnesses: HarnessCheck_Serialize[],
 	gitInstall: string | null,
@@ -407,43 +290,28 @@ export type Commit = {
 	hash: string,
 	shortHash: string,
 	subject: string,
-	/**  When it was committed, in milliseconds since 1970. */
 	time: number | null,
 };
 
 export type CommitTarget = CommitTarget_Serialize | CommitTarget_Deserialize;
 
 export type CommitTarget_Deserialize = {
-	/**  "Name <email>", as a commit records it. */
 	author?: string | null,
-	/**  The remote branch a push goes to; None on a detached HEAD, a branch with no commit yet or without a remote. */
 	pushTo?: string | null,
-	/**  Whether the branch has commits `push_to` lacks, or no upstream. */
 	pushable: boolean,
-	/**  The commits `push_to` lacks; None before the first push sets the upstream. */
 	ahead?: number | null,
-	/**  The commits of `push_to` the branch lacks, as of the last fetch; None before the first push sets the upstream. */
 	behind?: number | null,
-	/**  When the worktree last fetched, in milliseconds since 1970; None before its first fetch. */
 	fetched?: number | null,
-	/**  Whether HEAD has a commit to amend. */
 	amendable: boolean,
 };
 
 export type CommitTarget_Serialize = {
-	/**  "Name <email>", as a commit records it. */
 	author: string | null,
-	/**  The remote branch a push goes to; None on a detached HEAD, a branch with no commit yet or without a remote. */
 	pushTo: string | null,
-	/**  Whether the branch has commits `push_to` lacks, or no upstream. */
 	pushable: boolean,
-	/**  The commits `push_to` lacks; None before the first push sets the upstream. */
 	ahead: number | null,
-	/**  The commits of `push_to` the branch lacks, as of the last fetch; None before the first push sets the upstream. */
 	behind: number | null,
-	/**  When the worktree last fetched, in milliseconds since 1970; None before its first fetch. */
 	fetched: number | null,
-	/**  Whether HEAD has a commit to amend. */
 	amendable: boolean,
 };
 
@@ -451,91 +319,53 @@ export type CommittedFile = CommittedFile_Serialize | CommittedFile_Deserialize;
 
 export type CommittedFile_Deserialize = {
 	path: string,
-	/**  The path a rename came from. */
 	oldPath?: string | null,
 	status: ChangeStatus,
-	/**  None for a binary file. */
 	added?: number | null,
 	removed?: number | null,
 };
 
 export type CommittedFile_Serialize = {
 	path: string,
-	/**  The path a rename came from. */
 	oldPath: string | null,
 	status: ChangeStatus,
-	/**  None for a binary file. */
 	added: number | null,
 	removed: number | null,
 };
 
-export type ConsoleTone = 
-/**  The app's stdout and stderr, and OSLog messages below error. */
-"output" | 
-/**  An OSLog error or fault. */
-"error" | 
-/**  A line Chord writes, not the app. */
-"own";
+export type ConsoleTone = "output" | "error" | "own";
 
-/**  `simctl ui content_size`'s categories. */
 export type ContentSize = "extra-small" | "small" | "medium" | "large" | "extra-large" | "extra-extra-large" | "extra-extra-extra-large" | "accessibility-medium" | "accessibility-large" | "accessibility-extra-large" | "accessibility-extra-extra-large" | "accessibility-extra-extra-extra-large";
 
-export type Deletion = "Deleted" | 
-/**  `git branch -d` refused: the branch has commits that neither HEAD nor its upstream holds. */
-"Unmerged";
+export type Deletion = "Deleted" | "Unmerged";
 
 export type Destinations = Destinations_Serialize | Destinations_Deserialize;
 
 export type Destinations_Deserialize = {
 	devices: RunDestination[],
-	/**  Newest iOS version first. */
 	simulators: SimulatorModels[],
-	/**  The simulator a run or preview without a picked destination uses; None without an iOS runtime. */
 	fallback?: RunDestination | null,
 };
 
 export type Destinations_Serialize = {
 	devices: RunDestination[],
-	/**  Newest iOS version first. */
 	simulators: SimulatorModels[],
-	/**  The simulator a run or preview without a picked destination uses; None without an iOS runtime. */
 	fallback: RunDestination | null,
 };
 
-/**  The user's answer to a dialog. */
-export type DialogAnswer = 
-/**  The chosen option or the entered text. */
-{ kind: "value"; value: string } | 
-/**  The options picked in a `multi` select. */
-{ kind: "values"; values: string[] } | { kind: "confirmed"; confirmed: boolean } | { kind: "cancelled" };
+export type DialogAnswer = { kind: "value"; value: string } | { kind: "values"; values: string[] } | { kind: "confirmed"; confirmed: boolean } | { kind: "cancelled" };
 
-/**  What a dialog asks. */
 export type DialogAsk = DialogAsk_Serialize | DialogAsk_Deserialize;
 
-/**  What a dialog asks. */
-export type DialogAsk_Deserialize = 
-/**  `current` is the option now in effect, which the dialog marks. `detail` is the command or file the ask is about; `descriptions` holds one line per option, empty when the options have none; `multi` takes several options, answered with `Values`. */
-{ kind: "select"; options: string[]; current?: string | null; detail?: string | null; descriptions: string[]; multi: boolean } | 
-/**  A select the user opened from the composer bar; it floats over the composer as a menu, with a filter row only when `filter`. */
-{ kind: "menu"; options: string[]; current?: string | null; filter: boolean } | 
-/**  `detail` is the shell command the confirm is about, shown as code in place of `message`. With a `url`, the buttons read Open and Decline, and Open opens the link before it answers. */
-{ kind: "confirm"; message: string; detail?: string | null; url?: string | null } | { kind: "input"; placeholder: string };
+export type DialogAsk_Deserialize = { kind: "select"; options: string[]; current?: string | null; detail?: string | null; descriptions: string[]; multi: boolean } | { kind: "menu"; options: string[]; current?: string | null; filter: boolean } | { kind: "confirm"; message: string; detail?: string | null; url?: string | null } | { kind: "input"; placeholder: string };
 
-/**  What a dialog asks. */
-export type DialogAsk_Serialize = 
-/**  `current` is the option now in effect, which the dialog marks. `detail` is the command or file the ask is about; `descriptions` holds one line per option, empty when the options have none; `multi` takes several options, answered with `Values`. */
-{ kind: "select"; options: string[]; current: string | null; detail: string | null; descriptions: string[]; multi: boolean } | 
-/**  A select the user opened from the composer bar; it floats over the composer as a menu, with a filter row only when `filter`. */
-{ kind: "menu"; options: string[]; current: string | null; filter: boolean } | 
-/**  `detail` is the shell command the confirm is about, shown as code in place of `message`. With a `url`, the buttons read Open and Decline, and Open opens the link before it answers. */
-{ kind: "confirm"; message: string; detail: string | null; url: string | null } | { kind: "input"; placeholder: string };
+export type DialogAsk_Serialize = { kind: "select"; options: string[]; current: string | null; detail: string | null; descriptions: string[]; multi: boolean } | { kind: "menu"; options: string[]; current: string | null; filter: boolean } | { kind: "confirm"; message: string; detail: string | null; url: string | null } | { kind: "input"; placeholder: string };
 
 export type DiffLine = DiffLine_Serialize | DiffLine_Deserialize;
 
 export type DiffLine_Deserialize = {
 	kind: LineKind,
 	text: string,
-	/**  The line's number in the old side, the new side, or both for context. */
 	old?: number | null,
 	new?: number | null,
 };
@@ -543,31 +373,14 @@ export type DiffLine_Deserialize = {
 export type DiffLine_Serialize = {
 	kind: LineKind,
 	text: string,
-	/**  The line's number in the old side, the new side, or both for context. */
 	old: number | null,
 	new: number | null,
 };
 
-/**  Which diff of a file a tab shows. */
-export type DiffSide = 
-/**  The index against HEAD. */
-"staged" | 
-/**  The file on disk against the index. */
-"unstaged" | 
-/**  HEAD against its merge base with this base branch. */
-({ branch: string }) & { commit?: never; stash?: never } | 
-/**  This commit against its first parent. */
-({ commit: string }) & { branch?: never; stash?: never } | 
-/**  This stash, by its commit, against the commit it was made on; an untracked file against nothing. */
-({ stash: string }) & { branch?: never; commit?: never };
+export type DiffSide = "staged" | "unstaged" | ({ branch: string }) & { commit?: never; stash?: never } | ({ commit: string }) & { branch?: never; stash?: never } | ({ stash: string }) & { branch?: never; commit?: never };
 
-export type Direction = 
-/**  Children sit side by side. */
-"row" | 
-/**  Children sit one above the other. */
-"column";
+export type Direction = "row" | "column";
 
-/**  The icons of src/ui/icons.tsx the buttons show. */
 export type FaceIcon = "home" | "lock" | "unlock" | "shake" | "camera" | "record" | "stop" | "appearance";
 
 export type FaceLook = "rest" | "hover" | "pressed";
@@ -585,9 +398,7 @@ export type FileDiff_Serialize = {
 };
 
 export type FileEntry = {
-	/**  What the row shows: a chain of single-child folders reads as one name, `src/app/views`. */
 	name: string,
-	/**  Relative to the worktree, `/`-separated; for a chain, the deepest folder's. */
 	path: string,
 	isDir: boolean,
 };
@@ -596,7 +407,6 @@ export type GitCounts = GitCounts_Serialize | GitCounts_Deserialize;
 
 export type GitCounts_Deserialize = {
 	path: string,
-	/**  Against the upstream, or the main checkout's branch without one; None on a detached HEAD. */
 	ahead?: number | null,
 	behind?: number | null,
 	changed: number,
@@ -604,198 +414,55 @@ export type GitCounts_Deserialize = {
 
 export type GitCounts_Serialize = {
 	path: string,
-	/**  Against the upstream, or the main checkout's branch without one; None on a detached HEAD. */
 	ahead: number | null,
 	behind: number | null,
 	changed: number,
 };
 
-/**  One harness as the onboarding and Settings rows show it. */
 export type HarnessCheck = HarnessCheck_Serialize | HarnessCheck_Deserialize;
 
-/**  One harness as the onboarding and Settings rows show it. */
 export type HarnessCheck_Deserialize = {
 	name: string,
 	title: string,
-	/**  Chord has its adapter. */
 	starts: boolean,
 	install: string,
 	signIn?: string | null,
 	upgrade: string,
 	installState: Install,
-	/**  It can be the default for new panes. */
 	takesPick: boolean,
 };
 
-/**  One harness as the onboarding and Settings rows show it. */
 export type HarnessCheck_Serialize = {
 	name: string,
 	title: string,
-	/**  Chord has its adapter. */
 	starts: boolean,
 	install: string,
 	signIn: string | null,
 	upgrade: string,
 	installState: Install,
-	/**  It can be the default for new panes. */
 	takesPick: boolean,
 };
 
 export type HarnessEvent = HarnessEvent_Serialize | HarnessEvent_Deserialize;
 
-export type HarnessEvent_Deserialize = 
-/**  A user message the agent took in, whether it started the run or steered it; `at` is when it was sent, in epoch milliseconds, when the agent says. */
-{ kind: "user_message_chunk"; text: string; images: Image[]; at?: number | null } | 
-/**  Text of the reply that is streaming now. */
-{ kind: "message_chunk"; text: string } | 
-/**  The agent replaced the session's earlier messages with this summary to free the context; `tokens_before` is how many tokens they filled, when the agent says. */
-{ kind: "compaction"; summary: string; tokens_before?: number | null } | 
-/**  The agent started (`active`) or finished compacting the context. */
-{ kind: "compacting"; active: boolean } | 
-/**  The agent began a new block of reasoning. */
-{ kind: "thought_start" } | 
-/**  Text of the reasoning block that is streaming now. */
-{ kind: "thought_chunk"; text: string } | 
-/**  A tool call began; `title` is what it does (Read, Search, List, Run, Edit, Write, a tool's name) and `detail` its path, command or arguments. `command` says `detail` is a shell command. `changes` holds the lines a write puts in its file, known before it runs. */
-{ kind: "tool_start"; id: string; title: string; detail: string; command: boolean; changes?: LineChanges | null } | 
-/**  A tool call ended; `Stopped` means the run ended or was aborted before it reported. `images` are the ones the tool returned; `ms` is how long it ran, missing when the agent did not measure it; `changes` the lines an edit added and removed. */
-{ kind: "tool_end"; id: string; outcome: ToolOutcome; images: Image[]; ms?: number | null; changes?: LineChanges | null } | 
-/**  The model the agent runs and, when that model reasons, its thinking level; sent when a session starts and after each pick. `id` is the model's id in `Models`, when the harness says. */
-{ kind: "model"; id?: string | null; name: string; thinking?: string | null } | 
-/**  Every model the harness offers; sent once it lists them. */
-{ kind: "models"; 
-/**  The `name` of the harness's entry in `HARNESSES`. */
-harness: string; models: ModelOption_Deserialize[] } | 
-/**  How many tokens the session fills of the model's context window; `tokens` is missing right after a compaction when the agent cannot tell, until a reply measures it again; `estimated` says Chord counted `tokens` itself; `window` is missing when the model has none, and until the harness tells it. */
-{ kind: "context"; tokens?: number | null; window?: number | null; estimated: boolean } | 
-/**  The streaming reply is complete; `failed` when it ended in an error; `at` is when the reply was written, in epoch milliseconds, when the agent says. */
-{ kind: "message_end"; failed: boolean; at?: number | null } | 
-/**  The agent opened a dialog and waits for an answer; `id` goes back with it. */
-{ kind: "dialog"; id: string; title: string; ask: DialogAsk_Deserialize } | 
-/**  The commands the agent offers after a slash. */
-{ kind: "commands"; commands: SlashCommand_Deserialize[] } | 
-/**  The subscription usage windows of the harness's account, shortest first; the whole list each time, empty when none applies, as for an API key. */
-{ kind: "usage"; 
-/**  The `name` of the harness's entry in `HARNESSES`. */
-harness: string; windows: UsageWindow_Deserialize[] } | 
-/**  The background subagent runs as a lineage, each node before its children; the whole list each time, empty when none applies. */
-{ kind: "subagents"; nodes: SubagentNode_Deserialize[] } | 
-/**  The steering messages the agent has not taken in yet, oldest first; the whole queue each time. */
-{ kind: "queue"; steering: string[] } | 
-/**  The agent started or finished work. */
-{ kind: "state"; running: boolean } | 
-/**  The user stopped the run; follows the run's `State { running: false }`. */
-{ kind: "aborted" } | 
-/**  Something the user should read: a refused command or a failed reply. */
-{ kind: "notice"; text: string } | 
-/**  The session the pane's agent holds: what the harness opens it again by. */
-{ kind: "session_info"; id: string } | 
-/**  The transcript starts over; the session's saved messages follow as the events a live reply produces, up to `HistoryEnd`. */
-{ kind: "history_start" } | 
-/**  The saved messages are all in; what follows is live. */
-{ kind: "history_end" } | 
-/**  Text the harness puts in the composer, as the message a fork or a tree step went back to. */
-{ kind: "draft"; text: string } | 
-/**  The session was written to a file for reading outside the app. */
-{ kind: "exported"; path: string } | 
-/**  The harness process ended; `code` is missing when a signal ended it. */
-{ kind: "exited"; code?: number | null } | 
-/**  The pane's status changed or a reply ended; `last_message` is the text of the last reply; `changed` is false when a reply end repeats the status. Core adds it, no adapter emits it. */
-{ kind: "status"; status: Status_Deserialize; last_message: string; changed: boolean } | 
-/**  The session's permission mode and whether it still asks before it acts; sent when a session starts and after each pick, as `Model` is. */
-{ kind: "permissions"; mode: string; asks: boolean } | 
-/**  The agent went on past its open dialog. The adapter emits it. */
-{ kind: "dialog_closed" };
+export type HarnessEvent_Deserialize = { kind: "user_message_chunk"; text: string; images: Image[]; at?: number | null } | { kind: "message_chunk"; text: string } | { kind: "compaction"; summary: string; tokens_before?: number | null } | { kind: "compacting"; active: boolean } | { kind: "thought_start" } | { kind: "thought_chunk"; text: string } | { kind: "tool_start"; id: string; title: string; detail: string; command: boolean; changes?: LineChanges | null } | { kind: "tool_end"; id: string; outcome: ToolOutcome; images: Image[]; ms?: number | null; changes?: LineChanges | null } | { kind: "model"; id?: string | null; name: string; thinking?: string | null } | { kind: "models"; harness: string; models: ModelOption_Deserialize[] } | { kind: "context"; tokens?: number | null; window?: number | null; estimated: boolean } | { kind: "message_end"; failed: boolean; at?: number | null } | { kind: "dialog"; id: string; title: string; ask: DialogAsk_Deserialize } | { kind: "commands"; commands: SlashCommand_Deserialize[] } | { kind: "usage"; harness: string; windows: UsageWindow_Deserialize[] } | { kind: "subagents"; nodes: SubagentNode_Deserialize[] } | { kind: "queue"; steering: string[] } | { kind: "state"; running: boolean } | { kind: "aborted" } | { kind: "notice"; text: string } | { kind: "session_info"; id: string } | { kind: "history_start" } | { kind: "history_end" } | { kind: "draft"; text: string } | { kind: "exported"; path: string } | { kind: "exited"; code?: number | null } | { kind: "status"; status: Status_Deserialize; last_message: string; changed: boolean } | { kind: "permissions"; mode: string; asks: boolean } | { kind: "dialog_closed" };
 
-export type HarnessEvent_Serialize = 
-/**  A user message the agent took in, whether it started the run or steered it; `at` is when it was sent, in epoch milliseconds, when the agent says. */
-{ kind: "user_message_chunk"; text: string; images: Image[]; at: number | null } | 
-/**  Text of the reply that is streaming now. */
-{ kind: "message_chunk"; text: string } | 
-/**  The agent replaced the session's earlier messages with this summary to free the context; `tokens_before` is how many tokens they filled, when the agent says. */
-{ kind: "compaction"; summary: string; tokens_before: number | null } | 
-/**  The agent started (`active`) or finished compacting the context. */
-{ kind: "compacting"; active: boolean } | 
-/**  The agent began a new block of reasoning. */
-{ kind: "thought_start" } | 
-/**  Text of the reasoning block that is streaming now. */
-{ kind: "thought_chunk"; text: string } | 
-/**  A tool call began; `title` is what it does (Read, Search, List, Run, Edit, Write, a tool's name) and `detail` its path, command or arguments. `command` says `detail` is a shell command. `changes` holds the lines a write puts in its file, known before it runs. */
-{ kind: "tool_start"; id: string; title: string; detail: string; command: boolean; changes: LineChanges | null } | 
-/**  A tool call ended; `Stopped` means the run ended or was aborted before it reported. `images` are the ones the tool returned; `ms` is how long it ran, missing when the agent did not measure it; `changes` the lines an edit added and removed. */
-{ kind: "tool_end"; id: string; outcome: ToolOutcome; images: Image[]; ms: number | null; changes: LineChanges | null } | 
-/**  The model the agent runs and, when that model reasons, its thinking level; sent when a session starts and after each pick. `id` is the model's id in `Models`, when the harness says. */
-{ kind: "model"; id: string | null; name: string; thinking: string | null } | 
-/**  Every model the harness offers; sent once it lists them. */
-{ kind: "models"; 
-/**  The `name` of the harness's entry in `HARNESSES`. */
-harness: string; models: ModelOption_Serialize[] } | 
-/**  How many tokens the session fills of the model's context window; `tokens` is missing right after a compaction when the agent cannot tell, until a reply measures it again; `estimated` says Chord counted `tokens` itself; `window` is missing when the model has none, and until the harness tells it. */
-{ kind: "context"; tokens: number | null; window: number | null; estimated: boolean } | 
-/**  The streaming reply is complete; `failed` when it ended in an error; `at` is when the reply was written, in epoch milliseconds, when the agent says. */
-{ kind: "message_end"; failed: boolean; at: number | null } | 
-/**  The agent opened a dialog and waits for an answer; `id` goes back with it. */
-{ kind: "dialog"; id: string; title: string; ask: DialogAsk_Serialize } | 
-/**  The commands the agent offers after a slash. */
-{ kind: "commands"; commands: SlashCommand_Serialize[] } | 
-/**  The subscription usage windows of the harness's account, shortest first; the whole list each time, empty when none applies, as for an API key. */
-{ kind: "usage"; 
-/**  The `name` of the harness's entry in `HARNESSES`. */
-harness: string; windows: UsageWindow_Serialize[] } | 
-/**  The background subagent runs as a lineage, each node before its children; the whole list each time, empty when none applies. */
-{ kind: "subagents"; nodes: SubagentNode_Serialize[] } | 
-/**  The steering messages the agent has not taken in yet, oldest first; the whole queue each time. */
-{ kind: "queue"; steering: string[] } | 
-/**  The agent started or finished work. */
-{ kind: "state"; running: boolean } | 
-/**  The user stopped the run; follows the run's `State { running: false }`. */
-{ kind: "aborted" } | 
-/**  Something the user should read: a refused command or a failed reply. */
-{ kind: "notice"; text: string } | 
-/**  The session the pane's agent holds: what the harness opens it again by. */
-{ kind: "session_info"; id: string } | 
-/**  The transcript starts over; the session's saved messages follow as the events a live reply produces, up to `HistoryEnd`. */
-{ kind: "history_start" } | 
-/**  The saved messages are all in; what follows is live. */
-{ kind: "history_end" } | 
-/**  Text the harness puts in the composer, as the message a fork or a tree step went back to. */
-{ kind: "draft"; text: string } | 
-/**  The session was written to a file for reading outside the app. */
-{ kind: "exported"; path: string } | 
-/**  The harness process ended; `code` is missing when a signal ended it. */
-{ kind: "exited"; code: number | null } | 
-/**  The pane's status changed or a reply ended; `last_message` is the text of the last reply; `changed` is false when a reply end repeats the status. Core adds it, no adapter emits it. */
-{ kind: "status"; status: Status_Serialize; last_message: string; changed: boolean } | 
-/**  The session's permission mode and whether it still asks before it acts; sent when a session starts and after each pick, as `Model` is. */
-{ kind: "permissions"; mode: string; asks: boolean } | 
-/**  The agent went on past its open dialog. The adapter emits it. */
-{ kind: "dialog_closed" };
+export type HarnessEvent_Serialize = { kind: "user_message_chunk"; text: string; images: Image[]; at: number | null } | { kind: "message_chunk"; text: string } | { kind: "compaction"; summary: string; tokens_before: number | null } | { kind: "compacting"; active: boolean } | { kind: "thought_start" } | { kind: "thought_chunk"; text: string } | { kind: "tool_start"; id: string; title: string; detail: string; command: boolean; changes: LineChanges | null } | { kind: "tool_end"; id: string; outcome: ToolOutcome; images: Image[]; ms: number | null; changes: LineChanges | null } | { kind: "model"; id: string | null; name: string; thinking: string | null } | { kind: "models"; harness: string; models: ModelOption_Serialize[] } | { kind: "context"; tokens: number | null; window: number | null; estimated: boolean } | { kind: "message_end"; failed: boolean; at: number | null } | { kind: "dialog"; id: string; title: string; ask: DialogAsk_Serialize } | { kind: "commands"; commands: SlashCommand_Serialize[] } | { kind: "usage"; harness: string; windows: UsageWindow_Serialize[] } | { kind: "subagents"; nodes: SubagentNode_Serialize[] } | { kind: "queue"; steering: string[] } | { kind: "state"; running: boolean } | { kind: "aborted" } | { kind: "notice"; text: string } | { kind: "session_info"; id: string } | { kind: "history_start" } | { kind: "history_end" } | { kind: "draft"; text: string } | { kind: "exported"; path: string } | { kind: "exited"; code: number | null } | { kind: "status"; status: Status_Serialize; last_message: string; changed: boolean } | { kind: "permissions"; mode: string; asks: boolean } | { kind: "dialog_closed" };
 
 export type Hunk = Hunk_Serialize | Hunk_Deserialize;
 
-export type HunkAction = 
-/**  A hunk of the file on disk against the index, into the index. */
-"stage" | 
-/**  A hunk of the index against HEAD, out of the index. */
-"unstage" | 
-/**  A hunk of the file on disk against the index, off the disk. */
-"discard" | 
-/**  A hunk of the index against HEAD, out of the index and off the disk. */
-"discardStaged";
+export type HunkAction = "stage" | "unstage" | "discard" | "discardStaged";
 
 export type Hunk_Deserialize = {
-	/**  The line git names after the hunk's range, mostly the function it sits in; empty when git finds none. */
 	context: string,
 	lines: DiffLine_Deserialize[],
 };
 
 export type Hunk_Serialize = {
-	/**  The line git names after the hunk's range, mostly the function it sits in; empty when git finds none. */
 	context: string,
 	lines: DiffLine_Serialize[],
 };
 
-/**  An image in a message: base64 data and its MIME type. */
 export type Image = {
 	data: string,
 	mime_type: string,
@@ -803,19 +470,10 @@ export type Image = {
 
 export type Input = Input_Serialize | Input_Deserialize;
 
-export type Input_Deserialize = 
-/**  One or two fingers. `seq` grows with every touch the view sends; `from_bottom` marks a swipe that starts at the bottom edge. */
-{ kind: "touch"; seq: number; phase: TouchPhase; first: Point; second?: Point | null; fromBottom: boolean } | 
-/**  A USB HID keyboard usage (page 7). */
-{ kind: "key"; usage: number; down: boolean } | { kind: "button"; button: Button };
+export type Input_Deserialize = { kind: "touch"; seq: number; phase: TouchPhase; first: Point; second?: Point | null; fromBottom: boolean } | { kind: "key"; usage: number; down: boolean } | { kind: "button"; button: Button };
 
-export type Input_Serialize = 
-/**  One or two fingers. `seq` grows with every touch the view sends; `from_bottom` marks a swipe that starts at the bottom edge. */
-{ kind: "touch"; seq: number; phase: TouchPhase; first: Point; second: Point | null; fromBottom: boolean } | 
-/**  A USB HID keyboard usage (page 7). */
-{ kind: "key"; usage: number; down: boolean } | { kind: "button"; button: Button };
+export type Input_Serialize = { kind: "touch"; seq: number; phase: TouchPhase; first: Point; second: Point | null; fromBottom: boolean } | { kind: "key"; usage: number; down: boolean } | { kind: "button"; button: Button };
 
-/**  What a harness's check found. */
 export type Install = { kind: "ready"; version: string } | { kind: "missing" } | { kind: "signed_out"; version: string } | { kind: "outdated"; version: string; oldest: string };
 
 export type InterfaceStyle = "light" | "dark";
@@ -827,19 +485,10 @@ export type KeptBranch = {
 
 export type Layout = Layout_Serialize | Layout_Deserialize;
 
-export type Layout_Deserialize = 
-/**  Tabs that share one place, each with its own tab in the group's bar; `active` shows. */
-{ kind: "group"; id: string; tabs: Tab_Deserialize[]; active: string } | { kind: "split"; direction: Direction; 
-/**  Each child's share of the split; they add up to 1. */
-sizes: (number | null)[]; children: Layout_Deserialize[] };
+export type Layout_Deserialize = { kind: "group"; id: string; tabs: Tab_Deserialize[]; active: string } | { kind: "split"; direction: Direction; sizes: (number | null)[]; children: Layout_Deserialize[] };
 
-export type Layout_Serialize = 
-/**  Tabs that share one place, each with its own tab in the group's bar; `active` shows. */
-{ kind: "group"; id: string; tabs: Tab_Serialize[]; active: string } | { kind: "split"; direction: Direction; 
-/**  Each child's share of the split; they add up to 1. */
-sizes: (number | null)[]; children: Layout_Serialize[] };
+export type Layout_Serialize = { kind: "group"; id: string; tabs: Tab_Serialize[]; active: string } | { kind: "split"; direction: Direction; sizes: (number | null)[]; children: Layout_Serialize[] };
 
-/**  The lines a call added to and removed from a file. */
 export type LineChanges = {
 	added: number,
 	removed: number,
@@ -847,31 +496,24 @@ export type LineChanges = {
 
 export type LineKind = "context" | "added" | "removed";
 
-/**  A link tried to load in the app's own web view; the window opens it like a chat link. */
 export type LinkRequested = string;
 
 export type LocalBranch = LocalBranch_Serialize | LocalBranch_Deserialize;
 
 export type LocalBranch_Deserialize = {
 	name: string,
-	/**  When its last commit was made, in milliseconds since 1970. */
 	time: number | null,
-	/**  The other worktree that has it checked out, which keeps git from switching to it here. */
 	heldBy?: string | null,
 };
 
 export type LocalBranch_Serialize = {
 	name: string,
-	/**  When its last commit was made, in milliseconds since 1970. */
 	time: number | null,
-	/**  The other worktree that has it checked out, which keeps git from switching to it here. */
 	heldBy: string | null,
 };
 
-/**  One model a harness offers. `id` goes back in a pick; `provider` is set when the harness reaches models through several; `levels` are its thinking levels as the harness names them, lowest first, empty for a model that does not think; `default_level` is the one it starts on, when the harness says. */
 export type ModelOption = ModelOption_Serialize | ModelOption_Deserialize;
 
-/**  One model a harness offers. `id` goes back in a pick; `provider` is set when the harness reaches models through several; `levels` are its thinking levels as the harness names them, lowest first, empty for a model that does not think; `default_level` is the one it starts on, when the harness says. */
 export type ModelOption_Deserialize = {
 	id: string,
 	name: string,
@@ -880,7 +522,6 @@ export type ModelOption_Deserialize = {
 	default_level?: string | null,
 };
 
-/**  One model a harness offers. `id` goes back in a pick; `provider` is set when the harness reaches models through several; `levels` are its thinking levels as the harness names them, lowest first, empty for a model that does not think; `default_level` is the one it starts on, when the harness says. */
 export type ModelOption_Serialize = {
 	id: string,
 	name: string,
@@ -889,16 +530,13 @@ export type ModelOption_Serialize = {
 	default_level: string | null,
 };
 
-/**  A model and thinking level the user picked for a pane whose harness is not running yet. */
 export type ModelPick = ModelPick_Serialize | ModelPick_Deserialize;
 
-/**  A model and thinking level the user picked for a pane whose harness is not running yet. */
 export type ModelPick_Deserialize = {
 	id: string,
 	level?: string | null,
 };
 
-/**  A model and thinking level the user picked for a pane whose harness is not running yet. */
 export type ModelPick_Serialize = {
 	id: string,
 	level: string | null,
@@ -914,75 +552,39 @@ export type Outline = {
 export type PaneAgent = PaneAgent_Serialize | PaneAgent_Deserialize;
 
 export type PaneAgent_Deserialize = {
-	/**  None until the pane's first start takes the default harness. */
 	harness?: string | null,
-	/**  What the harness opens the session by; none until it reports one. */
 	session?: string | null,
 };
 
 export type PaneAgent_Serialize = {
-	/**  None until the pane's first start takes the default harness. */
 	harness: string | null,
-	/**  What the harness opens the session by; none until it reports one. */
 	session: string | null,
 };
 
-/**  A point on the screen: 0…1 from the top left. */
 export type Point = {
 	x: number | null,
 	y: number | null,
 };
 
-/**  One `#Preview` of a worktree: its file and its place among the file's previews. */
 export type PreviewPick = PreviewPick_Serialize | PreviewPick_Deserialize;
 
-/**  One `#Preview` of a worktree: its file and its place among the file's previews. */
 export type PreviewPick_Deserialize = {
-	/**  Relative to the worktree, `/`-separated. */
 	file: string,
 	index: number,
-	/**  The macro's name argument; none for an unnamed preview. */
 	name?: string | null,
 };
 
-/**  One `#Preview` of a worktree: its file and its place among the file's previews. */
 export type PreviewPick_Serialize = {
-	/**  Relative to the worktree, `/`-separated. */
 	file: string,
 	index: number,
-	/**  The macro's name argument; none for an unnamed preview. */
 	name: string | null,
 };
 
 export type PreviewState = PreviewState_Serialize | PreviewState_Deserialize;
 
-export type PreviewState_Deserialize = 
-/**  The preview simulator boots. */
-{ state: "starting" } | 
-/**  A ⌘R or ⌘B build of the worktree holds its build; the preview build follows it. */
-{ state: "waiting" } | { state: "building" } | 
-/**  The preview app runs on the preview simulator. */
-{ state: "live" } | 
-/**  Two other worktrees' preview simulators run; their folder names. */
-{ state: "full"; worktrees: string[] } | 
-/**  No pick, or the picked `#Preview` is gone. */
-{ state: "unpicked" } | 
-/**  The first compile error of a preview build or hot reload; the last frame stays. */
-{ state: "error"; issue: BuildIssue_Deserialize } | { state: "failed"; message: string };
+export type PreviewState_Deserialize = { state: "starting" } | { state: "waiting" } | { state: "building" } | { state: "live" } | { state: "full"; worktrees: string[] } | { state: "unpicked" } | { state: "error"; issue: BuildIssue_Deserialize } | { state: "failed"; message: string };
 
-export type PreviewState_Serialize = 
-/**  The preview simulator boots. */
-{ state: "starting" } | 
-/**  A ⌘R or ⌘B build of the worktree holds its build; the preview build follows it. */
-{ state: "waiting" } | { state: "building" } | 
-/**  The preview app runs on the preview simulator. */
-{ state: "live" } | 
-/**  Two other worktrees' preview simulators run; their folder names. */
-{ state: "full"; worktrees: string[] } | 
-/**  No pick, or the picked `#Preview` is gone. */
-{ state: "unpicked" } | 
-/**  The first compile error of a preview build or hot reload; the last frame stays. */
-{ state: "error"; issue: BuildIssue_Serialize } | { state: "failed"; message: string };
+export type PreviewState_Serialize = { state: "starting" } | { state: "waiting" } | { state: "building" } | { state: "live" } | { state: "full"; worktrees: string[] } | { state: "unpicked" } | { state: "error"; issue: BuildIssue_Serialize } | { state: "failed"; message: string };
 
 export type Project = {
 	path: string,
@@ -991,113 +593,74 @@ export type Project = {
 
 export type Removal = Removal_Serialize | Removal_Deserialize;
 
-export type Removal_Deserialize = 
-/**  The worktree is gone; `kept_branch` is its branch when it stays. */
-({ Removed: {
+export type Removal_Deserialize = ({ Removed: {
 	kept_branch?: KeptBranch | null,
-} }) & { NeedsForce?: never } | 
-/**  Git refused over modified or untracked files or a lock, which `--force` overrides. */
-({ NeedsForce: {
+} }) & { NeedsForce?: never } | ({ NeedsForce: {
 	reason: string,
 } }) & { Removed?: never };
 
-export type Removal_Serialize = 
-/**  The worktree is gone; `kept_branch` is its branch when it stays. */
-({ Removed: {
+export type Removal_Serialize = ({ Removed: {
 	kept_branch: KeptBranch | null,
-} }) & { NeedsForce?: never } | 
-/**  Git refused over modified or untracked files or a lock, which `--force` overrides. */
-({ NeedsForce: {
+} }) & { NeedsForce?: never } | ({ NeedsForce: {
 	reason: string,
 } }) & { Removed?: never };
 
-/**  Where ⌘R runs the app: a connected device, or a simulator model and iOS version that exist among the user's simulators. */
-export type RunDestination = { kind: "device"; 
-/**  The device's hardware UDID. */
-id: string; name: string } | { kind: "simulator"; 
-/**  The device type identifier. */
-model: string; 
-/**  The runtime identifier. */
-runtime: string; name: string; 
-/**  "iOS 27.0". */
-os: string };
+export type RunDestination = { kind: "device"; id: string; name: string } | { kind: "simulator"; model: string; runtime: string; name: string; os: string };
 
 export type RunningSimulator = {
-	/**  The worktree's folder name. */
 	worktree: string,
-	/**  "iPhone 17 Pro". */
 	model: string,
-	/**  It is the open worktree's. */
 	open: boolean,
-	/**  It shows the worktree's preview. */
 	preview: boolean,
 };
 
 export type Scheme = {
 	name: string,
-	/**  The configuration a build without a pick uses: the one the scheme's Run action names. */
 	configuration: string,
 };
 
-/**  The scheme and build configuration ⌘R and ⌘B build; `None` keeps the default. */
 export type SchemePick = SchemePick_Serialize | SchemePick_Deserialize;
 
-/**  The scheme and build configuration ⌘R and ⌘B build; `None` keeps the default. */
 export type SchemePick_Deserialize = {
 	scheme?: string | null,
 	configuration?: string | null,
 };
 
-/**  The scheme and build configuration ⌘R and ⌘B build; `None` keeps the default. */
 export type SchemePick_Serialize = {
 	scheme: string | null,
 	configuration: string | null,
 };
 
-/**  What the Run menu offers a project. */
 export type Schemes = {
 	schemes: Scheme[],
 	configurations: string[],
-	/**  The scheme a build without a pick uses. */
 	default: string,
 };
 
-/**  The button row under the screen, measured by the web: CSS pixels, from the row's top left. */
 export type ScreenButtons = ScreenButtons_Serialize | ScreenButtons_Deserialize;
 
-/**  The button row under the screen, measured by the web: CSS pixels, from the row's top left. */
 export type ScreenButtons_Deserialize = {
 	width: number | null,
 	height: number | null,
-	/**  From the screen's bottom edge to the row's top; the row centers under the screen. */
 	gap: number | null,
 	colors: ButtonColors,
-	/**  The hairline pills the faces sit in: the rail, or each group once a narrow view wraps it. */
 	outlines: Outline[],
-	/**  The hairlines between the rail's groups. */
 	dividers: Outline[],
 	faces: ButtonFace[],
-	/**  The recording's time, while the record pill shows. */
 	timer?: Timer | null,
 };
 
-/**  The button row under the screen, measured by the web: CSS pixels, from the row's top left. */
 export type ScreenButtons_Serialize = {
 	width: number | null,
 	height: number | null,
-	/**  From the screen's bottom edge to the row's top; the row centers under the screen. */
 	gap: number | null,
 	colors: ButtonColors,
-	/**  The hairline pills the faces sit in: the rail, or each group once a narrow view wraps it. */
 	outlines: Outline[],
-	/**  The hairlines between the rail's groups. */
 	dividers: Outline[],
 	faces: ButtonFace[],
-	/**  The recording's time, while the record pill shows. */
 	timer: Timer | null,
 };
 
-/**  Where the screen goes, in the webview's CSS pixels from its top left; the bezel goes around it. */
 export type ScreenRect = {
 	x: number | null,
 	y: number | null,
@@ -1107,62 +670,38 @@ export type ScreenRect = {
 
 export type ScreenState = ScreenState_Serialize | ScreenState_Deserialize;
 
-export type ScreenState_Deserialize = 
-/**  Frames show; the screen's size in pixels and whether SpringBoard is locked. */
-{ state: "live"; width: number; height: number; locked: boolean } | 
-/**  No booted simulator, or one with no screen yet; `message` says why when it is more than off. */
-{ state: "off"; message?: string | null } | 
-/**  The private API did not load; `app` names the simulator app to open instead. */
-{ state: "unavailable"; message: string; app: string };
+export type ScreenState_Deserialize = { state: "live"; width: number; height: number; locked: boolean } | { state: "off"; message?: string | null } | { state: "unavailable"; message: string; app: string };
 
-export type ScreenState_Serialize = 
-/**  Frames show; the screen's size in pixels and whether SpringBoard is locked. */
-{ state: "live"; width: number; height: number; locked: boolean } | 
-/**  No booted simulator, or one with no screen yet; `message` says why when it is more than off. */
-{ state: "off"; message: string | null } | 
-/**  The private API did not load; `app` names the simulator app to open instead. */
-{ state: "unavailable"; message: string; app: string };
+export type ScreenState_Serialize = { state: "live"; width: number; height: number; locked: boolean } | { state: "off"; message: string | null } | { state: "unavailable"; message: string; app: string };
 
 export type Screenshot = {
-	/**  The PNG, a file other apps take by a drag. */
 	file: string,
-	/**  A small PNG of it, in the temporary folder. */
 	preview: string,
 };
 
-/**  One row of Settings' Simulators section: a group with the state of its switch. */
 export type ServiceRow = ServiceRow_Serialize | ServiceRow_Deserialize;
 
-/**  One row of Settings' Simulators section: a group with the state of its switch. */
 export type ServiceRow_Deserialize = {
 	id: string,
 	name: string,
 	effect: string,
-	/**  The sum of its subgroups'. */
 	memoryMb: number,
-	/**  On when every subgroup is kept, off when none is, `None` when they differ. */
 	kept?: boolean | null,
-	/**  Empty for a group with one coherent function, which has no rows to open. */
 	subgroups: SubgroupRow[],
 };
 
-/**  One row of Settings' Simulators section: a group with the state of its switch. */
 export type ServiceRow_Serialize = {
 	id: string,
 	name: string,
 	effect: string,
-	/**  The sum of its subgroups'. */
 	memoryMb: number,
-	/**  On when every subgroup is kept, off when none is, `None` when they differ. */
 	kept: boolean | null,
-	/**  Empty for a group with one coherent function, which has no rows to open. */
 	subgroups: SubgroupRow[],
 };
 
 export type Shortcut = Shortcut_Serialize | Shortcut_Deserialize;
 
 export type Shortcut_Deserialize = {
-	/**  The lowercase `KeyboardEvent.key`. */
 	key?: string,
 	cmd?: boolean,
 	ctrl?: boolean,
@@ -1171,7 +710,6 @@ export type Shortcut_Deserialize = {
 };
 
 export type Shortcut_Serialize = {
-	/**  The lowercase `KeyboardEvent.key`. */
 	key: string,
 	cmd: boolean,
 	ctrl: boolean,
@@ -1183,19 +721,16 @@ export type SidePanel = SidePanel_Serialize | SidePanel_Deserialize;
 
 export type SidePanel_Deserialize = {
 	open?: boolean,
-	/**  In pixels. */
 	width?: number,
 	view?: SideView,
 };
 
 export type SidePanel_Serialize = {
 	open: boolean,
-	/**  In pixels. */
 	width: number,
 	view: SideView,
 };
 
-/**  The view the side panel shows. */
 export type SideView = "files" | "simulator" | "preview" | "changes";
 
 export type Sidebar = Sidebar_Serialize | Sidebar_Deserialize;
@@ -1208,31 +743,24 @@ export type Sidebar_Serialize = {
 	hidden: boolean,
 };
 
-/**  What the Appearance menu shows: the simulator's current settings, and what it can be set to. */
 export type SimulatorAppearance = SimulatorAppearance_Serialize | SimulatorAppearance_Deserialize;
 
 export type SimulatorAppearanceChange = { kind: "style"; style: InterfaceStyle } | { kind: "content_size"; size: ContentSize } | { kind: "language"; language: string } | { kind: "region"; region: string };
 
-/**  What the Appearance menu shows: the simulator's current settings, and what it can be set to. */
 export type SimulatorAppearance_Deserialize = {
 	style?: InterfaceStyle | null,
 	contentSize?: ContentSize | null,
-	/**  A language code like "de" or "zh-Hans". */
 	language?: string | null,
-	/**  A region code like "AT". */
 	region?: string | null,
 	contentSizes: ContentSize[],
 	languages: string[],
 	regions: string[],
 };
 
-/**  What the Appearance menu shows: the simulator's current settings, and what it can be set to. */
 export type SimulatorAppearance_Serialize = {
 	style: InterfaceStyle | null,
 	contentSize: ContentSize | null,
-	/**  A language code like "de" or "zh-Hans". */
 	language: string | null,
-	/**  A region code like "AT". */
 	region: string | null,
 	contentSizes: ContentSize[],
 	languages: string[],
@@ -1240,19 +768,14 @@ export type SimulatorAppearance_Serialize = {
 };
 
 export type SimulatorModels = {
-	/**  "iOS 27.0". */
 	os: string,
-	/**  iPhones before the rest, each by name. */
 	models: RunDestination[],
 };
 
-/**  A simulator was added, removed, booted or shut down: the window reads the running ones again. */
 export type SimulatorsChanged = null;
 
-/**  A command the user can type after a slash; `name` has no slash. `origin` names the package it comes from; it is empty for a local file. */
 export type SlashCommand = SlashCommand_Serialize | SlashCommand_Deserialize;
 
-/**  A command the user can type after a slash; `name` has no slash. `origin` names the package it comes from; it is empty for a local file. */
 export type SlashCommand_Deserialize = {
 	name: string,
 	description: string,
@@ -1260,7 +783,6 @@ export type SlashCommand_Deserialize = {
 	origin?: string | null,
 };
 
-/**  A command the user can type after a slash; `name` has no slash. `origin` names the package it comes from; it is empty for a local file. */
 export type SlashCommand_Serialize = {
 	name: string,
 	description: string,
@@ -1268,18 +790,12 @@ export type SlashCommand_Serialize = {
 	origin: string | null,
 };
 
-/**  Where a slash command is defined. */
-export type SlashKind = "skill" | "prompt" | "extension" | 
-/**  A command of the harness itself that acts on the pane's session, such as picking the model or resuming another session; the adapter runs it when `send` gets it. */
-"session";
+export type SlashKind = "skill" | "prompt" | "extension" | "session";
 
-/**  The rows since a time, and per harness the number of session files with a reply since then. */
 export type Spend = Spend_Serialize | Spend_Deserialize;
 
-/**  One hour of one model of one harness. `hour` is the start of the UTC hour in ms. */
 export type SpendRow = SpendRow_Serialize | SpendRow_Deserialize;
 
-/**  One hour of one model of one harness. `hour` is the start of the UTC hour in ms. */
 export type SpendRow_Deserialize = {
 	hour: number | null,
 	harness: string,
@@ -1292,7 +808,6 @@ export type SpendRow_Deserialize = {
 	saved?: number | null,
 };
 
-/**  One hour of one model of one harness. `hour` is the start of the UTC hour in ms. */
 export type SpendRow_Serialize = {
 	hour: number | null,
 	harness: string,
@@ -1305,32 +820,25 @@ export type SpendRow_Serialize = {
 	saved: number | null,
 };
 
-/**  The rows since a time, and per harness the number of session files with a reply since then. */
 export type Spend_Deserialize = {
 	rows: SpendRow_Deserialize[],
 	sessions: { [key in string]: number },
 };
 
-/**  The rows since a time, and per harness the number of session files with a reply since then. */
 export type Spend_Serialize = {
 	rows: SpendRow_Serialize[],
 	sessions: { [key in string]: number },
 };
 
-/**  A pane's started agent: the harness it runs and what that harness can do. */
 export type Started = {
 	harness: string,
 	capabilities: Capability[],
 };
 
 export type Stash = {
-	/**  The stash's commit, which names it while the `stash@{n}` indexes shift. */
 	hash: string,
-	/**  Without git's "WIP on main:" or "On main:". */
 	message: string,
-	/**  The branch it came from, "(no branch)" from a detached HEAD. */
 	branch: string,
-	/**  When it was made, in milliseconds since 1970. */
 	time: number | null,
 };
 
@@ -1338,13 +846,9 @@ export type StashAction = "apply" | "pop" | "drop";
 
 export type State = State_Serialize | State_Deserialize;
 
-/**  One change the frontend saves. */
 export type StateChange = StateChange_Serialize | StateChange_Deserialize;
 
-/**  One change the frontend saves. */
-export type StateChange_Deserialize = ({ selectedWorktree?: string | null }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ sidebarHidden: boolean }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ theme: Theme }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; worktreeOrder?: never } | ({ textPercent: number }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; theme?: never; worktreeOrder?: never } | ({ terminalFontSize: number }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ editorFontSize: number }) & { bottomPanel?: never; defaultHarness?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ muteNotifications: boolean }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ linksInDefaultBrowser: boolean }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ pushAfterCommit: boolean }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ defaultHarness: string }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ shortcuts: { [key in string]: Shortcut_Deserialize | null } }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | 
-/**  `None` forgets the worktree's layouts. */
-({ panes: {
+export type StateChange_Deserialize = ({ selectedWorktree?: string | null }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ sidebarHidden: boolean }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ theme: Theme }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; worktreeOrder?: never } | ({ textPercent: number }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; theme?: never; worktreeOrder?: never } | ({ terminalFontSize: number }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ editorFontSize: number }) & { bottomPanel?: never; defaultHarness?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ muteNotifications: boolean }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ linksInDefaultBrowser: boolean }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ pushAfterCommit: boolean }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ defaultHarness: string }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ shortcuts: { [key in string]: Shortcut_Deserialize | null } }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ panes: {
 	worktree: string,
 	panes?: WorktreePanes_Deserialize | null,
 } }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ sidePanel: {
@@ -1353,32 +857,22 @@ export type StateChange_Deserialize = ({ selectedWorktree?: string | null }) & {
 } }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ bottomPanel: {
 	worktree: string,
 	panel: BottomPanel_Deserialize,
-} }) & { defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | 
-/**  `ids` are subgroup ids, or a group id for a group without subgroups; all are set in one save. */
-({ keptServices: {
+} }) & { defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ keptServices: {
 	ids: string[],
 	kept: boolean,
-} }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ screenshotFolder?: string | null }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | 
-/**  The project paths in sidebar order; a project missing from it goes last. */
-({ projectOrder: string[] }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ worktreeOrder: {
+} }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ screenshotFolder?: string | null }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ projectOrder: string[] }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ worktreeOrder: {
 	project: string,
 	worktrees: string[],
-} }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
-/**  `None` returns the project to the default. */
-({ runDestination: {
+} }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ runDestination: {
 	project: string,
 	destination?: RunDestination | null,
-} }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | 
-/**  `None` returns the project to the default. */
-({ previewModel: {
+} }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ previewModel: {
 	project: string,
 	model?: RunDestination | null,
 } }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ previewPick: {
 	worktree: string,
 	pick: PreviewPick_Deserialize,
-} }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | 
-/**  A pick of all defaults returns the project to the default. */
-({ schemePick: {
+} }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ schemePick: {
 	project: string,
 	pick: SchemePick_Deserialize,
 } }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ schemeDefault: {
@@ -1386,10 +880,7 @@ export type StateChange_Deserialize = ({ selectedWorktree?: string | null }) & {
 	pick: SchemePick_Deserialize,
 } }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never };
 
-/**  One change the frontend saves. */
-export type StateChange_Serialize = ({ selectedWorktree: string | null }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ sidebarHidden: boolean }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ theme: Theme }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; worktreeOrder?: never } | ({ textPercent: number }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; theme?: never; worktreeOrder?: never } | ({ terminalFontSize: number }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ editorFontSize: number }) & { bottomPanel?: never; defaultHarness?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ muteNotifications: boolean }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ linksInDefaultBrowser: boolean }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ pushAfterCommit: boolean }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ defaultHarness: string }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ shortcuts: { [key in string]: Shortcut_Serialize | null } }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | 
-/**  `None` forgets the worktree's layouts. */
-({ panes: {
+export type StateChange_Serialize = ({ selectedWorktree: string | null }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ sidebarHidden: boolean }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ theme: Theme }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; worktreeOrder?: never } | ({ textPercent: number }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; theme?: never; worktreeOrder?: never } | ({ terminalFontSize: number }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ editorFontSize: number }) & { bottomPanel?: never; defaultHarness?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ muteNotifications: boolean }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ linksInDefaultBrowser: boolean }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ pushAfterCommit: boolean }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ defaultHarness: string }) & { bottomPanel?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ shortcuts: { [key in string]: Shortcut_Serialize | null } }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ panes: {
 	worktree: string,
 	panes: WorktreePanes_Serialize | null,
 } }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ sidePanel: {
@@ -1398,32 +889,22 @@ export type StateChange_Serialize = ({ selectedWorktree: string | null }) & { bo
 } }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ bottomPanel: {
 	worktree: string,
 	panel: BottomPanel_Serialize,
-} }) & { defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | 
-/**  `ids` are subgroup ids, or a group id for a group without subgroups; all are set in one save. */
-({ keptServices: {
+} }) & { defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ keptServices: {
 	ids: string[],
 	kept: boolean,
-} }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ screenshotFolder: string | null }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | 
-/**  The project paths in sidebar order; a project missing from it goes last. */
-({ projectOrder: string[] }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ worktreeOrder: {
+} }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ screenshotFolder: string | null }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ projectOrder: string[] }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ worktreeOrder: {
 	project: string,
 	worktrees: string[],
-} }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | 
-/**  `None` returns the project to the default. */
-({ runDestination: {
+} }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never } | ({ runDestination: {
 	project: string,
 	destination: RunDestination | null,
-} }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | 
-/**  `None` returns the project to the default. */
-({ previewModel: {
+} }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ previewModel: {
 	project: string,
 	model: RunDestination | null,
 } }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ previewPick: {
 	worktree: string,
 	pick: PreviewPick_Serialize,
-} }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | 
-/**  A pick of all defaults returns the project to the default. */
-({ schemePick: {
+} }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; schemePick?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ schemePick: {
 	project: string,
 	pick: SchemePick_Serialize,
 } }) & { bottomPanel?: never; defaultHarness?: never; editorFontSize?: never; keptServices?: never; linksInDefaultBrowser?: never; muteNotifications?: never; panes?: never; previewModel?: never; previewPick?: never; projectOrder?: never; pushAfterCommit?: never; runDestination?: never; schemeDefault?: never; screenshotFolder?: never; selectedWorktree?: never; shortcuts?: never; sidePanel?: never; sidebarHidden?: never; terminalFontSize?: never; textPercent?: never; theme?: never; worktreeOrder?: never } | ({ schemeDefault: {
@@ -1435,49 +916,27 @@ export type State_Deserialize = {
 	projects?: Project[],
 	sidebar?: Sidebar_Deserialize,
 	appearance?: Appearance_Deserialize,
-	/**  Keep the Mac awake while an agent runs. */
 	keepAwake?: boolean,
-	/**  No macOS notification for a done or waiting agent. */
 	muteNotifications?: boolean,
-	/**  Web links open in the default browser instead of a browser tab. */
 	linksInDefaultBrowser?: boolean,
-	/**  The last commit without Amend pushed after it, so Commit & Push is the mode the commit box opens with. */
 	pushAfterCommit?: boolean,
-	/**  Shortcuts the user changed, by command id. `None` means the command lost its key. */
 	shortcuts?: { [key in string]: Shortcut_Deserialize | null },
-	/**  The worktree open when the app last ran. */
 	selected?: string | null,
-	/**  Each worktree's tab groups and their split layout. */
 	panes?: { [key in string]: WorktreePanes_Deserialize },
-	/**  Each worktree's side panel: open or not, and its width. */
 	sidePanels?: { [key in string]: SidePanel_Deserialize },
-	/**  Each worktree's bottom panel: open or not, and its height. */
 	bottomPanels?: { [key in string]: BottomPanel_Deserialize },
-	/**  The panes whose agent was started and not stopped; they start again on launch. */
 	runningPanes?: string[],
-	/**  What each pane's agent runs: its harness and the session it last held. */
 	agents?: { [key in string]: PaneAgent_Deserialize },
-	/**  The harness the user picked for new panes; none until a pick. */
 	defaultHarness?: string | null,
-	/**  The models each harness listed when it last ran, by harness name, so the agent picker shows them while another harness runs. */
 	models?: { [key in string]: ModelOption_Deserialize[] },
-	/**  A project was added once, so a window without projects shows no welcome. A removal sets it too, for projects added before this flag existed. */
 	welcomed?: boolean,
-	/**  The switches of the simulator service subgroups, by subgroup id or group id: `true` keeps it on, `false` lets a boot switch it off. A group id covers the group's subgroups without a switch of their own; with neither, the group's default applies. */
 	keptServices?: { [key in string]: boolean },
-	/**  Each project's run destination; a project without one runs on the listing's fallback simulator. */
 	runDestinations?: { [key in string]: RunDestination },
-	/**  Each project's preview simulator model; a project without one previews on the listing's fallback simulator. */
 	previewModels?: { [key in string]: RunDestination },
-	/**  Each project's scheme and build configuration for ⌘R and ⌘B; a project without one builds the default scheme in its default configuration. */
 	schemePicks?: { [key in string]: SchemePick_Deserialize },
-	/**  The scheme and configuration each project builds without a pick, from its last listing, so the toolbar shows them while `xcodebuild -list` runs. */
 	schemeDefaults?: { [key in string]: SchemePick_Deserialize },
-	/**  The `#Preview` each worktree's Preview view shows. */
 	previewPicks?: { [key in string]: PreviewPick_Deserialize },
-	/**  Where the Simulator view's screenshots and recordings go; none puts them on the Desktop. */
 	screenshotFolder?: string | null,
-	/**  Each project's worktrees in the order the user dragged them to; the ones missing follow in git's order. */
 	worktreeOrder?: { [key in string]: string[] },
 };
 
@@ -1485,134 +944,78 @@ export type State_Serialize = {
 	projects: Project[],
 	sidebar: Sidebar_Serialize,
 	appearance: Appearance_Serialize,
-	/**  Keep the Mac awake while an agent runs. */
 	keepAwake: boolean,
-	/**  No macOS notification for a done or waiting agent. */
 	muteNotifications: boolean,
-	/**  Web links open in the default browser instead of a browser tab. */
 	linksInDefaultBrowser: boolean,
-	/**  The last commit without Amend pushed after it, so Commit & Push is the mode the commit box opens with. */
 	pushAfterCommit: boolean,
-	/**  Shortcuts the user changed, by command id. `None` means the command lost its key. */
 	shortcuts: { [key in string]: Shortcut_Serialize | null },
-	/**  The worktree open when the app last ran. */
 	selected: string | null,
-	/**  Each worktree's tab groups and their split layout. */
 	panes: { [key in string]: WorktreePanes_Serialize },
-	/**  Each worktree's side panel: open or not, and its width. */
 	sidePanels: { [key in string]: SidePanel_Serialize },
-	/**  Each worktree's bottom panel: open or not, and its height. */
 	bottomPanels: { [key in string]: BottomPanel_Serialize },
-	/**  The panes whose agent was started and not stopped; they start again on launch. */
 	runningPanes: string[],
-	/**  What each pane's agent runs: its harness and the session it last held. */
 	agents: { [key in string]: PaneAgent_Serialize },
-	/**  The harness the user picked for new panes; none until a pick. */
 	defaultHarness: string | null,
-	/**  The models each harness listed when it last ran, by harness name, so the agent picker shows them while another harness runs. */
 	models: { [key in string]: ModelOption_Serialize[] },
-	/**  A project was added once, so a window without projects shows no welcome. A removal sets it too, for projects added before this flag existed. */
 	welcomed: boolean,
-	/**  The switches of the simulator service subgroups, by subgroup id or group id: `true` keeps it on, `false` lets a boot switch it off. A group id covers the group's subgroups without a switch of their own; with neither, the group's default applies. */
 	keptServices: { [key in string]: boolean },
-	/**  Each project's run destination; a project without one runs on the listing's fallback simulator. */
 	runDestinations: { [key in string]: RunDestination },
-	/**  Each project's preview simulator model; a project without one previews on the listing's fallback simulator. */
 	previewModels: { [key in string]: RunDestination },
-	/**  Each project's scheme and build configuration for ⌘R and ⌘B; a project without one builds the default scheme in its default configuration. */
 	schemePicks: { [key in string]: SchemePick_Serialize },
-	/**  The scheme and configuration each project builds without a pick, from its last listing, so the toolbar shows them while `xcodebuild -list` runs. */
 	schemeDefaults: { [key in string]: SchemePick_Serialize },
-	/**  The `#Preview` each worktree's Preview view shows. */
 	previewPicks: { [key in string]: PreviewPick_Serialize },
-	/**  Where the Simulator view's screenshots and recordings go; none puts them on the Desktop. */
 	screenshotFolder: string | null,
-	/**  Each project's worktrees in the order the user dragged them to; the ones missing follow in git's order. */
 	worktreeOrder: { [key in string]: string[] },
 };
 
 export type Status = Status_Serialize | Status_Deserialize;
 
-export type Status_Deserialize = { kind: "running" } | 
-/**  A dialog is open, or the last message ends with a question. */
-{ kind: "waiting" } | { kind: "done" } | { kind: "error" } | { kind: "exited"; code?: number | null };
+export type Status_Deserialize = { kind: "running" } | { kind: "waiting" } | { kind: "done" } | { kind: "error" } | { kind: "exited"; code?: number | null };
 
-export type Status_Serialize = { kind: "running" } | 
-/**  A dialog is open, or the last message ends with a question. */
-{ kind: "waiting" } | { kind: "done" } | { kind: "error" } | { kind: "exited"; code: number | null };
+export type Status_Serialize = { kind: "running" } | { kind: "waiting" } | { kind: "done" } | { kind: "error" } | { kind: "exited"; code: number | null };
 
-/**  One row of the subagent lineage: a background run, or a step or agent inside it; `depth` is 0 for a run, 1 for what it holds, and so on. */
 export type SubagentNode = SubagentNode_Serialize | SubagentNode_Deserialize;
 
-/**  One row of the subagent lineage: a background run, or a step or agent inside it; `depth` is 0 for a run, 1 for what it holds, and so on. */
 export type SubagentNode_Deserialize = {
 	id: string,
 	depth: number,
 	name: string,
 	state: SubagentState,
-	/**  The tool it runs right now. */
 	tool?: string | null,
-	/**  Epoch milliseconds. */
 	started_at?: number | null,
-	/**  Epoch milliseconds, set once it ended. */
 	ended_at?: number | null,
 };
 
-/**  One row of the subagent lineage: a background run, or a step or agent inside it; `depth` is 0 for a run, 1 for what it holds, and so on. */
 export type SubagentNode_Serialize = {
 	id: string,
 	depth: number,
 	name: string,
 	state: SubagentState,
-	/**  The tool it runs right now. */
 	tool: string | null,
-	/**  Epoch milliseconds. */
 	started_at: number | null,
-	/**  Epoch milliseconds, set once it ended. */
 	ended_at: number | null,
 };
 
 export type SubagentState = "running" | "done" | "error";
 
-/**  One subgroup of Settings' Simulators section with the state of its switch. */
 export type SubgroupRow = {
 	id: string,
 	name: string,
 	effect: string,
 	memoryMb: number,
-	/**  The user's switch for it, else the switch of its group, else the group's default. */
 	kept: boolean,
 };
 
 export type Tab = Tab_Serialize | Tab_Deserialize;
 
-export type Tab_Deserialize = 
-/**  A chat with its agent; `name` shows until its first user message names it. */
-{ kind: "chat"; id: string; name: string } | 
-/**  A file of the worktree, by its relative path; a `preview` tab gives its place to the next file opened in its group. */
-{ kind: "file"; id: string; path: string; preview?: boolean; 
-/**  Shows the file's diff instead of the file, read-only. */
-diff?: DiffSide | null } | 
-/**  A web page in the window's own browser; `title` is the page's last title. */
-{ kind: "browser"; id: string; url: string; title?: string };
+export type Tab_Deserialize = { kind: "chat"; id: string; name: string } | { kind: "file"; id: string; path: string; preview?: boolean; diff?: DiffSide | null } | { kind: "browser"; id: string; url: string; title?: string };
 
-export type Tab_Serialize = 
-/**  A chat with its agent; `name` shows until its first user message names it. */
-{ kind: "chat"; id: string; name: string } | 
-/**  A file of the worktree, by its relative path; a `preview` tab gives its place to the next file opened in its group. */
-{ kind: "file"; id: string; path: string; preview: boolean; 
-/**  Shows the file's diff instead of the file, read-only. */
-diff?: DiffSide } | 
-/**  A web page in the window's own browser; `title` is the page's last title. */
-{ kind: "browser"; id: string; url: string; title: string };
+export type Tab_Serialize = { kind: "chat"; id: string; name: string } | { kind: "file"; id: string; path: string; preview: boolean; diff?: DiffSide } | { kind: "browser"; id: string; url: string; title: string };
 
-export type TerminalEvent = { kind: "output"; text: string } | 
-/**  The shell ended, on its own or stopped; a shell a newer start replaced sends nothing. */
-{ kind: "exited" };
+export type TerminalEvent = { kind: "output"; text: string } | { kind: "exited" };
 
 export type Theme = "system" | "light" | "dark";
 
-/**  `text` at its box, cut to `clip`, the part of the pill it shows in. */
 export type Timer = {
 	text: string,
 	x: number | null,
@@ -1626,16 +1029,13 @@ export type ToolOutcome = "done" | "failed" | "stopped";
 
 export type TouchPhase = "down" | "move" | "up";
 
-/**  One subscription usage window: its label, e.g. "5h 42%", and when it resets, in ms since the epoch; none when the harness does not say. */
 export type UsageWindow = UsageWindow_Serialize | UsageWindow_Deserialize;
 
-/**  One subscription usage window: its label, e.g. "5h 42%", and when it resets, in ms since the epoch; none when the harness does not say. */
 export type UsageWindow_Deserialize = {
 	label: string,
 	resets_at?: number | null,
 };
 
-/**  One subscription usage window: its label, e.g. "5h 42%", and when it resets, in ms since the epoch; none when the harness does not say. */
 export type UsageWindow_Serialize = {
 	label: string,
 	resets_at: number | null,
@@ -1647,31 +1047,25 @@ export type WorktreePanes = WorktreePanes_Serialize | WorktreePanes_Deserialize;
 
 export type WorktreePanes_Deserialize = {
 	layout: Layout_Deserialize,
-	/**  The id of the tab that has the focus: the open tab of one group. */
 	focused: string,
 };
 
 export type WorktreePanes_Serialize = {
 	layout: Layout_Serialize,
-	/**  The id of the tab that has the focus: the open tab of one group. */
 	focused: string,
 };
 
 export type Worktree_Deserialize = {
 	path: string,
 	branch?: string | null,
-	/**  The folder holds an Xcode project or workspace. */
 	xcode: boolean,
-	/**  False for a plain folder outside any git repository: its project's only card. */
 	git: boolean,
 };
 
 export type Worktree_Serialize = {
 	path: string,
 	branch: string | null,
-	/**  The folder holds an Xcode project or workspace. */
 	xcode: boolean,
-	/**  False for a plain folder outside any git repository: its project's only card. */
 	git: boolean,
 };
 

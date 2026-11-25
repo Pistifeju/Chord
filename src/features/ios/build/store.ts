@@ -1,4 +1,3 @@
-// Connects the build rules to IPC: each worktree's build, run and log, started and stopped, the bottom panel's Build and Console views, and the Simulator view a run opens.
 import { Channel } from "@tauri-apps/api/core";
 import { commands, events, type BuildEvent_Deserialize } from "../../../ipc/bindings";
 import { externalStore } from "../../../ui/externalStore";
@@ -12,16 +11,12 @@ import { emptyConsole, type ConsoleLine } from "./consoleLog";
 import { appendToLog, emptyLog, type Log } from "./log";
 import { appliedEvent, appliedSideEvent, isRunning, noBuild, seenEnd, viewAfterEvent, viewToShow, type Build, type BuildAndLog } from "./run";
 
-/** How long a success or a stop shows on the card of the open worktree; another worktree's shows until the user goes to it. */
 const END_MARKER_MS = 5000;
 
 export const builds = externalStore<Record<string, Build>>({});
-/** Apart from the builds, since the log changes every 100 ms while the rest changes a few times per build. */
 export const buildLogs = externalStore<Record<string, Log>>({});
-/** The running app's output, apart from the builds for the same reason. */
 export const consoles = externalStore<Record<string, ConsoleLine[]>>({});
 
-/** The newest build's number per worktree: a replaced build's late events are ignored. */
 const latest = new Map<string, number>();
 
 function apply(worktree: string, update: (state: BuildAndLog) => BuildAndLog) {
@@ -39,13 +34,11 @@ function apply(worktree: string, update: (state: BuildAndLog) => BuildAndLog) {
 
 const seeEnd = (worktree: string) => apply(worktree, (state) => (state.build ? { ...state, build: seenEnd(state.build) } : state));
 
-// Going to a worktree shows the user its success or stop.
 projects.subscribe(() => {
   const { selected } = projects.get();
   if (selected) seeEnd(selected);
 });
 
-/** The newest build's number beside the running app: a ⌘B that leaves the app. */
 const latestSide = new Map<string, number>();
 
 function startBuildBesideApp(worktree: string, agentRequest: number | null) {
@@ -61,7 +54,6 @@ function startBuildBesideApp(worktree: string, agentRequest: number | null) {
   commands.startBuild(worktree, false, runDestinationOf(worktree), schemePickOf(worktree), agentRequest, channel).catch(fail);
 }
 
-/** `agentRequest` is the agent's tool call the build answers. */
 export function startBuild(worktree: string, run: boolean, agentRequest: number | null = null) {
   if (!run && isRunning(builds.get()[worktree])) return startBuildBesideApp(worktree, agentRequest);
   latestSide.delete(worktree);
@@ -78,15 +70,12 @@ export function startBuild(worktree: string, run: boolean, agentRequest: number 
     if (next !== view) changeBottomPanel(worktree, { view: next });
     if (event.kind === "succeeded" || event.kind === "stopped") setTimeout(() => current() && projects.get().selected === worktree && seeEnd(worktree), END_MARKER_MS);
   };
-  // The log shows beside the terminal, and alone while the terminal is hidden.
   changeBottomPanel(worktree, { view: "build" });
   const destination = runDestinationOf(worktree);
-  // An agent's run goes to the worktree's simulator, never to the user's device.
   const target = agentRequest !== null && run && destination?.kind === "device" ? null : destination;
   commands.startBuild(worktree, run, target, schemePickOf(worktree), agentRequest, channel).catch(fail);
 }
 
-/** ⌘R and the play button: a run on a simulator shows it in the Simulator view. */
 export function runApp(worktree: string) {
   if (runDestinationOf(worktree)?.kind !== "device") openSideView(worktree, "simulator");
   startBuild(worktree, true);
@@ -94,7 +83,6 @@ export function runApp(worktree: string) {
 
 export function watchAgentBuilds(): () => void {
   const unlisten = events.agentBuildRequested.listen(({ payload }) => {
-    // An agent runs only when the user asks, and its run always goes to the worktree's simulator.
     if (payload.run) openSideView(payload.worktree, "simulator");
     startBuild(payload.worktree, payload.run, payload.request);
   });
@@ -103,7 +91,6 @@ export function watchAgentBuilds(): () => void {
 
 export const stopBuild = (worktree: string) => commands.stopBuild(worktree).catch(fail);
 
-/** ⌘⇧K: the stopped build's late events are ignored, so the card clears and the log shows only the clean. */
 export function cleanBuild(worktree: string) {
   latest.set(worktree, (latest.get(worktree) ?? 0) + 1);
   latestSide.delete(worktree);
@@ -115,7 +102,6 @@ export function cleanBuild(worktree: string) {
     .catch(fail);
 }
 
-/** The toolbar's error count: the log half on Build. */
 export const showBuildLog = (worktree: string) => changeBottomPanel(worktree, { view: "build" });
 
 export function toggleLogView(worktree: string) {

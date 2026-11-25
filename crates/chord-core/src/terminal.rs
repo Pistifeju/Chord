@@ -1,5 +1,3 @@
-//! The worktrees' terminals: one login shell per worktree on a pseudo-terminal, its output handed out as text, its input and size taken in.
-
 use crate::lock;
 use std::collections::HashMap;
 use std::fs::File;
@@ -21,19 +19,14 @@ use crate::Error;
 #[derive(Serialize, Type, Debug, Clone, PartialEq)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum TerminalEvent {
-    Output {
-        text: String,
-    },
-    /// The shell ended, on its own or stopped; a shell a newer start replaced sends nothing.
+    Output { text: String },
     Exited,
 }
 
 struct Shell {
     id: u64,
     master: File,
-    /// The shell's pid, which is also its process group's id.
     pid: i32,
-    /// Set once the shell ended and was reaped.
     ended: Arc<AtomicBool>,
 }
 
@@ -45,7 +38,6 @@ impl Shell {
     }
 }
 
-// The shells get the hangup a closed terminal window sends, so they pass it on to their jobs; a shell that ignores it is killed after a second.
 fn end(shells: impl IntoIterator<Item = Shell>) {
     let shells: Vec<Shell> = shells.into_iter().collect();
     shells.iter().for_each(|shell| shell.signal(libc::SIGHUP));
@@ -65,7 +57,6 @@ pub struct Terminals {
 }
 
 impl Terminals {
-    /// Starts the user's `$SHELL` as a login shell in the worktree, replacing a shell it already had.
     pub fn start(
         &self,
         worktree: PathBuf,
@@ -84,7 +75,6 @@ impl Terminals {
             .current_dir(&worktree)
             .env("TERM", "xterm-256color")
             .env("COLORTERM", "truecolor");
-        // An app started from the Dock has no locale, and a shell without one garbles UTF-8.
         if ["LANG", "LC_ALL", "LC_CTYPE"]
             .iter()
             .all(|name| std::env::var_os(name).is_none())
@@ -126,7 +116,6 @@ impl Terminals {
         thread::spawn(move || {
             let mut buffer = vec![0; 64 * 1024];
             let mut pending = Vec::new();
-            // A job the shell left running can hold the pty open forever, so reading stops once the shell ended and its output is drained.
             while has_output(&reader, &ended) {
                 match reader.read(&mut buffer) {
                     Ok(0) => break,
@@ -138,7 +127,6 @@ impl Terminals {
                         }
                     }
                     Err(error) if error.kind() == ErrorKind::Interrupted => {}
-                    // The pty answers EIO once the shell and everything it started closed it.
                     Err(_) => break,
                 }
             }
@@ -154,7 +142,6 @@ impl Terminals {
     }
 
     pub fn write(&self, worktree: &Path, text: &str) -> Result<(), Error> {
-        // A shell that stops reading must not hold the other worktrees' shells.
         let mut master = self.master(worktree)?;
         master.write_all(text.as_bytes())?;
         Ok(())
@@ -169,13 +156,11 @@ impl Terminals {
         Ok(())
     }
 
-    /// Ends the worktree's shell; returns within a second.
     pub fn stop(&self, worktree: &Path) {
         let stopped = lock(&self.shells).remove(worktree);
         end(stopped);
     }
 
-    /// Ends every shell; returns within a second.
     pub fn stop_all(&self) {
         let stopped = std::mem::take(&mut *lock(&self.shells));
         end(stopped.into_values());
@@ -190,7 +175,6 @@ impl Terminals {
     }
 }
 
-/// Waits until the pty has output; false once the shell ended and nothing is left to read.
 fn has_output(reader: &File, ended: &AtomicBool) -> bool {
     loop {
         let shell_ended = ended.load(Ordering::SeqCst);
@@ -204,7 +188,6 @@ fn has_output(reader: &File, ended: &AtomicBool) -> bool {
             0 if shell_ended => return false,
             0 => {}
             -1 if io::Error::last_os_error().kind() == ErrorKind::Interrupted => {}
-            // Readable, hung up or failed: the read tells which.
             _ => return true,
         }
     }
@@ -219,7 +202,6 @@ fn window_size(cols: u16, rows: u16) -> libc::winsize {
     }
 }
 
-/// A terminal's controlling end and the end a process writes to, both closed on exec.
 pub fn open_pty(cols: u16, rows: u16) -> Result<(File, OwnedFd), Error> {
     let (mut master, mut slave) = (0, 0);
     let mut size = window_size(cols, rows);
@@ -236,16 +218,13 @@ pub fn open_pty(cols: u16, rows: u16) -> Result<(File, OwnedFd), Error> {
         return Err(io::Error::last_os_error().into());
     }
     let (master, slave) = unsafe { (File::from_raw_fd(master), OwnedFd::from_raw_fd(slave)) };
-    // No other process Chord starts may hold the shell's terminal open.
     for fd in [master.as_raw_fd(), slave.as_raw_fd()] {
         unsafe { libc::fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC) };
     }
     Ok((master, slave))
 }
 
-/// The text the bytes hold; a character split across two reads waits in `pending` for its rest.
 fn take_text(pending: &mut Vec<u8>) -> String {
-    // Valid text, the usual read, moves into the string without a second check or a copy.
     let error = match String::from_utf8(std::mem::take(pending)) {
         Ok(text) => return text,
         Err(error) => error,

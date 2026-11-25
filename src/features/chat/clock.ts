@@ -1,4 +1,3 @@
-// The clock that re-renders a line each second while its time runs.
 import { useEffect, useState } from "react";
 
 export function useClock(ticking: boolean): number {

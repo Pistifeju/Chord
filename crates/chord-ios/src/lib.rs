@@ -1,5 +1,3 @@
-//! Chord's iOS support: building a worktree's Xcode project, running it on the worktree's simulator or a connected device, and showing its SwiftUI preview on the worktree's preview simulator. Depends on `chord-core`, never on Tauri.
-
 mod agent_reply;
 mod agent_tools;
 mod appearance;

@@ -1,5 +1,3 @@
-//! Commands for a worktree's changes: list the changed files, read the branch's commits and files against a base, list a commit's files and the bases to pick from, read one file's diff, stage, unstage and discard files and hunks, commit the staged files or amend the last commit, read who commits and where a push goes, push the branch, fetch its remote, pull it, merge another branch into it, and list, make, apply, pop and drop the repository's stashes and list a stash's files.
-
 use std::path::PathBuf;
 
 use chord_core::{

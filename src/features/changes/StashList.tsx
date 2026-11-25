@@ -1,4 +1,3 @@
-// The Changes view's Stashes group under Changes: a heading that opens and closes it, then the repository's stashes, newest first, each with its message, branch and age, opening to the files it holds; a click on one opens its diff, and a stash's right-click menu holds Apply, Pop and Drop.
 import type { KeyboardEvent } from "react";
 import { showMenu } from "../../app/commands";
 import { ChevronIcon } from "../../ui/icons";
@@ -12,7 +11,6 @@ export function StashList({ worktree, selected }: { worktree: string; selected: 
   const files = commitFiles.use();
   const [open, toggle] = useOpenCommits((hash) => void readStashFiles(worktree, hash));
   if (!list?.length) return null;
-  // → opens and ← closes the group on its heading, a stash on its row.
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
     const item = e.target as HTMLElement;

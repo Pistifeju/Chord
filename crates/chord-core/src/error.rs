@@ -1,5 +1,3 @@
-//! The one error type core functions return.
-
 use std::fmt;
 
 #[derive(Debug)]
@@ -20,7 +18,6 @@ impl fmt::Display for Error {
 }
 
 impl Error {
-    /// A tool that did not start: missing from the PATH, with its install step, or failed for another reason.
     pub fn start_failed(tool: &str, install: &str, error: std::io::Error) -> Error {
         match error.kind() {
             std::io::ErrorKind::NotFound => Error::MissingTool {

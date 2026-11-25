@@ -1,4 +1,3 @@
-// The Preview view in the side panel, or its centered line in a worktree without a `#Preview`: the worktree's preview simulator screen under its header, the preview model's menu and the line while a rebuild runs, beside the worktree's `#Preview` list on the panel's outer edge, as a Files tree that ↑ and ↓ step through, with a filter from five previews, and the compile error's bar, with the Simulator view's screen, bezel, input and Screenshot button, or the line that stands in for it. Also its toolbar button.
 import { Menu } from "@tauri-apps/api/menu";
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import { tooltip } from "../../../app/commands";
@@ -82,7 +81,6 @@ export function PreviewView({ worktree }: { worktree: string }) {
     return () => closePreview(worktree, number);
   }, [worktree, model, picked]);
   const modelMenu = async () => Menu.new({ items: await simulatorItems(model, (chosen) => choosePreviewModel(worktree, chosen)) });
-  // The first list read decides between the screen and the line, so neither flashes.
   if (count === null) return <div className="preview" />;
   if (count === 0)
     return (
@@ -128,7 +126,6 @@ export function PreviewView({ worktree }: { worktree: string }) {
   );
 }
 
-// Focusing a preview's row shows it. ↑ and ↓ show the next preview from a row or the filter field, past file rows, and ⌥ jumps a file.
 function PreviewList({ worktree }: { worktree: string }) {
   const all = previewLists.usePart((lists) => lists[worktree] ?? null);
   const pick = previewPicks.usePart((picks) => picks[worktree] ?? null);
@@ -151,7 +148,6 @@ function PreviewList({ worktree }: { worktree: string }) {
         if (!next) return;
         if (list.current) list.current.dataset.keys = "";
         const element = list.current?.querySelector<HTMLElement>(`[data-path="${CSS.escape(previewKey(next))}"]`);
-        // A row hands the focus on, which shows the preview; the field keeps it, so typing goes on.
         if (row !== undefined) element?.focus();
         else {
           element?.scrollIntoView({ block: "nearest" });
@@ -203,7 +199,6 @@ function ListRow({ row, selected, onToggle, onPick }: { row: PreviewRow; selecte
       aria-level={depth + 1}
       aria-expanded={pick ? undefined : open}
       aria-selected={selected}
-      // WebKit does not focus a clicked button and blurs it after mousedown, and the focus is what shows a preview.
       onMouseDown={(event) => {
         event.preventDefault();
         event.currentTarget.focus();

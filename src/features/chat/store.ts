@@ -1,4 +1,3 @@
-// Connects the transcript rules to IPC: one chat per pane, started, fed by the agent's events, stopped.
 import { Channel } from "@tauri-apps/api/core";
 import { commands, type DialogAnswer, type HarnessEvent, type Image, type ModelOption, type ModelPick, type PaneAgent } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
@@ -15,21 +14,17 @@ import { emptyChat, withSteerImages, type Chat } from "./transcript";
 
 export const chats = externalStore<Record<string, Chat>>({});
 
-/** The name of each listed pane's agent session; a component re-renders only when one changes. */
 export const usePaneNames = (panes: string[]): PaneNames => JSON.parse(chats.usePart((all) => JSON.stringify(paneNames(all, panes))));
 
-// A pane without a harness takes the default at its first start.
 export const paneHarnesses = externalStore<Record<string, string>>({});
 
 export const loadPaneHarnesses = (agents: Record<string, PaneAgent>) =>
   paneHarnesses.set(Object.fromEntries(Object.entries(agents).flatMap(([pane, agent]) => (agent.harness ? [[pane, agent.harness]] : []))));
 
-// The models each harness listed when it last ran, so the agent picker shows them while another harness runs.
 export const modelCatalogs = externalStore<Record<string, ModelOption[]>>({});
 
 export const loadModelCatalogs = (models: Record<string, ModelOption[]>) => modelCatalogs.set(models);
 
-/** Reads every harness's models in the background at launch, so the agent menu lists them before any of them runs. */
 export function refreshModelCatalogs() {
   commands
     .refreshModels()
@@ -39,35 +34,29 @@ export function refreshModelCatalogs() {
 
 export const chatOf = (all: Record<string, Chat>, pane: string): Chat => all[pane] ?? emptyChat;
 
-// An event that leaves the chat as it was wakes no view.
 function update(pane: string, change: (chat: Chat) => Chat) {
   const before = chatOf(chats.get(), pane);
   const after = change(before);
   if (after !== before) chats.set({ ...chats.get(), [pane]: after });
 }
 
-// The unsent composer text of each pane, so it survives a split and a worktree switch.
 export const drafts = externalStore<Record<string, string>>({});
 
 export const setDraft = (pane: string, text: string) => drafts.set({ ...drafts.get(), [pane]: text });
 
-/** Adds a file's relative path to the end of a pane's draft, a space apart from the text before it and after it. */
 export function addPathToDraft(pane: string, path: string) {
   const draft = drafts.get()[pane] ?? "";
   setDraft(pane, `${draft}${draft && !/\s$/.test(draft) ? " " : ""}${path} `);
 }
 
-// The pane whose composer a file dragged from the Files tree is over.
 export const pathDropPane = externalStore<string | null>(null);
 
-// The draft each pane's slash menu was closed on with Esc; it stays closed until the draft changes.
 export const slashClosed = externalStore<Record<string, string>>({});
 
 export const closeSlash = (pane: string, draft: string) => slashClosed.set({ ...slashClosed.get(), [pane]: draft });
 
 const intake = intakes();
 
-// What each harness's last new session opened with, and the harness the last new pane took as the default.
 const openings = new Map<string, Opening>();
 let defaultHarness: string | null = null;
 
@@ -103,7 +92,6 @@ function received(pane: string, start: number, event: HarnessEvent) {
   rememberOpening(pane);
 }
 
-// Resolves once the agent's history has arrived, or the start failed. `switchTo` starts another harness on a new session, at the model `pick`.
 export async function startChat(worktree: string, pane: string, switchTo: string | null = null, pick: ModelPick | null = null) {
   if (chatOf(chats.get(), pane).agent !== "idle") return;
   let loaded = () => {};
@@ -111,11 +99,9 @@ export async function startChat(worktree: string, pane: string, switchTo: string
   const start = intake.begin(pane, loaded);
   const channel = new Channel<HarnessEvent>();
   channel.onmessage = (event) => received(pane, start, event);
-  // A pane's first start opens a new session, which shows its harness's last opening until the agent answers.
   const fresh = switchTo !== null || !(pane in paneHarnesses.get());
   const expected = switchTo ?? defaultHarness;
   const previous = paneHarnesses.get()[pane];
-  // The expected harness's logo shows while the agent starts, so the agent button keeps its width.
   if (fresh && expected) paneHarnesses.set({ ...paneHarnesses.get(), [pane]: expected });
   update(pane, (chat) => ({ ...chat, agent: "starting", loading: true, notice: null, report: null, commands: [], ...(fresh && opened(expected, pick)) }));
   try {
@@ -123,7 +109,6 @@ export async function startChat(worktree: string, pane: string, switchTo: string
     if (fresh && switchTo === null) defaultHarness = harness;
     if (fresh && harness !== expected) update(pane, (chat) => ({ ...chat, ...opened(harness, pick) }));
     paneHarnesses.set({ ...paneHarnesses.get(), [pane]: harness });
-    // The pane closed while its agent started, so the stop came first and missed it.
     if (!intake.has(pane)) commands.stopChat(pane).catch(console.error);
     if (intake.latest(pane, start)) update(pane, (chat) => (chat.agent === "starting" ? { ...chat, agent: "ready", capabilities } : chat));
   } catch (error) {
@@ -137,7 +122,6 @@ export async function startChat(worktree: string, pane: string, switchTo: string
   return history;
 }
 
-// The images waiting in each pane's composer.
 export const attachments = externalStore<Record<string, Attachment[]>>({});
 
 let attachmentCount = 0;
@@ -149,12 +133,10 @@ export const removeAttachment = (pane: string, id: number) => attachments.set({ 
 
 const noticeOf = (pane: string, error: unknown) => update(pane, (chat) => ({ ...chat, notice: String(error) }));
 
-/** Attachments need the capability and an agent that is not idle; one still starting takes them. */
 export const takesAttachments = (chat: Chat) => chat.capabilities?.includes("attachments") === true && chat.agent !== "idle";
 
 export const focusComposer = (pane: string) => document.querySelector<HTMLElement>(`[data-pane="${CSS.escape(pane)}"] .chat-input`)?.focus();
 
-// A file that is not an image is skipped.
 export async function attachFiles(pane: string, paths: string[]) {
   for (const path of paths) {
     const mime = imageMime(path);
@@ -175,7 +157,6 @@ export async function pickAttachments(pane: string) {
   }
 }
 
-// A pasted screenshot arrives as a file with a generic name.
 export function attachPasted(pane: string, file: File) {
   const reader = new FileReader();
   reader.onload = () => {
@@ -186,7 +167,6 @@ export function attachPasted(pane: string, file: File) {
   reader.readAsDataURL(file);
 }
 
-// The waiting images leave the composer once the harness took them; a session command leaves them for the next message, and a failed send keeps them and puts the text back in an empty draft. A chat that loads holds the message.
 export function sendMessage(pane: string, text: string) {
   if (chatOf(chats.get(), pane).loading) return update(pane, (chat) => ({ ...chat, held: text, notice: null }));
   const sent = attachments.get()[pane] ?? [];
@@ -206,18 +186,15 @@ export function sendMessage(pane: string, text: string) {
     });
 }
 
-// The dialog closes at once; a refused answer shows as a notice.
 export function answerDialog(pane: string, id: string, answer: DialogAnswer) {
   update(pane, (chat) => (chat.dialog?.id === id ? { ...chat, dialog: null } : chat));
   commands.answerDialog(pane, id, answer).catch((error) => noticeOf(pane, error));
 }
 
-// A refusal shows as a notice; the harness reports the model that took hold.
 export function pickModel(pane: string, id: string, level: string | null) {
   commands.pickModel(pane, id, level).catch((error) => noticeOf(pane, error));
 }
 
-// The picker opens as a dialog; a refusal shows as a notice.
 export function openPicker(pane: string, command: "/model" | "/thinking" | "/permissions") {
   commands.sendMessage(pane, command, []).catch((error) => noticeOf(pane, error));
 }
@@ -226,7 +203,6 @@ export function abortRun(pane: string) {
   commands.abortRun(pane).catch(console.error);
 }
 
-// The pane is gone: its agent stops and its transcript and draft go.
 export function forgetChat(pane: string) {
   intake.end(pane);
   const { [pane]: gone, ...rest } = chats.get();

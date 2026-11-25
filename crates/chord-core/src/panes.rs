@@ -1,5 +1,3 @@
-//! A worktree's tab groups and their split layout, in the shape the state file saves.
-
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
@@ -7,7 +5,6 @@ use specta::Type;
 #[serde(rename_all = "camelCase")]
 pub struct WorktreePanes {
     pub layout: Layout,
-    /// The id of the tab that has the focus: the open tab of one group.
     pub focused: String,
 }
 
@@ -20,7 +17,6 @@ impl WorktreePanes {
 #[derive(Serialize, Deserialize, Type, Clone, Debug, PartialEq)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Layout {
-    /// Tabs that share one place, each with its own tab in the group's bar; `active` shows.
     Group {
         id: String,
         tabs: Vec<Tab>,
@@ -28,7 +24,6 @@ pub enum Layout {
     },
     Split {
         direction: Direction,
-        /// Each child's share of the split; they add up to 1.
         sizes: Vec<f64>,
         children: Vec<Layout>,
     },
@@ -46,19 +41,18 @@ impl Layout {
 #[derive(Serialize, Deserialize, Type, Clone, Debug, PartialEq)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Tab {
-    /// A chat with its agent; `name` shows until its first user message names it.
-    Chat { id: String, name: String },
-    /// A file of the worktree, by its relative path; a `preview` tab gives its place to the next file opened in its group.
+    Chat {
+        id: String,
+        name: String,
+    },
     File {
         id: String,
         path: String,
         #[serde(default)]
         preview: bool,
-        /// Shows the file's diff instead of the file, read-only.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         diff: Option<DiffSide>,
     },
-    /// A web page in the window's own browser; `title` is the page's last title.
     Browser {
         id: String,
         url: String,
@@ -75,27 +69,19 @@ impl Tab {
     }
 }
 
-/// Which diff of a file a tab shows.
 #[derive(Serialize, Deserialize, Type, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub enum DiffSide {
-    /// The index against HEAD.
     Staged,
-    /// The file on disk against the index.
     Unstaged,
-    /// HEAD against its merge base with this base branch.
     Branch(String),
-    /// This commit against its first parent.
     Commit(String),
-    /// This stash, by its commit, against the commit it was made on; an untracked file against nothing.
     Stash(String),
 }
 
 #[derive(Serialize, Deserialize, Type, Clone, Copy, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub enum Direction {
-    /// Children sit side by side.
     Row,
-    /// Children sit one above the other.
     Column,
 }

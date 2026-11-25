@@ -1,7 +1,5 @@
-// The matches of a find query in the text a transcript shows, and their painting with the CSS highlight API.
 const BLOCK = "p,li,h1,h2,h3,h4,h5,h6,td,th,pre,div,blockquote";
 
-// Matches ignore case and may cross inline marks (bold, link, code) but not blocks.
 export function matchesIn(root: Element, query: string): Range[] {
   if (!query) return [];
   const needle = query.toLowerCase();
@@ -51,7 +49,6 @@ function repaint() {
   CSS.highlights.set("find-current", new Highlight(...current));
 }
 
-// Panes share the two highlight names, so each pane's ranges are kept apart and painted together.
 export function paintFind(pane: string, all: Range[], current: Range | undefined) {
   painted.set(pane, { all, current });
   repaint();

@@ -1,4 +1,3 @@
-// Top-center toast in the title bar row: a notice closes after 4 seconds, a failure stays until its close button.
 import { useEffect } from "react";
 import { CloseIcon, WarningIcon } from "./icons";
 

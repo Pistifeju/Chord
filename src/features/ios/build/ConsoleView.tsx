@@ -1,4 +1,3 @@
-// The Console view in the bottom panel: the running app's output, a line in the tone it came with.
 import { useMemo } from "react";
 import { LogView } from "./LogView";
 import { closeConsoleFind, consoleFinds, setConsoleFindQuery } from "./find";

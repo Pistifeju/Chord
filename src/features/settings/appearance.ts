@@ -1,4 +1,3 @@
-// Rules for the text size and the terminal and editor font size steps and which theme the window shows.
 import type { Theme } from "../../ipc/bindings";
 
 export const defaultTextPercent = 100;

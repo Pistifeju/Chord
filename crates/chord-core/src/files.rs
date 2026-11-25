@@ -1,5 +1,3 @@
-//! A worktree's files on disk: one folder's entries for the Files view, without `.git`, every file git does not ignore for Open File by Name, or in a plain folder every file outside hidden and build folders, a text file's read and write for the editor, a file's change time for the image view, and the tree's create, rename, trash and reveal.
-
 use std::cmp::Ordering;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
@@ -12,14 +10,11 @@ use crate::Error;
 #[derive(Serialize, Type, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct FileEntry {
-    /// What the row shows: a chain of single-child folders reads as one name, `src/app/views`.
     pub name: String,
-    /// Relative to the worktree, `/`-separated; for a chain, the deepest folder's.
     pub path: String,
     pub is_dir: bool,
 }
 
-/// The entries of `folder` (relative to `root`, empty for the root): folders first, in natural order.
 pub fn list(root: &Path, folder: &str) -> Result<Vec<FileEntry>, Error> {
     let mut entries = Vec::new();
     for entry in fs::read_dir(inside(root, folder)?)? {
@@ -53,7 +48,6 @@ pub fn list(root: &Path, folder: &str) -> Result<Vec<FileEntry>, Error> {
     Ok(entries)
 }
 
-/// Every file under `root` that git tracks or does not ignore, relative and `/`-separated, in git's order; a tracked file gone from disk is left out.
 pub fn all(root: &Path) -> Result<Vec<String>, Error> {
     if !crate::git::in_repository(root) {
         return Ok(walk(root));
@@ -76,12 +70,9 @@ pub fn all(root: &Path) -> Result<Vec<String>, Error> {
         .collect())
 }
 
-// A plain folder has no .gitignore, so these stand in for the usual one.
 const UNLISTED_FOLDERS: [&str; 5] = ["node_modules", "target", "build", "dist", "DerivedData"];
-// shortcut: stops at this many files, so a home folder added by mistake stays quick; raise it if a real project hits it.
 const MAX_WALKED_FILES: usize = 50_000;
 
-/// The files under `root` outside hidden folders and `UNLISTED_FOLDERS`, relative and `/`-separated, sorted.
 fn walk(root: &Path) -> Vec<String> {
     let mut found = Vec::new();
     let mut folders = vec![String::new()];
@@ -95,7 +86,6 @@ fn walk(root: &Path) -> Vec<String> {
                 continue;
             };
             let path = join(&folder, &name);
-            // A symlinked folder is skipped, so a link loop never walks forever.
             if kind.is_dir() {
                 if !name.starts_with('.') && !UNLISTED_FOLDERS.contains(&name.as_str()) {
                     folders.push(path);
@@ -113,7 +103,6 @@ fn walk(root: &Path) -> Vec<String> {
     found
 }
 
-/// The text of `file` (relative to `root`); a file that is not UTF-8 text is an error.
 pub fn read(root: &Path, file: &str) -> Result<String, Error> {
     fs::read_to_string(inside(root, file)?).map_err(|error| match error.kind() {
         std::io::ErrorKind::InvalidData => Error::Message(format!("{file} is not a text file")),
@@ -121,7 +110,6 @@ pub fn read(root: &Path, file: &str) -> Result<String, Error> {
     })
 }
 
-/// A key of when `file` (relative to `root`) last changed and its length, so the image view reloads only on a change.
 pub fn modified(root: &Path, file: &str) -> Result<String, Error> {
     let metadata = fs::metadata(inside(root, file)?)?;
     let nanos = metadata
@@ -129,20 +117,16 @@ pub fn modified(root: &Path, file: &str) -> Result<String, Error> {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_nanos();
-    // The length tells a truncate from the write that follows it within the clock's resolution.
     Ok(format!("{nanos}-{}", metadata.len()))
 }
 
-/// Replaces the text of `file` (relative to `root`) when the disk still holds `expected`, the text the editor last read or wrote; an agent's change stops the save. The new text lands whole: an agent reading meanwhile sees the old text or the new, never half of it.
 pub fn write(root: &Path, file: &str, expected: &str, text: &str) -> Result<(), Error> {
     let path = inside(root, file)?;
-    // shortcut: an agent write between this read and the write below is still overwritten; agents ignore advisory locks, so upgrade only if such a loss is reported.
     if fs::read(&path)? != expected.as_bytes() {
         return Err(Error::Message(format!(
             "{file} changed on disk, so the save stopped. Reopen the file to see the change."
         )));
     }
-    // The real path, so a symlinked file stays a symlink.
     let real = path.canonicalize()?;
     let name = real
         .file_name()
@@ -158,7 +142,6 @@ pub fn write(root: &Path, file: &str, expected: &str, text: &str) -> Result<(), 
     Ok(saved?)
 }
 
-/// Makes an empty file, or a folder, at `path` (relative to `root`); an existing entry is never replaced.
 pub fn create(root: &Path, path: &str, folder: bool) -> Result<(), Error> {
     let target = entry(root, path)?;
     let made = if folder {
@@ -176,11 +159,9 @@ pub fn create(root: &Path, path: &str, folder: bool) -> Result<(), Error> {
     })
 }
 
-/// Moves `from` to `to` (both relative to `root`); an existing `to` stops it, unless it is `from` itself, as in a case-only rename on a case-insensitive volume.
 pub fn rename(root: &Path, from: &str, to: &str) -> Result<(), Error> {
     refuse_root(from)?;
     let (source, target) = (entry(root, from)?, entry(root, to)?);
-    // shortcut: a file created at `to` between this check and the rename is replaced; upgrade to renamex_np with RENAME_EXCL if that is reported.
     if let Ok(existing) = target.symlink_metadata() {
         use std::os::unix::fs::MetadataExt;
         let moved = source.symlink_metadata()?;
@@ -191,7 +172,6 @@ pub fn rename(root: &Path, from: &str, to: &str) -> Result<(), Error> {
     Ok(fs::rename(source, target)?)
 }
 
-/// Moves `path` (relative to `root`) to the user's Trash, where Finder can put it back.
 pub fn trash(root: &Path, path: &str) -> Result<(), Error> {
     use objc2_foundation::{NSFileManager, NSString, NSURL};
     refuse_root(path)?;
@@ -202,7 +182,6 @@ pub fn trash(root: &Path, path: &str) -> Result<(), Error> {
         .map_err(|error| Error::Message(error.localizedDescription().to_string()))
 }
 
-/// Shows `path` (relative to `root`) selected in a Finder window.
 pub fn reveal(root: &Path, path: &str) -> Result<(), Error> {
     let status = std::process::Command::new("open")
         .arg("-R")
@@ -214,7 +193,6 @@ pub fn reveal(root: &Path, path: &str) -> Result<(), Error> {
     Ok(())
 }
 
-// An empty path names the worktree itself, which `inside` would accept.
 fn refuse_root(path: &str) -> Result<(), Error> {
     if path.is_empty() {
         return Err(Error::Message(
@@ -224,7 +202,6 @@ fn refuse_root(path: &str) -> Result<(), Error> {
     Ok(())
 }
 
-// The path under `root` that `relative` names, with symlinks followed; one that climbs out, is absolute, or resolves outside `root` is refused.
 pub(crate) fn inside(root: &Path, relative: &str) -> Result<PathBuf, Error> {
     let path = plain(root, relative)?;
     let real = match path.canonicalize() {
@@ -236,7 +213,6 @@ pub(crate) fn inside(root: &Path, relative: &str) -> Result<PathBuf, Error> {
     Ok(path)
 }
 
-// Like `inside`, for an operation on the entry itself (create, rename, trash, reveal): only its folder is resolved, so a symlink there can be renamed or trashed but not passed through.
 fn entry(root: &Path, relative: &str) -> Result<PathBuf, Error> {
     let path = plain(root, relative)?;
     if !relative.is_empty() {
@@ -256,7 +232,6 @@ fn plain(root: &Path, relative: &str) -> Result<PathBuf, Error> {
     Ok(root.join(relative_path))
 }
 
-// `path` with its folder resolved, for a path whose last part may not exist yet.
 fn beside(path: &Path) -> std::io::Result<PathBuf> {
     let folder = path.parent().unwrap_or(path).canonicalize()?;
     Ok(folder.join(path.file_name().unwrap_or_default()))
@@ -282,7 +257,6 @@ fn join(folder: &str, name: &str) -> String {
     }
 }
 
-// The name of the folder inside `folder` when it is all that `folder` holds.
 fn only_folder(folder: &Path) -> Option<String> {
     let mut visible = fs::read_dir(folder)
         .ok()?
@@ -295,7 +269,6 @@ fn only_folder(folder: &Path) -> Option<String> {
     Some(only.file_name().to_string_lossy().into_owned())
 }
 
-// Digit runs compare as numbers and letters ignore case, so `file2` comes before `file10`.
 fn natural_cmp(a: &str, b: &str) -> Ordering {
     let (mut a, mut b) = (a.chars().peekable(), b.chars().peekable());
     loop {

@@ -1,4 +1,3 @@
-// The live git check of a typed branch name: only the answer for the latest name lands.
 export function nameCheck() {
   let latest = 0;
   return {

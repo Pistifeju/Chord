@@ -1,8 +1,6 @@
 #!/bin/sh
-# Fails on a break of an AGENTS.md rule that the compiler and tests cannot see.
 
 status=0
-# Tracked and new files, so a file fails before its first commit.
 files=$(git ls-files --cached --others --exclude-standard)
 
 if grep -rEn '#[0-9a-fA-F]{3,8}\b' src/app src/features --include='*.ts' --include='*.tsx' --include='*.css' 2>/dev/null; then
@@ -32,6 +30,12 @@ fi
 
 if echo "$files" | grep -v '^scripts/check-rules.sh$' | xargs grep -InE '/Users/|/home/[a-z]' 2>/dev/null; then
   echo "A home folder path above. Code and fixtures must run on a stranger's machine."
+  status=1
+fi
+
+if echo "$files" | grep -E '\.(ts|tsx|css|rs|swift)$' | grep -v '^src/ipc/bindings.ts$' | xargs grep -nE '^[[:space:]]*(//|/\*|\{/\*)' 2>/dev/null \
+  || echo "$files" | grep -E '\.sh$' | xargs grep -nE '^[[:space:]]*#([^!]|$)' 2>/dev/null; then
+  echo "A comment above. Put what it says into a name, a type, a test or the commit message."
   status=1
 fi
 

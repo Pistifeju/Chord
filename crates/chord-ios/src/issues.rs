@@ -1,22 +1,17 @@
-//! The error lines of a build log: each one's file, line and message. Pure; the build feeds it every log line.
-
 use std::collections::HashSet;
 
 use serde::Serialize;
 use specta::Type;
 
-/// How many errors the Build view lists; the rest only add to a count.
 pub(crate) const LISTED: usize = 30;
 
 #[derive(Serialize, Type, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct BuildIssue {
-    /// The path as the compiler printed it.
     pub file: Option<String>,
     pub line: Option<u32>,
     pub message: String,
 }
 
-/// The issue a log line holds, if it is an error line: `File.swift:42:13: error: message`, or `error: message` with no file.
 pub(crate) fn parse_line(line: &str) -> Option<BuildIssue> {
     let line = line.trim_end();
     if line.starts_with(char::is_whitespace) || line.starts_with('|') {
@@ -31,7 +26,6 @@ pub(crate) fn parse_line(line: &str) -> Option<BuildIssue> {
         .min_by_key(|(before, _)| before.len())
         .or_else(|| line.strip_prefix("error: ").map(|message| ("", message)))?;
     let (file, line) = position(before);
-    // Without a position the text before the marker is at most a tool's name; "note" lines and the like are not errors.
     if file.is_none() && before.contains([':', ' ']) {
         return None;
     }
@@ -42,7 +36,6 @@ pub(crate) fn parse_line(line: &str) -> Option<BuildIssue> {
     })
 }
 
-// `path:42:13` or `path:42`; anything else names no file.
 fn position(before: &str) -> (Option<String>, Option<u32>) {
     let mut rest = before;
     let mut numbers = Vec::new();
@@ -62,7 +55,6 @@ fn position(before: &str) -> (Option<String>, Option<u32>) {
     }
 }
 
-/// The distinct errors of one build, in the order they printed.
 #[derive(Default)]
 pub(crate) struct Issues {
     listed: Vec<BuildIssue>,

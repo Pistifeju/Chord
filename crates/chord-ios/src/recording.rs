@@ -1,5 +1,3 @@
-//! A screen recording of the worktree's simulator: `simctl io recordVideo` from a start to a stop or the simulator's shutdown, into the folder of Settings or the Desktop, and a Quick Look thumbnail of it as the preview.
-
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{ChildStdin, Command, Stdio};
@@ -14,16 +12,13 @@ use crate::screenshot::{self, Screenshot};
 use crate::simulator;
 
 const QLMANAGE: &str = "/usr/bin/qlmanage";
-/// How long `simctl` may take to say it records.
 const WAIT: Duration = Duration::from_secs(10);
-/// Leads the recording's process group and interrupts it when its stdin closes: at a stop, and when Chord quits or crashes, so `simctl` always finishes the file.
 const WATCHDOG: &str = "read _; kill -INT 0";
 
 struct Recording {
     worktree: PathBuf,
     preview: bool,
     group: u32,
-    /// Dropping it stops the recording.
     _watchdog: ChildStdin,
 }
 
@@ -37,7 +32,6 @@ fn take(found: impl Fn(&Recording) -> bool) -> Option<Recording> {
     Some(recordings.remove(at))
 }
 
-/// Records the worktree's booted simulator, or with `preview` its preview simulator, into `folder`, else the Desktop. Calls `started` once the first frame is in; returns the video and its preview when the recording ends, by `stop_recording` or by itself.
 pub fn record(
     worktree: &Path,
     preview: bool,
@@ -121,10 +115,8 @@ pub fn record(
             _watchdog: stdin,
         });
     started();
-    // `simctl` writes to the pipe while it finishes the file, so the pipe is read to its end.
     output.iter().for_each(drop);
     let _ = child.wait();
-    // Ended by itself, as at a shutdown: its watchdog goes too.
     drop(take(|recording| recording.group == group));
     let _ = watchdog.wait();
     if !file.is_file() {
@@ -151,7 +143,6 @@ pub fn record(
     shot
 }
 
-/// Stops the recording of the worktree's simulator, or with `preview` its preview simulator, if one runs; `record` returns its video.
 pub fn stop_recording(worktree: &Path, preview: bool) {
     if let Some(recording) =
         take(|recording| recording.worktree == worktree && recording.preview == preview)

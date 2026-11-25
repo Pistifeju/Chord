@@ -1,4 +1,3 @@
-// The strip under the main area: the update button at its left end once a newer release exists, a slot for the simulators button, and the subscription usage of each harness that reports it, after its logo, with the shortest window's bar; a click on it opens the Usage panel.
 import { useEffect, useState, type ReactNode } from "react";
 import type { UsageWindow } from "../ipc/bindings";
 import { harnessMarks } from "../features/harnesses/logos";
@@ -32,7 +31,6 @@ export function StatusBar({ simulators }: { simulators: ReactNode }) {
   const reported = usage.use();
   const update = newerVersion.use();
   const install = installing.use();
-  // A window goes stale when its reset passes, with no event to say so.
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), REFRESH_MS);

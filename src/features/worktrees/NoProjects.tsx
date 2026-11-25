@@ -1,4 +1,3 @@
-// Empty state while Chord has no project.
 import { tooltip } from "../../app/commands";
 import { shortcutChanges } from "../settings/store";
 import { FolderIcon } from "../../ui/icons";

@@ -1,4 +1,3 @@
-// Line icons drawn in the current text color.
 import type { ReactNode } from "react";
 
 function Icon({ size = 16, children }: { size?: number; children: ReactNode }) {
@@ -52,9 +51,7 @@ export const ChatIcon = () => (
   </Icon>
 );
 
-// The brand logos, in the brands' own colors.
 function Logo({ side, children }: { side: number; children: ReactNode }) {
-  // A margin of side / 8 shrinks the mark to the visible size of the line icons.
   const margin = side / 8;
   return (
     <svg width={16} height={16} viewBox={`${-margin} ${-margin} ${side + 2 * margin} ${side + 2 * margin}`} fillRule="evenodd" aria-hidden="true">
@@ -121,7 +118,6 @@ export const MinusIcon = () => (
   </Icon>
 );
 
-// Lucide's settings gear (ISC), drawn on its 24px grid and scaled to 16.
 export const GearIcon = () => (
   <Icon>
     <g transform="scale(0.6667)">
@@ -249,7 +245,6 @@ export const ExtensionIcon = () => (
   </Icon>
 );
 
-// Two paths, so each chevron can flip on its own.
 export const CollapseAllIcon = () => (
   <Icon>
     <path className="collapse-chevron" d="M4.5 2.5L8 6l3.5-3.5" />

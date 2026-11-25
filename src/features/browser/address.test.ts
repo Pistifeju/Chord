@@ -1,4 +1,3 @@
-// Tests for the browser address rules.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { pageName, webAddress } from "./address.ts";

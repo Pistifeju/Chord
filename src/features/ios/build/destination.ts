@@ -1,4 +1,3 @@
-// Rules for the run destination: how one reads, which one the listing still has, and where a gone pick falls back to.
 import type { Destinations, RunDestination } from "../../../ipc/bindings";
 
 const destinationLabel = (destination: RunDestination): string =>
@@ -9,7 +8,6 @@ export const sameDestination = (a: RunDestination, b: RunDestination): boolean =
 
 const listed = (all: Destinations): RunDestination[] => [...all.devices, ...all.simulators.flatMap((group) => group.models)];
 
-/** The pick the project keeps once the listing is known: the pick while it exists, else the first simulator, else none; with the notice that names both when it changed. */
 export function pickAfterListing(pick: RunDestination, all: Destinations): { pick: RunDestination | null; notice?: string } {
   if (listed(all).some((destination) => sameDestination(destination, pick))) return { pick };
   const fallback = all.simulators[0]?.models[0] ?? null;

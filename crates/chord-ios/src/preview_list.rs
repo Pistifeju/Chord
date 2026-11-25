@@ -1,12 +1,9 @@
-//! The `#Preview`s in a worktree's Swift files, read from the source so the picker lists them before any build: each one's file, place in its file and name.
-
 use std::path::Path;
 
 use chord_core::{Error, PreviewPick, files};
 
 use crate::view_graph::{find, past_literal};
 
-/// Every `#Preview` in the worktree's `.swift` files that git does not ignore, by file in path order.
 pub fn list(worktree: &Path) -> Result<Vec<PreviewPick>, Error> {
     let mut paths: Vec<String> = files::all(worktree)?
         .into_iter()
@@ -29,13 +26,11 @@ pub fn list(worktree: &Path) -> Result<Vec<PreviewPick>, Error> {
         .collect())
 }
 
-/// Whether the worktree still holds the picked `#Preview`.
 pub(crate) fn holds(worktree: &Path, pick: &PreviewPick) -> bool {
     std::fs::read_to_string(worktree.join(&pick.file))
         .is_ok_and(|source| names(&source).len() > pick.index as usize)
 }
 
-/// The name argument of each `#Preview` macro outside comments and strings, in source order.
 fn names(source: &str) -> Vec<Option<String>> {
     let b = source.as_bytes();
     let mut out = Vec::new();
@@ -57,7 +52,6 @@ fn names(source: &str) -> Vec<Option<String>> {
     out
 }
 
-/// `("Dark"` after the macro name: the string, without escapes or interpolation.
 fn name_at(b: &[u8], i: usize) -> Option<String> {
     let rest = &b[i..];
     let open = rest.iter().position(|c| !c.is_ascii_whitespace())?;
@@ -82,15 +76,7 @@ mod tests {
 
     #[test]
     fn names_skip_comments_strings_and_other_macros() {
-        let source = r##"
-// #Preview("Commented")
-#Preview { Text("a") }
-let s = "#Preview(\"In a string\")"
-#Preview( "Dark", traits: .landscapeLeft) { Text("b") }
-#PreviewMacro("Other")
-/* #Preview */
-#Preview(traits: .sizeThatFitsLayout) { Text("c") }
-"##;
+        let source = "\n// #Preview(\"Commented\")\n#Preview { Text(\"a\") }\nlet s = \"#Preview(\\\"In a string\\\")\"\n#Preview( \"Dark\", traits: .landscapeLeft) { Text(\"b\") }\n#PreviewMacro(\"Other\")\n/* #Preview */\n#Preview(traits: .sizeThatFitsLayout) { Text(\"c\") }\n";
         assert_eq!(names(source), [None, Some("Dark".into()), None]);
     }
 }

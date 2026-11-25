@@ -1,4 +1,3 @@
-// Tests for the agent picker's level rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { levelSlots, shownLevel } from "./agentPicker.ts";

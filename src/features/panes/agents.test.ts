@@ -1,4 +1,3 @@
-// Tests for the rules of which panes' agents start and stop.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { paneChanges, resumedPanes, vanishedWorktrees } from "./agents.ts";

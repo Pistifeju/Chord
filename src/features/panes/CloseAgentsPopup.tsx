@@ -1,4 +1,3 @@
-// The sheet that confirms closing a tab while its agent works.
 import { sheet, sheetOf } from "../../app/sheet";
 import { ConfirmSheet } from "../../ui/ConfirmSheet";
 import { cancelClose, confirmClose } from "./store";

@@ -1,4 +1,3 @@
-// Rules for the Usage panel: the ranges and the time each starts at, the ranked list of harnesses and their models, the picked row's detail, and the number texts.
 import type { Spend, SpendRow } from "../../ipc/bindings";
 
 const HOUR = 3600000;
@@ -7,7 +6,6 @@ const DAY = 86400000;
 export type Range = "24h" | "7d" | "30d" | "90d";
 export type Metric = "cost" | "tokens";
 
-/** Past 24h charts hours; the other ranges chart local days. */
 export const hourly = (range: Range) => range === "24h";
 
 export const ranges: { value: Range; label: string; title: string; days: number }[] = [
@@ -24,7 +22,6 @@ const daysAfter = (at: number, days: number) => {
   return date.getTime();
 };
 
-/** The epoch ms a range starts at: 24 hours back, or local midnight of its first day. */
 export function since(range: Range, now: number): number {
   if (hourly(range)) return now - DAY;
   const { days } = ranges.find((r) => r.value === range)!;
@@ -35,18 +32,15 @@ export type TokenTypes = { input: number; cacheRead: number; cacheWrite: number;
 
 export const tokensOf = (types: { [K in keyof TokenTypes]: number | null }) => (types.input ?? 0) + (types.cacheRead ?? 0) + (types.cacheWrite ?? 0) + (types.output ?? 0);
 
-/** The rows of a range; a read for a longer range holds the shorter ones. */
 export const inRange = (spend: Spend, range: Range, now: number): Spend => {
   const first = Math.floor(since(range, now) / HOUR) * HOUR;
   return { ...spend, rows: spend.rows.filter((row) => (row.hour ?? 0) >= first) };
 };
 
-/** A sum that stays null until one of its parts is known. */
 const plus = (sum: number | null, part: number | null | undefined) => (part == null ? sum : (sum ?? 0) + part);
 
 const valueOf = (metric: Metric, tokens: number, cost: number | null) => (metric === "cost" ? cost : tokens);
 
-/** The list's row and the inspector's pick: All agents, a harness, or one model of a harness. */
 export type Pick = { harness?: string; model?: string };
 
 export type ListRow = Pick & { key: string; value: number | null; share: number | null; rank?: number };
@@ -65,16 +59,13 @@ function sums(rows: SpendRow[], keyOf: (row: SpendRow) => string) {
   return out;
 }
 
-/** Keys by the shown value, highest first; ties, and rows with no value, by tokens. */
 function ranked(map: Map<string, Sum>, metric: Metric): string[] {
   const value = (sum: Sum) => valueOf(metric, sum.tokens, sum.cost) ?? -1;
   return [...map.keys()].sort((a, b) => value(map.get(b)!) - value(map.get(a)!) || map.get(b)!.tokens - map.get(a)!.tokens);
 }
 
-/** Each harness with rows, ranked; its rank picks its color. */
 export const harnessRanks = (spend: Spend, metric: Metric): string[] => ranked(sums(spend.rows, (row) => row.harness), metric);
 
-/** All agents, then each harness ranked by the shown value, each followed by its models in the same order. A row's share is its value over the total; a row without a cost has neither in Cost mode. */
 export function list(spend: Spend, metric: Metric): ListRow[] {
   const all = sums(spend.rows, () => "");
   const total = valueOf(metric, all.get("")?.tokens ?? 0, all.get("")?.cost ?? null);
@@ -96,20 +87,15 @@ export function list(spend: Spend, metric: Metric): ListRow[] {
 }
 
 export type Detail = {
-  /** The shown value; null in Cost mode for a pick with no cost. */
   total: number | null;
-  /** Null for a model: the session counts are per harness. */
   sessions: number | null;
-  /** The start of each chart point: hours for Past 24h, local days otherwise. */
   buckets: number[];
   series: { harness: string; rank: number; values: number[] }[];
   types: TokenTypes;
   figures: { processed: number; cached: number; uncached: number; output: number; saved: number | null };
-  /** The three buckets with the most of the shown value, most first. */
   busiest: { at: number; value: number }[];
 };
 
-/** The picked row's numbers over a range. */
 export function detail(spend: Spend, range: Range, now: number, metric: Metric, pick: Pick): Detail {
   const start = since(range, now);
   const rows = spend.rows.filter((row) => (row.hour ?? 0) >= Math.floor(start / HOUR) * HOUR && (pick.harness == null || row.harness === pick.harness) && (pick.model == null || row.model === pick.model));
@@ -166,11 +152,8 @@ const compact = new Intl.NumberFormat(undefined, { notation: "compact", maximumF
 const currency = new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" });
 const percent = new Intl.NumberFormat(undefined, { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
-/** "6.92B", "123M". */
 export const tokensText = (tokens: number) => compact.format(tokens);
-/** pi records its costs in US dollars. */
 export const costText = (cost: number) => currency.format(cost);
-/** "98.2%"; a share above 0 and under 0.1% reads "<0.1%". */
 export const shareText = (share: number) => (share > 0 && share < 0.001 ? `<${percent.format(0.001)}` : percent.format(share));
 export const valueText = (value: number, metric: Metric) => (metric === "cost" ? costText(value) : tokensText(value));
 
@@ -180,15 +163,11 @@ const hourFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric" });
 const weekdayFormat = new Intl.DateTimeFormat(undefined, { weekday: "short", month: "short", day: "numeric" });
 const hourOfDayFormat = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric" });
 
-/** A grid line's value: "1.5B", "$40". */
 export const axisText = (value: number, metric: Metric) => (metric === "cost" ? compactCost.format(value) : tokensText(value));
-/** A chart point under the axis: "3 PM" for Past 24h, "Jun 12" otherwise. */
 export const bucketText = (at: number, range: Range) => (hourly(range) ? hourFormat : dayFormat).format(at);
-/** A busiest row: "Jun 12, 3 PM" for Past 24h, "Tue, Jun 12" otherwise. */
 export const bucketTitle = (at: number, range: Range) => (hourly(range) ? hourOfDayFormat : weekdayFormat).format(at);
 export const sessionsText = (count: number) => (count === 1 ? "1 session" : `${count.toLocaleString()} sessions`);
 
-/** The chart's top: the first of 1, 1.5, 2, 3, 4, 5, 6, 8, 10 times a power of ten at or above `peak`. */
 export function chartMax(peak: number): number {
   if (peak <= 0) return 1;
   const power = 10 ** Math.floor(Math.log10(peak));

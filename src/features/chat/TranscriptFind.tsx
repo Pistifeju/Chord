@@ -1,4 +1,3 @@
-// The find bar over a pane's transcript. Matches are painted with the CSS highlight API.
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { tooltip } from "../../app/commands";
 import { FindBar } from "../../ui/FindBar";
@@ -16,7 +15,6 @@ export function TranscriptFind({ pane, find, transcript, items }: { pane: string
   const revealed = useRef<string | null>(null);
   const [current, setCurrent] = useState(0);
 
-  // The shown text changes with every item and every query, so the ranges are found again.
   useEffect(() => {
     const root = transcript.current?.querySelector(".chat-messages");
     const found = root ? matchesIn(root, find.query) : [];

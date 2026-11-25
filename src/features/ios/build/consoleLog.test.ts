@@ -1,4 +1,3 @@
-// Tests for the console's line rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { appendToConsole, emptyConsole } from "./consoleLog.ts";

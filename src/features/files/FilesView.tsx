@@ -1,4 +1,3 @@
-// The Files view: its filter field with Collapse All and Reload, and its tree with its right-click menu and name fields.
 import { Fragment, memo, useEffect, useRef, useState, type CSSProperties } from "react";
 import { addPathToDraft, focusComposer, pathDropPane } from "../chat/store";
 import { showMenu } from "../../app/commands";
@@ -12,14 +11,12 @@ import { emptyTree, stemLength, treeKeyAction, visibleRows, type Row } from "./t
 import type { FileEntry } from "../../ipc/bindings";
 import "./files.css";
 
-// The sidebar re-renders with every git count and project change; the tree reads its own stores.
 export const FilesView = memo(function FilesView({ worktree }: { worktree: string }) {
   const tree = trees.use()[worktree] ?? emptyTree;
   const rows = visibleRows(tree);
   const edit = nameEdit.use();
   const editing = edit?.worktree === worktree ? edit : null;
   const creating = editing?.kind === "rename" ? null : editing;
-  // A new entry's field sits first inside its folder; the root's ("") sits at the top.
   const folderAt = creating ? rows.findIndex((row) => row.entry.path === creating.folder) : -1;
   const newField = creating && <NewEntryField isDir={creating.kind === "newFolder"} depth={folderAt < 0 ? 0 : rows[folderAt].depth + 1} />;
   const list = useRef<HTMLDivElement>(null);
@@ -54,7 +51,6 @@ export const FilesView = memo(function FilesView({ worktree }: { worktree: strin
         aria-label="Files"
         onContextMenu={(e) => showMenu(e, [["files.newFile", ""], ["files.newFolder", ""]])}
         onKeyDown={(e) => {
-          // Only a row's keys move through the tree; a name field keeps its arrows.
           const path = (e.target as HTMLElement).dataset.path;
           const action = path === undefined || e.metaKey || e.altKey || e.ctrlKey || e.shiftKey ? null : treeKeyAction(rows, path, e.key);
           if (!action) return;
@@ -82,14 +78,12 @@ export const FilesView = memo(function FilesView({ worktree }: { worktree: strin
   );
 });
 
-// The pane of the enabled composer under the pointer.
 function composerPaneAt(x: number, y: number): string | null {
   const composer = document.elementFromPoint(x, y)?.closest(".chat-composer");
   if (!composer || composer.querySelector("textarea")?.disabled !== false) return null;
   return composer.closest<HTMLElement>("[data-pane]")?.dataset.pane ?? null;
 }
 
-// A file row dragged onto a composer puts its relative path in the draft.
 function usePathDrag() {
   const [dragging, setDragging] = useState(false);
   const drag = usePointerDrag<string>({
@@ -128,7 +122,6 @@ function EntryRow({ worktree, row: { entry, depth, open }, selected }: { worktre
       data-dragging={pathDrag.dragging || undefined}
       {...(entry.isDir ? {} : pathDrag.handlers(entry.path))}
       onClick={(event) => {
-        // WebKit drops the focus when the mouse presses a button, so the click puts it back: ⌘⌫ and the arrows act on the focused row.
         event.currentTarget.focus();
         if (entry.isDir) toggleFolder(worktree, entry.path);
         else if (pathDrag.clicked()) showFile(worktree, entry.path);
@@ -165,7 +158,6 @@ function RowStart({ entry, open }: { entry: Pick<FileEntry, "isDir">; open: bool
 
 const NewEntryField = ({ isDir, depth }: { isDir: boolean; depth: number }) => <NameField row={{ entry: { name: "", path: "", isDir }, depth, open: false }} />;
 
-// The row's name as a field, its name without the extension selected: Return or leaving it keeps the name, Esc drops it.
 function NameField({ row: { entry, depth, open } }: { row: Row }) {
   const name = fileName(entry.path);
   const field = useRef<HTMLInputElement>(null);

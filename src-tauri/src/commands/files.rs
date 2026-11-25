@@ -1,5 +1,3 @@
-//! Commands for a worktree's files: list one folder, list every file, read a file, write a file, tell when a file changed, create, rename, trash and reveal one.
-
 use std::path::PathBuf;
 
 use chord_core::{FileEntry, files};

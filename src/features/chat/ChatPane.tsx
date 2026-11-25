@@ -1,4 +1,3 @@
-// The chat of one pane: transcript, composer, and a Start button while no agent runs, or the harness rows while its harness cannot start.
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { flushSync } from "react-dom";
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type CSSProperties, type KeyboardEvent } from "react";
@@ -67,7 +66,6 @@ function SubagentLines({ nodes }: { nodes: SubagentNode[] }) {
   );
 }
 
-/** The rows the user acts on before a start works; only shown rows watch window focus, so ready panes start no checks. */
 function useBlockingRows(pane: string, idle: boolean): { checks: Checks | null; rows: HarnessCheck[] } {
   const checks = harnessChecks.usePart((s) => (idle ? s.checks : null));
   const harness = paneHarnesses.usePart((all) => all[pane] ?? null);
@@ -91,7 +89,6 @@ function Start({ worktree, pane, blocking }: { worktree: string; pane: string; b
 
 const VERBS = ["Cooking…", "Locking in…", "Hold my beer…", "Going feral…"];
 
-// The start time picks the verb, so a remount keeps it.
 function Working({ since, compacting }: { since: number; compacting: boolean }) {
   const now = useClock(true);
   return (
@@ -116,7 +113,6 @@ function Thumbs({ pane, images }: { pane: string; images: Image[] }) {
   );
 }
 
-// A long message folds to its first lines; an open find bar unfolds it so every match shows.
 function UserText({ pane, text }: { pane: string; text: string }) {
   const el = useRef<HTMLDivElement>(null);
   const [long, setLong] = useState(false);
@@ -202,11 +198,9 @@ const StepsRow = memo(function StepsRow({ pane, worktree, group, live, fresh }: 
   const images = stepImages(group.steps);
   const total = stepsTime(group.steps);
   const changes = stepsChanges(group.steps);
-  // One changed step would repeat the toggle line's counts.
   const changedSteps = group.steps.filter((step) => step.kind === "call" && step.state === "done" && step.changes).length;
   const last = group.steps[group.steps.length - 1];
   const line = live && last ? stepDoing(last) : stepsHeadline(group.steps);
-  // The line the row mounted with shows still; a new line fades in, so a history group holds and a live one reads its steps.
   const firstLine = useRef(line);
   return (
     <div className="chat-steps" data-fresh={fresh || undefined}>
@@ -257,15 +251,12 @@ const CompactionRow = memo(function CompactionRow({ mark, fresh }: { mark: Compa
   );
 });
 
-// A streaming reply renders nothing, so its chunks leave the rows as they are.
-type Rows = { worktree: string; running: boolean; items: Item[]; queued: string[]; steerImages: SteerImages[]; subagents: SubagentNode[]; subagentsAt: number | null; /** How many items are the session's history. */ historyLength: number };
+type Rows = { worktree: string; running: boolean; items: Item[]; queued: string[]; steerImages: SteerImages[]; subagents: SubagentNode[]; subagentsAt: number | null; historyLength: number };
 const sameItems = (a: Item[], b: Item[]) => a === b || (a.length === b.length && a.every((item, i) => item === b[i] || (isStreaming(item) && isStreaming(b[i]))));
 const sameRows = (a: Rows, b: Rows) => a.worktree === b.worktree && a.running === b.running && a.historyLength === b.historyLength && a.queued === b.queued && a.steerImages === b.steerImages && a.subagents === b.subagents && a.subagentsAt === b.subagentsAt && sameItems(a.items, b.items);
 
 const Messages = memo(function Messages({ pane, worktree, running, items, queued, steerImages, subagents, subagentsAt, historyLength }: { pane: string } & Rows) {
-  // Only items that arrive live while the pane is open animate in; reopening a long chat and a session's history stay still.
   const loaded = useRef(items.length);
-  // A session that opens with fewer items than the pane held: what arrives after its history is live.
   useLayoutEffect(() => {
     loaded.current = Math.min(loaded.current, items.length);
   });
@@ -345,7 +336,6 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
     if (!ready && agentPickerPane.get() === pane) closeAgentPicker();
   }, [ready, pane]);
 
-  // The pane under the pointer takes the dropped images; any other file, such as a video, goes into the draft as its path.
   useEffect(() => {
     let carriesImages = false;
     const unlisten = getCurrentWebview().onDragDropEvent(({ payload }) => {
@@ -362,12 +352,10 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
     return () => void unlisten.then((stop) => stop());
   }, [canAttach, pane]);
 
-  // The composer grows with its draft up to the CSS max-height, then scrolls inside.
   useLayoutEffect(() => {
     if (composer.current) fitComposer(composer.current);
   }, [draft, textPercent, composerShown]);
 
-  // A new pane width wraps the draft anew.
   useEffect(() => {
     const el = composer.current;
     if (!el) return;
@@ -399,9 +387,7 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
     if (!open) openAgentPicker(pane);
   };
 
-  // Follow the reply while the reader sits at the bottom; reading further up pauses it. A session that opens starts the transcript over and shows its end.
   const firstItem = useRef(chat.items[0]);
-  // Find searches again only when the shown rows change, not on each chunk of a streaming reply.
   const shownItems = useRef(chat.items);
   if (!sameItems(shownItems.current, chat.items)) shownItems.current = chat.items;
   const subagentRows = chat.capabilities?.includes("subagents") ? chat.subagents : noSubagents;
@@ -456,7 +442,6 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
       className="chat"
       ref={root}
       onClick={(e) => {
-        // A click outside a control lands in the composer, unless the reader selected text. The agent menu moves the focus itself: a pick can open another tab.
         if ((e.target as Element).closest("button, a, input, textarea, .chat-agent-menu")) return;
         if (window.getSelection()?.isCollapsed !== false) composer.current?.focus();
       }}
@@ -502,7 +487,6 @@ export const ChatPane = memo(function ChatPane({ worktree, pane, focused }: { wo
           </div>
         </div>
       )}
-      {/* The rows say what a failed start's notice says. */}
       {chat.notice && !blocked && <p className="chat-notice">{chat.notice}</p>}
       {chat.agent === "idle" && chat.items.length > 0 && (
         <div className="chat-restart" data-blocked={blocked || undefined}>

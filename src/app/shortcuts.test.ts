@@ -1,4 +1,3 @@
-// Tests for recording a shortcut and for the saved changes to the default keys.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { changedShortcut, loadedChanges, recordedShortcut } from "./shortcuts.ts";

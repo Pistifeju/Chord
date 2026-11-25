@@ -1,5 +1,3 @@
-//! A project's worktrees, read from `git worktree list`, or a plain folder's single card.
-
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
@@ -12,9 +10,7 @@ use crate::{Error, git, projects::Project, state::place_in};
 pub struct Worktree {
     pub path: PathBuf,
     pub branch: Option<String>,
-    /// The folder holds an Xcode project or workspace.
     pub xcode: bool,
-    /// False for a plain folder outside any git repository: its project's only card.
     pub git: bool,
 }
 
@@ -37,7 +33,6 @@ pub(crate) fn folder_at(path: &Path) -> Result<(), Error> {
 }
 
 pub fn list(project: &Path) -> Result<Vec<Worktree>, Error> {
-    // A gone folder, as on an unmounted volume, fails like git does, so its worktrees' caches stay.
     folder_at(project)?;
     if !git::in_repository(project) {
         return Ok(vec![Worktree {
@@ -57,13 +52,11 @@ pub fn list(project: &Path) -> Result<Vec<Worktree>, Error> {
         .collect())
 }
 
-/// The worktrees in the saved order; the ones it misses, as a new one, keep git's order after them.
 pub fn in_order(mut list: Vec<Worktree>, order: &[PathBuf]) -> Vec<Worktree> {
     list.sort_by_key(|w| place_in(order, &w.path));
     list
 }
 
-/// The Xcode projects and workspaces directly in the folder, sorted by path.
 pub fn xcode_bundles(folder: &Path) -> Vec<PathBuf> {
     let mut found: Vec<PathBuf> = std::fs::read_dir(folder)
         .into_iter()
@@ -81,12 +74,10 @@ pub fn xcode_bundles(folder: &Path) -> Vec<PathBuf> {
     found
 }
 
-/// None when `name` can become a new branch, else the reason it cannot.
 pub fn check_new_branch(project: &Project, name: &str) -> Result<Option<String>, Error> {
     branch_problem(project, name, None)
 }
 
-/// None when `name` can become a new branch with a free worktree folder, else the reason it cannot.
 pub fn check_branch(project: &Project, name: &str) -> Result<Option<String>, Error> {
     if let Some(reason) = branch_problem(project, name, None)? {
         return Ok(Some(reason));
@@ -96,7 +87,6 @@ pub fn check_branch(project: &Project, name: &str) -> Result<Option<String>, Err
         .then(|| "A folder with this name exists".into()))
 }
 
-/// None when the branch `current` can take `name`, else the reason it cannot. Its own name passes.
 pub fn check_branch_rename(
     project: &Project,
     current: &str,
@@ -108,7 +98,6 @@ pub fn check_branch_rename(
     branch_problem(project, name, Some(current))
 }
 
-/// Renames the branch `current` with `git branch -m`; a worktree on it keeps its folder name.
 pub fn rename_branch(project: &Project, current: &str, name: &str) -> Result<(), Error> {
     if let Some(reason) = check_branch_rename(project, current, name)? {
         return Err(Error::Message(reason));
@@ -116,7 +105,6 @@ pub fn rename_branch(project: &Project, current: &str, name: &str) -> Result<(),
     if current == name {
         return Ok(());
     }
-    // A change of letter case alone needs `-M`: a case-insensitive disk finds the old ref under the new name.
     let flag = if current.eq_ignore_ascii_case(name) {
         "-M"
     } else {
@@ -125,14 +113,11 @@ pub fn rename_branch(project: &Project, current: &str, name: &str) -> Result<(),
     git::run(&project.path, &["branch", flag, "--", current, name]).map(|_| ())
 }
 
-// `renaming` is the branch the name replaces; a name that differs from it only in letter case is free.
 fn branch_problem(
     project: &Project,
     name: &str,
     renaming: Option<&str>,
 ) -> Result<Option<String>, Error> {
-    // `git check-ref-format` exits 1 with no output for a bad ref, which `git::run` reports as an empty message.
-    // `--branch` would print a fatal message instead, so check the full ref and reject a leading dash by hand.
     if name.starts_with('-') {
         return Ok(Some("Not a valid branch name".into()));
     }
@@ -162,7 +147,6 @@ fn branch_problem(
     Ok(taken.then(|| "A branch with this name exists".into()))
 }
 
-/// Adds a worktree on a new branch in `~/.chord/worktrees/<project>/<branch>`.
 pub fn create(project: &Project, branch: &str) -> Result<Worktree, Error> {
     if let Some(reason) = check_branch(project, branch)? {
         return Err(Error::Message(reason));
@@ -181,10 +165,8 @@ pub fn create(project: &Project, branch: &str) -> Result<Worktree, Error> {
 
 const MAX_COPIED_FILE_BYTES: u64 = 5 * 1024 * 1024;
 
-// Xcode rebuilds DerivedData per checkout path, so a clone of it is never used.
 const NEVER_CLONED: &str = "DerivedData";
 
-// A failed copy leaves the worktree usable, so it never fails the creation.
 fn copy_ignored_files(from: &Path, to: &Path) {
     let listing = match git::run(
         from,
@@ -204,7 +186,6 @@ fn copy_ignored_files(from: &Path, to: &Path) {
         }
     };
     for relative in listing.split('\0').filter(|item| !item.is_empty()) {
-        // Components drop the listing's trailing `/` without touching non-UTF-8 bytes.
         let relative_path: PathBuf = Path::new(relative).components().collect();
         if relative_path
             .components()
@@ -226,7 +207,6 @@ fn copy_ignored_files(from: &Path, to: &Path) {
     }
 }
 
-// Without clone support a folder is skipped, so ignored folders never cost a full copy.
 fn clone_or_copy(
     source: &Path,
     target: &Path,
@@ -252,7 +232,6 @@ fn clone_or_copy(
     }
 }
 
-// A cloned ignored folder such as `build/` can hold a DerivedData folder.
 fn remove_nested_never_cloned(folder: &Path) {
     let Ok(children) = std::fs::read_dir(folder) else {
         return;
@@ -282,7 +261,6 @@ fn clone(source: &Path, target: &Path) -> std::io::Result<()> {
             .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidInput, error))
     };
     let (source, target) = (cstring(source)?, cstring(target)?);
-    // SAFETY: both pointers are NUL-terminated strings that outlive the call.
     if unsafe { libc::clonefile(source.as_ptr(), target.as_ptr(), 0) } == 0 {
         Ok(())
     } else {
@@ -295,16 +273,13 @@ fn clone(_source: &Path, _target: &Path) -> std::io::Result<()> {
     Err(std::io::Error::from_raw_os_error(libc::ENOTSUP))
 }
 
-// ENOTSUP: the volume has no clones. EXDEV: the two sides are on different volumes.
 fn is_clone_unsupported(error: &std::io::Error) -> bool {
     matches!(error.raw_os_error(), Some(libc::ENOTSUP | libc::EXDEV))
 }
 
 #[derive(Serialize, Type, Debug, PartialEq)]
 pub enum Removal {
-    /// The worktree is gone; `kept_branch` is its branch when it stays.
     Removed { kept_branch: Option<KeptBranch> },
-    /// Git refused over modified or untracked files or a lock, which `--force` overrides.
     NeedsForce { reason: String },
 }
 
@@ -314,7 +289,6 @@ pub struct KeptBranch {
     pub reason: String,
 }
 
-/// Git's own check for a dirty worktree, asked before the agents stop, so a refusal the user cancels leaves them running.
 pub fn refusal(path: &Path, force: bool) -> Result<Option<Removal>, Error> {
     if force {
         return Ok(None);
@@ -333,13 +307,11 @@ pub fn refusal(path: &Path, force: bool) -> Result<Option<Removal>, Error> {
     }))
 }
 
-/// Removes the worktree's folder once nothing runs in it: its branch, or the refusal `--force` overrides.
 pub fn remove_folder(
     project: &Project,
     path: &Path,
     force: bool,
 ) -> Result<Result<Option<String>, Removal>, Error> {
-    // git lists real paths, so a path through a symlink must resolve before it is compared.
     let real = path.canonicalize()?;
     let branch = entries(&project.path)?
         .into_iter()
@@ -348,13 +320,11 @@ pub fn remove_folder(
     let path_arg = path.to_string_lossy();
     let mut args = vec!["worktree", "remove"];
     if force {
-        // A locked worktree needs the flag twice.
         args.extend(["--force", "--force"]);
     }
     args.push(&path_arg);
     match git::run(&project.path, &args) {
         Ok(_) => {
-            // The project's worktrees folder goes with its last worktree; `remove_dir` refuses a folder that still holds one.
             if let Some(parent) = real.parent()
                 && worktrees_folders(project)
                     .iter()
@@ -371,7 +341,6 @@ pub fn remove_folder(
     }
 }
 
-/// Deletes a removed worktree's branch when it is merged; the branch and why it stays otherwise.
 pub fn delete_merged_branch(project: &Project, name: String) -> Option<KeptBranch> {
     let reason = match branches::delete(&project.path, &name, false) {
         Ok(Deletion::Unmerged) => "it is not merged".to_string(),
@@ -385,8 +354,6 @@ fn force_helps(refusal: &str) -> bool {
     refusal.contains("modified or untracked files") || refusal.contains("locked")
 }
 
-/// The folder that holds the project's new worktrees: `~/.chord/worktrees/<project>`.
-// shortcut: two projects with one folder name share this folder and git refuses a branch folder the other made, add a path hash once that bites.
 fn worktrees_folder(project: &Project) -> Result<PathBuf, Error> {
     let home = home(project).ok_or_else(|| {
         Error::Message("HOME is not set, so Chord cannot place the worktree.".into())
@@ -394,7 +361,6 @@ fn worktrees_folder(project: &Project) -> Result<PathBuf, Error> {
     Ok(home.join(".chord/worktrees").join(&project.name))
 }
 
-/// Every folder that holds worktrees Chord created: `~/.chord/worktrees/<project>`, and the `<project>-worktrees` folder beside the project that earlier versions used.
 pub fn worktrees_folders(project: &Project) -> Vec<PathBuf> {
     let legacy = project
         .path
@@ -410,7 +376,6 @@ fn home(_: &Project) -> Option<PathBuf> {
     std::env::var_os("HOME").map(PathBuf::from)
 }
 
-// Tests keep their worktrees beside the repo they made, never in the real home folder.
 #[cfg(test)]
 fn home(project: &Project) -> Option<PathBuf> {
     project.path.parent().map(Path::to_path_buf)

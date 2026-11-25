@@ -1,10 +1,7 @@
-// Rules for an agent's reported status: its words, which of several is most urgent, and how old it is.
 import type { Status } from "../../ipc/bindings";
 
-/** What Rust reported for a pane; the transcript rules stamp `since` when Rust says the status changed. */
 export type StatusReport = { status: Status; lastMessage: string; since: number };
 
-// Most urgent first: what needs the user before what runs or rests.
 export const URGENCY: Status["kind"][] = ["waiting", "error", "exited", "running", "done"];
 
 export function urgentReport(reports: (StatusReport | null | undefined)[]): StatusReport | null {
@@ -15,7 +12,6 @@ export function urgentReport(reports: (StatusReport | null | undefined)[]): Stat
   return urgent;
 }
 
-/** A set of panes' status you already saw: done, or a question with no dialog open, and none of its panes carries the finished mark. */
 export const seenStatus = (kind: Status["kind"] | undefined, panes: string[], finished: string[], dialog: boolean): boolean =>
   (kind === "done" || (kind === "waiting" && !dialog)) && !panes.some((pane) => finished.includes(pane));
 
@@ -34,7 +30,6 @@ export function statusLabel(status: Status): string {
   }
 }
 
-/** "now", "5m", "3h" or "2d". */
 export function ageLabel(since: number, now: number): string {
   const minutes = Math.max(0, Math.floor((now - since) / 60_000));
   if (minutes < 1) return "now";

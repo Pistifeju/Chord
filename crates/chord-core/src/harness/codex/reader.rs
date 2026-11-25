@@ -1,5 +1,3 @@
-//! The Codex reader: one stdout line in, the harness events it means and the lines to write Codex next out. Holds the pane's thread, the running turn, the requests waiting for an answer, the items whose text streams and Codex's asks.
-
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -18,82 +16,55 @@ use crate::harness::session_dialogs::{self, Picked, SessionDialogs};
 use crate::harness::subagents::Subagents;
 use crate::harness::{DialogAnswer, HarnessEvent, Image, SubagentState};
 
-/// What one record leads to: events for the chat and lines to write Codex.
 #[derive(Default)]
 pub(super) struct Read {
     pub(super) events: Vec<HarnessEvent>,
     pub(super) lines: Vec<Value>,
 }
 
-/// What a new process opens in place of this one.
 #[derive(Default)]
 pub(super) struct Relaunch {
     pub(super) thread: Option<String>,
-    /// The user's picks, which the new process keeps.
     pub(super) picks: Map<String, Value>,
 }
 
-/// A request the adapter wrote, waiting for its answer.
 enum Pending {
     Initialize,
     Models,
     Skills,
     Thread,
-    /// A thread to open; for the pane's saved thread, a refusal starts a new one.
-    Resume {
-        saved: bool,
-    },
-    /// The worktree's threads, for `/resume`, without those other panes hold.
-    Threads {
-        held: Vec<String>,
-    },
+    Resume { saved: bool },
+    Threads { held: Vec<String> },
     Turn,
-    /// A fork, a clone, or a new thread for a fork from the first message; a refusal leaves the pane on its thread.
     Fork,
-    /// The thread's turns, for the fork or rewind select.
-    Turns {
-        back: Back,
-    },
-    /// A rewind, after which the thread opens again without the dropped turns.
+    Turns { back: Back },
     Revert,
     Compact,
-    /// A steer, with its text and input to send again as a turn when the turn ended first.
-    Steer {
-        text: String,
-        input: Vec<Value>,
-    },
+    Steer { text: String, input: Vec<Value> },
     Interrupt,
     RateLimits,
 }
 
-/// Reads one Codex process's stdout, line by line.
 pub(super) struct Reader {
     cwd: PathBuf,
-    /// The params every thread the pane opens carries.
     opening: Map<String, Value>,
-    /// The pane's saved thread, until the handshake asks Codex to open it.
     saved: Option<String>,
     dialogs: SessionDialogs,
     thread: Option<String>,
-    /// Why Codex started no thread, so a send says it.
     thread_error: Option<String>,
     turn: Option<String>,
     next_id: u64,
     pending: HashMap<u64, Pending>,
     settings: Settings,
-    /// Messages and thoughts whose text came as deltas, so their completion does not repeat it.
     streamed: HashSet<String>,
-    /// The steers Codex has not taken in yet, oldest first.
     steers: Vec<String>,
     calls: OpenCalls,
     asks: Asks,
-    /// The paths of each running file change by item id, for its approval.
     files: HashMap<String, String>,
     subagents: Subagents,
 }
 
 impl Reader {
-    /// `picks` are the user's picks an earlier process on the thread held; `instructions` are the guidelines of Chord's tools when the agent has them.
     pub(super) fn new(
         cwd: &Path,
         saved: Option<&str>,
@@ -120,12 +91,10 @@ impl Reader {
         }
     }
 
-    /// The first line Codex hears.
     pub(super) fn initialize(&mut self) -> Value {
         requests::initialize(self.request(Pending::Initialize))
     }
 
-    /// What a new Codex process opens for `/new` (a new thread with the config's settings) and `/reload` (the pane's thread with the user's picks); none for any other text. Either one ends a running turn with the old process.
     pub(super) fn relaunch(&self, text: &str) -> Option<Relaunch> {
         match self.settings.command(text) {
             Some(Command::New) => Some(Relaunch::default()),
@@ -137,7 +106,6 @@ impl Reader {
         }
     }
 
-    /// Whether `text` sends its images: a message or a skill's command does, a session command does not.
     pub(super) fn takes_images(&self, text: &str) -> bool {
         matches!(
             self.settings.command(text),
@@ -145,7 +113,6 @@ impl Reader {
         )
     }
 
-    /// The user's message: a new turn, or a steer of the running one. A session command opens its picker, and a skill's command sends the skill.
     pub(super) fn send(
         &mut self,
         text: &str,
@@ -225,8 +192,6 @@ impl Reader {
         })
     }
 
-    /// The user's answer to an open ask: the line that answers Codex, or a new turn with the answers.
-    /// The model and level the next turns carry.
     pub(super) fn pick_model(&mut self, id: &str, level: Option<&str>) -> Read {
         Read {
             events: vec![self.settings.choose(id, level)],
@@ -242,7 +207,6 @@ impl Reader {
                     let id = self.request(Pending::Resume { saved: false });
                     requests::thread_resume(id, &thread, &self.opening)
                 }),
-                // The fork and rewind selects open only on a thread.
                 Picked::Message(picked) => picked
                     .zip(self.thread.clone())
                     .map(|((back, message), thread)| self.go_back(back, message, &thread)),
@@ -273,7 +237,6 @@ impl Reader {
         Ok(read)
     }
 
-    /// Stops the running turn; none when no turn runs.
     pub(super) fn interrupt(&mut self) -> Option<Value> {
         let (thread, turn) = (self.thread.clone()?, self.turn.clone()?);
         Some(requests::turn_interrupt(
@@ -283,7 +246,6 @@ impl Reader {
         ))
     }
 
-    /// Stdout closed: the calls still open end as stopped, the open ask closes and the subagents go with the process.
     pub(super) fn end(&mut self) -> Vec<HarnessEvent> {
         let mut events = self.asks.withdraw(|_| true);
         events.extend(self.calls.stop());
@@ -300,7 +262,6 @@ impl Reader {
                 events: vec![],
                 lines: vec![self.skills_list()],
             },
-            // An update may leave out what did not change, so the whole snapshot is read again.
             (Value::Null, Some("account/rateLimits/updated")) => lines(self.rate_limits()),
             (Value::Null, Some(method)) => Read {
                 events: self.notification(method, &record["params"]),
@@ -328,7 +289,6 @@ impl Reader {
         read
     }
 
-    // The worktree's other threads, newest first: each one's first line and age.
     fn resume_dialog(&mut self, result: &Value, held: &[String]) -> Read {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -359,7 +319,6 @@ impl Reader {
         }
     }
 
-    // A fork goes through the turn before the message, or starts empty at the first one; a rewind drops the message's turn and the later ones.
     fn go_back(&mut self, back: Back, message: Message, thread: &str) -> Value {
         match (back, message.before) {
             (Back::Fork, Some(before)) => {
@@ -375,7 +334,6 @@ impl Reader {
         }
     }
 
-    // The thread's user messages, oldest first; a turn without one, as a compaction's, is no message.
     fn earlier_dialog(&mut self, back: Back, result: &Value) -> Read {
         let turns: Vec<&Value> = result["data"]
             .as_array()
@@ -445,7 +403,6 @@ impl Reader {
             lines: vec![],
         };
         match pending {
-            // The chat takes no message until a history ends, so a failed handshake ends an empty one, and a send gets its error.
             Pending::Initialize => match error {
                 Some(error) => {
                     self.thread_error = Some(error.clone());
@@ -467,7 +424,6 @@ impl Reader {
                     ],
                 },
             },
-            // Without the list the model shows its id; the thread starts either way.
             Pending::Models => {
                 let models = self.settings.read_models(result);
                 let line = match self.saved.take() {
@@ -482,17 +438,14 @@ impl Reader {
                     lines: vec![line],
                 }
             }
-            // Without the list the menu holds the session commands alone.
             Pending::Skills => Read {
                 events: vec![self.settings.read_skills(result)],
                 lines: vec![],
             },
-            // A thread that never ran a turn may have no file to open, so a refusal starts a new one.
             Pending::Resume { saved: true } if error.is_some() => Read {
                 events: vec![],
                 lines: vec![self.thread_start()],
             },
-            // The pane stays on its thread when Codex cannot open the picked one.
             Pending::Resume { saved: false } | Pending::Fork if error.is_some() => {
                 notice(error.unwrap_or_default())
             }
@@ -500,7 +453,6 @@ impl Reader {
                 Some(error) => notice(error),
                 None => self.earlier_dialog(back, result),
             },
-            // Codex sends the shortened thread without its turns, so it opens again to show them.
             Pending::Revert => match (error, self.thread.clone()) {
                 (None, Some(thread)) => {
                     let id = self.request(Pending::Resume { saved: false });
@@ -517,13 +469,11 @@ impl Reader {
                 let mut events = vec![HarnessEvent::HistoryStart];
                 match (error, result["thread"]["id"].as_str()) {
                     (None, Some(thread)) => {
-                        // The old thread's subagents stay with it.
                         events.extend(self.subagents.clear());
                         self.thread = Some(thread.into());
                         events.push(HarnessEvent::SessionInfo { id: thread.into() });
                         events.extend(self.settings.opened(result));
                         let turns = result["thread"]["turns"].as_array();
-                        // Codex tells the window with the first reply; a thread without a turn fills none of it.
                         if turns.is_none_or(|turns| turns.is_empty()) {
                             events.push(HarnessEvent::Context {
                                 tokens: Some(0),
@@ -544,7 +494,6 @@ impl Reader {
                         events.push(HarnessEvent::Notice { text: error });
                     }
                 }
-                // The chat waits for a history, even an empty one, before it takes a message.
                 events.push(HarnessEvent::HistoryEnd);
                 Read {
                     events,
@@ -568,7 +517,6 @@ impl Reader {
                     self.steers.remove(at);
                 }
                 let mut events = vec![self.queue()];
-                // The turn ended before the steer reached it, so the message starts the next one.
                 let lines = match (&self.turn, &self.thread) {
                     (None, Some(thread)) => {
                         let thread = thread.clone();
@@ -593,7 +541,6 @@ impl Reader {
     }
 
     fn notification(&mut self, method: &str, params: &Value) -> Vec<HarnessEvent> {
-        // A request id is the process's own, so a withdrawn ask is found whichever thread asked.
         if method == "serverRequest/resolved" {
             let request = &params["requestId"];
             return self
@@ -603,7 +550,6 @@ impl Reader {
         if let Some(events) = self.subagent(method, params) {
             return events;
         }
-        // A subagent's thread and a thread the pane left speak on the same process.
         if self.thread.is_none() || params["threadId"].as_str() != self.thread.as_deref() {
             return vec![];
         }
@@ -648,7 +594,6 @@ impl Reader {
                     text: params["delta"].as_str().unwrap_or_default().into(),
                 }]
             }
-            // A thought starts at its first text, since Codex often reasons without a summary to show.
             "item/reasoning/summaryTextDelta" | "item/reasoning/textDelta" => {
                 let text = params["delta"].as_str().unwrap_or_default().to_string();
                 let start = self
@@ -679,7 +624,6 @@ impl Reader {
                 }
                 events
             }
-            // After a compaction Codex sends its count of what the context keeps.
             "thread/tokenUsage/updated" => {
                 let usage = &params["tokenUsage"];
                 let count = |value: &Value| value.as_u64().and_then(|n| u32::try_from(n).ok());
@@ -701,7 +645,6 @@ impl Reader {
         }
     }
 
-    // A subagent's own thread: its turn's start, its tools and its turn's end feed the lineage; none for a notification that is no subagent's.
     fn subagent(&mut self, method: &str, params: &Value) -> Option<Vec<HarnessEvent>> {
         let id = params["threadId"].as_str()?;
         if !self.subagents.knows(id) {
@@ -729,7 +672,6 @@ impl Reader {
         Some(event.into_iter().collect())
     }
 
-    // Codex reports each subagent's start, interaction and end as an item on the thread that started it, `thread`.
     fn activity(&mut self, item: &Value, thread: &str) -> Option<HarnessEvent> {
         if item["type"] != "subAgentActivity" {
             return None;
@@ -752,7 +694,6 @@ impl Reader {
         self.turn = None;
         self.streamed.clear();
         self.files.clear();
-        // Codex withdrew its requests; an agent message's questions stay.
         let mut events = self.asks.withdraw(|reply| reply.request.is_some());
         events.extend(self.calls.stop());
         if turn["status"] == "failed" {
@@ -811,7 +752,6 @@ impl relaunch::Reader for Reader {
         Reader::takes_images(self, text)
     }
 
-    // `/new` and `/reload` relaunch before Codex has a thread.
     fn send(
         &mut self,
         text: &str,

@@ -1,4 +1,3 @@
-// Tests for the status rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ageLabel, urgentReport, type StatusReport } from "./status.ts";

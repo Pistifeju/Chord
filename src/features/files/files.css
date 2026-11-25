@@ -1,11 +1,9 @@
-/* The Files view: filter field with its buttons, tree rows; and the Open File by Name sheet. Rules: design/side-panel-and-files.md. */
 .files {
   display: flex;
   flex-direction: column;
   height: 100%;
 }
 
-/* While a folder is open the chevrons point out; Collapse All folds them in as the button greys out. */
 .collapse-all {
   transition: color var(--t-med) var(--ease-out);
 }
@@ -27,7 +25,6 @@
   }
 }
 
-/* The filter field and its buttons are a shared input row (controls.css); here it is 28px. */
 .files-filter {
   display: flex;
   align-items: center;
@@ -59,7 +56,6 @@
   transition: background-color var(--t-fast) var(--ease-out);
 }
 
-/* After ↑ or ↓, the row under a resting pointer keeps no hover fill until the pointer moves. */
 .files-tree:not([data-keys]) .files-row:hover {
   background: var(--raised);
 }
