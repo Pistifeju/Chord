@@ -107,9 +107,10 @@ export function SimulatorView({ worktree, preview }: { worktree: string; preview
   const current = screen.use();
   const state = current?.worktree === worktree ? current.state : null;
   const live = state?.state === "live" && preview == null ? state : null;
+  const macWindow = state?.state === "window" && preview == null ? state : null;
   const [rowHeight, setRowHeight] = useState(ROW);
   const belowScreen = ABOVE_ROW + rowHeight;
-  const rect = box && live ? fit({ ...box, height: box.height - belowScreen }, live) : box;
+  const rect = box && live ? fit({ ...box, height: box.height - belowScreen }, live) : box && macWindow ? fit(box, macWindow, 1) : box;
   const touch = useRef<Touch | null>(null);
   const hover = useRef<Point | null>(null);
   const keysDown = useRef(new Set<string>());
@@ -249,6 +250,12 @@ export function SimulatorView({ worktree, preview }: { worktree: string; preview
     seeThrough.set({ x: rect.x + rect.width / 2 - width / 2, y: rect.y - outset, width, height: rect.height + outset + belowScreen + HOLE_MARGIN, radius: cornerRadius(rect) + outset });
     return () => seeThrough.set(null);
   }, [live !== null, rectKey, rowHeight, box?.width]);
+
+  useLayoutEffect(() => {
+    if (!macWindow || !rect || rect.width === 0) return;
+    seeThrough.set({ x: rect.x - HOLE_MARGIN, y: rect.y - HOLE_MARGIN, width: rect.width + 2 * HOLE_MARGIN, height: rect.height + 2 * HOLE_MARGIN, radius: HOLE_MARGIN });
+    return () => seeThrough.set(null);
+  }, [macWindow !== null, rectKey]);
 
   const showCircles = (first: Point | null, fingers: Fingers) => {
     const second = first && secondFinger(fingers, first);
@@ -392,7 +399,7 @@ export function SimulatorView({ worktree, preview }: { worktree: string; preview
               <span key={i} className="simulator-finger" style={{ left: `${point.x * 100}%`, top: `${point.y * 100}%` }} />
             ))}
           </div>
-        ) : (
+        ) : macWindow ? null : (
           <div className="simulator-empty">
             <p>
               {previewing

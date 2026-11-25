@@ -10,6 +10,11 @@ test("the screen fits the view, centered, keeping its shape", () => {
   assert.deepEqual(fit({ x: 5, y: 6, width: 100, height: 100 }, { width: 0, height: 0 }), { x: 5, y: 6, width: 0, height: 0 });
 });
 
+test("a Mac window shows at its own size and shrinks to fit, never grows", () => {
+  assert.deepEqual(fit({ x: 0, y: 0, width: 800, height: 600 }, { width: 480, height: 320 }, 1), { x: 160, y: 140, width: 480, height: 320 });
+  assert.deepEqual(fit({ x: 0, y: 0, width: 240, height: 600 }, { width: 480, height: 320 }, 1), { x: 0, y: 220, width: 240, height: 160 });
+});
+
 test("an iPhone's screen rounds its corners far more than an iPad's", () => {
   assert.equal(cornerRadius({ x: 0, y: 0, width: 393, height: 852 }), 47);
   assert.equal(cornerRadius({ x: 0, y: 0, width: 820, height: 1180 }), 18);

@@ -1,6 +1,6 @@
 use chord_core::lock;
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::ffi::c_void;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -15,8 +15,9 @@ use objc2::runtime::{AnyObject, Bool, Sel};
 use objc2::{MainThreadMarker, sel};
 use objc2_app_kit::{NSAutoresizingMaskOptions, NSView, NSWindowOrderingMode};
 use objc2_core_foundation::{CGPoint, CGRect, CGSize};
+use objc2_core_graphics::CGColor;
 use objc2_foundation::{NSArray, NSUUID};
-use objc2_quartz_core::{CACurrentMediaTime, CALayer, CATransaction};
+use objc2_quartz_core::{CACurrentMediaTime, CALayer, CATransaction, CATransform3D};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
@@ -52,6 +53,10 @@ pub struct Bezel {
 const FRAME_WIDTH: f64 = 8.0;
 const EDGE_WIDTH: f64 = 1.0;
 const CANVAS_MARGIN: f64 = 160.0;
+const WINDOW_RADIUS: f64 = 16.0;
+const WINDOW_SHADOW_RADIUS: f64 = 12.0;
+const WINDOW_SHADOW_DROP: f64 = 6.0;
+const WINDOW_SHADOW_OPACITY: f32 = 0.3;
 
 #[derive(Serialize, Type, Clone, Debug, PartialEq)]
 #[serde(tag = "state", rename_all = "snake_case")]
@@ -60,6 +65,10 @@ pub enum ScreenState {
         width: u32,
         height: u32,
         locked: bool,
+    },
+    Window {
+        width: u32,
+        height: u32,
     },
     Off {
         message: Option<String>,
@@ -262,6 +271,52 @@ fn set_draws_background(webview: &NSView, draws: bool) {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub(crate) struct MacWindow {
+    pub(crate) context: Option<u32>,
+    pub(crate) width: f64,
+    pub(crate) height: f64,
+}
+
+impl MacWindow {
+    fn shows(&self) -> bool {
+        self.context.is_some() && self.width > 0.0 && self.height > 0.0
+    }
+}
+
+static MAC_WINDOWS: Mutex<BTreeMap<PathBuf, MacWindow>> = Mutex::new(BTreeMap::new());
+
+pub(crate) fn host_on_mac(worktree: &Path, mac: bool) {
+    let changed = {
+        let mut windows = lock(&MAC_WINDOWS);
+        match mac {
+            true if windows.contains_key(worktree) => false,
+            true => windows
+                .insert(worktree.to_path_buf(), MacWindow::default())
+                .is_none(),
+            false => windows.remove(worktree).is_some(),
+        }
+    };
+    if changed {
+        window_changed();
+    }
+}
+
+pub(crate) fn change_window(worktree: &Path, change: impl FnOnce(&mut MacWindow)) {
+    let changed = lock(&MAC_WINDOWS).get_mut(worktree).is_some_and(|window| {
+        let before = *window;
+        change(window);
+        *window != before
+    });
+    if changed {
+        window_changed();
+    }
+}
+
+fn window_changed() {
+    DispatchQueue::main().exec_async(|| with(Screen::sync));
+}
+
 struct Attached {
     udid: String,
     device: Retained<AnyObject>,
@@ -290,9 +345,12 @@ struct Screen {
     plate: Retained<CALayer>,
     layer: Retained<CALayer>,
     capsule: Retained<CALayer>,
+    shadow: Retained<CALayer>,
+    host: Retained<CALayer>,
+    window: Option<MacWindow>,
     buttons: Option<ScreenButtons>,
     motion: Motion,
-    _watch: RcBlock<dyn Fn(*mut AnyObject)>,
+    watch: Option<RcBlock<dyn Fn(*mut AnyObject)>>,
     window_hidden: bool,
     checking: bool,
     shown: Option<Shown>,
@@ -353,8 +411,16 @@ const WEDGED: &str = "The simulator booted without a screen. Shut it down and bo
 
 impl Screen {
     fn create(mtm: MainThreadMarker, webview: Retained<NSView>) -> Option<Screen> {
-        let kit = simulator_kit::load().ok()?;
         let parent = unsafe { webview.superview() }?;
+        let host = layer_host()?;
+        host.setAnchorPoint(CGPoint::new(0.0, 0.0));
+        host.setHidden(true);
+        let shadow = CALayer::new();
+        shadow.setShadowColor(Some(&CGColor::new_srgb(0.0, 0.0, 0.0, 1.0)));
+        shadow.setShadowOpacity(WINDOW_SHADOW_OPACITY);
+        shadow.setShadowRadius(WINDOW_SHADOW_RADIUS);
+        shadow.setShadowOffset(CGSize::new(0.0, -WINDOW_SHADOW_DROP));
+        shadow.setHidden(true);
         let view = NSView::new(mtm);
         view.setWantsLayer(true);
         let frame = CALayer::new();
@@ -368,12 +434,13 @@ impl Screen {
         let root = view.layer()?;
         root.addSublayer(&frame);
         root.addSublayer(&capsule);
+        root.addSublayer(&shadow);
+        root.addSublayer(&host);
         view.setHidden(true);
         if !parent.isFlipped() {
             view.setAutoresizingMask(NSAutoresizingMaskOptions::ViewMinYMargin);
         }
         parent.addSubview_positioned_relativeTo(&view, NSWindowOrderingMode::Below, Some(&webview));
-        let watch = kit.watch(|| with(Screen::sync));
         watch_occlusion(|| with(Screen::follow_window));
         Some(Screen {
             webview,
@@ -382,9 +449,12 @@ impl Screen {
             plate,
             layer,
             capsule,
+            shadow,
+            host,
+            window: None,
             buttons: None,
             motion: Motion::default(),
-            _watch: watch,
+            watch: None,
             window_hidden: false,
             checking: false,
             shown: None,
@@ -474,8 +544,27 @@ impl Screen {
         self.layer
             .setFrame(CGRect::new(CGPoint::new(bezel_width, bezel_width), screen));
         self.layer.setCornerRadius(bezel.radius);
-        self.capsule.setHidden(self.buttons.is_none());
-        if let Some(buttons) = &self.buttons {
+        let window = self.window.filter(MacWindow::shows);
+        self.frame.setHidden(window.is_some());
+        self.shadow.setHidden(window.is_none());
+        self.host.setHidden(window.is_none());
+        if let Some(window) = window {
+            let scale = screen.width / window.width;
+            let origin = CGPoint::new(outset, outset);
+            self.shadow.setFrame(CGRect::new(origin, screen));
+            self.shadow.setCornerRadius(WINDOW_RADIUS * scale);
+            self.shadow.setBackgroundColor(Some(&srgb(bezel.canvas)));
+            self.host.setBounds(CGRect::new(
+                CGPoint::new(0.0, 0.0),
+                CGSize::new(window.width, window.height),
+            ));
+            self.host.setPosition(origin);
+            self.host
+                .setTransform(CATransform3D::new_scale(scale, scale, 1.0));
+        }
+        self.capsule
+            .setHidden(self.buttons.is_none() || window.is_some());
+        if let Some(buttons) = self.buttons.as_ref().filter(|_| window.is_none()) {
             self.capsule.setFrame(screen_buttons::capsule_frame(
                 buttons,
                 size.height,
@@ -490,14 +579,36 @@ impl Screen {
         let live = self
             .attached
             .as_ref()
-            .is_some_and(|attached| attached.shown.0 != 0);
+            .is_some_and(|attached| attached.shown.0 != 0)
+            || self.window.is_some_and(|window| window.shows());
         self.view.setHidden(self.shown.is_none() || !live);
     }
 
     fn sync(&mut self) {
-        let Ok(kit) = simulator_kit::load() else {
-            return;
+        if let Some(shown) = &self.shown
+            && shown.set == DeviceSet::Preview
+            && let Some(window) = lock(&MAC_WINDOWS).get(&shown.worktree).copied()
+        {
+            return self.show_window(window);
+        }
+        self.hide_window();
+        let kit = match simulator_kit::loaded() {
+            Some(Ok(kit)) => kit,
+            Some(Err(message)) => {
+                self.detach();
+                return self.send_state(unavailable(message));
+            }
+            None => {
+                thread::spawn(|| {
+                    let _ = simulator_kit::load();
+                    DispatchQueue::main().exec_async(|| with(Screen::sync));
+                });
+                return;
+            }
         };
+        if self.watch.is_none() {
+            self.watch = Some(kit.watch(|| with(Screen::sync)));
+        }
         self.links.retain(|udid, _| {
             kit.device_with_udid(udid)
                 .is_some_and(|device| is_booted(Retained::as_ptr(&device) as *mut AnyObject))
@@ -525,6 +636,34 @@ impl Screen {
             }
         }
         self.update_hidden();
+    }
+
+    fn show_window(&mut self, window: MacWindow) {
+        if self.attached.is_some() {
+            self.detach();
+        }
+        if self.window != Some(window) {
+            set_context(&self.host, window.context.unwrap_or(0));
+            self.window = Some(window);
+            self.place();
+        }
+        if window.shows() {
+            self.send_state(ScreenState::Window {
+                width: window.width.round() as u32,
+                height: window.height.round() as u32,
+            });
+        } else {
+            self.off(None);
+        }
+        self.update_hidden();
+    }
+
+    fn hide_window(&mut self) {
+        if self.window.take().is_some() {
+            set_context(&self.host, 0);
+            self.place();
+            self.update_hidden();
+        }
     }
 
     fn attach(
@@ -793,6 +932,24 @@ impl Screen {
     }
 }
 
+fn layer_host() -> Option<Retained<CALayer>> {
+    let host = get(class(c"CALayerHost")?, sel!(new));
+    unsafe { Retained::from_raw(host as *mut CALayer) }
+}
+
+fn set_context(host: &CALayer, context: u32) {
+    let host = host as *const CALayer as *mut AnyObject;
+    if responds(host, sel!(setContextId:)) {
+        unsafe {
+            msg::<unsafe extern "C" fn(*mut AnyObject, Sel, u32)>()(
+                host,
+                sel!(setContextId:),
+                context,
+            )
+        };
+    }
+}
+
 fn unavailable(message: String) -> ScreenState {
     let app = simulator::simulator_app()
         .and_then(|app| Some(app.file_stem()?.to_string_lossy().into_owned()))
@@ -819,9 +976,6 @@ pub unsafe fn show_screen(
     let Some(mtm) = MainThreadMarker::new() else {
         return;
     };
-    if let Some(state) = prepare_screen() {
-        return on_state(state);
-    }
     let Some(webview) = (unsafe { Retained::retain(webview as *mut NSView) }) else {
         return;
     };
@@ -896,6 +1050,7 @@ pub fn hide_screen() -> impl FnOnce() + Send + 'static {
     || {
         with(|screen| {
             screen.detach();
+            screen.hide_window();
             screen.shown = None;
             screen.sent = None;
             set_draws_background(&screen.webview, true);

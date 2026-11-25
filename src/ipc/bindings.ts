@@ -673,9 +673,9 @@ export type ScreenRect = {
 
 export type ScreenState = ScreenState_Serialize | ScreenState_Deserialize;
 
-export type ScreenState_Deserialize = { state: "live"; width: number; height: number; locked: boolean } | { state: "off"; message?: string | null } | { state: "unavailable"; message: string; app: string };
+export type ScreenState_Deserialize = { state: "live"; width: number; height: number; locked: boolean } | { state: "window"; width: number; height: number } | { state: "off"; message?: string | null } | { state: "unavailable"; message: string; app: string };
 
-export type ScreenState_Serialize = { state: "live"; width: number; height: number; locked: boolean } | { state: "off"; message: string | null } | { state: "unavailable"; message: string; app: string };
+export type ScreenState_Serialize = { state: "live"; width: number; height: number; locked: boolean } | { state: "window"; width: number; height: number } | { state: "off"; message: string | null } | { state: "unavailable"; message: string; app: string };
 
 export type Screenshot = {
 	file: string,

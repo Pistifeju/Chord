@@ -23,6 +23,7 @@ use crate::hot_reload;
 use crate::issues::BuildIssue;
 use crate::plist;
 use crate::process;
+use crate::screen_view;
 use crate::signature;
 use crate::simulator::{self, DeviceSet};
 
@@ -150,6 +151,24 @@ struct MacPreview {
 
 static MAC_PREVIEWS: Mutex<BTreeMap<PathBuf, MacPreview>> = Mutex::new(BTreeMap::new());
 
+fn note_window(worktree: &Path, reply: &Value) {
+    let size = reply["size"]
+        .as_array()
+        .and_then(|size| match size.as_slice() {
+            [width, height] => Some((width.as_f64()?, height.as_f64()?)),
+            _ => None,
+        });
+    let context = reply["context"].as_u64().map(|context| context as u32);
+    screen_view::change_window(worktree, |window| {
+        if let Some(context) = context {
+            window.context = Some(context);
+        }
+        if let Some((width, height)) = size {
+            (window.width, window.height) = (width, height);
+        }
+    });
+}
+
 pub(crate) fn take_mac(worktree: &Path) -> Option<u32> {
     lock(&MAC_PREVIEWS)
         .remove(worktree)
@@ -231,6 +250,7 @@ pub(crate) fn launch_mac(
     if !debug_dylib.exists() {
         return Err(no_debug_dylib());
     }
+    screen_view::change_window(worktree, |window| window.context = None);
     let identity = signature::identity(app).map_err(Error::Message)?;
     let helper = helper(Platform::Mac, identity.as_deref())?;
     hot_reload::launched(worktree, Platform::Mac, &debug_dylib, identity);
@@ -272,8 +292,11 @@ pub(crate) fn launch_mac(
                 .is_some_and(|preview| preview.pid == pid)
             {
                 previews.remove(&path);
+                drop(previews);
+                screen_view::change_window(&path, |window| window.context = None);
+            } else {
+                drop(previews);
             }
-            drop(previews);
             on_exit(message)
         },
     );
@@ -367,7 +390,10 @@ fn request(worktree: &Path, request: &Value) -> Result<Value, String> {
     if let Some(stream) = mac {
         let stream = lock(&stream);
         writeln!(&*stream, "{request}").map_err(|error| error.to_string())?;
-        return read_answer(&stream);
+        let reply = read_answer(&stream)?;
+        drop(stream);
+        note_window(worktree, &reply);
+        return Ok(reply);
     }
     let path = socket(worktree);
     let start = Instant::now();

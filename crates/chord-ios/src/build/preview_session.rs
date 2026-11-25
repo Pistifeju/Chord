@@ -11,6 +11,7 @@ use crate::hot_reload;
 use crate::preview::{self, Platform, PreviewState};
 use crate::preview_list;
 use crate::process::end_group;
+use crate::screen_view;
 use crate::simulator::{self, DeviceSet};
 use crate::worktree_saves::{self, Saves};
 use crate::xcode::{self, MacSupport};
@@ -101,7 +102,9 @@ impl Builds {
                 message: error.to_string(),
             });
         }
-        let (host, fresh) = match platform(xcode::mac_support(&worktree), destination.as_ref()) {
+        let platform = platform(xcode::mac_support(&worktree), destination.as_ref());
+        screen_view::host_on_mac(&worktree, platform == Platform::Mac);
+        let (host, fresh) = match platform {
             Platform::Mac => (Host::Mac, false),
             Platform::Simulator => {
                 let wanted = match &destination {
