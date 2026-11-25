@@ -6,13 +6,14 @@ use serde_json::{Value, json};
 
 use super::reader::Reader;
 use crate::harness::relaunch::Reader as _;
+use crate::harness::subagents::Subagents;
 use crate::harness::{
-    DialogAnswer, DialogAsk, HarnessEvent, LineChanges, ModelOption, ToolOutcome,
+    DialogAnswer, DialogAsk, HarnessEvent, LineChanges, ModelOption, SubagentState, ToolOutcome,
 };
 
 // A reader past the handshake, on session "s1".
 fn started() -> Reader {
-    let mut reader = Reader::new(Path::new("/w"));
+    let mut reader = Reader::new(Path::new("/w"), None, None, None);
     reader.initialize();
     reader.feed(br#"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1}}"#);
     reader.feed(br#"{"jsonrpc":"2.0","id":2,"result":{"sessionId":"s1"}}"#);
@@ -33,7 +34,7 @@ fn events(reader: &mut Reader, records: &[String]) -> Vec<HarnessEvent> {
 
 #[test]
 fn a_new_session_names_its_model_and_ends_an_empty_history() {
-    let mut reader = Reader::new(Path::new("/w"));
+    let mut reader = Reader::new(Path::new("/w"), None, None, None);
     reader.initialize();
     reader.feed(br#"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1}}"#);
     let answer = r#"{"jsonrpc":"2.0","id":2,"result":{"sessionId":"s1","configOptions":[{"id":"model","category":"model","currentValue":"opencode/big-pickle","options":[{"value":"opencode/big-pickle","name":"opencode/Big Pickle"}]}]}}"#;
@@ -182,7 +183,12 @@ fn clone_and_compact_refuse_mid_turn_and_new_relaunches() {
     reader.send("hi", &[], &[]).unwrap();
     assert!(reader.send("/clone", &[], &[]).is_err());
     assert!(reader.send("/compact", &[], &[]).is_err());
-    assert_eq!(reader.send("/new", &[], &[]).unwrap().relaunch, Some(()));
+    assert!(reader.send("/resume", &[], &[]).is_err());
+    assert_eq!(reader.send("/new", &[], &[]).unwrap().relaunch, Some(None));
+    assert_eq!(
+        reader.send("/reload", &[], &[]).unwrap().relaunch,
+        Some(Some("s1".into()))
+    );
 }
 
 #[test]
@@ -243,6 +249,7 @@ fn a_turn_streams_its_thought_and_reply_and_settles_at_the_answer() {
 #[test]
 fn a_call_starts_once_at_its_input_and_a_write_counts_its_lines() {
     let mut reader = started();
+    reader.send("write it", &[], &[]).unwrap();
     let progress = update(
         json!({"sessionUpdate":"tool_call_update","toolCallId":"c1","status":"in_progress","locations":[{"path":"/w/src/a.txt"}],"rawInput":{"path":"src/a.txt","content":"one\ntwo\n"}}),
     );
@@ -504,4 +511,175 @@ fn a_question_offers_other_and_sends_the_typed_answer_as_its_custom_field() {
             json!({"jsonrpc":"2.0","id":8,"result":{"action":"accept","content":{"q0_custom":"green"}}})
         ]
     );
+}
+
+#[test]
+fn a_saved_session_replays_inside_its_history_and_a_refused_one_opens_a_new_session() {
+    let mut reader = Reader::new(Path::new("/w"), Some("s1".into()), None, None);
+    reader.initialize();
+    let load = reader.feed(br#"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1}}"#);
+    assert_eq!(load.events, [HarnessEvent::HistoryStart]);
+    assert_eq!(load.lines[0]["method"], "session/load");
+    let records = [
+        update(
+            json!({"sessionUpdate":"user_message_chunk","messageId":"u1","content":{"type":"text","text":"hi"}}),
+        ),
+        update(
+            json!({"sessionUpdate":"agent_message_chunk","messageId":"m1","content":{"type":"text","text":"Hello"}}),
+        ),
+        r#"{"jsonrpc":"2.0","id":2,"result":{}}"#.into(),
+    ];
+    let mut replay = events(&mut reader, &records);
+    replay.retain(|event| !matches!(event, HarnessEvent::Commands { .. }));
+    assert_eq!(
+        replay,
+        [
+            HarnessEvent::UserMessageChunk {
+                text: "hi".into(),
+                images: vec![],
+                at: None
+            },
+            HarnessEvent::MessageChunk {
+                text: "Hello".into()
+            },
+            HarnessEvent::MessageEnd {
+                failed: false,
+                at: None
+            },
+            HarnessEvent::SessionInfo { id: "s1".into() },
+            HarnessEvent::HistoryEnd,
+        ]
+    );
+
+    let mut gone = Reader::new(Path::new("/w"), Some("s0".into()), None, None);
+    gone.initialize();
+    gone.feed(br#"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1}}"#);
+    let refused = gone
+        .feed(br#"{"jsonrpc":"2.0","id":2,"error":{"code":-32602,"message":"session not found"}}"#);
+    assert_eq!(refused.lines[0]["method"], "session/new");
+}
+
+#[test]
+fn a_subagent_shows_its_running_tool_and_ends_done() {
+    let mut reader = started();
+    let child = |fields: Value| {
+        let mut params = json!({"rootSessionId":"s1","childSessionId":"c1","parentSessionId":"s1","depth":1,"title":"List files"});
+        params
+            .as_object_mut()
+            .unwrap()
+            .extend(fields.as_object().unwrap().clone());
+        json!({"jsonrpc":"2.0","method":"opencode/session/child_update","params":params})
+            .to_string()
+    };
+    let created = events(
+        &mut reader,
+        &[child(json!({"type":"status","status":"created"}))],
+    );
+    assert_eq!(
+        Subagents::lineage(&created),
+        [(0, "List files".into(), SubagentState::Running, None)]
+    );
+    let tool = child(
+        json!({"type":"update","update":{"sessionUpdate":"tool_call_update","status":"in_progress","title":"List files: ls -a"}}),
+    );
+    assert_eq!(
+        Subagents::lineage(&events(&mut reader, &[tool])),
+        [(
+            0,
+            "List files".into(),
+            SubagentState::Running,
+            Some("ls -a".into())
+        )]
+    );
+    let done = events(
+        &mut reader,
+        &[child(json!({"type":"status","status":"completed"}))],
+    );
+    assert_eq!(Subagents::lineage(&done)[0].2, SubagentState::Done);
+}
+
+#[test]
+fn the_first_prompt_of_a_session_carries_the_tools_guidelines_once() {
+    let mut reader = Reader::new(
+        Path::new("/w"),
+        None,
+        Some(("chord".into(), vec![])),
+        Some("Use build".into()),
+    );
+    reader.initialize();
+    let new = reader.feed(br#"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1}}"#);
+    assert_eq!(
+        new.lines[0]["params"]["mcpServers"],
+        json!([{"name":"chord","command":"chord","args":[],"env":[]}])
+    );
+    reader.feed(br#"{"jsonrpc":"2.0","id":2,"result":{"sessionId":"s1"}}"#);
+    let first = reader.send("hi", &[], &[]).unwrap();
+    assert_eq!(
+        first.lines[0]["params"]["prompt"][1],
+        json!({"type":"text","text":"Use build","annotations":{"audience":["assistant"]}})
+    );
+    reader.feed(br#"{"jsonrpc":"2.0","id":4,"result":{"stopReason":"end_turn"}}"#);
+    let second = reader.send("again", &[], &[]).unwrap();
+    assert_eq!(
+        second.lines[0]["params"]["prompt"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+}
+
+#[test]
+fn a_loading_session_takes_no_message_and_its_first_prompt_carries_no_guidelines() {
+    let mut reader = Reader::new(
+        Path::new("/w"),
+        Some("s1".into()),
+        Some(("chord".into(), vec![])),
+        Some("Use build".into()),
+    );
+    reader.initialize();
+    reader.feed(br#"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1}}"#);
+    assert!(reader.send("hi", &[], &[]).is_err());
+    reader.feed(br#"{"jsonrpc":"2.0","id":2,"result":{}}"#);
+    let first = reader.send("hi", &[], &[]).unwrap();
+    assert_eq!(
+        first.lines[0]["params"]["prompt"].as_array().unwrap().len(),
+        1
+    );
+}
+
+#[test]
+fn opencodes_own_turn_runs_from_its_first_update_until_the_quiet_and_takes_a_steer() {
+    let mut reader = started();
+    let reply = update(
+        json!({"sessionUpdate":"agent_message_chunk","messageId":"m1","content":{"type":"text","text":"Found 4 files"}}),
+    );
+    assert_eq!(
+        events(&mut reader, &[reply]),
+        [
+            HarnessEvent::State { running: true },
+            HarnessEvent::MessageChunk {
+                text: "Found 4 files".into()
+            },
+        ]
+    );
+    assert_eq!(
+        reader.quiet_after(),
+        Some(std::time::Duration::from_secs(20))
+    );
+    assert_eq!(
+        reader.send("thanks", &[], &[]).unwrap().lines[0]["method"],
+        "_session/steering"
+    );
+    assert_eq!(
+        reader.quiet(),
+        [
+            HarnessEvent::MessageEnd {
+                failed: false,
+                at: None
+            },
+            HarnessEvent::State { running: false },
+        ]
+    );
+    assert_eq!(reader.quiet_after(), None);
 }

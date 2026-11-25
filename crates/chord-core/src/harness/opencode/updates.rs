@@ -69,6 +69,10 @@ impl Updates {
         }
     }
 
+    pub(super) fn calls_open(&self) -> bool {
+        !self.calls.is_empty()
+    }
+
     /// The turn ended: its open calls end with it, and a late update of one gives nothing.
     pub(super) fn settle(&mut self) {
         self.calls.clear();

@@ -1,4 +1,4 @@
-//! The subagents a Codex or Claude Code session started, each with the subagent that started it, sent whole as `HarnessEvent::Subagents` after each change.
+//! The subagents a Codex, Claude Code or OpenCode session started, each with the subagent that started it, sent whole as `HarnessEvent::Subagents` after each change.
 
 use std::time::{SystemTime, UNIX_EPOCH};
 

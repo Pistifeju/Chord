@@ -6,7 +6,7 @@ use serde_json::Value;
 
 use super::NAME;
 use crate::harness::session_commands::{
-    self, CLONE, COMPACT_PLAIN, Entry, MODEL, NEW, Picker, THINKING,
+    self, CLONE, COMPACT_PLAIN, Entry, MODEL, NEW, Picker, RESUME, THINKING,
 };
 use crate::harness::{
     DialogAnswer, HarnessEvent, ModelOption, SlashCommand, SlashKind, capitalized, text,
@@ -16,11 +16,16 @@ const MODEL_DIALOG: &str = "opencode-model";
 const THINKING_DIALOG: &str = "opencode-thinking";
 
 /// Chord's commands that act on the session: each name and its description.
-const SESSION_COMMANDS: [Entry; 5] = [
+const SESSION_COMMANDS: [Entry; 7] = [
     MODEL,
     THINKING,
     NEW,
+    RESUME,
     CLONE,
+    (
+        "reload",
+        "Restart OpenCode on this session, with its config and MCP servers read again",
+    ),
     // OpenCode runs it from the prompt text.
     COMPACT_PLAIN,
 ];
@@ -31,6 +36,9 @@ pub(super) enum Command {
     Menu(HarnessEvent),
     /// A new OpenCode process opens a new session.
     New,
+    Resume,
+    /// A new OpenCode process opens the pane's session.
+    Reload,
     Clone,
     Compact,
 }
@@ -154,6 +162,8 @@ impl Settings {
                 )))
             }
             "new" => Some(Command::New),
+            "resume" => Some(Command::Resume),
+            "reload" => Some(Command::Reload),
             "clone" => Some(Command::Clone),
             "compact" => Some(Command::Compact),
             _ => None,

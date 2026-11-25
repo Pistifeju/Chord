@@ -43,14 +43,15 @@ Every `#Preview` sits one click away. When an agent changes a SwiftUI file, the 
 <p>
   <a href="https://pi.dev"><kbd><img src="https://pi.dev/favicon.svg" alt="" width="16" valign="middle" /> pi</kbd></a> &nbsp;
   <a href="https://github.com/openai/codex"><kbd><img src="https://www.google.com/s2/favicons?domain=openai.com&sz=64" alt="" width="16" valign="middle" /> Codex</kbd></a> &nbsp;
-  <a href="https://docs.anthropic.com/claude/docs/claude-code"><kbd><img src="https://www.google.com/s2/favicons?domain=claude.ai&sz=64" alt="" width="16" valign="middle" /> Claude Code</kbd></a>
+  <a href="https://docs.anthropic.com/claude/docs/claude-code"><kbd><img src="https://www.google.com/s2/favicons?domain=claude.ai&sz=64" alt="" width="16" valign="middle" /> Claude Code</kbd></a> &nbsp;
+  <a href="https://opencode.ai"><kbd><img src="https://www.google.com/s2/favicons?domain=opencode.ai&sz=64" alt="" width="16" valign="middle" /> OpenCode</kbd></a>
 </p>
 
 ## Requirements
 
 - macOS 14 or later
 - Xcode
-- At least one of [pi](https://github.com/earendil-works/pi), [Codex](https://github.com/openai/codex) or [Claude Code](https://docs.anthropic.com/claude/docs/claude-code)
+- At least one of [pi](https://github.com/earendil-works/pi), [Codex](https://github.com/openai/codex), [Claude Code](https://docs.anthropic.com/claude/docs/claude-code) or [OpenCode](https://opencode.ai)
 
 ## License
 

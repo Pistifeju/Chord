@@ -58,7 +58,7 @@
   The messages before the summary are gone from the session, so the row is where the transcript starts.
 - **Stopped:** a run the user stops with Esc ends in a left-aligned "Stopped" row of meta text in `ink-muted`, after the run's last item.
 - **Sending** keeps the transcript where the reader left it; it follows the reply only when the reader sits at the end.
-- **Subagent line:** when the harness has the subagents capability and reports subagent runs (pi through a subagent extension, Codex and Claude Code themselves), the lines sit in the transcript where the first run showed up, after the items that came before it, and stay there when later messages arrive or the runs end; a session's history puts them after its last item.
+- **Subagent line:** when the harness has the subagents capability and reports subagent runs (pi through a subagent extension, Codex, Claude Code and OpenCode themselves), the lines sit in the transcript where the first run showed up, after the items that came before it, and stay there when later messages arrive or the runs end; a session's history puts them after its last item.
   They take no card: no fill, no border, the transcript's own inset, 4px between lines.
   Its lines read as the Working row does: meta text (12px, `ink-muted`, tabular), a `StatusMark` (orbit while it runs, `status-done` or `status-error` after) and, 8px after it, one joined text.
   A single run is one line, "worker · bash · 4s": name, tool and time joined with " · ", each part only when known, no leading separator.

@@ -94,7 +94,7 @@ pub fn start(
         )?)),
         codex::NAME => codex::start(dir, session, tools, on_event),
         claude::NAME => claude::start(dir, session, tools, on_event),
-        opencode::NAME => opencode::start(dir, on_event),
+        opencode::NAME => opencode::start(dir, session, tools, on_event),
         other => Err(Error::Message(format!(
             "Chord cannot run the harness \"{other}\""
         ))),

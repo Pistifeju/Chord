@@ -77,7 +77,7 @@ Capabilities: `Chat`, `Attachments`, `Steer`, `Models`, `Context`, `Subagents`, 
 
 On 2.4.1 `initialize` answers in under 0.3 s and `session/new` in under 1.5 s.
 
-Build and run tools (N4): `mcpServers` holds `{ name: "chord", command, args, env: [] }` from `agent_tools::command`, and is empty when that returns none. The first prompt of each session on a process carries `agent_tools::instructions()` as a `text` block with `annotations: { audience: ["assistant"] }`, which OpenCode gives the model outside the user's message.
+Build and run tools (N4): `mcpServers` holds `{ name: "chord", command, args, env: [] }` from `agent_tools::command`, and is empty when that returns none. The first prompt of a session that `session/new` opened carries `agent_tools::instructions()` as a `text` block with `annotations: { audience: ["assistant"] }`, which OpenCode gives the model outside the user's message. A loaded or cloned session holds them already, so its prompts carry none; a session started outside Chord never gets them.
 
 ### Updates
 
@@ -144,11 +144,22 @@ The notification `opencode/session/child_update` holds `rootSessionId`, `childSe
 | `type` | Row |
 |---|---|
 | `status`, `created` | starts a row named `title` under `parentSessionId` when that is another child |
-| `status`, `running` | nothing |
+| `status`, `running` | runs the row again, for a child its parent sent a follow-up |
 | `update` with a `tool_call_update` at `in_progress` | sets the row's tool to the update's `title` without its `<child title>: ` prefix |
 | `status`, `completed` | ends the row Done |
+| `status`, `failed` or `interrupted` | ends the row Error |
 
-A child's updates never reach the transcript. The prompt's answer leaves the rows as they are.
+A child's updates never reach the transcript. The prompt's answer leaves the rows as they are. A loaded session, a clone and the process's end clear them.
+
+When a child ends, OpenCode wakes its parent: the parent's session sends a reply, and calls, with no prompt open. OpenCode sends no record at that turn's end, so the adapter ends it after a quiet period, as Orca does:
+
+- A reply chunk, a thought chunk or a new `tool_call` with no prompt open and no `session/load` waiting starts the turn: `State { running: true }`.
+- The turn ends after 20 s without a record, or 120 s while a call runs: `MessageEnd` for an open reply, open calls end as `Stopped`, then `State { running: false }`.
+- An open ask holds the timer until its answer.
+- A message sent during the turn goes out as `_session/steering`. A `session/prompt` would cut the turn's live updates off, as OpenCode's next prompt takes over the session's update stream.
+- Stop ends the turn in the pane alone, since `session/cancel` reaches only a prompt. An update after it starts a new turn.
+
+The timer lives in `harness/relaunch.rs`: `relaunch::Reader` gets `quiet_after` and `quiet`, which only the OpenCode reader implements. A thread per process waits for the deadline, which each record and each call of the pane's restarts.
 
 A permission request from a child arrives on the pane's session with the child's key in `toolCall._meta["opencode/child-session"]`. It opens a dialog as any other does.
 
@@ -227,9 +238,10 @@ OpenCode reports `effort` for the session's model alone. After the session opens
 
 ## 5. Resume
 
-- A start with a saved session id sends `HistoryStart`, then `session/load { sessionId, cwd, mcpServers }`. OpenCode replays the session as `session/update` lines, which go out through `updates.rs`. `HistoryEnd` follows the answer, which holds the `configOptions`. An error answer falls back to `session/new`.
+- A start with a saved session id sends `HistoryStart`, then `session/load { sessionId, cwd, mcpServers }`. OpenCode replays the session as `session/update` lines, which go out through `updates.rs`. `HistoryEnd` follows the answer, which holds the `configOptions`. An error answer falls back to `session/new`. OpenCode 2.4.1 answers an unknown id with -32602, "session not found".
 - A replay holds the user messages, the replies and thoughts whole, and each tool call as its start and its end. It holds no `usage_update`, so the context meter stays empty until the first turn, and no child session.
-- `/resume` sends `session/list { cwd }`. The answer holds `sessions`, each with `sessionId`, `cwd`, `title` and `updatedAt`, and a `nextCursor`. The select of `harness/session_dialogs.rs` shows each session's title and age, without the sessions in `held_elsewhere`. The pick sends `session/close` for the pane's session, then `session/load` on the same process.
+- `/resume` sends `session/list { cwd }`. The answer holds `sessions`, each with `sessionId`, `cwd`, `title` and `updatedAt`, and a `nextCursor`. The select of `harness/session_dialogs.rs` shows each session's title and age, without the sessions in `held_elsewhere`. The list holds the subagents' sessions too, and nothing in it tells them apart. The pick sends `session/load` on the same process, then `session/close` for the pane's old session at the answer. An error answer loads the old session again.
+- `/reload` starts a new process that loads the pane's session.
 - A replayed update sends no `State`.
 
 ## 6. Contract changes and not built
@@ -244,6 +256,7 @@ Changes outside `harness/opencode/`:
 
 No new `HarnessEvent`, `DialogAsk` or `Capability`.
 `relaunch::Reader::interrupt` returns a `Read`, so a stop writes the cancel and the answers to the open asks, and closes the dialog.
+`relaunch::Reader` gains `quiet_after` and `quiet`, for a turn the harness starts on its own (section 2, Subagents).
 `asks::Field::Choice` names the key a typed Other answer goes under.
 
 Not built:
@@ -253,7 +266,7 @@ Not built:
 - OpenCode's models in the agent menu before its first session.
 - Spend in the Usage panel: OpenCode keeps its sessions in a SQLite database, and `chord-core` has no SQLite reader.
 - The retry status of a failed model call, a session's title in the tab, plans.
-- More than the first page of `session/list`.
+- More than the first page of `session/list`, and a `/resume` list without the subagents' sessions.
 - Sign-in from Chord through OpenCode's terminal auth method.
 - OpenCode 1.x.
 
@@ -277,6 +290,10 @@ Checked on a live `opencode acp` 2.4.1, on the free `opencode/big-pickle` model 
 - `elicitation/create` for a question with two options, answered with `accept`, with `cancel`, and with a typed `q0_custom`, which OpenCode takes as the answer.
 - A question with several answers, answered with an array of `const` values.
 - A subagent: `created`, `running`, its updates and `completed`, with the end after the prompt's answer.
+- `session/load` on a session id OpenCode does not have: the error -32602.
+- Chord's MCP server in `mcpServers`: the model lists `build` and `run`. A text block with the `audience` annotation reaches the model and stays out of the replayed user message.
+- The turn OpenCode starts when a subagent ends: replies on the parent's session after the prompt's answer, with no record at the end. A steer during it answers `injected`.
+- `session/list`: `updatedAt` as ISO 8601, and the subagents' sessions next to the others.
 - `/compact` as a prompt: `compaction_update` at `in_progress`, summary chunks, `completed` with the `summary`.
 - A second session's model picks leave the first session's model as it was, and `session/delete` removes it from `session/list`.
 
@@ -284,12 +301,10 @@ From the docs alone, or not seen:
 
 - A permission request for an edit. A rule `{ action: "edit", resource: "*", effect: "ask" }` in the folder's `opencode.jsonc` asked nothing on 2.4.1, and the edit ran.
 - An image in a tool's `content`.
-- Chord's MCP server in `mcpServers`, and the `audience` annotation on the tool instructions.
+- A call to Chord's `build` tool through OpenCode, and whether OpenCode's tool timeout ends a cold build.
 - A call of kind `fetch` or `delete`, and the `patch` tool.
 - The stop reasons `max_tokens`, `max_turn_requests` and `refusal`, and `auth_required`.
-- A child that fails, and a child of a child.
-- A turn OpenCode starts on its own. A parent gets a `<background-result>` message when its subagent goes idle; in one run no update followed on the parent's session within 40 s. Updates that arrive with no prompt open would need a `State` the adapter does not send.
-- `session/load` on a session id OpenCode no longer has.
+- A child that fails, and a child of a child. OpenCode's source sends `failed` with `error`, and `interrupted`.
 - A `compaction_update` that fails, and a compaction OpenCode starts on its own.
 - Any OpenCode version other than 2.4.1.
 
@@ -300,7 +315,7 @@ Four tickets, built in order. Each one ends with `npm run check` passing and lea
 - [x] N8.1 Chat
 - [x] N8.2 Asks
 - [x] N8.3 Models and commands
-- [ ] N8.4 Resume, subagents and tools
+- [x] N8.4 Resume, subagents and tools
 
 A ticket that checks an item of section 7 on a live process moves that item to the checked list.
 
@@ -388,7 +403,7 @@ Build:
 - Chord's MCP server in `mcpServers`, and the tool instructions on a session's first prompt.
 - The doc edits of section 6: `docs/features/onboarding-and-harnesses.md` and the three `design/` files. `docs/harness-contract.md` and the harness list in `design/icons.md` landed with N8.1.
 
-Check live: `session/load` on a session id OpenCode no longer has, a child that fails, Chord's MCP server and the `audience` annotation, and a turn OpenCode starts on its own after a subagent ends. If such a turn comes, its `State` handling joins this ticket.
+Check live: `session/load` on a session id OpenCode no longer has, a child that fails, Chord's MCP server and the `audience` annotation, and a turn OpenCode starts on its own after a subagent ends. That turn comes, so its `State` and quiet timer join this ticket.
 
 Done when, in the app:
 

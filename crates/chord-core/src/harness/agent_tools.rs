@@ -1,4 +1,4 @@
-//! The agents' build and run tools over MCP, for Codex and Claude Code: the command that starts Chord's own binary as a stdio MCP server, and the server, which passes each call to the socket Chord's window takes the tools on.
+//! The agents' build and run tools over MCP, for Codex, Claude Code and OpenCode: the command that starts Chord's own binary as a stdio MCP server, and the server, which passes each call to the socket Chord's window takes the tools on.
 
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Stdout, Write};

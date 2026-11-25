@@ -19,5 +19,5 @@ Chord is in early development. Security fixes ship in the latest release.
 
 ## Out of scope
 
-- A bug in pi, Codex, Claude Code, git or Xcode. Report it to that project.
+- A bug in pi, Codex, Claude Code, OpenCode, git or Xcode. Report it to that project.
 - An attack that starts with code already running as your user.
