@@ -3,7 +3,8 @@
 use serde_json::Value;
 
 use super::{
-    EXTENSION_PREFIX, FORK_DIALOG, MODELS_REQUEST, NAME, Picker, SESSION_COMMANDS, USAGE_STATUS,
+    EXTENSION_PREFIX, FORK_DIALOG, MODELS_REQUEST, NAME, Picker, RELOAD_PROMPT, SESSION_COMMANDS,
+    USAGE_STATUS,
 };
 use crate::harness::calls::OpenCalls;
 use crate::harness::session_commands::{self, NO_THINKING};
@@ -223,6 +224,8 @@ pub(super) fn events_from(record: &Value) -> Vec<HarnessEvent> {
             let ended = (record["command"] == "get_messages").then_some(HarnessEvent::HistoryEnd);
             std::iter::once(notice).chain(ended).collect()
         }
+        // A done reload is an answer, not a warning, so it shows as a reply and not as the red notice.
+        Some("response") if record["id"] == RELOAD_PROMPT => session_commands::reloaded().into(),
         Some("response") if record["id"] == MODELS_REQUEST => {
             vec![models_event(&record["data"]["models"])]
         }
