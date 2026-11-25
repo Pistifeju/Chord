@@ -23,6 +23,10 @@ const previewModelOf = (worktree: string): RunDestination | null => previewModel
 export const usePreviewModel = (worktree: string): RunDestination | null => previewModels.use(worktree) ?? null;
 
 const latest = new Map<string, number>();
+const sent = new Map<string, Promise<unknown>>();
+
+const inOrder = (worktree: string, send: () => Promise<unknown>) =>
+  sent.set(worktree, (sent.get(worktree) ?? Promise.resolve()).then(send).catch(fail));
 
 export function openPreview(worktree: string): number {
   const number = (latest.get(worktree) ?? 0) + 1;
@@ -35,12 +39,14 @@ export function openPreview(worktree: string): number {
     previews.set({ ...previews.get(), [worktree]: after });
     if (state.state === "failed" && after.shown) fail(state.message);
   };
-  commands.openPreview(worktree, previewModelOf(worktree), previewPicks.get()[worktree] ?? null, channel).catch(fail);
+  const model = previewModelOf(worktree);
+  const pick = previewPicks.get()[worktree] ?? null;
+  inOrder(worktree, () => commands.openPreview(worktree, model, pick, channel));
   return number;
 }
 
 export function closePreview(worktree: string, number: number) {
-  if (latest.get(worktree) === number) commands.closePreview(worktree).catch(fail);
+  if (latest.get(worktree) === number) inOrder(worktree, () => commands.closePreview(worktree));
 }
 
 export function loadPreviewList(worktree: string) {
