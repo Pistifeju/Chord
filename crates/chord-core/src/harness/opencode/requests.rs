@@ -1,4 +1,4 @@
-//! The JSON-RPC lines the adapter writes to OpenCode: the handshake, the session, the prompt, the steer, the cancel, and the refusal of a request Chord does not answer.
+//! The JSON-RPC lines the adapter writes to OpenCode: the handshake, the session and its copy, the prompt, the steer, the config picks, the cancel, and the refusal of a request Chord does not answer.
 
 use serde_json::{Value, json};
 
@@ -24,6 +24,20 @@ pub(super) fn initialize(id: u64) -> Value {
 /// A new session in the worktree `cwd`, an absolute path.
 pub(super) fn session_new(id: u64, cwd: &str) -> Value {
     json!({ "jsonrpc": "2.0", "id": id, "method": "session/new", "params": { "cwd": cwd, "mcpServers": [] } })
+}
+
+pub(super) fn session_delete(id: u64, session: &str) -> Value {
+    json!({ "jsonrpc": "2.0", "id": id, "method": "session/delete", "params": { "sessionId": session } })
+}
+
+/// A copy of `session` as a new session.
+pub(super) fn session_fork(id: u64, session: &str, cwd: &str) -> Value {
+    json!({ "jsonrpc": "2.0", "id": id, "method": "session/fork", "params": { "sessionId": session, "cwd": cwd, "mcpServers": [] } })
+}
+
+/// Sets the config option `config` of `session` to `value`.
+pub(super) fn set_config_option(id: u64, session: &str, config: &str, value: &str) -> Value {
+    json!({ "jsonrpc": "2.0", "id": id, "method": "session/set_config_option", "params": { "sessionId": session, "configId": config, "value": value } })
 }
 
 pub(super) fn prompt(id: u64, session: &str, text: &str, images: &[Image]) -> Value {

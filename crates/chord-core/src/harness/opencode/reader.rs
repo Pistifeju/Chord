@@ -1,4 +1,4 @@
-//! The OpenCode reader: one stdout line in, the harness events it means and the lines to write OpenCode next out. Holds the session, whether a prompt runs, the requests waiting for an answer, OpenCode's asks and what the session's updates left open.
+//! The OpenCode reader: one stdout line in, the harness events it means and the lines to write OpenCode next out. Holds the session, whether a prompt runs, the requests waiting for an answer, OpenCode's asks, the session's settings and what the session's updates left open.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -6,7 +6,8 @@ use std::path::{Path, PathBuf};
 use serde_json::Value;
 
 use super::asks::{self, Asks, Parsed};
-use super::updates::{self, Updates};
+use super::commands::{Command, Pick, Settings};
+use super::updates::Updates;
 use super::{HARNESS, requests};
 use crate::Error;
 use crate::harness::calls::OpenCalls;
@@ -29,6 +30,13 @@ enum Pending {
     Initialize,
     Session,
     Prompt,
+    /// A config pick, with the thinking level to pick once the model's answer lists it.
+    Config(Option<String>),
+    Fork,
+    /// The session that reads each model's thinking levels, which OpenCode reports for a session's model alone.
+    ProbeSession,
+    /// The probe session switched to this model.
+    Probe(String),
     /// A steer, with its message to send again as a prompt when the turn ended first.
     Steer(Message),
 }
@@ -48,6 +56,9 @@ pub(super) struct Reader {
     /// The user stopped the run and sent nothing since, so a steer the turn's end beat goes nowhere.
     stopped: bool,
     updates: Updates,
+    settings: Settings,
+    /// The probe session and the models it has yet to pick, the next last.
+    probe: Option<(String, Vec<String>)>,
     calls: OpenCalls,
     asks: Asks,
 }
@@ -64,6 +75,8 @@ impl Reader {
             next: vec![],
             stopped: false,
             updates: Updates::new(cwd),
+            settings: Settings::default(),
+            probe: None,
             calls: OpenCalls::default(),
             asks: Asks::default(),
         }
@@ -120,16 +133,61 @@ impl Reader {
                 (None, Some(session)) => {
                     self.session = Some(session.into());
                     let mut events = vec![HarnessEvent::SessionInfo { id: session.into() }];
-                    events.extend(updates::model(&result["configOptions"]));
+                    events.extend(self.settings.read(&result["configOptions"]));
+                    events.push(self.settings.commands_event());
                     // The chat takes a message once a history ends, an empty one too.
                     events.extend([HarnessEvent::HistoryStart, HarnessEvent::HistoryEnd]);
-                    events_only(events)
+                    let id = self.request(Pending::ProbeSession);
+                    let cwd = self.cwd.to_string_lossy().into_owned();
+                    Read {
+                        events,
+                        lines: vec![requests::session_new(id, &cwd)],
+                        relaunch: None,
+                    }
                 }
                 (error, _) => {
                     self.no_session(error.unwrap_or_else(|| "OpenCode opened no session".into()))
                 }
             },
             Pending::Prompt => self.prompt_answered(record),
+            Pending::Config(level) => {
+                if let Some(error) = error {
+                    return events_only(vec![HarnessEvent::Notice { text: error }]);
+                }
+                let mut read = events_only(self.settings.read(&result["configOptions"]));
+                let effort = level.and_then(|level| self.settings.effort_pick(&level));
+                read.lines
+                    .extend(effort.and_then(|pick| self.set(pick, None)));
+                read
+            }
+            Pending::ProbeSession => match result["sessionId"].as_str() {
+                Some(probe) => {
+                    self.probe = Some((probe.into(), self.settings.model_ids()));
+                    self.probe_next()
+                }
+                None => Read::default(),
+            },
+            Pending::Probe(model) => {
+                if error.is_none() {
+                    self.settings.learn(&model, &result["configOptions"]);
+                }
+                let mut read = self.probe_next();
+                if self.probe.is_none() {
+                    read.events.push(self.settings.models());
+                }
+                read
+            }
+            Pending::Fork => match (error, result["sessionId"].as_str()) {
+                (None, Some(session)) => {
+                    self.session = Some(session.into());
+                    let mut events = vec![HarnessEvent::SessionInfo { id: session.into() }];
+                    events.extend(self.settings.read(&result["configOptions"]));
+                    events_only(events)
+                }
+                (error, _) => events_only(vec![HarnessEvent::Notice {
+                    text: error.unwrap_or_else(|| "OpenCode copied no session".into()),
+                }]),
+            },
             Pending::Steer(message) => match (error, result["outcome"].as_str()) {
                 (Some(error), _) => events_only(vec![HarnessEvent::Notice { text: error }]),
                 (None, Some("injected")) => events_only(vec![HarnessEvent::UserMessageChunk {
@@ -217,6 +275,32 @@ impl Reader {
         read
     }
 
+    // OpenCode answers picks sent at once with whichever model the session holds then, so they go one at a time.
+    /// The probe session's next model pick; once none is left, the probe session's delete.
+    fn probe_next(&mut self) -> Read {
+        let Some((probe, models)) = self.probe.as_mut() else {
+            return Read::default();
+        };
+        let probe = probe.clone();
+        while let Some(model) = models.pop() {
+            if let Some((config, value)) = self.settings.model_pick(&model) {
+                let id = self.request(Pending::Probe(model));
+                return lines(requests::set_config_option(id, &probe, &config, &value));
+            }
+        }
+        self.probe = None;
+        // Nobody waits for the delete's answer.
+        self.next_id += 1;
+        lines(requests::session_delete(self.next_id, &probe))
+    }
+
+    /// The line that sets a config option on the session; none before a session opens.
+    fn set(&mut self, (config, value): Pick, level: Option<String>) -> Option<Value> {
+        let session = self.session.clone()?;
+        let id = self.request(Pending::Config(level));
+        Some(requests::set_config_option(id, &session, &config, &value))
+    }
+
     fn steer(&mut self, session: &str, message: Message) -> Read {
         self.next_id += 1;
         let line = requests::steer(self.next_id, session, &message.text, &message.images);
@@ -258,7 +342,7 @@ impl relaunch::Reader for Reader {
                 {
                     return Read::default();
                 }
-                events_only(self.updates.update(&params["update"]))
+                events_only(self.updates.update(&params["update"], &mut self.settings))
             }
             (Value::Null, Some(_)) => Read::default(),
             (id, Some(method)) => match asks::parse(id, method, &record["params"], &self.cwd) {
@@ -278,22 +362,58 @@ impl relaunch::Reader for Reader {
         read
     }
 
-    fn takes_images(&self, _text: &str) -> bool {
-        true
+    /// A session command leaves the images for the next message.
+    fn takes_images(&self, text: &str) -> bool {
+        self.settings.command(text).is_none()
     }
 
-    /// A new prompt, or a steer of the running one.
+    /// A new prompt, or a steer of the running one. A session command opens its picker or acts on the session.
     fn send(
         &mut self,
         text: &str,
         images: &[Image],
         _held_elsewhere: &[String],
     ) -> Result<Read, Error> {
+        let command = self.settings.command(text);
+        // A new process needs no session of the old one's.
+        if let Some(Command::New) = command {
+            return Ok(Read {
+                relaunch: Some(()),
+                ..Read::default()
+            });
+        }
         let Some(session) = self.session.clone() else {
             return Err(Error::Message(self.session_error.clone().unwrap_or_else(
                 || "OpenCode is still starting. Send the message again in a moment".into(),
             )));
         };
+        match command {
+            Some(Command::Menu(event)) => return Ok(events_only(vec![event])),
+            Some(Command::Clone | Command::Compact) if self.running => {
+                return Err(Error::Message(
+                    "Wait for the agent to finish, then change the session".into(),
+                ));
+            }
+            Some(Command::Clone) => {
+                let id = self.request(Pending::Fork);
+                let cwd = self.cwd.to_string_lossy().into_owned();
+                return Ok(lines(requests::session_fork(id, &session, &cwd)));
+            }
+            // The compaction shows itself, as under the other harnesses, so the command stays out of the transcript.
+            Some(Command::Compact) => {
+                let mut read = self.prompt(
+                    &session,
+                    Message {
+                        text: text.into(),
+                        images: vec![],
+                    },
+                );
+                read.events
+                    .retain(|event| !matches!(event, HarnessEvent::UserMessageChunk { .. }));
+                return Ok(read);
+            }
+            Some(Command::New) | None => {}
+        }
         self.stopped = false;
         let message = Message {
             text: text.into(),
@@ -307,6 +427,16 @@ impl relaunch::Reader for Reader {
     }
 
     fn answer(&mut self, id: &str, answer: &DialogAnswer) -> Result<Read, Error> {
+        if let Some(pick) = self.settings.pick(id, answer) {
+            return Ok(Read {
+                events: vec![HarnessEvent::DialogClosed],
+                lines: pick
+                    .and_then(|pick| self.set(pick, None))
+                    .into_iter()
+                    .collect(),
+                relaunch: None,
+            });
+        }
         let answered = self.asks.answer(id, answer);
         Ok(Read {
             events: answered.events,
@@ -319,8 +449,16 @@ impl relaunch::Reader for Reader {
         })
     }
 
-    fn pick_model(&mut self, _id: &str, _level: Option<&str>) -> Read {
-        Read::default()
+    // OpenCode lists a model's levels only once the model is the session's, so the level waits for the model's answer.
+    fn pick_model(&mut self, id: &str, level: Option<&str>) -> Read {
+        let line = self
+            .settings
+            .model_pick(id)
+            .and_then(|pick| self.set(pick, level.map(String::from)));
+        Read {
+            lines: line.into_iter().collect(),
+            ..Read::default()
+        }
     }
 
     // ACP has the client answer each ask still open with `cancelled` after the cancel.

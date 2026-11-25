@@ -5,11 +5,9 @@ use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 
+use super::commands::Settings;
 use crate::harness::shell::read_only_title;
-use crate::harness::{
-    HarnessEvent, Image, LineChanges, SlashCommand, SlashKind, ToolOutcome, count, image, relative,
-    text,
-};
+use crate::harness::{HarnessEvent, Image, LineChanges, ToolOutcome, count, image, relative, text};
 
 /// The message whose chunks stream now; a chunk of the same message joins it.
 enum Open {
@@ -76,7 +74,7 @@ impl Updates {
         self.calls.clear();
     }
 
-    pub(super) fn update(&mut self, update: &Value) -> Vec<HarnessEvent> {
+    pub(super) fn update(&mut self, update: &Value, settings: &mut Settings) -> Vec<HarnessEvent> {
         let kind = update["sessionUpdate"].as_str().unwrap_or_default();
         let id = text(&update["messageId"]);
         let content = &update["content"];
@@ -132,8 +130,10 @@ impl Updates {
                     estimated: false,
                 });
             }
-            "config_option_update" => events.extend(model(&update["configOptions"])),
-            "available_commands_update" => events.push(commands(&update["availableCommands"])),
+            "config_option_update" => events.extend(settings.read(&update["configOptions"])),
+            "available_commands_update" => {
+                events.push(settings.read_commands(&update["availableCommands"]))
+            }
             "compaction_update" => events.extend(self.compaction(update)),
             "compaction_summary_chunk" => {
                 let held = self
@@ -212,16 +212,19 @@ impl Updates {
             Some("completed") => {
                 let held = held.unwrap_or_default();
                 let summary = blocks_text(&update["summary"]);
+                let summary = if summary.is_empty() { held } else { summary };
+                // OpenCode reports no usage until the next reply; the context then holds the summary, counted as pi does: a token per four characters.
+                let tokens = (summary.chars().count() / 4) as u32;
                 vec![
                     HarnessEvent::Compacting { active: false },
                     HarnessEvent::Compaction {
-                        summary: if summary.is_empty() { held } else { summary },
+                        summary,
                         tokens_before: None,
                     },
                     HarnessEvent::Context {
-                        tokens: None,
+                        tokens: Some(tokens),
                         window: self.window,
-                        estimated: false,
+                        estimated: true,
                     },
                 ]
             }
@@ -241,50 +244,6 @@ impl Updates {
             }
             _ => vec![],
         }
-    }
-}
-
-/// The model of a session's `configOptions`: its value as the id, its name without the provider.
-pub(super) fn model(options: &Value) -> Option<HarnessEvent> {
-    let option = options
-        .as_array()?
-        .iter()
-        .find(|option| option["category"] == "model")?;
-    let id = option["currentValue"].as_str()?;
-    // A value sits in the option's list, or in a group's.
-    let name = option["options"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .flat_map(|entry| match entry["options"].as_array() {
-            Some(group) => group.iter().collect(),
-            None => vec![entry],
-        })
-        .find(|value| value["value"] == id)
-        .and_then(|value| value["name"].as_str())
-        .unwrap_or(id);
-    let provider = id.split_once('/').map_or("", |(provider, _)| provider);
-    let name = name.strip_prefix(&format!("{provider}/")).unwrap_or(name);
-    Some(HarnessEvent::Model {
-        id: Some(id.into()),
-        name: name.into(),
-        thinking: None,
-    })
-}
-
-fn commands(list: &Value) -> HarnessEvent {
-    HarnessEvent::Commands {
-        commands: list
-            .as_array()
-            .into_iter()
-            .flatten()
-            .map(|command| SlashCommand {
-                name: text(&command["name"]),
-                description: text(&command["description"]),
-                kind: SlashKind::Prompt,
-                origin: None,
-            })
-            .collect(),
     }
 }
 

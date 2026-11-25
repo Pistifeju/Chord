@@ -6,7 +6,9 @@ use serde_json::{Value, json};
 
 use super::reader::Reader;
 use crate::harness::relaunch::Reader as _;
-use crate::harness::{DialogAnswer, DialogAsk, HarnessEvent, LineChanges, ToolOutcome};
+use crate::harness::{
+    DialogAnswer, DialogAsk, HarnessEvent, LineChanges, ModelOption, ToolOutcome,
+};
 
 // A reader past the handshake, on session "s1".
 fn started() -> Reader {
@@ -14,6 +16,7 @@ fn started() -> Reader {
     reader.initialize();
     reader.feed(br#"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1}}"#);
     reader.feed(br#"{"jsonrpc":"2.0","id":2,"result":{"sessionId":"s1"}}"#);
+    // Request 3 opens the probe session, which these tests leave unanswered.
     reader
 }
 
@@ -34,10 +37,22 @@ fn a_new_session_names_its_model_and_ends_an_empty_history() {
     reader.initialize();
     reader.feed(br#"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1}}"#);
     let answer = r#"{"jsonrpc":"2.0","id":2,"result":{"sessionId":"s1","configOptions":[{"id":"model","category":"model","currentValue":"opencode/big-pickle","options":[{"value":"opencode/big-pickle","name":"opencode/Big Pickle"}]}]}}"#;
+    let mut events = reader.feed(answer.as_bytes()).events;
+    events.retain(|event| !matches!(event, HarnessEvent::Commands { .. }));
     assert_eq!(
-        reader.feed(answer.as_bytes()).events,
+        events,
         [
             HarnessEvent::SessionInfo { id: "s1".into() },
+            HarnessEvent::Models {
+                harness: "opencode",
+                models: vec![ModelOption {
+                    id: "opencode/big-pickle".into(),
+                    name: "Big Pickle".into(),
+                    provider: Some("opencode".into()),
+                    levels: vec![],
+                    default_level: None,
+                }],
+            },
             HarnessEvent::Model {
                 id: Some("opencode/big-pickle".into()),
                 name: "Big Pickle".into(),
@@ -47,6 +62,127 @@ fn a_new_session_names_its_model_and_ends_an_empty_history() {
             HarnessEvent::HistoryEnd,
         ]
     );
+}
+
+#[test]
+fn the_commands_list_compact_once_and_opencodes_own() {
+    let mut reader = started();
+    let commands = update(json!({
+        "sessionUpdate": "available_commands_update",
+        "availableCommands": [
+            { "name": "init", "description": "Write AGENTS.md" },
+            { "name": "compact", "description": "Compact the session" },
+        ],
+    }));
+    let Some(HarnessEvent::Commands { commands }) = events(&mut reader, &[commands]).pop() else {
+        panic!("no commands");
+    };
+    let count = |name: &str| {
+        commands
+            .iter()
+            .filter(|command| command.name == name)
+            .count()
+    };
+    assert_eq!((count("compact"), count("init")), (1, 1));
+}
+
+// Two models, `openai/luna` in effect at effort `default`.
+fn options(current: &str) -> Value {
+    let mut options = vec![json!({
+        "id": "model", "category": "model", "currentValue": current,
+        "options": [
+            { "value": "openai/luna", "name": "openai/Luna" },
+            { "value": "opencode/big-pickle", "name": "opencode/Big Pickle" },
+        ],
+    })];
+    if current == "openai/luna" {
+        options.push(json!({
+            "id": "effort", "category": "thought_level", "currentValue": "default",
+            "options": [{ "value": "low", "name": "Low" }, { "value": "default", "name": "Default" }],
+        }));
+    }
+    json!(options)
+}
+
+#[test]
+fn a_model_pick_with_a_level_sets_the_level_once_the_model_answers_and_keeps_its_levels() {
+    let mut reader = started();
+    let opened = update(
+        json!({ "sessionUpdate": "config_option_update", "configOptions": options("opencode/big-pickle") }),
+    );
+    events(&mut reader, &[opened]);
+    let picked = reader.pick_model("openai/luna", Some("low"));
+    assert_eq!(
+        picked.lines,
+        [
+            json!({"jsonrpc":"2.0","id":4,"method":"session/set_config_option","params":{"sessionId":"s1","configId":"model","value":"openai/luna"}})
+        ]
+    );
+    let answer =
+        json!({ "jsonrpc": "2.0", "id": 4, "result": { "configOptions": options("openai/luna") } });
+    let read = reader.feed(answer.to_string().as_bytes());
+    assert_eq!(
+        read.lines,
+        [
+            json!({"jsonrpc":"2.0","id":5,"method":"session/set_config_option","params":{"sessionId":"s1","configId":"effort","value":"low"}})
+        ]
+    );
+    // Back on a model without levels, Luna's stay in the list.
+    let back = update(
+        json!({ "sessionUpdate": "config_option_update", "configOptions": options("opencode/big-pickle") }),
+    );
+    let Some(HarnessEvent::Models { models, .. }) = events(&mut reader, &[back]).first().cloned()
+    else {
+        panic!("no models");
+    };
+    assert_eq!(models[0].levels, ["low", "default"]);
+}
+
+#[test]
+fn a_probe_session_reads_each_models_levels_then_goes() {
+    let mut reader = started();
+    let opened = update(
+        json!({ "sessionUpdate": "config_option_update", "configOptions": options("opencode/big-pickle") }),
+    );
+    events(&mut reader, &[opened]);
+    let pick = |id: u64, model: &str| json!({"jsonrpc":"2.0","id":id,"method":"session/set_config_option","params":{"sessionId":"p1","configId":"model","value":model}});
+    let answer = |id: u64, model: &str| {
+        json!({ "jsonrpc": "2.0", "id": id, "result": { "configOptions": options(model) } })
+            .to_string()
+    };
+    let probe = reader.feed(br#"{"jsonrpc":"2.0","id":3,"result":{"sessionId":"p1"}}"#);
+    assert_eq!(probe.lines, [pick(4, "opencode/big-pickle")]);
+    let next = reader.feed(answer(4, "opencode/big-pickle").as_bytes());
+    assert_eq!(
+        (next.events, next.lines),
+        (vec![], vec![pick(5, "openai/luna")])
+    );
+    let read = reader.feed(answer(5, "openai/luna").as_bytes());
+    let [HarnessEvent::Models { models, .. }] = read.events.as_slice() else {
+        panic!("no models");
+    };
+    assert_eq!(models[0].levels, ["low", "default"]);
+    assert_eq!(
+        read.lines,
+        [json!({"jsonrpc":"2.0","id":6,"method":"session/delete","params":{"sessionId":"p1"}})]
+    );
+}
+
+#[test]
+fn compact_shows_no_user_message() {
+    let mut reader = started();
+    let sent = reader.send("/compact", &[], &[]).unwrap();
+    assert_eq!(sent.events, [HarnessEvent::State { running: true }]);
+    assert_eq!(sent.lines[0]["params"]["prompt"][0]["text"], "/compact");
+}
+
+#[test]
+fn clone_and_compact_refuse_mid_turn_and_new_relaunches() {
+    let mut reader = started();
+    reader.send("hi", &[], &[]).unwrap();
+    assert!(reader.send("/clone", &[], &[]).is_err());
+    assert!(reader.send("/compact", &[], &[]).is_err());
+    assert_eq!(reader.send("/new", &[], &[]).unwrap().relaunch, Some(()));
 }
 
 #[test]
@@ -67,7 +203,7 @@ fn a_turn_streams_its_thought_and_reply_and_settles_at_the_answer() {
     assert_eq!(
         sent.lines,
         [
-            json!({"jsonrpc":"2.0","id":3,"method":"session/prompt","params":{"sessionId":"s1","prompt":[{"type":"text","text":"hi"}]}})
+            json!({"jsonrpc":"2.0","id":4,"method":"session/prompt","params":{"sessionId":"s1","prompt":[{"type":"text","text":"hi"}]}})
         ]
     );
     let records = [
@@ -81,7 +217,7 @@ fn a_turn_streams_its_thought_and_reply_and_settles_at_the_answer() {
             json!({"sessionUpdate":"agent_message_chunk","messageId":"m2","content":{"type":"text","text":"lo"}}),
         ),
         update(json!({"sessionUpdate":"usage_update","used":120,"size":2000})),
-        r#"{"jsonrpc":"2.0","id":3,"result":{"stopReason":"end_turn"}}"#.into(),
+        r#"{"jsonrpc":"2.0","id":4,"result":{"stopReason":"end_turn"}}"#.into(),
     ];
     assert_eq!(
         events(&mut reader, &records),
@@ -158,7 +294,7 @@ fn a_cancelled_turn_stops_its_open_calls_once_and_aborts() {
         update(
             json!({"sessionUpdate":"tool_call","toolCallId":"c2","name":"read","kind":"read","status":"in_progress","locations":[{"path":"/w/a.txt"}]}),
         ),
-        r#"{"jsonrpc":"2.0","id":3,"result":{"stopReason":"cancelled"}}"#.into(),
+        r#"{"jsonrpc":"2.0","id":4,"result":{"stopReason":"cancelled"}}"#.into(),
         update(json!({"sessionUpdate":"tool_call_update","toolCallId":"c2","status":"completed"})),
     ];
     assert_eq!(
@@ -203,11 +339,11 @@ fn a_cancelled_turn_stops_its_open_calls_once_and_aborts() {
     assert_eq!(reader.interrupt().lines, Vec::<Value>::new());
 }
 
-// Steers 4 and 5 come back after the turn ended, before prompt 3's answer.
+// Steers 5 and 6 come back after the turn ended, before prompt 4's answer.
 fn two_late_steers() -> Reader {
     let mut reader = started();
     reader.send("first", &[], &[]).unwrap();
-    for (id, text) in [(4, "more"), (5, "and more")] {
+    for (id, text) in [(5, "more"), (6, "and more")] {
         let steer = reader.send(text, &[], &[]).unwrap().lines;
         assert_eq!(
             steer,
@@ -216,7 +352,7 @@ fn two_late_steers() -> Reader {
             ]
         );
     }
-    for id in [4, 5] {
+    for id in [5, 6] {
         let refused = json!({"jsonrpc":"2.0","id":id,"result":{"outcome":"promptRequired","reason":"noRunningTurn"}});
         reader.feed(refused.to_string().as_bytes());
     }
@@ -226,12 +362,12 @@ fn two_late_steers() -> Reader {
 #[test]
 fn steers_the_ended_turn_refused_go_out_as_the_next_prompt_and_its_steer() {
     let mut reader = two_late_steers();
-    let answered = reader.feed(br#"{"jsonrpc":"2.0","id":3,"result":{"stopReason":"end_turn"}}"#);
+    let answered = reader.feed(br#"{"jsonrpc":"2.0","id":4,"result":{"stopReason":"end_turn"}}"#);
     assert_eq!(
         answered.lines,
         [
-            json!({"jsonrpc":"2.0","id":6,"method":"session/prompt","params":{"sessionId":"s1","prompt":[{"type":"text","text":"more"}]}}),
-            json!({"jsonrpc":"2.0","id":7,"method":"_session/steering","params":{"sessionId":"s1","prompt":[{"type":"text","text":"and more"}]}}),
+            json!({"jsonrpc":"2.0","id":7,"method":"session/prompt","params":{"sessionId":"s1","prompt":[{"type":"text","text":"more"}]}}),
+            json!({"jsonrpc":"2.0","id":8,"method":"_session/steering","params":{"sessionId":"s1","prompt":[{"type":"text","text":"and more"}]}}),
         ]
     );
 }
@@ -240,7 +376,7 @@ fn steers_the_ended_turn_refused_go_out_as_the_next_prompt_and_its_steer() {
 fn a_stop_drops_the_steers_the_ended_turn_refused() {
     let mut reader = two_late_steers();
     reader.interrupt();
-    let answered = reader.feed(br#"{"jsonrpc":"2.0","id":3,"result":{"stopReason":"cancelled"}}"#);
+    let answered = reader.feed(br#"{"jsonrpc":"2.0","id":4,"result":{"stopReason":"cancelled"}}"#);
     assert_eq!(answered.lines, Vec::<Value>::new());
 }
 
@@ -252,7 +388,7 @@ fn a_failed_prompt_fails_its_reply_and_says_why() {
         update(
             json!({"sessionUpdate":"agent_message_chunk","messageId":"m1","content":{"type":"text","text":"Hi"}}),
         ),
-        r#"{"jsonrpc":"2.0","id":3,"error":{"code":-32000,"message":"Authentication required"}}"#
+        r#"{"jsonrpc":"2.0","id":4,"error":{"code":-32000,"message":"Authentication required"}}"#
             .into(),
     ];
     assert_eq!(

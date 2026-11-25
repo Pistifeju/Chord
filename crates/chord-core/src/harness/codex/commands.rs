@@ -6,7 +6,7 @@ use super::NAME;
 use super::permissions;
 use crate::harness::earlier::Back;
 use crate::harness::session_commands::{
-    self, CLONE, Entry, FORK, MODEL, NEW, Picker, RESUME, REWIND, THINKING,
+    self, CLONE, COMPACT_PLAIN, Entry, FORK, MODEL, NEW, Picker, RESUME, REWIND, THINKING,
 };
 use crate::harness::{
     DialogAnswer, HarnessEvent, ModelOption, SlashCommand, SlashKind, capitalized,
@@ -30,7 +30,7 @@ const SESSION_COMMANDS: [Entry; 10] = [
         "reload",
         "Restart Codex on this session, with its config, skills and MCP servers read again",
     ),
-    ("compact", "Summarize the session to free the context"),
+    COMPACT_PLAIN,
 ];
 
 struct Model {

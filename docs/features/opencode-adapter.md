@@ -95,7 +95,7 @@ Every `session/update` carries the session id. The reader drops one for a sessio
 | `available_commands_update` | `Commands` (section 4) |
 | `compaction_update`, `in_progress` | `Compacting { active: true }` |
 | `compaction_summary_chunk` | the text joins the held summary of its `compactionId` |
-| `compaction_update`, `completed` | `Compacting { active: false }`, `Compaction` with the update's `summary`, else the held chunks, then `Context { tokens: None }` |
+| `compaction_update`, `completed` | `Compacting { active: false }`, `Compaction` with the update's `summary`, else the held chunks, then `Context { tokens: summary chars / 4, estimated: true }`, since OpenCode sends no `usage_update` until the next reply |
 | `compaction_update`, `failed` or `cancelled` | `Compacting { active: false }`; `failed` adds a `Notice` with `error` |
 | stdout closes | `Exited`, as pi |
 
@@ -203,7 +203,7 @@ A question with several answers arrives as an `array` field whose `items.anyOf` 
 | `/reload` | starts a new process on the same session with `session/load` |
 | `/resume` | section 5 |
 | `/clone` | sends `session/fork { sessionId, cwd, mcpServers }`; `SessionInfo` goes out with the answer's `sessionId`, and the transcript stays, since a fork replays nothing |
-| `/compact` | sends `/compact` as the prompt; its answer is `end_turn` |
+| `/compact` | sends `/compact` as the prompt, with no `UserMessageChunk`; its answer is `end_turn` |
 
 `/resume`, `/clone` and `/compact` refuse while a turn runs. Every session command refuses with images attached.
 
@@ -219,7 +219,7 @@ OpenCode reports its settings as `configOptions` on each session answer, on each
 
 The reader finds an option by its `category`, never by its `id`, and reads flat values and grouped values alike. 2.4.1 sends the models flat.
 
-OpenCode reports `effort` for the session's model alone, so every other model's `levels` stay empty until a session runs it. The reader keeps the levels it has seen per model for the process's life and sends them again in each `Models`.
+OpenCode reports `effort` for the session's model alone. After the session opens, the reader opens a second session, picks each model on it one at a time, keeps the `effort` values each answer lists, then sends `session/delete` for it and `Models` with every model's `levels`. Picks sent at once get answers with whichever model the session holds then. On 2.4.1 the probe takes under 0.5 s for 30 models. The reader keeps the levels per model for the process's life and sends them again in each `Models`.
 
 `pick_model(id, level)` sends the `model` pick. With a level it sends the `effort` pick after the model's answer, when that answer lists the level.
 
@@ -278,6 +278,7 @@ Checked on a live `opencode acp` 2.4.1, on the free `opencode/big-pickle` model 
 - A question with several answers, answered with an array of `const` values.
 - A subagent: `created`, `running`, its updates and `completed`, with the end after the prompt's answer.
 - `/compact` as a prompt: `compaction_update` at `in_progress`, summary chunks, `completed` with the `summary`.
+- A second session's model picks leave the first session's model as it was, and `session/delete` removes it from `session/list`.
 
 From the docs alone, or not seen:
 
@@ -298,7 +299,7 @@ Four tickets, built in order. Each one ends with `npm run check` passing and lea
 
 - [x] N8.1 Chat
 - [x] N8.2 Asks
-- [ ] N8.3 Models and commands
+- [x] N8.3 Models and commands
 - [ ] N8.4 Resume, subagents and tools
 
 A ticket that checks an item of section 7 on a live process moves that item to the checked list.
@@ -373,7 +374,7 @@ Done when, in the app:
 - The model button opens OpenCode's models, and a pick changes the label and the model of the next turn.
 - The slash menu lists the session commands and `init`, `review`, `goal` and `automation`.
 - `/new` clears the transcript onto a new session, mid-run too.
-- `/compact` shows the compaction with its summary and empties the context meter.
+- `/compact` shows the compaction with its summary and drops the context meter to the summary's estimated size.
 
 ### N8.4 Resume, subagents and tools
 
@@ -382,7 +383,7 @@ Needs: N8.1 and N8.3.
 Build:
 
 - `session/load` at a start with a saved session id, between `HistoryStart` and `HistoryEnd`, with the fallback to `session/new`: section 5.
-- `/resume` through `session/list` and `harness/session_dialogs.rs`, and `/reload`.
+- `/resume` through `session/list` and `harness/session_dialogs.rs`, and `/reload`, each added to the session commands of `Commands`.
 - The subagent rows from `opencode/session/child_update`: section 2, Subagents.
 - Chord's MCP server in `mcpServers`, and the tool instructions on a session's first prompt.
 - The doc edits of section 6: `docs/features/onboarding-and-harnesses.md` and the three `design/` files. `docs/harness-contract.md` and the harness list in `design/icons.md` landed with N8.1.

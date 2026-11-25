@@ -16,6 +16,8 @@ pub(crate) const COMPACT: Entry = (
     "compact",
     "Summarize the session to free the context, optionally with what to keep",
 );
+/// `/compact` for a harness whose summary takes no instructions.
+pub(crate) const COMPACT_PLAIN: Entry = ("compact", "Summarize the session to free the context");
 
 /// The notice `/thinking` gives for a model without thinking levels.
 pub(crate) const NO_THINKING: &str = "The model does not think";
