@@ -49,7 +49,7 @@ pub(crate) fn launch(
     let pumped = console::pump(
         &lines,
         None,
-        |text| text.contains(LAUNCHED),
+        Some(&|text| text.contains(LAUNCHED)),
         launched,
         console,
         || {},

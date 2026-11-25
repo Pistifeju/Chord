@@ -301,6 +301,13 @@ export const PhoneIcon = () => (
   </Icon>
 );
 
+export const MacIcon = () => (
+  <Icon>
+    <rect x="2.25" y="3.25" width="11.5" height="7.5" rx="1.25" />
+    <path d="M1 12.75h14" />
+  </Icon>
+);
+
 export const EyeIcon = () => (
   <Icon>
     <path d="M1.75 8s2.25-4.25 6.25-4.25S14.25 8 14.25 8 12 12.25 8 12.25 1.75 8 1.75 8z" />

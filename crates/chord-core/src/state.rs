@@ -59,12 +59,17 @@ pub enum RunDestination {
         name: String,
         os: String,
     },
+    Mac {
+        name: String,
+    },
 }
 
 impl RunDestination {
     pub fn name(&self) -> &str {
         match self {
-            RunDestination::Device { name, .. } | RunDestination::Simulator { name, .. } => name,
+            RunDestination::Device { name, .. }
+            | RunDestination::Simulator { name, .. }
+            | RunDestination::Mac { name } => name,
         }
     }
 }

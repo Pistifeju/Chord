@@ -17,6 +17,7 @@ use specta::Type;
 use crate::derived_data::path_hash;
 use crate::hot_reload;
 use crate::issues::BuildIssue;
+use crate::plist;
 use crate::process;
 use crate::simulator::{self, DeviceSet};
 
@@ -144,14 +145,14 @@ pub(crate) fn launch(
     register: &dyn Fn(u32),
     on_exit: impl FnOnce(String) + Send + 'static,
 ) -> Result<(), Error> {
-    let executable = simulator::plist_text(app, "CFBundleExecutable", register)?;
+    let executable = plist::app_value(app, "CFBundleExecutable", register)?;
     if !app.join(format!("{executable}.debug.dylib")).exists() {
         return Err(Error::Message(
             "Previews need the debug dylib: set Enable Debug Dylib Support to Yes in the app target's Debug build settings.".into(),
         ));
     }
     let helper = helper()?;
-    let bundle = simulator::plist_text(app, "CFBundleIdentifier", register)?;
+    let bundle = plist::app_value(app, "CFBundleIdentifier", register)?;
     simulator::install(DeviceSet::Preview, udid, app, register)?;
     let mut command = simulator::simctl_command(
         DeviceSet::Preview,

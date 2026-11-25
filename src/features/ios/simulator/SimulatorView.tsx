@@ -127,7 +127,7 @@ export function SimulatorView({ worktree, preview }: { worktree: string; preview
   const shownTime = useRef("0:00");
   const destination = useRunDestination(worktree);
   const building = builds.usePart((all) => isStarting(all[worktree]));
-  const offLine = destination?.kind === "device" ? `Runs go to ${destination.name}. Pick a simulator in Run Destination to run here.` : "The simulator is off.";
+  const offLine = destination && destination.kind !== "simulator" ? `Runs go to ${destination.name}. Pick a simulator in Run Destination to run here.` : "The simulator is off.";
 
   useEffect(() => {
     const since = recording?.phase === "recording" ? recording.since : null;
@@ -403,7 +403,7 @@ export function SimulatorView({ worktree, preview }: { worktree: string; preview
                     ? state.message
                     : offLine}
             </p>
-            {!previewing && state?.state !== "unavailable" && !(state?.state === "off" && state.message) && destination?.kind !== "device" && (
+            {!previewing && state?.state !== "unavailable" && !(state?.state === "off" && state.message) && (!destination || destination.kind === "simulator") && (
               <button type="button" className="button-secondary" title={tooltip("build.run")} disabled={building} onClick={() => runApp(worktree)}>
                 Run
               </button>

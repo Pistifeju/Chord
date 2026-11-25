@@ -147,6 +147,20 @@ A failed build lists its errors above the log. An error that names a file opens 
 
 Where each control sits and how it looks: `design/build-and-run.md`. The run control and its menu sit in the window's top right corner, the run status and the booted simulators in the status bar, the build log and the console in the bottom panel as views beside the terminal, and a run marker on the worktree's card. The UI moves only for the person who asked: a failed build the user started opens the log, an agent's run opens the Simulator view, since an agent runs only when the user asks, and an agent's build opens nothing.
 
+## 4a. Run on My Mac
+
+A project builds for macOS when a `project.pbxproj` in the worktree sets `SDKROOT` or `SUPPORTED_PLATFORMS` to a value with `macosx`.
+Such a project offers My Mac in the run menu, and a project with no `iphone` value there runs on My Mac without a pick.
+
+1. `xcodebuild` builds with `-destination platform=macOS,arch=<the Mac's arch>`, in the same slot and DerivedData as a simulator build.
+2. `-showBuildSettings` with that destination names the `.app`, as in section 3.2.
+3. Chord starts `Contents/MacOS/<CFBundleExecutable>` on a terminal in a process group of its own, with `OS_ACTIVITY_DT_MODE` set so OSLog lines reach the console.
+4. Stop ends that group. The app's exit code ends the run, as on a simulator.
+
+No install step, no simulator, no Simulator view: Rust tells the window when a run goes to a simulator, and only then does the Simulator view open.
+A saved My Mac pick falls back to a simulator, with a notice, once the worktree's project no longer builds for macOS.
+The arch comes from `hw.optional.arm64`, so a Chord running under Rosetta still builds for Apple silicon. Mac Catalyst and Designed for iPad are not run destinations yet.
+
 ## 5. What grows with worktrees
 
 | Resource | Cost per worktree | What bounds it |

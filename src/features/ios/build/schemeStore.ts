@@ -1,5 +1,6 @@
 import { commands, type SchemePick_Serialize as SchemePick, type Schemes } from "../../../ipc/bindings";
 import { externalStore } from "../../../ui/externalStore";
+import { xcodeWorktree } from "../../worktrees/store";
 import { projectPicks } from "../projectPicks";
 import { shownBeforeListing, shownPick } from "./scheme";
 
@@ -21,6 +22,15 @@ export const schemePickOf = (worktree: string): SchemePick => schemePicks.of(wor
 export const useSchemePick = (worktree: string): SchemePick => schemePicks.use(worktree) ?? noPick;
 
 export const chooseSchemePick = (worktree: string, change: Partial<SchemePick>) => schemePicks.choose(worktree, { ...schemePickOf(worktree), ...change });
+
+const isMacOnly = (all: Record<string, Schemes>, worktree: string | null): boolean => !!worktree && all[worktree]?.mac === "only";
+
+export const useMacOnly = (worktree: string | null): boolean => schemeListings.usePart((all) => isMacOnly(all, worktree));
+
+export function simulatorWorktree(): string | null {
+  const worktree = xcodeWorktree();
+  return isMacOnly(schemeListings.get(), worktree) ? null : worktree;
+}
 
 export async function refreshSchemes(worktree: string) {
   const listing = await commands.listSchemes(worktree);

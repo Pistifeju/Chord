@@ -12,7 +12,7 @@ use crate::preview::{self, PreviewState};
 use crate::preview_list;
 use crate::simulator::{self, DeviceSet};
 use crate::worktree_saves::{self, Saves};
-use crate::xcode;
+use crate::xcode::{self, MacSupport};
 
 #[derive(Debug, PartialEq)]
 enum OnOpen {
@@ -60,6 +60,13 @@ impl Builds {
         if let Err(error) = self.project_of(&worktree) {
             return on_state(PreviewState::Failed {
                 message: error.to_string(),
+            });
+        }
+        if xcode::mac_support(&worktree) == MacSupport::Only {
+            return on_state(PreviewState::Failed {
+                message:
+                    "Preview runs on an iOS simulator, and this project builds for macOS only."
+                        .into(),
             });
         }
         let wanted = match &destination {
@@ -337,7 +344,7 @@ impl Build {
             return BuildEvent::Stopped;
         }
         let target = self.build_simulator().map(|device| device.udid);
-        match self.xcodebuild(&scheme, target.as_deref()) {
+        match self.xcodebuild(&scheme, &xcode::destination(target.as_deref())) {
             BuildEvent::Succeeded => {}
             end => return end,
         }
@@ -361,7 +368,7 @@ impl Build {
                     &self.project,
                     &scheme,
                     &self.configuration(&scheme),
-                    target.as_deref(),
+                    &xcode::destination(target.as_deref()),
                     &self.worktree,
                     register,
                 )
