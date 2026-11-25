@@ -19,6 +19,7 @@ use crate::hot_reload;
 use crate::issues::BuildIssue;
 use crate::plist;
 use crate::process;
+use crate::signature;
 use crate::simulator::{self, DeviceSet};
 
 const CAPTURE: &str = include_str!("ChordPreview.swift");
@@ -151,7 +152,7 @@ pub(crate) fn launch(
             "Previews need the debug dylib: set Enable Debug Dylib Support to Yes in the app target's Debug build settings.".into(),
         ));
     }
-    let helper = helper(Platform::Simulator)?;
+    let helper = helper(Platform::Simulator, None)?;
     let bundle = plist::app_value(app, "CFBundleIdentifier", register)?;
     simulator::install(DeviceSet::Preview, udid, app, register)?;
     let mut command = simulator::simctl_command(
@@ -166,7 +167,11 @@ pub(crate) fn launch(
     )?;
     let socket = socket(worktree);
     let _ = std::fs::remove_file(&socket);
-    hot_reload::launched(worktree, &app.join(format!("{executable}.debug.dylib")));
+    hot_reload::launched(
+        worktree,
+        &app.join(format!("{executable}.debug.dylib")),
+        None,
+    );
     command
         .env("SIMCTL_CHILD_DYLD_INSERT_LIBRARIES", &helper)
         .env("SIMCTL_CHILD_CHORD_PREVIEW_SOCKET", &socket);
@@ -320,7 +325,7 @@ impl Platform {
     }
 }
 
-fn helper(platform: Platform) -> Result<PathBuf, Error> {
+fn helper(platform: Platform, identity: Option<&str>) -> Result<PathBuf, Error> {
     static BUILDING: Mutex<()> = Mutex::new(());
     let _building = lock(&BUILDING);
     let cache = CACHE_FOLDER
@@ -330,12 +335,16 @@ fn helper(platform: Platform) -> Result<PathBuf, Error> {
     let mut hasher = DefaultHasher::new();
     CAPTURE.hash(&mut hasher);
     shell.source.hash(&mut hasher);
-    let folder = cache.join("PreviewHelper").join(format!(
+    let mut name = format!(
         "{}-{}-{:08x}",
         shell.sdk,
         xcode_build(),
         hasher.finish() as u32
-    ));
+    );
+    if let Some(identity) = identity {
+        name = format!("{name}-{identity}");
+    }
+    let folder = cache.join("PreviewHelper").join(name);
     let dylib = folder.join("ChordPreview.dylib");
     if dylib.exists() {
         return Ok(dylib);
@@ -387,6 +396,9 @@ fn helper(platform: Platform) -> Result<PathBuf, Error> {
         return Err(Error::Message(format!(
             "The preview helper did not build: {first}"
         )));
+    }
+    if let Some(identity) = identity {
+        signature::sign(&partial, identity).map_err(Error::Message)?;
     }
     std::fs::rename(&partial, &dylib)?;
     Ok(dylib)

@@ -10,7 +10,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::compile_commands::{self, Job, value_of};
 use crate::derived_data::path_hash;
 use crate::issues::{BuildIssue, parse_line};
-use crate::preview;
+use crate::preview::{self, PreviewState};
+use crate::process;
+use crate::signature;
 use crate::view_graph::{Graph, find, past_literal};
 
 static SAVED: Mutex<BTreeMap<PathBuf, BTreeSet<String>>> = Mutex::new(BTreeMap::new());
@@ -44,6 +46,7 @@ struct Launch {
     dylib: PathBuf,
     stamp: Option<(u64, SystemTime)>,
     hidden: Option<Arc<HashMap<String, u64>>>,
+    identity: Option<String>,
 }
 
 struct Hidden {
@@ -66,14 +69,22 @@ fn file_stamp(dylib: &Path) -> Option<(u64, SystemTime)> {
     Some((meta.len(), meta.modified().ok()?))
 }
 
-fn launched_hidden(worktree: &Path, read: bool) -> Result<Option<Hidden>, String> {
-    let (dylib, stamp, functions) = match lock(&LAUNCHED).get(worktree) {
-        Some(launch) => (launch.dylib.clone(), launch.stamp, launch.hidden.clone()),
-        None => return Ok(None),
+fn launched_hidden(
+    worktree: &Path,
+    read: bool,
+) -> Result<(Option<String>, Option<Hidden>), String> {
+    let (dylib, stamp, functions, identity) = match lock(&LAUNCHED).get(worktree) {
+        Some(launch) => (
+            launch.dylib.clone(),
+            launch.stamp,
+            launch.hidden.clone(),
+            launch.identity.clone(),
+        ),
+        None => return Ok((None, None)),
     };
     let functions = match functions {
         Some(functions) => functions,
-        None if !read => return Ok(None),
+        None if !read => return Ok((identity, None)),
         None => {
             let unread = Hidden {
                 dylib,
@@ -88,17 +99,23 @@ fn launched_hidden(worktree: &Path, read: bool) -> Result<Option<Hidden>, String
             {
                 launch.hidden = Some(functions.clone());
             }
-            return Ok(Some(Hidden {
-                functions,
-                ..unread
-            }));
+            return Ok((
+                identity,
+                Some(Hidden {
+                    functions,
+                    ..unread
+                }),
+            ));
         }
     };
-    Ok(Some(Hidden {
-        dylib,
-        stamp,
-        functions,
-    }))
+    Ok((
+        identity,
+        Some(Hidden {
+            dylib,
+            stamp,
+            functions,
+        }),
+    ))
 }
 
 fn hidden_functions(nm: &str) -> HashMap<String, u64> {
@@ -113,7 +130,7 @@ fn hidden_functions(nm: &str) -> HashMap<String, u64> {
         .collect()
 }
 
-pub(crate) fn launched(worktree: &Path, dylib: &Path) {
+pub(crate) fn launched(worktree: &Path, dylib: &Path, identity: Option<String>) {
     forget(worktree);
     lock(&LAUNCHED).insert(
         worktree.to_path_buf(),
@@ -121,6 +138,7 @@ pub(crate) fn launched(worktree: &Path, dylib: &Path) {
             dylib: dylib.to_path_buf(),
             stamp: file_stamp(dylib),
             hidden: None,
+            identity,
         },
     );
     if let Some(folder) = reload_folder(worktree) {
@@ -129,10 +147,10 @@ pub(crate) fn launched(worktree: &Path, dylib: &Path) {
     }
 }
 
-pub(crate) fn reload(worktree: &Path) -> Result<Option<BuildIssue>, String> {
+pub(crate) fn reload(worktree: &Path) -> Result<PreviewState, String> {
     let saved = saved_files().get(worktree).cloned().unwrap_or_default();
     if saved.is_empty() {
-        return Ok(None);
+        return Ok(PreviewState::Live);
     }
     let file_id = preview::shown_file(worktree)?;
     let (module, name) = file_id.split_once('/').ok_or("the preview has no file")?;
@@ -148,7 +166,13 @@ pub(crate) fn reload(worktree: &Path) -> Result<Option<BuildIssue>, String> {
         .ok_or_else(|| format!("{file_id} has no compile command"))?;
     let folder = reload_folder(worktree).ok_or("Chord has no cache folder")?;
     let jobs = compile_commands::jobs(worktree, driver, &files, &launch_marker(&folder))?;
-    let hidden = launched_hidden(worktree, false)?;
+    let (identity, hidden) = launched_hidden(worktree, false)?;
+    let sign = |dylib: PathBuf| match &identity {
+        Some(identity) => signature::sign(&dylib, identity)
+            .map(|()| dylib)
+            .map_err(|message| PreviewState::Failed { message }),
+        None => Ok(dylib),
+    };
     match compile(
         &jobs,
         &files,
@@ -158,14 +182,18 @@ pub(crate) fn reload(worktree: &Path) -> Result<Option<BuildIssue>, String> {
         &saved,
         hidden.as_ref(),
     )? {
-        Built::Unused => Ok(None),
-        Built::Errors(issue) => Ok(Some(issue)),
+        Built::Unused => Ok(PreviewState::Live),
+        Built::Errors(issue) => Ok(PreviewState::Error { issue }),
         Built::Dylib { dylib, objects } => {
+            let dylib = match sign(dylib) {
+                Ok(dylib) => dylib,
+                Err(failed) => return Ok(failed),
+            };
             if let Err(error) = preview::load(worktree, &dylib) {
                 if hidden.is_some() || !error.contains("symbol not found") {
                     return Err(error);
                 }
-                let Some(hidden) = launched_hidden(worktree, true)? else {
+                let (_, Some(hidden)) = launched_hidden(worktree, true)? else {
                     return Err(error);
                 };
                 let job = jobs
@@ -173,15 +201,16 @@ pub(crate) fn reload(worktree: &Path) -> Result<Option<BuildIssue>, String> {
                     .ok_or("the preview's file has no compile command")?;
                 let inputs: Vec<PathBuf> =
                     objects.iter().map(|(object, _)| object.clone()).collect();
-                preview::load(
-                    worktree,
-                    &link(job, &folder, worktree, &inputs, Some(&hidden))?,
-                )?;
+                let relinked = match sign(link(job, &folder, worktree, &inputs, Some(&hidden))?) {
+                    Ok(dylib) => dylib,
+                    Err(failed) => return Ok(failed),
+                };
+                preview::load(worktree, &relinked)?;
             }
             for (object, last) in objects {
                 let _ = fs::rename(object, last);
             }
-            Ok(None)
+            Ok(PreviewState::Live)
         }
     }
 }
@@ -369,24 +398,18 @@ fn link(
             let stubs = folder.join(format!("reload-{stamp}-stubs.s"));
             fs::write(&stubs, trampolines(&calls, slide)).map_err(|error| error.to_string())?;
             let object = stubs.with_extension("o");
-            let output = Command::new(&tools().clang)
+            let mut command = Command::new(&tools().clang);
+            command
                 .args(["-c", "-target", target, "-isysroot", sdk, "-o"])
                 .arg(&object)
-                .arg(&stubs)
-                .output()
-                .map_err(|error| format!("clang: {error}"))?;
-            if !output.status.success() {
-                let errors = String::from_utf8_lossy(&output.stderr);
-                return Err(format!(
-                    "assembling the trampolines failed: {}",
-                    errors.lines().next().unwrap_or_default()
-                ));
-            }
+                .arg(&stubs);
+            process::checked(command, "assembling the trampolines failed")?;
             inputs.push(object);
         }
     }
     let dylib = folder.join(format!("reload-{stamp}.dylib"));
-    let output = Command::new(&tools().clang)
+    let mut command = Command::new(&tools().clang);
+    command
         .args([
             "-dynamiclib",
             "-undefined",
@@ -399,16 +422,8 @@ fn link(
             "-o",
         ])
         .arg(&dylib)
-        .args(&inputs)
-        .output()
-        .map_err(|error| format!("clang: {error}"))?;
-    if !output.status.success() {
-        let errors = String::from_utf8_lossy(&output.stderr);
-        return Err(format!(
-            "linking failed: {}",
-            errors.lines().next().unwrap_or_default()
-        ));
-    }
+        .args(&inputs);
+    process::checked(command, "linking failed")?;
     Ok(dylib)
 }
 
@@ -416,14 +431,10 @@ fn hidden_calls(
     objects: &[PathBuf],
     functions: &HashMap<String, u64>,
 ) -> Result<BTreeMap<String, u64>, String> {
-    let output = Command::new(&tools().nm)
-        .args(objects)
-        .output()
-        .map_err(|error| format!("nm: {error}"))?;
-    if !output.status.success() {
-        return Err("nm failed on the reload's objects".into());
-    }
-    let (undefined, defined) = undefined_and_defined(&String::from_utf8_lossy(&output.stdout));
+    let mut command = Command::new(&tools().nm);
+    command.args(objects);
+    let nm = process::checked(command, "nm failed on the reload's objects")?;
+    let (undefined, defined) = undefined_and_defined(&nm);
     Ok(undefined
         .difference(&defined)
         .filter_map(|name| Some((name.clone(), *functions.get(name)?)))
@@ -675,16 +686,9 @@ fn layout_symbols(nm: &str) -> BTreeSet<&str> {
 }
 
 fn run(tool: &str, args: &[&str], object: &Path) -> Result<String, String> {
-    let output = Command::new(tool)
-        .args(args)
-        .arg(object)
-        .output()
-        .map_err(|error| format!("{tool}: {error}"))?;
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).into_owned())
-    } else {
-        Err(format!("{tool} failed on {}", object.display()))
-    }
+    let mut command = Command::new(tool);
+    command.args(args).arg(object);
+    process::checked(command, &format!("{tool} failed on {}", object.display()))
 }
 
 fn layout(object: &Path) -> Result<(BTreeSet<String>, String), String> {

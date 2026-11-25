@@ -13,6 +13,7 @@ use specta::Type;
 use crate::derived_data::LSOF;
 use crate::plist::PLUTIL;
 use crate::process;
+use crate::signature::CODESIGN;
 use crate::simulator::OPEN;
 
 pub(crate) struct Project {
@@ -30,7 +31,7 @@ const TOOLS: [(&str, &str, &str); 2] = [
 ];
 
 pub(crate) fn require_tools() -> Result<(), Error> {
-    for path in [LSOF, PLUTIL, OPEN] {
+    for path in [LSOF, PLUTIL, OPEN, CODESIGN] {
         if !Path::new(path).exists() {
             return Err(Error::MissingTool {
                 tool: path.into(),

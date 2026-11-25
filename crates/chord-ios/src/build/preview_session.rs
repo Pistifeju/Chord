@@ -169,8 +169,7 @@ impl Builds {
                 .ok()
         });
         match shown {
-            Some(None) => self.tell_preview(worktree, PreviewState::Live),
-            Some(Some(issue)) => self.tell_preview(worktree, PreviewState::Error { issue }),
+            Some(state) => self.tell_preview(worktree, state),
             None => self.start_preview(worktree),
         }
     }
@@ -208,8 +207,7 @@ impl Builds {
             return self.start_preview(worktree);
         }
         match hot_reload::reload(worktree) {
-            Ok(None) => self.tell_preview(worktree, PreviewState::Live),
-            Ok(Some(issue)) => self.tell_preview(worktree, PreviewState::Error { issue }),
+            Ok(state) => self.tell_preview(worktree, state),
             Err(_) => self.start_preview(worktree),
         }
     }

@@ -22,6 +22,7 @@ mod screen_buttons;
 mod screen_view;
 mod screenshot;
 mod service_groups;
+mod signature;
 mod simulator;
 mod simulator_kit;
 mod slim;
