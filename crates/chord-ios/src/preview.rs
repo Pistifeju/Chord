@@ -1,10 +1,14 @@
 use chord_core::lock;
 use std::collections::hash_map::DefaultHasher;
-use std::collections::{HashSet, VecDeque};
+use std::collections::{BTreeMap, HashSet, VecDeque};
+use std::fs::File;
 use std::hash::{Hash, Hasher};
-use std::io::{BufRead, BufReader, Write};
+use std::io::{self, BufRead, BufReader, Write};
+use std::os::fd::AsRawFd;
 use std::os::unix::net::UnixStream;
+use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
+use std::process::{Child, Command};
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
@@ -139,6 +143,32 @@ pub(crate) fn boot(
     })
 }
 
+struct MacPreview {
+    pid: u32,
+    stream: Arc<Mutex<UnixStream>>,
+}
+
+static MAC_PREVIEWS: Mutex<BTreeMap<PathBuf, MacPreview>> = Mutex::new(BTreeMap::new());
+
+pub(crate) fn take_mac(worktree: &Path) -> Option<u32> {
+    lock(&MAC_PREVIEWS)
+        .remove(worktree)
+        .map(|preview| preview.pid)
+}
+
+pub(crate) fn take_all_mac() -> Vec<u32> {
+    std::mem::take(&mut *lock(&MAC_PREVIEWS))
+        .into_values()
+        .map(|preview| preview.pid)
+        .collect()
+}
+
+fn no_debug_dylib() -> Error {
+    Error::Message(
+        "Previews need the debug dylib: set Enable Debug Dylib Support to Yes in the app target's Debug build settings.".into(),
+    )
+}
+
 pub(crate) fn launch(
     worktree: &Path,
     udid: &str,
@@ -148,9 +178,7 @@ pub(crate) fn launch(
 ) -> Result<(), Error> {
     let executable = plist::app_value(app, "CFBundleExecutable", register)?;
     if !app.join(format!("{executable}.debug.dylib")).exists() {
-        return Err(Error::Message(
-            "Previews need the debug dylib: set Enable Debug Dylib Support to Yes in the app target's Debug build settings.".into(),
-        ));
+        return Err(no_debug_dylib());
     }
     let helper = helper(Platform::Simulator, None)?;
     let bundle = plist::app_value(app, "CFBundleIdentifier", register)?;
@@ -175,14 +203,112 @@ pub(crate) fn launch(
     command
         .env("SIMCTL_CHILD_DYLD_INSERT_LIBRARIES", &helper)
         .env("SIMCTL_CHILD_CHORD_PREVIEW_SOCKET", &socket);
-    let (mut child, reader) = process::merged_on_terminal(command, None)?;
+    let (child, reader) = process::merged_on_terminal(command, None)?;
     register(child.id());
+    follow(
+        child,
+        reader,
+        Some(format!("{bundle}: ")),
+        || socket.exists(),
+        on_exit,
+    )
+}
+
+pub(crate) fn launch_mac(
+    worktree: &Path,
+    app: &Path,
+    register: &dyn Fn(u32),
+    on_exit: impl FnOnce(String) + Send + 'static,
+) -> Result<(), Error> {
+    let executable = plist::value(
+        &app.join("Contents/Info.plist"),
+        "CFBundleExecutable",
+        register,
+    )?;
+    let folder = app.join("Contents/MacOS");
+    let debug_dylib = folder.join(format!("{executable}.debug.dylib"));
+    if !debug_dylib.exists() {
+        return Err(no_debug_dylib());
+    }
+    let identity = signature::identity(app).map_err(Error::Message)?;
+    let helper = helper(Platform::Mac, identity.as_deref())?;
+    hot_reload::launched(worktree, &debug_dylib, identity);
+    let (ours, theirs) = UnixStream::pair()?;
+    let fd = theirs.as_raw_fd();
+    let mut command = Command::new(folder.join(executable));
+    command
+        .env("OS_ACTIVITY_DT_MODE", "YES")
+        .env("DYLD_INSERT_LIBRARIES", &helper)
+        .env("CHORD_PREVIEW_FD", fd.to_string());
+    unsafe {
+        command.pre_exec(move || match libc::fcntl(fd, libc::F_SETFD, 0) {
+            -1 => Err(io::Error::last_os_error()),
+            _ => Ok(()),
+        });
+    }
+    let (child, reader) = process::merged_on_terminal(command, None)?;
+    drop(theirs);
+    let pid = child.id();
+    register(pid);
+    writeln!(&ours, "{}", json!({ "op": "shown" }))?;
+    let mut answer = BufReader::new(ours.try_clone()?);
+    let (answered, heard) = mpsc::channel();
+    std::thread::spawn(move || {
+        let mut line = String::new();
+        let read = answer.read_line(&mut line);
+        let _ = answered.send(read.is_ok() && line.ends_with('\n'));
+    });
+    let path = worktree.to_path_buf();
+    let followed = follow(
+        child,
+        reader,
+        None,
+        move || heard.try_recv() == Ok(true),
+        move |message| {
+            let mut previews = lock(&MAC_PREVIEWS);
+            if previews
+                .get(&path)
+                .is_some_and(|preview| preview.pid == pid)
+            {
+                previews.remove(&path);
+            }
+            drop(previews);
+            on_exit(message)
+        },
+    );
+    match followed {
+        Ok(()) => {
+            lock(&MAC_PREVIEWS).insert(
+                worktree.to_path_buf(),
+                MacPreview {
+                    pid,
+                    stream: Arc::new(Mutex::new(ours)),
+                },
+            );
+            Ok(())
+        }
+        Err(error) => {
+            std::thread::spawn(move || process::end_group(pid));
+            Err(error)
+        }
+    }
+}
+
+fn follow(
+    mut child: Child,
+    reader: File,
+    simctl_prefix: Option<String>,
+    mut ready: impl FnMut() -> bool,
+    on_exit: impl FnOnce(String) + Send + 'static,
+) -> Result<(), Error> {
     let lines = process::read_lines(reader);
-    let pid_line = format!("{bundle}: ");
     let mut said = VecDeque::new();
     let keep = move |line: Vec<u8>, said: &mut VecDeque<String>| {
         let text = String::from_utf8_lossy(&line).trim().to_string();
-        if !text.is_empty() && !text.starts_with(&pid_line) {
+        let simctl = simctl_prefix
+            .as_ref()
+            .is_some_and(|prefix| text.starts_with(prefix.as_str()));
+        if !text.is_empty() && !simctl {
             if said.len() == KEPT_LINES {
                 said.pop_front();
             }
@@ -190,7 +316,7 @@ pub(crate) fn launch(
         }
     };
     let until = Instant::now() + HELPER_START;
-    while !socket.exists() {
+    while !ready() {
         if Instant::now() > until {
             std::thread::spawn(move || child.wait());
             return Err(Error::Message(format!(
@@ -234,6 +360,14 @@ fn socket(worktree: &Path) -> PathBuf {
 }
 
 fn request(worktree: &Path, request: &Value) -> Result<Value, String> {
+    let mac = lock(&MAC_PREVIEWS)
+        .get(worktree)
+        .map(|preview| Arc::clone(&preview.stream));
+    if let Some(stream) = mac {
+        let stream = lock(&stream);
+        writeln!(&*stream, "{request}").map_err(|error| error.to_string())?;
+        return read_answer(&stream);
+    }
     let path = socket(worktree);
     let start = Instant::now();
     let mut stream = loop {
@@ -245,10 +379,14 @@ fn request(worktree: &Path, request: &Value) -> Result<Value, String> {
             Err(error) => return Err(format!("the preview app did not answer: {error}")),
         }
     };
+    writeln!(stream, "{request}").map_err(|error| error.to_string())?;
+    read_answer(&stream)
+}
+
+fn read_answer(stream: &UnixStream) -> Result<Value, String> {
     stream
         .set_read_timeout(Some(Duration::from_secs(10)))
         .map_err(|error| error.to_string())?;
-    writeln!(stream, "{request}").map_err(|error| error.to_string())?;
     let mut line = String::new();
     BufReader::new(stream)
         .read_line(&mut line)
@@ -292,10 +430,9 @@ pub(crate) fn load(worktree: &Path, dylib: &Path) -> Result<(), String> {
     request(worktree, &json!({ "op": "load", "path": dylib })).map(drop)
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum Platform {
     Simulator,
-    #[expect(dead_code)]
     Mac,
 }
 

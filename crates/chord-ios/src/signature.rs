@@ -9,7 +9,6 @@ use crate::process;
 
 pub(crate) const CODESIGN: &str = "/usr/bin/codesign";
 
-#[expect(dead_code)]
 pub(crate) fn identity(app: &Path) -> Result<Option<String>, String> {
     static N: AtomicUsize = AtomicUsize::new(0);
     let folder = std::env::temp_dir().join(format!(

@@ -184,7 +184,8 @@ impl Builds {
     }
 
     pub fn stop_all(&self) {
-        let pids = lock(&self.0.slots).stop_all();
+        let mut pids = lock(&self.0.slots).stop_all();
+        pids.extend(preview::take_all_mac());
         end_groups(pids);
         let turns: Vec<_> = lock(&self.0.turns).values().cloned().collect();
         for turn in turns {
@@ -210,6 +211,7 @@ impl Builds {
             let mut slots = lock(&self.0.slots);
             let mut pids = slots.stop(worktree);
             pids.extend(slots.forget_preview(worktree));
+            pids.extend(preview::take_mac(worktree));
             pids
         };
         end_groups(pids);
