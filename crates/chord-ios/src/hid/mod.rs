@@ -55,6 +55,10 @@ pub enum Input {
     Button {
         button: Button,
     },
+    Scroll {
+        at: Point,
+        delta: Point,
+    },
 }
 
 pub struct Blocking(Box<dyn FnOnce() -> Result<(), Error> + Send>);
@@ -80,12 +84,12 @@ fn channel_for(version: &[u32]) -> Channel {
 }
 
 #[derive(Default)]
-struct TouchOrder {
+pub(crate) struct TouchOrder {
     last: Option<u32>,
 }
 
 impl TouchOrder {
-    fn admits(&mut self, seq: u32, phase: TouchPhase) -> bool {
+    pub(crate) fn admits(&mut self, seq: u32, phase: TouchPhase) -> bool {
         let newest = phase == TouchPhase::Down || self.last.is_none_or(|last| seq > last);
         if newest {
             self.last = Some(seq);
@@ -141,6 +145,7 @@ impl Hid {
                     simulator::show_home_screen(&udid)
                 })))
             }
+            (Input::Scroll { .. }, _) => None,
             (Input::Touch { seq, phase, .. }, _) if !self.order.admits(seq, phase) => None,
             (input, Link::Dtuhid(link)) => {
                 link.send(input);

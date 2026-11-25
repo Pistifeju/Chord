@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use chord_core::{RunDestination, SchemePick};
-use chord_ios::{AgentBuild, AgentTools, BuildEvent, Builds, Destinations, Schemes};
+use chord_ios::{AgentBuild, AgentTools, BuildEvent, Builds, Destinations, MacSupport, Schemes};
 use serde::Serialize;
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager};
@@ -79,4 +79,10 @@ pub async fn list_destinations(app: AppHandle) -> Result<Destinations, String> {
 #[specta::specta]
 pub async fn list_schemes(app: AppHandle, worktree: PathBuf) -> Result<Schemes, String> {
     blocking(app, move |_, _| chord_ios::list_schemes(&worktree)).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn mac_support(app: AppHandle, worktree: PathBuf) -> Result<MacSupport, String> {
+    blocking(app, move |_, _| Ok(chord_ios::mac_support(&worktree))).await
 }

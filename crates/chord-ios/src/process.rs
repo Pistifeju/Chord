@@ -24,6 +24,21 @@ pub(crate) fn captured(mut command: Command, register: &dyn Fn(u32)) -> io::Resu
     child.wait_with_output()
 }
 
+pub(crate) fn checked(mut command: Command, failure: &str) -> Result<String, String> {
+    let output = command
+        .output()
+        .map_err(|error| format!("{failure}: {error}"))?;
+    if output.status.success() {
+        return Ok(String::from_utf8_lossy(&output.stdout).into_owned());
+    }
+    let errors = String::from_utf8_lossy(&output.stderr);
+    let first = errors
+        .lines()
+        .find(|line| !line.ends_with(": replacing existing signature"))
+        .unwrap_or("no error output");
+    Err(format!("{failure}: {first}"))
+}
+
 pub(crate) fn xcrun(args: &[&str], register: &dyn Fn(u32)) -> Result<String, Error> {
     let output = captured(login_shell("xcrun", args), register)?;
     if output.status.success() {

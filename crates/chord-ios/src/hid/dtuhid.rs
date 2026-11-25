@@ -245,6 +245,7 @@ impl Link {
                     let _ = self.queue.after(when, up);
                 }
             }
+            Input::Scroll { .. } => {}
         }
     }
 }

@@ -8,8 +8,10 @@ use chord_core::{Error, PreviewPick, RunDestination, SchemePick};
 
 use super::{Build, BuildEvent, BuildPhase, Builds, Lane, POLL};
 use crate::hot_reload;
-use crate::preview::{self, PreviewState};
+use crate::preview::{self, Platform, PreviewState};
 use crate::preview_list;
+use crate::process::end_group;
+use crate::screen_view;
 use crate::simulator::{self, DeviceSet};
 use crate::worktree_saves::{self, Saves};
 use crate::xcode::{self, MacSupport};
@@ -33,9 +35,47 @@ fn on_open(launched: bool, picked: bool, waits: bool, runs: bool) -> OnOpen {
     }
 }
 
+#[derive(Clone)]
+enum Host {
+    Simulator { udid: String, boot: preview::Boot },
+    Mac,
+}
+
+impl Host {
+    fn same_device(&self, other: &Host) -> bool {
+        match (self, other) {
+            (Host::Simulator { udid, .. }, Host::Simulator { udid: other, .. }) => udid == other,
+            (Host::Mac, Host::Mac) => true,
+            _ => false,
+        }
+    }
+
+    fn boot(&self) -> Option<&preview::Boot> {
+        match self {
+            Host::Simulator { boot, .. } => Some(boot),
+            Host::Mac => None,
+        }
+    }
+
+    fn shut_down(&self) -> bool {
+        match self {
+            Host::Simulator { udid, .. } => !simulator::is_booted(DeviceSet::Preview, udid),
+            Host::Mac => false,
+        }
+    }
+}
+
+fn platform(mac: MacSupport, model: Option<&RunDestination>) -> Platform {
+    match (mac, model) {
+        (MacSupport::Only, _) | (MacSupport::Also, Some(RunDestination::Mac { .. })) => {
+            Platform::Mac
+        }
+        _ => Platform::Simulator,
+    }
+}
+
 pub(super) struct Preview {
-    udid: String,
-    boot: preview::Boot,
+    host: Host,
     launched: bool,
     launch: Option<u64>,
     ended: Option<String>,
@@ -62,55 +102,56 @@ impl Builds {
                 message: error.to_string(),
             });
         }
-        if xcode::mac_support(&worktree) == MacSupport::Only {
-            return on_state(PreviewState::Failed {
-                message:
-                    "Preview runs on an iOS simulator, and this project builds for macOS only."
-                        .into(),
-            });
-        }
-        let wanted = match &destination {
-            Some(RunDestination::Simulator { model, runtime, .. }) => {
-                Some((model.as_str(), runtime.as_str()))
+        let platform = platform(xcode::mac_support(&worktree), destination.as_ref());
+        screen_view::host_on_mac(&worktree, platform == Platform::Mac);
+        let (host, fresh) = match platform {
+            Platform::Mac => (Host::Mac, false),
+            Platform::Simulator => {
+                let wanted = match &destination {
+                    Some(RunDestination::Simulator { model, runtime, .. }) => {
+                        Some((model.as_str(), runtime.as_str()))
+                    }
+                    _ => None,
+                };
+                let open: HashSet<String> = lock(&self.0.previews)
+                    .iter()
+                    .filter(|(_, preview)| preview.open)
+                    .map(|(path, _)| simulator::name_of(path))
+                    .collect();
+                match preview::boot(&worktree, wanted, open, Arc::clone(&on_state)) {
+                    Ok(preview::Booted::Ready { udid }) => {
+                        let boot = Arc::new(OnceLock::from(Ok(())));
+                        (Host::Simulator { udid, boot }, false)
+                    }
+                    Ok(preview::Booted::Booting { udid, boot }) => {
+                        (Host::Simulator { udid, boot }, true)
+                    }
+                    Ok(preview::Booted::Full(worktrees)) => {
+                        lock(&self.0.previews).remove(&worktree);
+                        return on_state(PreviewState::Full { worktrees });
+                    }
+                    Err(error) => {
+                        return on_state(PreviewState::Failed {
+                            message: error.to_string(),
+                        });
+                    }
+                }
             }
-            _ => None,
         };
-        let open: HashSet<String> = lock(&self.0.previews)
-            .iter()
-            .filter(|(_, preview)| preview.open)
-            .map(|(path, _)| simulator::name_of(path))
-            .collect();
-        let (udid, boot, fresh) =
-            match preview::boot(&worktree, wanted, open, Arc::clone(&on_state)) {
-                Ok(preview::Booted::Ready { udid }) => {
-                    (udid, Arc::new(OnceLock::from(Ok(()))), false)
-                }
-                Ok(preview::Booted::Booting { udid, boot }) => (udid, boot, true),
-                Ok(preview::Booted::Full(worktrees)) => {
-                    lock(&self.0.previews).remove(&worktree);
-                    return on_state(PreviewState::Full { worktrees });
-                }
-                Err(error) => {
-                    return on_state(PreviewState::Failed {
-                        message: error.to_string(),
-                    });
-                }
-            };
-        let boot_outcome = Arc::clone(&boot);
+        let boot_outcome = host.boot().cloned();
         let (launched, picked) = {
             let mut previews = lock(&self.0.previews);
             let before = previews.get(&worktree);
             let launch = before.and_then(|preview| preview.launch);
             let launched = !fresh
                 && before.is_some_and(|preview| {
-                    preview.udid == udid && preview.launched && !preview.missed
+                    preview.host.same_device(&host) && preview.launched && !preview.missed
                 });
             let picked = before.is_some_and(|preview| preview.pick != pick);
             previews.insert(
                 worktree.clone(),
                 Preview {
-                    udid,
-                    boot,
+                    host,
                     launched,
                     launch,
                     ended: None,
@@ -137,7 +178,7 @@ impl Builds {
             OnOpen::Building => on_state(PreviewState::Building),
             OnOpen::StartBuild => self.start_preview(&worktree),
         }
-        if let Some(Err(message)) = boot_outcome.get() {
+        if let Some(Err(message)) = boot_outcome.as_ref().and_then(|boot| boot.get()) {
             on_state(PreviewState::Failed {
                 message: message.clone(),
             });
@@ -169,8 +210,7 @@ impl Builds {
                 .ok()
         });
         match shown {
-            Some(None) => self.tell_preview(worktree, PreviewState::Live),
-            Some(Some(issue)) => self.tell_preview(worktree, PreviewState::Error { issue }),
+            Some(state) => self.tell_preview(worktree, state),
             None => self.start_preview(worktree),
         }
     }
@@ -208,8 +248,7 @@ impl Builds {
             return self.start_preview(worktree);
         }
         match hot_reload::reload(worktree) {
-            Ok(None) => self.tell_preview(worktree, PreviewState::Live),
-            Ok(Some(issue)) => self.tell_preview(worktree, PreviewState::Error { issue }),
+            Ok(state) => self.tell_preview(worktree, state),
             Err(_) => self.start_preview(worktree),
         }
     }
@@ -286,7 +325,7 @@ impl Builds {
         );
     }
 
-    fn preview_ended(&self, worktree: &Path, launch: u64, udid: &str, message: String) {
+    fn preview_ended(&self, worktree: &Path, launch: u64, host: &Host, message: String) {
         match lock(&self.0.previews).get_mut(worktree) {
             Some(preview) if preview.launch == Some(launch) && preview.launched => {
                 preview.launched = false;
@@ -297,7 +336,7 @@ impl Builds {
             }
             _ => return,
         }
-        if simulator::is_booted(DeviceSet::Preview, udid) {
+        if !host.shut_down() {
             self.tell_preview(worktree, PreviewState::Failed { message });
         }
     }
@@ -314,10 +353,9 @@ impl Build {
     pub(super) fn preview_outcome(&self) -> BuildEvent {
         let found = lock(&self.builds.0.previews)
             .get(&self.worktree)
-            .map(|preview| (preview.udid.clone(), Arc::clone(&preview.boot)));
-        let Some((udid, boot)) = found.filter(|(udid, boot)| match boot.get() {
-            Some(Ok(())) => simulator::is_booted(DeviceSet::Preview, udid),
-            None | Some(Err(_)) => true,
+            .map(|preview| preview.host.clone());
+        let Some(host) = found.filter(|host| {
+            !matches!(host.boot().and_then(|boot| boot.get()), Some(Ok(()))) || !host.shut_down()
         }) else {
             self.set_launched(false);
             return BuildEvent::Stopped;
@@ -329,7 +367,7 @@ impl Build {
         self.say(BuildEvent::Phase {
             phase: BuildPhase::Building,
         });
-        if let Some(Err(message)) = boot.get() {
+        if let Some(Err(message)) = host.boot().and_then(|boot| boot.get()) {
             let message = message.clone();
             self.builds
                 .tell_preview(&self.worktree, PreviewState::Failed { message });
@@ -343,24 +381,31 @@ impl Build {
         if !self.wait_for_database() {
             return BuildEvent::Stopped;
         }
-        let target = self.build_simulator().map(|device| device.udid);
-        match self.xcodebuild(&scheme, &xcode::destination(target.as_deref())) {
+        let destination = match &host {
+            Host::Simulator { .. } => {
+                xcode::destination(self.build_simulator().map(|device| device.udid).as_deref())
+            }
+            Host::Mac => xcode::mac_destination(),
+        };
+        match self.xcodebuild(&scheme, &destination) {
             BuildEvent::Succeeded => {}
             end => return end,
         }
-        let booted = loop {
-            if self.stopped() {
+        if let Some(boot) = host.boot() {
+            let booted = loop {
+                if self.stopped() {
+                    return BuildEvent::Stopped;
+                }
+                match boot.get() {
+                    Some(booted) => break booted.clone(),
+                    None => thread::sleep(POLL),
+                }
+            };
+            if let Err(message) = booted {
+                self.builds
+                    .tell_preview(&self.worktree, PreviewState::Failed { message });
                 return BuildEvent::Stopped;
             }
-            match boot.get() {
-                Some(booted) => break booted.clone(),
-                None => thread::sleep(POLL),
-            }
-        };
-        if let Err(message) = booted {
-            self.builds
-                .tell_preview(&self.worktree, PreviewState::Failed { message });
-            return BuildEvent::Stopped;
         }
         let launched = self
             .step(|register| {
@@ -368,7 +413,7 @@ impl Build {
                     &self.project,
                     &scheme,
                     &self.configuration(&scheme),
-                    &xcode::destination(target.as_deref()),
+                    &destination,
                     &self.worktree,
                     register,
                 )
@@ -378,16 +423,21 @@ impl Build {
                     preview.launch = Some(self.id);
                     preview.ended = None;
                 }
-                let (builds, worktree, id, device) = (
+                if let Some(pid) = preview::take_mac(&self.worktree) {
+                    thread::spawn(move || end_group(pid));
+                }
+                let (builds, worktree, id, ended) = (
                     self.builds.clone(),
                     self.worktree.clone(),
                     self.id,
-                    udid.clone(),
+                    host.clone(),
                 );
-                self.step(|register| {
-                    preview::launch(&self.worktree, &udid, &app, register, move |message| {
-                        builds.preview_ended(&worktree, id, &device, message)
-                    })
+                let on_exit = move |message| builds.preview_ended(&worktree, id, &ended, message);
+                self.step(|register| match &host {
+                    Host::Simulator { udid, .. } => {
+                        preview::launch(&self.worktree, udid, &app, register, on_exit)
+                    }
+                    Host::Mac => preview::launch_mac(&self.worktree, &app, register, on_exit),
                 })
             })
             .and_then(|()| {
@@ -441,5 +491,27 @@ mod tests {
         assert_eq!(on_open(false, true, true, true), OnOpen::Waiting);
         assert_eq!(on_open(false, false, false, true), OnOpen::Building);
         assert_eq!(on_open(false, true, false, false), OnOpen::StartBuild);
+    }
+
+    #[test]
+    fn a_mac_only_project_or_a_my_mac_model_previews_on_the_mac() {
+        let mac = RunDestination::Mac {
+            name: "My Mac".into(),
+        };
+        let iphone = RunDestination::Simulator {
+            model: "iPhone 17".into(),
+            runtime: "iOS 26.0".into(),
+            name: "iPhone 17".into(),
+            os: "iOS 26.0".into(),
+        };
+        assert_eq!(platform(MacSupport::Only, None), Platform::Mac);
+        assert_eq!(platform(MacSupport::Only, Some(&iphone)), Platform::Mac);
+        assert_eq!(platform(MacSupport::Also, Some(&mac)), Platform::Mac);
+        assert_eq!(
+            platform(MacSupport::Also, Some(&iphone)),
+            Platform::Simulator
+        );
+        assert_eq!(platform(MacSupport::Also, None), Platform::Simulator);
+        assert_eq!(platform(MacSupport::None, Some(&mac)), Platform::Simulator);
     }
 }

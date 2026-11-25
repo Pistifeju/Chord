@@ -19,7 +19,9 @@ pub(crate) fn launch(
         register,
     )?;
     let mut command = Command::new(app.join("Contents/MacOS").join(executable));
-    command.env("OS_ACTIVITY_DT_MODE", "YES");
+    command
+        .current_dir(app.parent().unwrap_or(app))
+        .env("OS_ACTIVITY_DT_MODE", "YES");
     let (mut child, terminal) = process::merged_on_terminal(command, None)?;
     register(child.id());
     let lines = process::read_lines(terminal);

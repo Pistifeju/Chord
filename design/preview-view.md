@@ -1,9 +1,11 @@
 # Preview view
 
 - **Header:** a row over the screen, left of the list, as tall as the list's filter row so the model button lines up with the field: 30px with 4px top and bottom and 12px side padding.
-  Centered in it, over the screen it names, the model button: an `ink-muted` phone icon and the model name in 12px `ink-secondary`, without a pick the simulator a run without one uses, as the toolbar shows it (tooltip "Preview Device"); 24px tall, 8px side padding, 6px gaps, Inset radius, `raised` on hover, `selected` when pressed.
+  Centered in it, over the screen it names, the model button: an `ink-muted` phone icon, or the Mac icon for My Mac, and the model name in 12px `ink-secondary`, without a pick the simulator a run without one uses, as the toolbar shows it (tooltip "Preview Device"); 24px tall, 8px side padding, 6px gaps, Inset radius, `raised` on hover, `selected` when pressed.
   On hover or keyboard focus a 12px `ink-muted` chevron opens in after the name over 120ms with `--ease-out` (at once under Reduce Motion).
   It opens a native menu of the simulator models as the run menu lists them, the project's pick with a check mark.
+  A project that also builds for macOS lists My Mac first, then a separator, as the run menu does.
+  A macOS-only project shows My Mac with no menu, no hover and no chevron.
   While a rebuild runs, a 12px spinner and "Rebuilding" in meta text sit right of it; a hot reload shows nothing.
 - **List:** a column right of the screen, on the panel's outer edge, 200px wide by default, with a 1px `line` left edge that drags it between 140px and 320px, as the side panel's edge, and never past half the view's width, so a narrowed side panel keeps room for the screen; the width lasts until the app quits.
   It holds the Files filter field (placeholder "Filter"), then the worktree's `#Preview`s as Files tree rows.
@@ -28,6 +30,10 @@
   The list reads again when the window takes the focus, and the view fills once a `#Preview` shows up.
   While the first list loads, the view stays blank.
 - **Screen:** the Simulator view's screen, bezel and input, without its button row.
+  A preview of a macOS view shows its window instead, title bar included, with no bezel.
+  A click or drag on the window is a mouse click or drag, a scroll scrolls under the pointer, and keys type into the focused field, which shows no caret.
+  The window keeps its own size and centers in the view; a view too small for it shrinks it to fit, keeping its shape, and never grows it.
+  Its corners round by 16px at full size and shrink with it, and it casts a soft shadow onto the canvas.
 - **Compile error:** the last frame stays, and a bar on `raised` with a 1px `line` top edge sits along the view's bottom: a 16px `danger` error icon, then the first error, `file:line` in 12px `danger` and the message in 12px `ink`, which truncates, its full text as the tooltip, 10px 12px padding.
   A click opens the file at that line.
   The bar goes when a build succeeds.

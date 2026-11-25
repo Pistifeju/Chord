@@ -100,7 +100,6 @@ export default function App() {
   const projectHasXcode = hasXcodeProject(state);
   const xcode = worktreeAt(state, selected)?.xcode === true;
   const macOnly = useMacOnly(selected);
-  const simulator = xcode && !macOnly;
   const owner = selected === null ? undefined : ownerOf(state, selected);
   const project = list.find((entry) => entry.path === owner);
   const markers = useMemo(
@@ -170,12 +169,10 @@ export default function App() {
                         <Toolbar
                           worktree={selected}
                           viewButtons={
-                            simulator && (
-                              <>
-                                <SimulatorToggle worktree={selected} />
-                                <PreviewToggle worktree={selected} />
-                              </>
-                            )
+                            <>
+                              {!macOnly && <SimulatorToggle worktree={selected} />}
+                              <PreviewToggle worktree={selected} />
+                            </>
                           }
                         />
                       ) : null
@@ -189,9 +186,9 @@ export default function App() {
                         : []
                     }
                     sideViews={
-                      simulator
+                      xcode
                         ? [
-                            { id: "simulator", title: "Simulator", body: <SimulatorView worktree={selected} /> },
+                            ...(macOnly ? [] : [{ id: "simulator" as const, title: "Simulator", body: <SimulatorView worktree={selected} /> }]),
                             { id: "preview", title: "Preview", body: <PreviewView worktree={selected} /> },
                           ]
                         : []

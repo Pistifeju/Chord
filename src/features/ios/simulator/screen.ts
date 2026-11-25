@@ -8,9 +8,9 @@ const PHONE_CORNER = 0.12;
 const TABLET_CORNER = 0.022;
 const PHONE_SHAPE = 1.7;
 
-export function fit(box: Rect, { width, height }: { width: number; height: number }): Rect {
+export function fit(box: Rect, { width, height }: { width: number; height: number }, maxScale = Infinity): Rect {
   if (box.width <= 0 || box.height <= 0 || width <= 0 || height <= 0) return { x: box.x, y: box.y, width: 0, height: 0 };
-  const scale = Math.min(box.width / width, box.height / height);
+  const scale = Math.min(maxScale, box.width / width, box.height / height);
   const fitted = { width: Math.round(width * scale), height: Math.round(height * scale) };
   return { x: Math.round(box.x + (box.width - fitted.width) / 2), y: Math.round(box.y + (box.height - fitted.height) / 2), ...fitted };
 }

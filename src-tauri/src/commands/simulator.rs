@@ -91,10 +91,11 @@ pub async fn show_simulator_screen(
     on_state: Channel<ScreenState>,
 ) -> Result<(), String> {
     let turn = chord_ios::begin_show(rect, bezel);
-    let unavailable = tauri::async_runtime::spawn_blocking(chord_ios::prepare_screen)
-        .await
-        .map_err(|error| error.to_string())?;
-    if let Some(state) = unavailable {
+    if !preview
+        && let Some(state) = tauri::async_runtime::spawn_blocking(chord_ios::prepare_screen)
+            .await
+            .map_err(|error| error.to_string())?
+    {
         return on_state.send(state).map_err(|error| error.to_string());
     }
     window

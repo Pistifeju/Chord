@@ -13,6 +13,7 @@ use specta::Type;
 use crate::derived_data::LSOF;
 use crate::plist::PLUTIL;
 use crate::process;
+use crate::signature::CODESIGN;
 use crate::simulator::OPEN;
 
 pub(crate) struct Project {
@@ -30,7 +31,7 @@ const TOOLS: [(&str, &str, &str); 2] = [
 ];
 
 pub(crate) fn require_tools() -> Result<(), Error> {
-    for path in [LSOF, PLUTIL, OPEN] {
+    for path in [LSOF, PLUTIL, OPEN, CODESIGN] {
         if !Path::new(path).exists() {
             return Err(Error::MissingTool {
                 tool: path.into(),
@@ -83,7 +84,6 @@ pub struct Schemes {
     pub schemes: Vec<Scheme>,
     pub configurations: Vec<String>,
     pub default: String,
-    pub mac: MacSupport,
 }
 
 #[derive(Serialize, Type, Clone, Copy, Debug, PartialEq)]
@@ -94,7 +94,7 @@ pub enum MacSupport {
     Only,
 }
 
-pub(crate) fn mac_support(worktree: &Path) -> MacSupport {
+pub fn mac_support(worktree: &Path) -> MacSupport {
     let projects: String = xcode_bundles(worktree)
         .into_iter()
         .filter_map(|bundle| fs::read_to_string(bundle.join("project.pbxproj")).ok())
@@ -171,7 +171,6 @@ pub fn list_schemes(worktree: &Path) -> Result<Schemes, Error> {
         }
     }
     Ok(Schemes {
-        mac: mac_support(worktree),
         schemes: strings(&info(&listed)?["schemes"])
             .into_iter()
             .map(|name| Scheme {

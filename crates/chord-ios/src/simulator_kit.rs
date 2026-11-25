@@ -19,8 +19,13 @@ pub(crate) struct Kit {
     pub version: Vec<u32>,
 }
 
+static KIT: OnceLock<Result<Kit, String>> = OnceLock::new();
+
+pub(crate) fn loaded() -> Option<Result<&'static Kit, String>> {
+    KIT.get().map(|kit| kit.as_ref().map_err(String::clone))
+}
+
 pub(crate) fn load() -> Result<&'static Kit, String> {
-    static KIT: OnceLock<Result<Kit, String>> = OnceLock::new();
     KIT.get_or_init(|| {
         autoreleasepool(|_| guarded(init)).unwrap_or_else(|| {
             Err("Xcode's simulator frameworks changed in a way Chord does not know.".into())

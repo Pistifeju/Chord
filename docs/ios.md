@@ -75,14 +75,14 @@ Chord runs `xcodebuild -project|-workspace … -scheme … -destination id=… b
 - No PATH shim. With Xcode's own folder Chord has no flag to add to an agent's `xcodebuild`. A shim would work for pi when the login shell's command puts it first in `PATH`, and falls behind `/usr/bin` when a harness runs its shell tool as a login shell (section 2).
 - Worktrees share Xcode's module cache and SDK module folder, which sit beside the per-project folders. One run of two cold builds on an empty shared cache passed here. If a build ever fails on a module file, the fix is a module cache per worktree, set with `CLANG_MODULE_CACHE_PATH` in the environment of every build, at about 420 MB a worktree.
 - One rule keeps this true: every build in a worktree uses the same build settings. A changed setting cost 41.1 s. A feature that needs a setting must make it reach every `xcodebuild` in the worktree, for example through `XCODE_XCCONFIG_FILE` in the agent's and the terminal's environment, or do without it.
-- Hot reload does without one. It needs each file's compile command, which `EMIT_FRONTEND_COMMAND_LINES` would print. Instead Chord keeps the `builtin-SwiftDriver` line every Chord build prints for each module it compiles for an arm64 simulator, and asks that driver for its commands with `-###`, `-disable-batch-mode` and no `-incremental`: one `swift-frontend` command per file, 0.3 s on a three-file package. The driver's temporary files, the explicit module map among them, go to the worktree's hot reload folder. A module only an agent's or Xcode's build compiled has no driver line yet: the first save in it rebuilds, and that build records the line.
+- Hot reload does without one. It needs each file's compile command, which `EMIT_FRONTEND_COMMAND_LINES` would print. Instead Chord keeps the `builtin-SwiftDriver` line every Chord build prints for each module it compiles for an arm64 simulator or an arm64 Mac, keyed by module and platform, and asks that driver for its commands with `-###`, `-disable-batch-mode` and no `-incremental`: one `swift-frontend` command per file, 0.3 s on a three-file package. The driver's temporary files, the explicit module map among them, go to the worktree's hot reload folder. A module only an agent's or Xcode's build compiled has no driver line yet: the first save in it rebuilds, and that build records the line.
 - Chord starts `xcodebuild` through the user's login shell, as it starts the agent and the terminal (`login_shell` in `harness/process.rs`). Swift Build puts a task's environment into its signature, so a different `PATH` links again.
 
 Chord finds the folder with the path hash, a pure function. Its test hardcodes the folder name Xcode gave a project at a neutral path. The built `.app` comes from one `xcodebuild -showBuildSettings -json` call after the build, with the build's project, scheme and destination: the first target of the scheme with product type `application`, at `TARGET_BUILD_DIR/FULL_PRODUCT_NAME`. A custom DerivedData location needs no special case.
 
 ### 3.3 One build per worktree
 
-- Chord's own builds go through a slot per worktree: ⌘R and ⌘B replace the worktree's running build (kill its process group, wait for it to exit, then start). The rules are a pure module with its tests (`slot.rs`). A preview build has a slot of its own: it waits while a ⌘R or ⌘B build holds the worktree and starts once that build ends or its app runs; a ⌘R or ⌘B takes over a running preview build, which then follows it. A ⌘R or ⌘B that succeeds in a worktree whose Preview view opened is followed by a preview build too.
+- Chord's own builds go through a slot per worktree: ⌘R and ⌘B replace the worktree's running build (kill its process group, wait for it to exit, then start). The rules are a pure module with its tests (`slot.rs`). A preview build has a slot of its own: it waits while a ⌘R or ⌘B build holds the worktree and starts once that build ends or its app runs; a ⌘R or ⌘B takes over a running preview build, which then follows it. A ⌘R or ⌘B that succeeds in a worktree whose Preview view opened is followed by a preview build too. A preview on the Mac takes the same slot and follows the same rules; only its destination changes (section 4a).
 - A build Chord did not start (an agent's `xcodebuild`, Xcode) may hold `build.db`. Chord's build then waits, the log says "Waiting for another build in this worktree", and it starts when the database is free. It never kills a build it did not start.
 - Every `xcodebuild` runs in its own process group. Stop, a takeover, a worktree delete and quit signal the group, so no compiler outlives its build and keeps the database locked. After the signal Chord checks that no process holds `build.db`: an interrupted build can leave `xcodebuild` and `SWBBuildService` alive.
 - Builds in different worktrees start at once. Two at once took 87.5 s each against 48.3 s alone, so parallel builds add no throughput. A machine-wide queue waits until three or more agents building at once show what hurts.
@@ -161,6 +161,20 @@ No install step, no simulator, no Simulator view: Rust tells the window when a r
 A saved My Mac pick falls back to a simulator, with a notice, once the worktree's project no longer builds for macOS.
 The arch comes from `hw.optional.arm64`, so a Chord running under Rosetta still builds for Apple silicon. Mac Catalyst and Designed for iPad are not run destinations yet.
 
+### Previews on the Mac
+
+A macOS-only project previews on the Mac; a project that also builds for iOS previews there when the user picks My Mac as the preview model.
+
+1. The preview build uses the Mac destination of step 1, in the preview's slot (section 3.3).
+2. Chord starts `Contents/MacOS/<CFBundleExecutable>` in a process group of its own, with the preview helper in `DYLD_INSERT_LIBRARIES` and one end of a `socketpair` whose descriptor number sits in `CHORD_PREVIEW_FD`. No boot, no install, no two-previews limit. A missing `<executable>.debug.dylib` fails the launch with the iOS message.
+3. The helper builds one `NSWindow` at launch, invisible on the screen Chord's window is on, and swaps its content on a pick or a reload. Its first reply carries the window's Core Animation context id, each `show` and `load` reply its size and scale.
+4. `screen_view.rs` hosts that context in a `CALayerHost` under the webview, with a shadow and no bezel, scaled down to fit the panel and never up. The Simulator view's clicks, scrolls and keys go to the helper as `input` requests, in window points.
+5. A save reloads through `hot_reload.rs` with the module's macOS driver line.
+
+A Debug build signed with a Team ID loads only code that team signed. Chord reads the identity from the app (`signature.rs`: the SHA-1 of the leaf certificate `codesign -d --extract-certificates` writes) and signs the helper and each reload dylib with it. An ad hoc build needs no signing, and the user sets nothing in the project.
+
+The process ends with a rebuild, the worktree's delete and quit. Popovers, menus, sheets and alerts reach the real screen: the first version hosts none of them (`docs/features/mac-preview.md`, section 6).
+
 ## 5. What grows with worktrees
 
 | Resource | Cost per worktree | What bounds it |
@@ -169,6 +183,7 @@ The arch comes from `hw.optional.arm64`, so a Chord running under Rosetta still 
 | Disk, simulator | 1.1 GB after the first boot, per model the worktree ran on | Created on the first build. Deleted with the worktree |
 | Disk, hot reload | the driver lines, each previewed module's commands and module map, the reload objects since the preview's launch | Deleted with the worktree; prune deletes the folders whose name matches no worktree; counted in the build data size |
 | Memory | 2.2 GB per booted simulator | The cap of section 3.4; the status bar lists the running ones |
+| Memory, Mac preview | one app process per worktree whose preview runs on the Mac, no simulator | No cap. Ends with a rebuild, the worktree's delete and quit |
 | CPU | one build takes every core | One build per worktree; see section 3.3 for the queue |
 
 Deleting a worktree through Chord removes each DerivedData folder whose `info.plist` records a `WorkspacePath` inside it; the worktree is already gone, so its project's name is unknown and the folder cannot be hashed. Prune covers worktrees deleted elsewhere: it removes each folder whose `WorkspacePath` lies in a known project's worktrees folder and is gone from disk, and each Chord simulator whose hash matches no worktree. It never touches the main checkout's folder or a simulator Chord did not create.
@@ -185,7 +200,11 @@ crates/chord-ios/src/
   issues.rs         the error lines of a build log (pure)
   simulator.rs      the worktree's simulator: find, create, boot, shut down, delete, the cap
   preview.rs        the preview simulator in Chord's own device set, the two-booted limit,
-                    the app launched with the preview helper (ChordPreview.swift)
+                    the app launched with the preview helper on a simulator or the Mac
+  ChordPreview.swift          the helper's registry scan, capture and request server, both platforms
+  ChordPreviewUIKit.swift     the helper's iOS shell
+  ChordPreviewAppKit.swift    the helper's Mac shell: the hidden window, its context id, input events
+  signature.rs      the signing identity of a built app, and signing the helper and reload dylibs with it
   preview_list.rs   the `#Preview`s in the worktree's Swift files, read from the source
   worktree_saves.rs the saves in a worktree whose Preview view opened, through FSEvents
   compile_commands.rs each module's driver line from the build output, its per-file commands
@@ -195,7 +214,8 @@ crates/chord-ios/src/
   caches.rs         the running simulators, forget, prune, the size of the build data
   destinations.rs   run destinations from simctl and devicectl
   simulator_kit.rs  CoreSimulator and SimulatorKit loaded from the selected Xcode, devices by name
-  screen_view.rs    the Simulator view's native view under the webview, its frames and states
+  screen_view.rs    the Simulator view's native view under the webview, its frames and states,
+                    the Mac preview's window in a CALayerHost
   hid/              the view's input: DTUHID from CoreSimulator 1155.4, Indigo before
 src-tauri/src/commands/build.rs, simulator.rs
 src/features/ios/build/         the run control and its menu, the run status, the build log, the run state rules

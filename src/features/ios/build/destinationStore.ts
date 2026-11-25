@@ -4,7 +4,7 @@ import { externalStore } from "../../../ui/externalStore";
 import { notify } from "../../../ui/alert";
 import { projectPicks } from "../projectPicks";
 import { fallbackDestination, pickAfterListing } from "./destination";
-import { schemeListings } from "./schemeStore";
+import { macSupports, useMacSupport } from "./schemeStore";
 
 const runDestinations = projectPicks<RunDestination | null>((project, destination) => commands.changeState({ runDestination: { project, destination } }));
 export const destinations = externalStore<Destinations | null>(null);
@@ -26,19 +26,19 @@ export function useFallbackSimulator(worktree: string): RunDestination | null {
 
 export function useFallbackDestination(worktree: string): RunDestination | null {
   const simulator = useFallbackSimulator(worktree);
-  return fallbackDestination(schemeListings.usePart((all) => all[worktree]?.mac), simulator);
+  return fallbackDestination(useMacSupport(worktree), simulator);
 }
 
 function keepPickAvailable(worktree: string) {
   const current = runDestinations.of(worktree);
   if (!current) return;
-  const { pick, notice } = pickAfterListing(current, destinations.get(), schemeListings.get()[worktree]?.mac);
+  const { pick, notice } = pickAfterListing(current, destinations.get(), macSupports.get()[worktree]);
   if (!notice) return;
   runDestinations.choose(worktree, pick);
   notify(notice);
 }
 
-schemeListings.subscribe(() => Object.keys(schemeListings.get()).forEach(keepPickAvailable));
+macSupports.subscribe(() => Object.keys(macSupports.get()).forEach(keepPickAvailable));
 
 export async function refreshDestinations(worktree: string) {
   destinations.set(await commands.listDestinations());
