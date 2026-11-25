@@ -122,9 +122,13 @@ export async function startChat(worktree: string, pane: string, switchTo: string
   return history;
 }
 
-export function switchEmptyChat(worktree: string, pane: string, harness: string, pick: ModelPick | null) {
+export async function switchEmptyChat(worktree: string, pane: string, harness: string, pick: ModelPick | null) {
   update(pane, () => emptyChat);
-  return startChat(worktree, pane, harness, pick);
+  await startChat(worktree, pane, harness, pick);
+  const { agent, notice } = chatOf(chats.get(), pane);
+  if (agent !== "idle") return;
+  await startChat(worktree, pane);
+  update(pane, (chat) => ({ ...chat, notice: chat.notice ?? notice }));
 }
 
 export const attachments = externalStore<Record<string, Attachment[]>>({});
