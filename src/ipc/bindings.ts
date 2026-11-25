@@ -73,6 +73,7 @@ export const commands = {
 	worktreeOpened: (worktree: string) => __TAURI_INVOKE<null>("worktree_opened", { worktree }),
 	listDestinations: () => __TAURI_INVOKE<Destinations_Serialize>("list_destinations"),
 	listSchemes: (worktree: string) => __TAURI_INVOKE<Schemes>("list_schemes", { worktree }),
+	macSupport: (worktree: string) => __TAURI_INVOKE<MacSupport>("mac_support", { worktree }),
 	openPreview: (worktree: string, destination: RunDestination | null, pick: PreviewPick_Deserialize | null, onState: Channel<PreviewState_Deserialize>) => __TAURI_INVOKE<null>("open_preview", { worktree, destination, pick, onState }),
 	closePreview: (worktree: string) => __TAURI_INVOKE<void>("close_preview", { worktree }),
 	listPreviews: (worktree: string) => __TAURI_INVOKE<PreviewPick_Serialize[]>("list_previews", { worktree }),
@@ -637,7 +638,6 @@ export type Schemes = {
 	schemes: Scheme[],
 	configurations: string[],
 	default: string,
-	mac: MacSupport,
 };
 
 export type ScreenButtons = ScreenButtons_Serialize | ScreenButtons_Deserialize;

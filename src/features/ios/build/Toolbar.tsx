@@ -14,7 +14,7 @@ import { closeErrorList, errorList, toggleErrorList } from "./errorListStore";
 import { ErrorList } from "./ErrorList";
 import { activityOf, failedBuild, isRunning, isStarting } from "./run";
 import { shownPick } from "./scheme";
-import { chooseSchemePick, refreshSchemes, schemeListings, schemePickOf, useSavedShownPick, useSchemePick } from "./schemeStore";
+import { chooseSchemePick, macSupports, refreshSchemes, schemeListings, schemePickOf, useSavedShownPick, useSchemePick } from "./schemeStore";
 import { builds, runApp, stopBuild } from "./store";
 import { messageTime } from "../../chat/messageTime";
 import "./toolbar.css";
@@ -69,7 +69,7 @@ async function runMenu(worktree: string) {
   const build = builds.get()[worktree];
   const stop = await MenuItem.new({ ...menuItem("build.stop", worktree), enabled: isStarting(build) || isRunning(build) });
   const items = [await MenuItem.new(menuItem("build.run", worktree)), await MenuItem.new(menuItem("build.start", worktree)), stop, await PredefinedMenuItem.new({ item: "Separator" })];
-  const mac = schemeListings.get()[worktree]?.mac;
+  const mac = macSupports.get()[worktree];
   items.push(...(await macItems(mac, pick, choose)));
   if (mac === "only") return Menu.new({ items });
   if (listing?.devices.length) {

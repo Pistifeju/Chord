@@ -7,7 +7,7 @@ import { showFileAt } from "../../editor/showing";
 import { fail } from "../../../ui/alert";
 import { macItems, popUpUnder, simulatorItems } from "../build/Toolbar";
 import { shownPreviewModel } from "../build/destination";
-import { schemeListings } from "../build/schemeStore";
+import { useMacSupport } from "../build/schemeStore";
 import { useFallbackDestination } from "../build/destinationStore";
 import { issuePlace, pathInWorktree } from "../build/run";
 import { shortcutChanges } from "../../settings/store";
@@ -70,7 +70,7 @@ export function PreviewView({ worktree }: { worktree: string }) {
   const pick = previewPicks.usePart((all) => all[worktree] ?? null);
   const model = usePreviewModel(worktree);
   const fallback = useFallbackDestination(worktree);
-  const mac = schemeListings.usePart((all) => all[worktree]?.mac);
+  const mac = useMacSupport(worktree);
   const shown = shownPreviewModel(mac, model, fallback);
   const picked = pick !== null;
   const count = previewLists.usePart((lists) => lists[worktree]?.length ?? null);

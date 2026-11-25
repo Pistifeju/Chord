@@ -58,4 +58,4 @@ pub use screenshot::{Screenshot, take_screenshot};
 pub use service_groups::{ServiceRow, SubgroupRow};
 pub use simulator::{open_app, use_dev_simulator_names};
 pub use slim::service_rows;
-pub use xcode::{Scheme, Schemes, list_schemes};
+pub use xcode::{MacSupport, Scheme, Schemes, list_schemes, mac_support};
