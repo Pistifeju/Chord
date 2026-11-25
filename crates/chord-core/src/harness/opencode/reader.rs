@@ -86,6 +86,8 @@ pub(super) struct Reader {
     own_turn: bool,
     updates: Updates,
     settings: Settings,
+    /// A model pick that came before the session opened, with its level; the opened session takes it.
+    wanted: Option<(String, Option<String>)>,
     /// The probe session and the models it has yet to pick, the next last.
     probe: Option<(String, Vec<String>)>,
     /// The probe ran on this process.
@@ -120,6 +122,7 @@ impl Reader {
             own_turn: false,
             updates: Updates::new(cwd),
             settings: Settings::default(),
+            wanted: None,
             probe: None,
             probed: false,
             calls: OpenCalls::default(),
@@ -348,6 +351,9 @@ impl Reader {
         events.extend(self.settings.read(&result["configOptions"]));
         events.push(self.settings.commands_event());
         let mut read = events_only(events);
+        if let Some((id, level)) = self.wanted.take() {
+            read.lines.extend(self.pick_line(&id, level));
+        }
         if !self.probed {
             self.probed = true;
             let id = self.request(Pending::ProbeSession);
@@ -501,6 +507,11 @@ impl Reader {
         self.probe = None;
         let id = self.new_id();
         lines(requests::session_delete(id, &probe))
+    }
+
+    fn pick_line(&mut self, id: &str, level: Option<String>) -> Option<Value> {
+        let pick = self.settings.model_pick(id)?;
+        self.set(pick, level)
     }
 
     /// The line that sets a config option on the session; none before a session opens.
@@ -698,10 +709,11 @@ impl relaunch::Reader for Reader {
 
     // OpenCode lists a model's levels only once the model is the session's, so the level waits for the model's answer.
     fn pick_model(&mut self, id: &str, level: Option<&str>) -> Read {
-        let line = self
-            .settings
-            .model_pick(id)
-            .and_then(|pick| self.set(pick, level.map(String::from)));
+        let level = level.map(String::from);
+        let line = self.pick_line(id, level.clone());
+        if line.is_none() && self.session.is_none() {
+            self.wanted = Some((id.into(), level));
+        }
         Read {
             lines: line.into_iter().collect(),
             ..Read::default()
