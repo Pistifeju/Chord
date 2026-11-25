@@ -122,7 +122,8 @@
   The mark is the level set for that model in the bar, else the running level when the model has it, else the model's default; none when the harness names no default.
   A level click, or ← and →, sets it: on the pane's agent at once, with its model, and the card stays open.
   A row click or Return picks the model with its marked level and closes the card.
-  A pick of another agent's model opens a new chat tab in the focused group, which starts that agent at the picked model and level; the pane's chat and its agent stay as they are, running or not.
+  A pick of another agent's model on a chat with no messages, whose history has finished loading, starts that agent at the picked model and level in the same pane, and the old agent stops.
+  Any other pick of another agent's model opens a new chat tab in the focused group, which starts that agent at the picked model and level; the pane's chat and its agent stay as they are, running or not.
   Esc or a click outside closes the card.
   `/model` and `/thinking` still open the Picker menu.
 - **Picker menu:** the permissions picker, and the model and thinking level pickers that `/model` and `/thinking` open, float above the composer card, which stays in place, as the slash menu does: the same card, position, size and scrolling.

@@ -1,8 +1,8 @@
-// The agent picker: the pane that shows it, the agents it offers, the thinking bar's segments, and the level the bar marks for a model.
+// The agent picker: the pane that shows it, the agents it offers, the thinking bar's segments, the level the bar marks for a model, and where another agent's pick starts.
 import type { Checks, ModelOption } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore.ts";
 import { shownHarnesses } from "../harnesses/harnessCheck.ts";
-import type { ModelChoice } from "./transcript.ts";
+import type { Chat, ModelChoice } from "./transcript.ts";
 
 /** The pane whose agent picker shows; one at a time. */
 export const agentPickerPane = externalStore<string | null>(null);
@@ -24,6 +24,9 @@ export function shownLevel(model: ModelOption, running: ModelChoice | null, pick
   if (running?.thinking && model.levels.includes(running.thinking)) return running.thinking;
   return model.default_level ?? null;
 }
+
+/** Whether a pick of another agent's model switches the pane in place: only a chat with no messages, no history still loading and no message held for it. */
+export const switchesInPlace = (chat: Chat): boolean => chat.items.length === 0 && !chat.loading && chat.held === null;
 
 /** The thinking bar's segments for an agent: every level any of its models has, in the models' own order, so the bar keeps its layout as the highlight moves between models. */
 export function levelSlots(models: ModelOption[]): string[] {

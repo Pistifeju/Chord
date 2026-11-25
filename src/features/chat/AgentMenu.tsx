@@ -1,4 +1,4 @@
-// The agent menu floating above the composer: the agents the user can run in a sliding bar, the shown agent's models, and a thinking bar whose thumb follows the model under the pointer. A pick switches the model, or opens a new chat tab on the other agent.
+// The agent menu floating above the composer: the agents the user can run in a sliding bar, the shown agent's models, and a thinking bar whose thumb follows the model under the pointer. A pick switches the model, or moves to the other agent: in place while the chat is empty, else in a new chat tab.
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type RefObject } from "react";
 import type { ModelOption } from "../../ipc/bindings";
 import { CheckIcon } from "../../ui/icons";
@@ -7,11 +7,11 @@ import { useOutsidePointer } from "../../ui/outsidePointer";
 import { Segmented } from "../../ui/Segmented";
 import { harnessMarks } from "../harnesses/logos";
 import { checkHarnesses, harnessChecks } from "../harnesses/store";
-import { closeAgentPicker, levelSlots, pickerAgents, shownLevel } from "./agentPicker";
+import { closeAgentPicker, levelSlots, pickerAgents, shownLevel, switchesInPlace } from "./agentPicker";
 import { typedIndex, TYPING_PAUSE_MS } from "./dialog";
 import { levelLabel, providerLabel } from "./model";
 import { newSessionOn } from "../panes/store";
-import { focusComposer, modelCatalogs, pickModel } from "./store";
+import { focusComposer, modelCatalogs, pickModel, switchEmptyChat } from "./store";
 import type { Chat } from "./transcript";
 
 const noModels: ModelOption[] = [];
@@ -80,7 +80,9 @@ export function AgentMenu({ worktree, pane, harness, chat, trigger }: Props) {
       return;
     }
     closeAgentPicker();
-    newSessionOn(worktree, shown, option ? { id: option.id, level: picked } : null);
+    const on = option ? { id: option.id, level: picked } : null;
+    if (switchesInPlace(chat)) void switchEmptyChat(worktree, pane, shown, on);
+    else newSessionOn(worktree, shown, on);
   };
 
   const onKey = (e: KeyboardEvent) => {
