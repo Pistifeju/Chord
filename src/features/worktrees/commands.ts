@@ -1,4 +1,3 @@
-// The project, worktree and sheet commands for the commands table.
 import type { AppCommand } from "../../app/commands";
 import { closeSheet, sheet } from "../../app/sheet";
 import { openNewWorktree } from "./newWorktree";
@@ -11,7 +10,6 @@ function deleteWorktreeAt(path?: string) {
   if (owner && path) requestDelete(owner, path);
 }
 
-// A shortcut that opens a sheet or a dialog, or changes what an open sheet sits on, waits until the sheet closes.
 const noSheet = () => sheet.get() === null;
 
 const selectCommands: AppCommand[] = Array.from({ length: 9 }, (_, i) => ({

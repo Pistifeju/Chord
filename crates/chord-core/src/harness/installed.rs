@@ -1,5 +1,3 @@
-//! Which harnesses the login shell has: each one's version and sign-in state, read in parallel without opening a session, whether git runs, and the harness a new pane takes.
-
 use std::process::{Command, Stdio};
 use std::sync::Mutex;
 
@@ -11,7 +9,6 @@ use crate::{Error, lock};
 
 const GIT_INSTALL: &str = "xcode-select --install";
 
-/// What a harness's check found.
 #[derive(Serialize, Type, Debug, Clone, PartialEq)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Install {
@@ -22,30 +19,25 @@ pub enum Install {
 }
 
 impl Install {
-    // Sign-in is only a hint, and an older version starts with a warning.
     fn takes_pick(&self) -> bool {
         !matches!(self, Install::Missing)
     }
 }
 
-/// One harness as the onboarding and Settings rows show it.
 #[derive(Serialize, Type, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct HarnessCheck {
     pub name: String,
     pub title: String,
-    /// Chord has its adapter.
     pub starts: bool,
     pub install: String,
     pub sign_in: Option<String>,
     pub upgrade: String,
     pub install_state: Install,
-    /// It can be the default for new panes.
     pub takes_pick: bool,
 }
 
 impl HarnessCheck {
-    /// The step the user takes before Chord can start it; none when it is ready.
     fn step(&self) -> Option<String> {
         let title = &self.title;
         match &self.install_state {
@@ -66,7 +58,6 @@ impl HarnessCheck {
     }
 }
 
-/// Every harness's check in the list's order, git's install step when git does not run, and the default harness for new panes.
 #[derive(Serialize, Type, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Checks {
@@ -75,7 +66,6 @@ pub struct Checks {
     pub default_harness: Option<String>,
 }
 
-/// Checks every harness and git at once; `pick` is the user's saved pick.
 pub fn checks(pick: Option<&str>) -> Checks {
     let (harnesses, git) = std::thread::scope(|scope| {
         let git = scope.spawn(git_runs);
@@ -90,10 +80,8 @@ pub fn checks(pick: Option<&str>) -> Checks {
     }
 }
 
-/// The last check of the harnesses, so a new pane starts without one of its own: each costs a login shell and a start of every harness.
 static CHECKED: Mutex<Option<Vec<HarnessCheck>>> = Mutex::new(None);
 
-/// The harness a pane without one takes: the user's pick while it can start, else the first ready one, by the last check while that names one. A lone harness that is missing fails with `MissingTool`.
 pub fn default_for_new_pane(pick: Option<&str>) -> Result<String, Error> {
     let checked = lock(&CHECKED);
     if let Some(name) = checked
@@ -133,7 +121,6 @@ pub fn default_for_new_pane(pick: Option<&str>) -> Result<String, Error> {
     }
 }
 
-/// The pick while it is installed, since sign-in is only a hint; else the first signed-in harness Chord can start, older than tested or not.
 pub fn default_harness<'a>(pick: Option<&str>, checks: &'a [HarnessCheck]) -> Option<&'a str> {
     let starting = || checks.iter().filter(|check| check.starts);
     starting()
@@ -198,7 +185,6 @@ fn install_state(harness: &Harness) -> Install {
 
 static PASSED: Mutex<Vec<&str>> = Mutex::new(Vec::new());
 
-/// Refuses a missing harness with its install step; one older than the tested version starts, with the warning to show. A tested one is not asked again while the app runs: each ask costs a login shell and a start of the harness.
 pub fn require(harness: &Harness) -> Result<Option<String>, Error> {
     if lock(&PASSED).contains(&harness.name) {
         return Ok(None);
@@ -211,7 +197,6 @@ pub fn require(harness: &Harness) -> Result<Option<String>, Error> {
             dotted(harness.oldest_tested),
             harness.upgrade
         ))),
-        // A version Chord cannot read does not stop the harness.
         _ => {
             lock(&PASSED).push(harness.name);
             Ok(None)
@@ -219,13 +204,11 @@ pub fn require(harness: &Harness) -> Result<Option<String>, Error> {
     }
 }
 
-/// The version `--version` prints; none when Chord cannot read it.
 fn version(harness: &Harness) -> Result<Option<(u32, u32, u32)>, Error> {
     let output = quiet(&mut login_shell(harness.binary, &["--version"]))
         .stdout(Stdio::piped())
         .output()
         .map_err(|error| Error::start_failed(harness.binary, harness.install, error))?;
-    // The login shell exits with 127 when it finds no such command.
     if output.status.code() == Some(127) {
         return Err(Error::MissingTool {
             tool: harness.binary.into(),
@@ -235,7 +218,6 @@ fn version(harness: &Harness) -> Result<Option<(u32, u32, u32)>, Error> {
     Ok(parse_version(&String::from_utf8_lossy(&output.stdout)))
 }
 
-// Chord runs git outside the login shell, so the check does too.
 fn git_runs() -> bool {
     quiet(Command::new("git").arg("--version"))
         .status()
@@ -253,7 +235,6 @@ fn dotted((major, minor, patch): (u32, u32, u32)) -> String {
     format!("{major}.{minor}.{patch}")
 }
 
-/// The first `major.minor.patch` word, with or without a leading `v`, on the last line that has one, since a login shell's banner comes before the harness's output.
 fn parse_version(text: &str) -> Option<(u32, u32, u32)> {
     text.lines()
         .rev()

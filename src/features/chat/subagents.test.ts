@@ -1,4 +1,3 @@
-// Tests for the summary line of several subagent runs.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { SubagentNode } from "../../ipc/bindings";

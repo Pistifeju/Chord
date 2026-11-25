@@ -1,5 +1,3 @@
-//! Claude Code's session files: the folder of a worktree, one session's turns as history and its prompts, and the worktree's other sessions.
-
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -13,10 +11,8 @@ use crate::harness::earlier::Message;
 use crate::harness::resume::Session;
 use crate::harness::{HarnessEvent, count, login_shell, timestamp};
 
-/// The longest folder name Claude Code writes whole; a longer one it cuts and ends with a hash.
 const NAME_LIMIT: usize = 200;
 
-/// The folder of `cwd`'s session files; none when Claude Code says no projects folder or the worktree has none yet.
 pub(super) fn folder(cwd: &Path) -> Option<PathBuf> {
     let projects = projects()?;
     let cwd = std::fs::canonicalize(cwd).ok()?;
@@ -36,7 +32,6 @@ pub(super) fn folder(cwd: &Path) -> Option<PathBuf> {
         .map(|entry| entry.path())
 }
 
-/// A path as Claude Code names its folder: each character outside `A-Z`, `a-z` and `0-9` as `-`.
 pub(super) fn folder_name(path: &str) -> String {
     path.chars()
         .map(|char| {
@@ -49,12 +44,10 @@ pub(super) fn folder_name(path: &str) -> String {
         .collect()
 }
 
-/// The file of session `id` in `folder`.
 pub(super) fn file(folder: &Path, id: &str) -> PathBuf {
     folder.join(format!("{id}.jsonl"))
 }
 
-/// The turns of a session file as the events a live session sends: the chain back from the line `tip` names, else from the last line, oldest first. A branch a rewind left behind is off the chain; a compaction's boundary goes on through its `logicalParentUuid`.
 pub(super) fn history(file: &str, tip: Option<&str>, cwd: &Path) -> Vec<HarnessEvent> {
     let lines = lines(file);
     let mut tools = HashMap::new();
@@ -69,7 +62,6 @@ pub(super) fn history(file: &str, tip: Option<&str>, cwd: &Path) -> Vec<HarnessE
         .collect()
 }
 
-/// The prompts on the chain back from the line `tip` names, else from the last line, oldest first, each with the last reply before it, which `--resume-session-at` goes back to.
 pub(super) fn prompts(file: &str, tip: Option<&str>) -> Vec<Message> {
     let lines = lines(file);
     let mut reply = None;
@@ -96,7 +88,6 @@ fn lines(file: &str) -> Vec<Value> {
         .collect()
 }
 
-// The lines from the first back to `tip`, else to the last line, following each `parentUuid`.
 fn chain<'a>(lines: &'a [Value], tip: Option<&str>) -> Vec<&'a Value> {
     let by_id: HashMap<&str, &Value> = lines
         .iter()
@@ -107,7 +98,6 @@ fn chain<'a>(lines: &'a [Value], tip: Option<&str>) -> Vec<&'a Value> {
         Some(tip) => by_id.get(tip).copied(),
         None => lines.last(),
     };
-    // The chain is no longer than the file, so a loop in it ends.
     while let Some(line) = next.filter(|_| chain.len() < lines.len()) {
         chain.push(line);
         let parent = line["parentUuid"]
@@ -119,7 +109,6 @@ fn chain<'a>(lines: &'a [Value], tip: Option<&str>) -> Vec<&'a Value> {
     chain
 }
 
-/// The worktree's sessions in `folder`, newest first, without `own` and those in `held`, each labelled by its last prompt. A file without a prompt is left out.
 pub(super) fn sessions(folder: &Path, own: Option<&str>, held: &[String]) -> Vec<Session> {
     let now = SystemTime::now();
     let mut files: Vec<(String, SystemTime)> = std::fs::read_dir(folder)
@@ -149,7 +138,6 @@ pub(super) fn sessions(folder: &Path, own: Option<&str>, held: &[String]) -> Vec
         .collect()
 }
 
-// `projectsDirectory` in the JSON `claude auth status` prints, read once per app run.
 pub(super) fn projects() -> Option<PathBuf> {
     static PROJECTS: OnceLock<Option<PathBuf>> = OnceLock::new();
     PROJECTS

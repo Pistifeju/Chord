@@ -1,4 +1,3 @@
-// The Rename Branch sheet: the new name with its live git check, Rename.
 import { sheet, sheetOf } from "../../app/sheet";
 import { tooltip } from "../../app/commands";
 import { CloseIcon } from "../../ui/icons";

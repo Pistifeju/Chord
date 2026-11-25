@@ -1,5 +1,3 @@
-//! A worktree's git counts: commits ahead of and behind its upstream, and changed files.
-
 use crate::lock;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -13,16 +11,13 @@ use crate::{Error, git, worktrees};
 #[derive(Serialize, Type)]
 pub struct GitCounts {
     pub path: PathBuf,
-    /// Against the upstream, or the main checkout's branch without one; None on a detached HEAD.
     pub ahead: Option<u32>,
     pub behind: Option<u32>,
     pub changed: u32,
 }
 
-/// Counts for each folder; a folder git cannot read is left out.
 pub fn read_all(paths: &[PathBuf]) -> Result<Vec<GitCounts>, Error> {
     let bases = Bases::default();
-    // shortcut: one thread per folder, cap them once a window shows hundreds of worktrees.
     let results: Vec<_> = std::thread::scope(|scope| {
         let threads: Vec<_> = paths
             .iter()
@@ -44,11 +39,9 @@ pub fn read_all(paths: &[PathBuf]) -> Result<Vec<GitCounts>, Error> {
     Ok(all)
 }
 
-/// The main checkout's branch of each worktree whose repository `git worktree list` already ran for.
 type Bases = Mutex<HashMap<PathBuf, Option<String>>>;
 
 fn read(dir: &Path, bases: &Bases) -> Result<GitCounts, Error> {
-    // Without optional locks git leaves the index alone, so an agent's own git command never meets our lock.
     let status = git::run(
         dir,
         &[
@@ -76,7 +69,6 @@ fn read(dir: &Path, bases: &Bases) -> Result<GitCounts, Error> {
     })
 }
 
-/// The (behind, ahead) counts against the upstream when the branch has one, and the number of changed files.
 pub(crate) fn parse_status(output: &str) -> (Option<(u32, u32)>, u32) {
     let mut sides = None;
     let mut changed = 0;
@@ -95,7 +87,6 @@ pub(crate) fn parse_status(output: &str) -> (Option<(u32, u32)>, u32) {
     (sides, changed)
 }
 
-/// None when git cannot compare, e.g. no upstream or a detached HEAD.
 fn count_against(dir: &Path, base: &str) -> Result<Option<(u32, u32)>, Error> {
     let range = format!("{base}...HEAD");
     match git::run(dir, &["rev-list", "--left-right", "--count", &range]) {
@@ -105,7 +96,6 @@ fn count_against(dir: &Path, base: &str) -> Result<Option<(u32, u32)>, Error> {
     }
 }
 
-// One list serves every worktree of its repository; the lock keeps a second thread from listing it again.
 fn main_checkout_branch(dir: &Path, bases: &Bases) -> Result<Option<String>, Error> {
     let mut bases = lock(bases);
     if let Some(base) = bases.get(dir) {

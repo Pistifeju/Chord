@@ -1,4 +1,3 @@
-// Tests for the attention queue and the next agent needing you.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { attentionQueue, nextAttention, type AgentPane } from "./attention.ts";

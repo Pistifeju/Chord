@@ -1,4 +1,3 @@
-/* The Preview view: a column of its header with the model button over the Simulator view's screen, beside the `#Preview` list on the panel's outer edge, and the compile error's bar. Rules: design/preview-view.md. */
 .preview {
   position: relative;
   display: flex;
@@ -28,7 +27,6 @@
   display: flex;
   flex: none;
   flex-direction: column;
-  /* A narrowed side panel still leaves the screen half the view. */
   max-width: 50%;
   border-left: 1px solid var(--line);
 }
@@ -73,7 +71,6 @@
   font-size: calc(12px * var(--text-scale));
 }
 
-/* The chevron folds in at rest, so the name centers over the screen; it opens on hover. */
 .preview-model-chevron {
   display: grid;
   width: 0;
@@ -165,7 +162,6 @@ button.preview-error:focus-visible {
   color: var(--ink);
 }
 
-/* A worktree without a `#Preview`: the Simulator view's centered meta line in place of the whole view. */
 .preview-empty {
   position: absolute;
   inset: 40% 0 auto;

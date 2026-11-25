@@ -1,5 +1,3 @@
-//! Tests for the pi adapter: records fed to the reader, and the commands written to pi.
-
 use serde_json::{Value, json};
 
 use super::commands::{

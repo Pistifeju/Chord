@@ -1,5 +1,3 @@
-//! The repository's stashes, which every worktree shares: the list newest first, the files one holds with its untracked ones, one file's diff in it, and the stash of a worktree's changes, the apply, pop and drop of a stash.
-
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
@@ -13,13 +11,9 @@ use crate::{Error, git};
 #[derive(Serialize, Type, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Stash {
-    /// The stash's commit, which names it while the `stash@{n}` indexes shift.
     pub hash: String,
-    /// Without git's "WIP on main:" or "On main:".
     pub message: String,
-    /// The branch it came from, "(no branch)" from a detached HEAD.
     pub branch: String,
-    /// When it was made, in milliseconds since 1970.
     pub time: f64,
 }
 
@@ -31,7 +25,6 @@ pub enum StashAction {
     Drop,
 }
 
-/// Newest first.
 pub fn list(dir: &Path) -> Result<Vec<Stash>, Error> {
     Ok(parse_list(&git::read(
         dir,
@@ -39,12 +32,10 @@ pub fn list(dir: &Path) -> Result<Vec<Stash>, Error> {
     )?))
 }
 
-/// Stashes the worktree's changes, staged, unstaged and untracked.
 pub fn push(dir: &Path) -> Result<(), Error> {
     git::run(dir, &["stash", "push", "--include-untracked"]).map(drop)
 }
 
-/// A conflicting apply or pop leaves the stash in the list, as git does.
 pub fn act(dir: &Path, hash: &str, action: StashAction) -> Result<(), Error> {
     if action != StashAction::Drop {
         git::run(dir, &["stash", "apply", hash])?;
@@ -55,7 +46,6 @@ pub fn act(dir: &Path, hash: &str, action: StashAction) -> Result<(), Error> {
     Ok(())
 }
 
-/// git drops a stash only by its `stash@{n}` index, which a stash made meanwhile shifts, so a wrong drop goes back.
 fn drop_stash(dir: &Path, hash: &str) -> Result<(), Error> {
     let hashes = git::read(dir, &["stash", "list", "--format=%H"])?;
     let index = hashes
@@ -73,12 +63,10 @@ fn drop_stash(dir: &Path, hash: &str) -> Result<(), Error> {
     ))
 }
 
-/// The commit in git's "Dropped stash@{0} (<hash>)".
 fn dropped_hash(output: &str) -> Option<&str> {
     output.trim().rsplit_once(" (")?.1.strip_suffix(')')
 }
 
-/// The commit that holds the stash's untracked files, if it has any.
 fn untracked_commit(dir: &Path, hash: &str) -> Result<Option<String>, Error> {
     git::optional(git::run(
         dir,
@@ -86,7 +74,6 @@ fn untracked_commit(dir: &Path, hash: &str) -> Result<Option<String>, Error> {
     ))
 }
 
-/// The tracked files against the commit the stash was made on, and the untracked ones, in path order.
 pub fn files(dir: &Path, hash: &str) -> Result<Vec<CommittedFile>, Error> {
     let mut files = commit_diff::files_between(dir, &format!("{hash}^1"), hash)?;
     if let Some(untracked) = untracked_commit(dir, hash)? {
@@ -112,7 +99,6 @@ pub fn diff(dir: &Path, path: &str, hash: &str) -> Result<FileDiff, Error> {
     commit_diff::diff_between(dir, &format!("{hash}^1"), hash, path)
 }
 
-/// Each record of `git stash list -z` with the fields 1F apart: hash, time in seconds, reflog subject.
 fn parse_list(output: &str) -> Vec<Stash> {
     output
         .split('\0')
@@ -121,7 +107,6 @@ fn parse_list(output: &str) -> Vec<Stash> {
             let hash = fields.next().filter(|hash| !hash.is_empty())?.to_string();
             let time = fields.next()?.parse::<f64>().ok()? * 1000.0;
             let subject = fields.next()?;
-            // A ref name holds no colon, so the first ": " ends the branch.
             let (branch, message) = subject
                 .strip_prefix("WIP on ")
                 .or_else(|| subject.strip_prefix("On "))

@@ -1,4 +1,3 @@
-// Tests for the Usage panel's list and detail.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { detail, list } from "./spend.ts";

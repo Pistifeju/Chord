@@ -1,5 +1,3 @@
-//! Keeps the Mac awake while an agent runs: one `caffeinate` process, alive only while the setting is on and some pane's agent works.
-
 use crate::lock;
 use std::collections::BTreeSet;
 use std::io::ErrorKind;
@@ -33,7 +31,6 @@ impl Awake {
         lock(&self.inner)
     }
 
-    /// Turning it on fails with `MissingTool` when `caffeinate` is not on the PATH, even with no agent working, so the user hears of it now; the setting then stays as it was.
     pub fn set_enabled(&self, enabled: bool) -> Result<(), Error> {
         if enabled && !caffeinate_on_path() {
             return Err(missing_caffeinate());
@@ -47,7 +44,6 @@ impl Awake {
         synced
     }
 
-    /// The pane's agent started or finished work. A `caffeinate` that cannot start leaves the agent alone.
     pub fn set_working(&self, pane: &str, working: bool) {
         let mut inner = self.inner();
         if working {
@@ -58,7 +54,6 @@ impl Awake {
         let _ = inner.sync();
     }
 
-    /// Every agent ended: nothing keeps the Mac awake.
     pub fn clear(&self) {
         let mut inner = self.inner();
         inner.working.clear();
@@ -91,7 +86,6 @@ impl Inner {
         let wanted = self.enabled && !self.working.is_empty();
         match (&mut self.caffeinate, wanted) {
             (None, true) => {
-                // `-w` ends caffeinate with the app even when the app dies without cleaning up.
                 let child = Command::new("caffeinate")
                     .args(["-i", "-w", &std::process::id().to_string()])
                     .spawn()

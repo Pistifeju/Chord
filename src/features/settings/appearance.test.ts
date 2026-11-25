@@ -1,4 +1,3 @@
-// Tests for the text size steps and the shown theme.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { shownTheme, steppedTextPercent } from "./appearance.ts";

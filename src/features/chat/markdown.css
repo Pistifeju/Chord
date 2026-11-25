@@ -1,4 +1,3 @@
-/* The agent's Markdown inside a chat message. Rules: design/chat.md. */
 .md {
   display: flex;
   flex-direction: column;

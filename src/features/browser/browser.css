@@ -1,4 +1,3 @@
-/* A browser tab: its bar over the space the page's own web view covers. */
 .browser {
   display: flex;
   flex: 1;

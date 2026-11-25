@@ -1,4 +1,3 @@
-// The editor's look: the app's tokens for the surface, the selection, the fold markers, the completion list and the syntax colors.
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { EditorView } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
@@ -9,8 +8,6 @@ const surface = EditorView.theme({
   ".cm-scroller": { fontFamily: "var(--font-code)", lineHeight: "1.45" },
   ".cm-content": { caretColor: "var(--accent-ink)", padding: "8px 0" },
   ".cm-cursor": { borderLeftColor: "var(--accent-ink)" },
-  // Its own layer: WebKit otherwise paints the sticky gutter late on a sideways scroll and the text shows through.
-  // The shadow covers the strip at its left that WebKit leaves open while the sticky gutter catches up.
   ".cm-gutters": { backgroundColor: "var(--canvas)", color: "var(--ink-disabled)", border: "none", transform: "translateZ(0)", boxShadow: "-16px 0 0 var(--canvas)" },
   ".cm-activeLineGutter": { backgroundColor: "transparent", color: "var(--ink-secondary)" },
   ".cm-selectionBackground, &.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground": { backgroundColor: "var(--editor-selection)" },

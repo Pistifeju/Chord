@@ -1,4 +1,3 @@
-// The size of the worktrees' build data, as the value of Settings' Build Data row.
 import { useEffect } from "react";
 import { sizeText } from "./simulators";
 import { buildDataSize, loadBuildDataSize } from "./store";

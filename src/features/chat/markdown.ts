@@ -1,4 +1,3 @@
-// Rules for the agent's Markdown: text in, blocks and inline spans out. Raw HTML is never read, so it stays text.
 import { webUrlAt } from "../../ui/webUrls.ts";
 
 export type Inline =
@@ -34,7 +33,6 @@ const isBlank = (line: string) => line.trim() === "";
 const indentOf = (line: string) => line.length - line.trimStart().length;
 const isOrdered = (marker: string) => /\d/.test(marker);
 
-// A line that ends the paragraph above it. An ordered item interrupts only when it starts at 1.
 function startsBlock(line: string): boolean {
   if (FENCE.test(line) || HEADING.test(line) || RULE.test(line) || QUOTE.test(line)) return true;
   const item = ITEM.exec(line);
@@ -176,7 +174,6 @@ const isWord = (c: string | undefined) => c !== undefined && /[\p{L}\p{N}]/u.tes
 const isSpace = (c: string | undefined) => c === undefined || /\s/.test(c);
 const isWebLink = (href: string) => /^(https?:\/\/|mailto:)/i.test(href);
 
-// The index of the closing delimiter of an emphasis span that opens at `from`, or -1.
 function closerOf(s: string, delimiter: string, from: number): number {
   const mark = delimiter[0];
   for (let j = from; j < s.length; j++) {

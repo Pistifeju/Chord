@@ -1,23 +1,19 @@
-// The agent picker: the pane that shows it, the agents it offers, the thinking bar's segments, the level the bar marks for a model, and where another agent's pick starts.
 import type { Checks, ModelOption } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore.ts";
 import { shownHarnesses } from "../harnesses/harnessCheck.ts";
 import type { Chat, ModelChoice } from "./transcript.ts";
 
-/** The pane whose agent picker shows; one at a time. */
 export const agentPickerPane = externalStore<string | null>(null);
 
 export const openAgentPicker = (pane: string) => agentPickerPane.set(pane);
 
 export const closeAgentPicker = () => agentPickerPane.set(null);
 
-/** The agents the picker offers, in the checks' order: each one Chord runs that is installed and signed in, and the pane's own whatever its check says. */
 export function pickerAgents(checks: Checks | null, own: string): string[] {
   const ready = checks ? shownHarnesses(checks).filter((h) => h.installState.kind === "ready" || h.installState.kind === "outdated").map((h) => h.name) : [];
   return ready.includes(own) ? ready : [own, ...ready];
 }
 
-/** The level the bar marks for a model, and the one a pick starts it at: the level the user last set in the bar when the model has it, else the running model's level when the model has it, else the model's default. Null leaves the level to the harness. */
 export function shownLevel(model: ModelOption, running: ModelChoice | null, picked: string | null): string | null {
   if (model.levels.length === 0) return null;
   if (picked && model.levels.includes(picked)) return picked;
@@ -25,10 +21,8 @@ export function shownLevel(model: ModelOption, running: ModelChoice | null, pick
   return model.default_level ?? null;
 }
 
-/** Whether a pick of another agent's model switches the pane in place: only a chat with no messages, no history still loading and no message held for it. */
 export const switchesInPlace = (chat: Chat): boolean => chat.items.length === 0 && !chat.loading && chat.held === null;
 
-/** The thinking bar's segments for an agent: every level any of its models has, in the models' own order, so the bar keeps its layout as the highlight moves between models. */
 export function levelSlots(models: ModelOption[]): string[] {
   const slots: string[] = [];
   for (const model of models) {

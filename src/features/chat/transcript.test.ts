@@ -1,4 +1,3 @@
-// Tests for the transcript rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { callTime, chatAfter, chatFed, emptyChat, queuedImages, stepImages, stepsChanges, stepsHeadline, stepsSummary, withSteerImages, type Message, type Step } from "./transcript.ts";

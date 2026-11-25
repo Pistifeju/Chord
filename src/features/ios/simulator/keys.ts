@@ -1,5 +1,3 @@
-// Rules for typing into the simulator: a key's `KeyboardEvent.code` as its USB HID keyboard usage (page 7). ⌘ has none: ⌘ keys stay the window's shortcuts.
-
 const named: Record<string, number> = {
   Enter: 0x28,
   Escape: 0x29,

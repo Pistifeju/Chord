@@ -1,5 +1,3 @@
-//! The console of a run: its tones, and the loop that reads an app's output into batches for the UI.
-
 use std::sync::mpsc::{Receiver, RecvTimeoutError};
 use std::time::Instant;
 
@@ -11,15 +9,11 @@ use crate::process::{BATCH_BYTES, BATCH_INTERVAL};
 #[derive(Serialize, Type, Clone, Copy, Debug, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum ConsoleTone {
-    /// The app's stdout and stderr, and OSLog messages below error.
     Output,
-    /// An OSLog error or fault.
     Error,
-    /// A line Chord writes, not the app.
     Own,
 }
 
-/// Console text waiting for its batch, in arrival order, neighbours of one tone joined.
 #[derive(Default)]
 struct Console {
     parts: Vec<(String, ConsoleTone)>,
@@ -44,13 +38,10 @@ impl Console {
 }
 
 pub(crate) struct Pumped {
-    /// A line passed `is_launch_line`: the app's process ran.
     pub up: bool,
-    /// What the launch tool printed before that.
     pub output: String,
 }
 
-/// Reads `lines` to their end. Lines before the first one `is_launch_line` accepts are kept in `output`; that line calls `launched`, and every line after it goes to `console` in batches, with the `records` (OSLog) in arrival order. `ended` runs once the lines end, before the last records are read.
 pub(crate) fn pump(
     lines: &Receiver<Vec<u8>>,
     records: Option<&Receiver<(String, ConsoleTone)>>,

@@ -1,4 +1,3 @@
-// The editor, the diff view and the terminal view, loaded apart from the main bundle so the window parses CodeMirror and xterm while launch waits, not before it starts.
 import { externalStore } from "../ui/externalStore";
 
 function deferred<M>(load: () => Promise<M>) {
@@ -11,7 +10,6 @@ function deferred<M>(load: () => Promise<M>) {
     }));
   return {
     start,
-    // Null until loaded; a view that renders before launch loaded it starts the load.
     use: () => {
       const module = loaded.use();
       if (!module) start().catch(console.error);

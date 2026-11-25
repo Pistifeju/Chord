@@ -1,5 +1,3 @@
-//! The run destinations the menu lists: the connected devices, and the simulator models of each iOS version among the user's simulators.
-
 use std::fs;
 use std::sync::atomic::{AtomicU32, Ordering};
 
@@ -14,17 +12,13 @@ use crate::simulator::{self, DeviceSet, simctl};
 #[derive(Serialize, Type, Clone, Debug, PartialEq)]
 pub struct Destinations {
     pub devices: Vec<RunDestination>,
-    /// Newest iOS version first.
     pub simulators: Vec<SimulatorModels>,
-    /// The simulator a run or preview without a picked destination uses; None without an iOS runtime.
     pub fallback: Option<RunDestination>,
 }
 
 #[derive(Serialize, Type, Clone, Debug, PartialEq)]
 pub struct SimulatorModels {
-    /// "iOS 27.0".
     pub os: String,
-    /// iPhones before the rest, each by name.
     pub models: Vec<RunDestination>,
 }
 
@@ -43,16 +37,13 @@ pub fn list() -> Result<Destinations, Error> {
     )?;
     let listed: Value = serde_json::from_str(&simulators)?;
     Ok(Destinations {
-        // Older Xcode has no devicectl: no devices.
         devices: connected_devices().unwrap_or_default(),
         simulators: simulators_in(&listed),
         fallback: simulator::newest_ios_model(&listed),
     })
 }
 
-/// `devicectl` writes its JSON to a file only; its table goes to stdout.
 fn connected_devices() -> Result<Vec<RunDestination>, Error> {
-    // Listings run at once (launch and the open menu): each reads a file of its own.
     static LISTINGS: AtomicU32 = AtomicU32::new(0);
     let file = std::env::temp_dir().join(format!(
         "chord-devices-{}-{}.json",
@@ -74,7 +65,6 @@ fn connected_devices() -> Result<Vec<RunDestination>, Error> {
     Ok(devices_in(&serde_json::from_str(&result?)?))
 }
 
-/// The physical devices that are not unavailable, by name. A wired device shows as disconnected until a tool uses it.
 fn devices_in(listed: &Value) -> Vec<RunDestination> {
     let mut devices: Vec<RunDestination> = listed["result"]["devices"]
         .as_array()
@@ -95,7 +85,6 @@ fn devices_in(listed: &Value) -> Vec<RunDestination> {
     devices
 }
 
-/// `com.apple.CoreSimulator.SimRuntime.iOS-26-4` as ("iOS 26.4", [26, 4]); None for another platform.
 fn ios_version(runtime: &str) -> Option<(String, Vec<u32>)> {
     let version = runtime.rsplit('.').next()?.strip_prefix("iOS-")?;
     let numbers = version
@@ -105,7 +94,6 @@ fn ios_version(runtime: &str) -> Option<(String, Vec<u32>)> {
     Some((format!("iOS {}", version.replace('-', ".")), numbers))
 }
 
-/// The models of the available simulators, once per iOS version, each under its device type's name; Chord's own per-worktree simulators do not count.
 fn simulators_in(listed: &Value) -> Vec<SimulatorModels> {
     let type_name = |model: &str| {
         listed["devicetypes"]
@@ -131,7 +119,6 @@ fn simulators_in(listed: &Value) -> Vec<SimulatorModels> {
             let destination = RunDestination::Simulator {
                 model: model.into(),
                 runtime: runtime.clone(),
-                // Another tool's simulator ("Other App 8c5ca1") would list its model twice under two names.
                 name: type_name(model).unwrap_or(name).into(),
                 os: os.clone(),
             };

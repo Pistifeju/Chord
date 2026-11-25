@@ -1,15 +1,9 @@
-//! Tells a read-only shell command from one that may change something, so the chat can label it Read, Search or List.
-
-/// What one piped or chained part contributes to the command's title.
 enum Part {
-    /// Changes nothing and says nothing about the command: `cd`, `echo`.
     Neutral,
     Title(&'static str),
 }
 
-/// The title of a command whose every piped or chained part only reads; the first part that names itself names the command.
 pub fn read_only_title(command: &str) -> Option<&'static str> {
-    // Substitutions and newlines can run anything.
     if command.contains(['`', '\n'])
         || command.contains("$(")
         || command.contains("<(")
@@ -26,7 +20,6 @@ pub fn read_only_title(command: &str) -> Option<&'static str> {
     title
 }
 
-/// The script of a `<shell> -c` or `-lc` command, as the agent wrote it, without the shell's quoting.
 pub fn shell_script(command: &str) -> Option<String> {
     let mut parts = split_parts(command)?;
     let [words] = parts.as_mut_slice() else {
@@ -40,7 +33,6 @@ pub fn shell_script(command: &str) -> Option<String> {
     }
 }
 
-/// The words of each part between `|`, `&&`, `||` and `;`, split outside quotes. None when a redirect may write or a job runs in the background.
 fn split_parts(command: &str) -> Option<Vec<Vec<String>>> {
     let chars: Vec<char> = command.chars().collect();
     let mut parts = Vec::new();
@@ -104,7 +96,6 @@ fn split_parts(command: &str) -> Option<Vec<Vec<String>>> {
             }
             '&' if chars.get(i + 1) != Some(&'>') => return None,
             '>' | '&' => {
-                // A file descriptor number right before the redirect belongs to it.
                 if c == '>' && in_word && word.chars().all(|d| d.is_ascii_digit()) {
                     word.clear();
                     in_word = false;
@@ -117,7 +108,6 @@ fn split_parts(command: &str) -> Option<Vec<Vec<String>>> {
                     i += 1;
                 }
                 if chars.get(i + 1) == Some(&'&') {
-                    // `2>&1` and `2>&-` duplicate or close a descriptor.
                     let mut next = i + 2;
                     if !matches!(chars.get(next), Some(d) if d.is_ascii_digit() || *d == '-') {
                         return None;
@@ -205,7 +195,6 @@ fn is_find_action(word: &str) -> bool {
     )
 }
 
-// `sed -n 'script' file` prints; `-i`, `-e`, `-f` and the `w` and `e` commands write or run.
 fn is_sed_print(args: &[&str]) -> bool {
     let flags: Vec<&str> = args
         .iter()

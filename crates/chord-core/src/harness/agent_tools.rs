@@ -1,5 +1,3 @@
-//! The agents' build and run tools over MCP, for Codex, Claude Code and OpenCode: the command that starts Chord's own binary as a stdio MCP server, and the server, which passes each call to the socket Chord's window takes the tools on.
-
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Stdout, Write};
 use std::net::Shutdown;
@@ -13,10 +11,8 @@ use serde_json::{Value, json};
 
 use crate::lock;
 
-/// The first argument that starts Chord's binary as the server, followed by the tools' socket and the worktree.
 pub const SERVER_MODE: &str = "agent-tools";
 
-/// The tools' names, descriptions and guidelines; pi's extension gets the same texts in `CHORD_TOOL_TEXTS`.
 pub(super) const TEXTS: &str = include_str!("agent_tools.json");
 
 #[derive(Deserialize)]
@@ -31,24 +27,20 @@ struct Tool {
     description: String,
 }
 
-/// What Chord's socket answers a call with.
 #[derive(Deserialize)]
 struct Reply {
     text: String,
     failed: bool,
 }
 
-/// The connections of the calls that run, by their JSON-RPC id.
 type Open = Arc<Mutex<HashMap<String, UnixStream>>>;
 
-/// The tools' guidelines in one line, as the server's `instructions` say them.
 pub(super) fn instructions() -> String {
     serde_json::from_str::<Texts>(TEXTS)
         .map(|texts| texts.instructions.join(" "))
         .unwrap_or_default()
 }
 
-/// The command and arguments of the server for an agent in `worktree`; none when Chord cannot find its own binary, and the agent starts without the tools.
 pub(super) fn command(socket: &Path, worktree: &Path) -> Option<(String, Vec<String>)> {
     let binary = std::env::current_exe().ok()?;
     let args =
@@ -56,7 +48,6 @@ pub(super) fn command(socket: &Path, worktree: &Path) -> Option<(String, Vec<Str
     Some((binary.to_string_lossy().into_owned(), args.to_vec()))
 }
 
-/// Answers MCP on stdin until it closes, then waits for the calls that run. Each call runs on its own thread, so a running build blocks no other request.
 pub fn serve(socket: &Path, worktree: &Path) -> std::io::Result<()> {
     let texts: Texts = serde_json::from_str(TEXTS).map_err(std::io::Error::other)?;
     let stdout = Arc::new(Mutex::new(std::io::stdout()));
@@ -92,7 +83,6 @@ pub fn serve(socket: &Path, worktree: &Path) -> std::io::Result<()> {
             }
         }));
     }
-    // A client that closes stdin after its call still gets the answer.
     for call in calls {
         let _ = call.join();
     }
@@ -133,7 +123,6 @@ fn send(stdout: &Mutex<Stdout>, id: &Value, result: Result<Value, String>) {
     let _ = stdout.flush();
 }
 
-// One call per connection: one JSON line each way. None when the client cancelled the call, since it wants no answer then.
 fn call(socket: &Path, tool: &str, worktree: &Path, open: &Open, id: &Value) -> Option<Reply> {
     let connected =
         UnixStream::connect(socket).and_then(|stream| Ok((stream.try_clone()?, stream)));
@@ -154,7 +143,6 @@ fn call(socket: &Path, tool: &str, worktree: &Path, open: &Open, id: &Value) -> 
     )
 }
 
-// Drops the call's connection, as pi's extension does on abort; the build goes on in Chord.
 fn cancel(open: &Open, id: &Value) {
     if let Some(stream) = lock(open).remove(&id.to_string()) {
         let _ = stream.shutdown(Shutdown::Both);

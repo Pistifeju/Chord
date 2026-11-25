@@ -1,8 +1,6 @@
-// Each pane's agent start: drops the events of an older start, holds a replayed history, ends the wait for it, and names what an event does beyond the transcript.
 import type { HarnessEvent, ModelOption, UsageWindow } from "../../ipc/bindings";
 import { chatFed, type Chat, type Replay } from "./transcript.ts";
 
-/** What an event does outside the transcript, for the store to carry out. */
 type Effect = { kind: "draft"; text: string } | { kind: "usage"; harness: string; windows: UsageWindow[] } | { kind: "models"; harness: string; models: ModelOption[] } | { kind: "notify"; text: string } | { kind: "gitCounts" };
 
 function effectOf(event: HarnessEvent): Effect | null {
@@ -17,7 +15,6 @@ function effectOf(event: HarnessEvent): Effect | null {
       return { kind: "notify", text: `Exported to ${event.path}` };
     case "tool_end":
       return { kind: "gitCounts" };
-    // A command a tool left running can write after its call ended, so the turn's end reads once more.
     case "status":
       return event.changed && event.status.kind !== "running" ? { kind: "gitCounts" } : null;
     default:
@@ -29,7 +26,6 @@ export function intakes() {
   const current = new Map<string, { start: number; replay: Replay; loaded: () => void }>();
   let count = 0;
   return {
-    /** Starts over for the pane; `loaded` runs once its history is in, the agent exits, or the pane ends. */
     begin(pane: string, loaded: () => void): number {
       current.set(pane, { start: ++count, replay: null, loaded });
       return count;
@@ -40,7 +36,6 @@ export function intakes() {
       current.get(pane)?.loaded();
       current.delete(pane);
     },
-    /** The chat after the event and what the event does beyond it; null for an event of an older start. */
     fed(pane: string, start: number, chat: Chat, event: HarnessEvent, now: number): { chat: Chat; effect: Effect | null } | null {
       const intake = current.get(pane);
       if (intake?.start !== start) return null;

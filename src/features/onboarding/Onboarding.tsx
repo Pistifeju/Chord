@@ -1,4 +1,3 @@
-// The first launch's three-step welcome: what Chord does, the agent check, the first project.
 import { useEffect, useState } from "react";
 import { tooltip } from "../../app/commands";
 import { FolderIcon } from "../../ui/icons";
@@ -29,7 +28,6 @@ const BEATS: Task[][] = [
 ];
 const BEAT_MS = 1800;
 
-/** The open card follows the agent that waits, as the user would. */
 function openCard(beat: number): number {
   for (let back = 0; back < BEATS.length; back++) {
     const waiting = BEATS[(beat - back + BEATS.length) % BEATS.length].indexOf("waiting");
@@ -165,7 +163,6 @@ function Welcome() {
   return (
     <div className="onboarding">
       <Track step={step} />
-      {/* Keyed by the step, so each step change plays the slide; the first step shows still. */}
       <div key={step} className="onboarding-step" data-moved={moved}>
         {step === 0 && (
           <>

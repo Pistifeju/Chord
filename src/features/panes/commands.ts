@@ -1,4 +1,3 @@
-// The tab and split commands for the commands table.
 import type { AppCommand } from "../../app/commands";
 import { onTarget } from "../../app/commandTarget";
 import type { Direction } from "../../ipc/bindings";
@@ -7,7 +6,6 @@ import { openWorktree, shownPanes } from "../worktrees/store";
 import { filePanes, fitsSplit, groupOf } from "./layout";
 import { closeFocused, newSession, panes, splitFocused } from "./store";
 
-// A split goes beside a focused file tab, or a chat whose agent started, when the focused group has room for two.
 const canSplit = (direction: Direction) => (): boolean => {
   const shown = shownPanes();
   if (!shown) return false;

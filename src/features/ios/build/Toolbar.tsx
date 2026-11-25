@@ -1,4 +1,3 @@
-// The window toolbar over the panes in a worktree with an Xcode project: Run and Stop, the activity field with the run target (the scheme button with its scheme and build configuration menu, the run destination button with the run menu), the build's status and error count with its error list, and the side panel's view buttons.
 import { CheckMenuItem, Menu, MenuItem, PredefinedMenuItem } from "@tauri-apps/api/menu";
 import { LogicalPosition } from "@tauri-apps/api/dpi";
 import { useEffect, useRef, type MouseEvent, type ReactNode } from "react";
@@ -25,7 +24,6 @@ const disabledLine = (text: string) => MenuItem.new({ text, enabled: false });
 const choiceItem = (pick: RunDestination | null, destination: RunDestination, choose: (destination: RunDestination) => void) =>
   CheckMenuItem.new({ text: destination.name, checked: !!pick && sameDestination(pick, destination), action: () => choose(destination) });
 
-/** The simulator models under a line per iOS version, a separator between versions, `pick` checked; the Preview view's model menu lists them too. */
 export async function simulatorItems(pick: RunDestination | null, choose: (destination: RunDestination) => void) {
   const listing = destinations.get();
   if (!listing?.simulators.length) return [await disabledLine("No Simulators")];
@@ -38,7 +36,6 @@ export async function simulatorItems(pick: RunDestination | null, choose: (desti
   return items;
 }
 
-// The worktree's schemes, then its project's configurations under their line; the shown picks are checked.
 async function schemeMenu(worktree: string) {
   const listing = schemeListings.get()[worktree];
   if (!listing) return Menu.new({ items: [await disabledLine("No Schemes")] });
@@ -59,7 +56,6 @@ async function schemeMenu(worktree: string) {
   return Menu.new({ items });
 }
 
-// The commands, then the devices under their line and the simulator models under a line per iOS version; the project's pick is checked.
 async function runMenu(worktree: string) {
   const listing = destinations.get();
   const pick = runDestinationOf(worktree);
@@ -76,22 +72,17 @@ async function runMenu(worktree: string) {
   return Menu.new({ items });
 }
 
-/** Opens `menu` under `button` once `loading` ends. */
 async function popUp(button: HTMLElement, menu: () => Promise<Menu>, loading?: Promise<unknown>) {
-  // Loads wait outside the menu lock, so a slow one cannot block every other menu.
   await loading;
   const box = button.getBoundingClientRect();
   await openContextMenu(async () => (await menu()).popup(new LogicalPosition(box.left, box.bottom)));
 }
 
-/** Opens `menu` under `button` once a destination listing is known and `loading` ends. */
 export function popUpUnder(worktree: string, button: HTMLElement, menu: () => Promise<Menu>, loading?: Promise<unknown>) {
-  // The listing is the last one while the new one loads: the menu opens at once and a later open shows the new one.
   const refreshing = refreshDestinations(worktree).catch(fail);
   return popUp(button, menu, Promise.all([destinations.get() ? null : refreshing, loading]));
 }
 
-// The saved pick, else the last listing's defaults, show at once; the new listing replaces them once it came.
 function useShownPick(worktree: string): SchemePick {
   const listing = schemeListings.usePart((all) => all[worktree]);
   const pick = useSchemePick(worktree);
@@ -102,13 +93,11 @@ function useShownPick(worktree: string): SchemePick {
   return listing ? shownPick(pick, listing) : saved;
 }
 
-// Today's time reads "today at 10:32", the way a message's older times read.
 function endTime(at: number): string {
   const time = messageTime(at, Date.now());
   return time.includes(" at ") ? time : `today at ${time}`;
 }
 
-// `target` is the scheme and destination buttons, at the field's left.
 function Activity({ worktree, scheme, destination, target }: { worktree: string; scheme: string | null; destination: string; target: ReactNode }) {
   const build = builds.usePart((all) => all[worktree]);
   const activity = activityOf(build, scheme, destination, endTime);
@@ -116,11 +105,9 @@ function Activity({ worktree, scheme, destination, target }: { worktree: string;
   const count = useRef<HTMLButtonElement>(null);
   const failed = failedBuild(build);
   const open = errorList.usePart((shown) => shown === worktree);
-  // A new build takes the errors away, so their list closes.
   useEffect(() => {
     if (open && !failed) closeErrorList();
   }, [open, failed]);
-  // Leaving the worktree closes its list; StrictMode's early cleanup runs before the list can be open.
   useEffect(
     () => () => {
       if (errorList.get() === worktree) closeErrorList();
@@ -156,7 +143,6 @@ function Activity({ worktree, scheme, destination, target }: { worktree: string;
   );
 }
 
-// `viewButtons` are the side panel's view buttons, passed in by the window.
 export function Toolbar({ worktree, viewButtons }: { worktree: string; viewButtons: ReactNode }) {
   shortcutChanges.use();
   const { hidden } = sidebar.use();
@@ -188,7 +174,6 @@ export function Toolbar({ worktree, viewButtons }: { worktree: string; viewButto
               title="Scheme and Build Configuration"
               aria-label={`Scheme and Build Configuration: ${[scheme, configuration].filter(Boolean).join(", ")}`}
               onClick={(e: MouseEvent<HTMLButtonElement>) => {
-                // The last listing shows while the new one loads.
                 const listing = refreshSchemes(worktree).catch(fail);
                 popUp(e.currentTarget, () => schemeMenu(worktree), schemeListings.get()[worktree] ? undefined : listing).catch(fail);
               }}

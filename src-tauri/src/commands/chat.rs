@@ -1,5 +1,3 @@
-//! Commands for a pane's chat: start its agent, send a message, abort the run, stop the agent.
-
 use std::path::PathBuf;
 
 use chord_core::harness::sessions::{Sessions, Started};
@@ -11,7 +9,6 @@ use tauri_plugin_dialog::DialogExt;
 use super::blocking;
 use crate::notifications::{self, ShownPanes};
 
-/// Starts the pane's agent; `switch_to` names another harness the pane takes on a new session, at the model `pick`.
 #[tauri::command]
 #[specta::specta]
 pub async fn start_chat(
@@ -92,7 +89,6 @@ pub async fn pick_model(
     .await
 }
 
-/// Asks for image files with one of the extensions; no pick gives an empty list.
 #[tauri::command]
 #[specta::specta]
 pub async fn pick_images(app: AppHandle, extensions: Vec<String>) -> Result<Vec<PathBuf>, String> {
@@ -132,7 +128,6 @@ pub async fn stop_chat(app: AppHandle, pane: String) -> Result<(), String> {
     blocking(app, move |app, _| app.state::<Sessions>().stop_pane(&pane)).await
 }
 
-/// Tells Rust which panes the window shows, so a notification skips a pane the user is looking at.
 #[tauri::command]
 #[specta::specta]
 pub fn show_panes(shown: State<ShownPanes>, panes: Vec<String>) {

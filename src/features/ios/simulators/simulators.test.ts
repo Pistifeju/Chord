@@ -1,4 +1,3 @@
-// Tests for the running simulator and build data size rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { hasOtherSimulators, sizeText } from "./simulators.ts";

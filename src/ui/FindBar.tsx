@@ -1,11 +1,9 @@
-// The find bar floating over a transcript or a terminal: a query, the match position, previous and next, close.
 import { useEffect, useRef, type KeyboardEvent } from "react";
 import { ArrowDownIcon, ArrowUpIcon, CloseIcon } from "./icons";
 import { useOutsidePointer } from "./outsidePointer";
 
 type Props = {
   query: string;
-  /** A new value puts the caret in the field and selects the query. */
   focus: number;
   current: number;
   count: number;
@@ -13,7 +11,6 @@ type Props = {
   closeTitle: string;
   onQuery: (query: string) => void;
   onStep: (by: 1 | -1) => void;
-  /** `byButton` is false when a press outside the bar closes it, so the focus stays where the press put it. */
   onClose: (byButton?: boolean) => void;
 };
 

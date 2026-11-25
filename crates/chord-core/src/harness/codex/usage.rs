@@ -1,10 +1,7 @@
-//! Codex's subscription usage: the rate limit windows of `account/rateLimits/read` as usage windows.
-
 use serde_json::Value;
 
 use crate::harness::UsageWindow;
 
-/// The primary and secondary windows of a rate limit snapshot, shortest first; none for an API key, which has no snapshot.
 pub(super) fn windows(snapshot: &Value) -> Vec<UsageWindow> {
     let mut windows: Vec<(u64, UsageWindow)> = [&snapshot["primary"], &snapshot["secondary"]]
         .into_iter()
@@ -23,7 +20,6 @@ pub(super) fn windows(snapshot: &Value) -> Vec<UsageWindow> {
     windows.into_iter().map(|(_, window)| window).collect()
 }
 
-// A window's length as the bar names it: "5h", "week", "month".
 fn name(minutes: u64) -> String {
     const HOUR: u64 = 60;
     const DAY: u64 = 24 * HOUR;

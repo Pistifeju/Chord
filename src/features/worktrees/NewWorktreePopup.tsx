@@ -1,4 +1,3 @@
-// The New Worktree sheet: project picker, branch name with its live git check, Create.
 import type { FormEvent } from "react";
 import { tooltip } from "../../app/commands";
 import { sheet } from "../../app/sheet";

@@ -1,16 +1,13 @@
-/* The sidebar: worktree cards grouped under their project's name. */
 .sidebar {
   display: flex;
   flex-direction: column;
   flex: 0 0 var(--sidebar-width);
-  /* Without it a long nowrap line widens the sidebar past its fixed width. */
   min-width: 0;
   padding-top: var(--titlebar-height);
   border-right: 1px solid var(--line);
   background: var(--panel);
 }
 
-/* The title lines up with the project names, the plus glyph with the shortcut hints. */
 .sidebar-header {
   display: flex;
   align-items: center;
@@ -52,7 +49,6 @@
   margin-left: auto;
 }
 
-/* The attention dock over the foot: two folded rows and one card. Rules: design/sidebar.md. */
 .attention-dock {
   display: flex;
   flex: none;
@@ -71,7 +67,6 @@
   gap: 6px;
   width: 100%;
   height: 28px;
-  /* Lines the label up with the Settings gear and the chevron with the Help mark in the footer below. */
   padding: 0 6px 0 8px;
   border: none;
   border-radius: var(--radius-inset);
@@ -145,7 +140,6 @@
   min-height: 16px;
 }
 
-/* Outranks .project-name's padding, so the project name sits on the title's edge. */
 .dock-card .dock-card-project {
   flex: 1;
   min-width: 0;
@@ -175,7 +169,6 @@
   text-overflow: ellipsis;
 }
 
-/* The filled cards part the projects, so the groups need only space between them. */
 .project-group + .project-group {
   margin-top: 16px;
 }
@@ -185,12 +178,10 @@
   position: relative;
 }
 
-/* Keeps a long name clear of the More button. */
 .project-head .project-name {
   padding-right: 32px;
 }
 
-/* The More button of a project's name and of a card: hidden it takes no room, and it shows while the pointer or the focus is on its row. */
 .sidebar-more {
   position: absolute;
   top: 8px;
@@ -220,14 +211,12 @@
   transition-delay: 0s;
 }
 
-/* The More button takes no fill on hover or press: its glyph brightens, as a session's name does. */
 .icon-button.sidebar-more:hover,
 .icon-button.sidebar-more:active {
   background: none;
   color: var(--ink);
 }
 
-/* The shortcut hint moves in to make room for the More button. */
 .worktree-head > .worktree-line:first-child {
   transition: padding-right var(--t-fast) var(--ease-out);
 }
@@ -266,7 +255,6 @@
   list-style: none;
 }
 
-/* One card holds the worktree's head and its session rows; only the head, the More button and the rows take clicks. */
 .worktree-card {
   border-radius: var(--radius-inset);
   background: var(--card);
@@ -314,7 +302,6 @@
   text-align: left;
 }
 
-/* The field's text stays on the branch name's edge: its border and padding hang into the head's padding. */
 .worktree-name-field {
   height: 20px;
   margin: 0 -5px;
@@ -392,7 +379,6 @@
   }
 }
 
-/* The focused row's weight and the row's hover color stay off the age. */
 .session-age {
   color: var(--ink-muted);
   font-weight: 400;
@@ -414,7 +400,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* The run marker sits at the meta line's right end, as a session row's status does. */
 .worktree-marker {
   padding-left: 8px;
   font-weight: 500;
@@ -459,7 +444,6 @@
   outline-offset: -2px;
 }
 
-/* A worktree's chat sessions, inside its card under the head, on the head's text edge. */
 .session-list {
   display: flex;
   flex-direction: column;
@@ -509,7 +493,6 @@
   outline-offset: -2px;
 }
 
-/* The navigator's control over the sidebar's views, one icon per view. Rules: design/sidebar.md. */
 .navigator {
   margin: 0 8px 4px;
 }
@@ -527,7 +510,6 @@
   outline-offset: -2px;
 }
 
-/* An agent awaits input while Workspaces is not the shown view. */
 .navigator-waiting {
   position: absolute;
   top: 3px;
@@ -555,7 +537,6 @@
   min-height: 0;
 }
 
-/* The Changes view's sticky headings take the sidebar's fill. */
 .sidebar .changes-group {
   background: var(--panel);
   box-shadow: 0 -4px 0 var(--panel);

@@ -1,5 +1,3 @@
-//! What an agent's `build` and `run` tools answer: a build's events folded into one short reply, without the log. Pure.
-
 use std::collections::VecDeque;
 
 use serde::Serialize;
@@ -7,7 +5,6 @@ use serde::Serialize;
 use crate::build::{BuildEvent, BuildPhase};
 use crate::issues::{BuildIssue, parse_line};
 
-/// The log lines a failed build answers with when it printed no error line.
 const TAIL: usize = 20;
 
 #[derive(Serialize, Debug, PartialEq)]
@@ -29,7 +26,6 @@ impl AgentReply {
     }
 }
 
-/// Reads `events` until the build ends, or with `run` until the app launches. Events that end without an end mean a newer build took over: Stopped.
 pub(crate) fn agent_reply(events: impl IntoIterator<Item = BuildEvent>, run: bool) -> AgentReply {
     let mut tail = VecDeque::with_capacity(TAIL);
     let mut error_lines = false;

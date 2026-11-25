@@ -1,4 +1,3 @@
-// Tests for the key to HID usage rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { hidUsage } from "./keys.ts";

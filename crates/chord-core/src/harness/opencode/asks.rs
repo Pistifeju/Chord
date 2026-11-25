@@ -1,5 +1,3 @@
-//! OpenCode's asks as dialogs: its permission requests and question forms, and the answer each sends back.
-
 use std::collections::VecDeque;
 use std::path::Path;
 
@@ -12,22 +10,16 @@ use crate::harness::{DialogAsk, relative, text};
 pub(super) type Asks = asks::Asks<Reply>;
 pub(super) type Parsed = asks::Parsed<Reply>;
 
-/// How an ask's answer goes back to OpenCode.
 pub(super) struct Reply {
-    /// The id of OpenCode's request.
     request: Value,
     kind: Kind,
 }
 
 enum Kind {
-    /// `reject` is the `optionId` an Esc picks; none when OpenCode offered no reject.
-    Permission {
-        reject: Option<Value>,
-    },
+    Permission { reject: Option<Value> },
     Form,
 }
 
-/// The ask a request of OpenCode's opens; `cwd` makes its paths relative.
 pub(super) fn parse(id: &Value, method: &str, params: &Value, cwd: &Path) -> Parsed {
     let ask = |kind, steps| {
         Parsed::Ask(asks::Ask::new(
@@ -98,7 +90,6 @@ pub(super) fn parse(id: &Value, method: &str, params: &Value, cwd: &Path) -> Par
     }
 }
 
-/// The line that answers OpenCode once the user settled its ask.
 pub(super) fn answer(reply: Reply, settled: Settled) -> Value {
     let result = match (&reply.kind, settled) {
         (
@@ -120,7 +111,6 @@ pub(super) fn answer(reply: Reply, settled: Settled) -> Value {
     line(&reply.request, result)
 }
 
-/// The line that answers an ask the user's stop cut short.
 pub(super) fn stopped(reply: &Reply) -> Value {
     line(&reply.request, cancelled(&reply.kind))
 }
@@ -140,7 +130,6 @@ fn line(id: &Value, result: Value) -> Value {
     json!({ "jsonrpc": "2.0", "id": id, "result": result })
 }
 
-// OpenCode pairs a question `<key>` with a string `<key>_custom` for a typed answer: the question offers Other instead, and the pair opens no dialog of its own.
 fn offer_other(mut steps: VecDeque<Step>) -> VecDeque<Step> {
     let inputs: Vec<String> = steps
         .iter()

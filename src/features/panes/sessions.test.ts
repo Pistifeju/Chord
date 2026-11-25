@@ -1,4 +1,3 @@
-// Tests for the tab and tab group rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Layout, Tab, WorktreePanes } from "../../ipc/bindings.ts";
@@ -7,7 +6,6 @@ import { firstPanes, paneNames, shownSession, tabName, withFileKept, withFileOpe
 const chat = (id: string, name: string) => ({ kind: "chat" as const, id, name });
 const group = (id: string, tabs: Tab[], active: string): Layout => ({ kind: "group", id, tabs, active });
 
-// Two groups side by side: g1 holds p1 and p2, p2 open; g2 holds p3, which has the focus.
 const sideBySide: WorktreePanes = {
   layout: {
     kind: "split",

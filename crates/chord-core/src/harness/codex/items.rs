@@ -1,5 +1,3 @@
-//! What a Codex thread item means as harness events, at its start and at its end. Live items and a resumed thread's turns share it.
-
 use std::path::Path;
 
 use serde_json::Value;
@@ -8,7 +6,6 @@ use crate::harness::shell::{read_only_title, shell_script};
 use crate::harness::{HarnessEvent, Image, LineChanges, ToolOutcome, images, relative, text};
 use crate::images;
 
-/// The events of an item that started; `at` is when, in epoch milliseconds.
 pub(super) fn started(item: &Value, at: Option<f64>, cwd: &Path) -> Vec<HarnessEvent> {
     let id = text(&item["id"]);
     let tool = |title: &str, detail: String, changes| {
@@ -68,7 +65,6 @@ pub(super) fn started(item: &Value, at: Option<f64>, cwd: &Path) -> Vec<HarnessE
     }
 }
 
-/// The events of an item that completed; `streamed` when its text already came as deltas.
 pub(super) fn completed(item: &Value, at: Option<f64>, streamed: bool) -> Vec<HarnessEvent> {
     let end = |images: Vec<Image>| {
         vec![HarnessEvent::ToolEnd {
@@ -107,7 +103,6 @@ pub(super) fn completed(item: &Value, at: Option<f64>, streamed: bool) -> Vec<Ha
     }
 }
 
-/// A saved turn's items as the events a live turn sends; each item starts and completes at once.
 pub(super) fn turn_history(turn: &Value, cwd: &Path) -> Vec<HarnessEvent> {
     turn["items"]
         .as_array()
@@ -121,7 +116,6 @@ pub(super) fn turn_history(turn: &Value, cwd: &Path) -> Vec<HarnessEvent> {
         .collect()
 }
 
-/// The text of a user message's text inputs.
 pub(super) fn user_text(item: &Value) -> String {
     item["content"]
         .as_array()
@@ -159,7 +153,6 @@ fn file_image(path: &Path) -> Option<Image> {
     })
 }
 
-// An update's diff marks its lines with + and -; an added file's diff is its content, a deleted one's what it held.
 fn line_changes(changes: &[Value]) -> LineChanges {
     let mut counted = LineChanges {
         added: 0,

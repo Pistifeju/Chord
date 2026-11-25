@@ -1,4 +1,3 @@
-// The sheet that confirms removing a project while one of its agents works.
 import { closeSheet, sheet, sheetOf } from "../../app/sheet";
 import { ConfirmSheet } from "../../ui/ConfirmSheet";
 import { confirmRemoveProject } from "./store";

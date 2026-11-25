@@ -1,4 +1,3 @@
-// The Appearance menu the Simulator and Preview views' button row opens: light and dark, the Dynamic Type size, the language and the region of the worktree's run or preview simulator. The last read settings open it at once while a new read runs.
 import { LogicalPosition } from "@tauri-apps/api/dpi";
 import { Menu, type CheckMenuItemOptions } from "@tauri-apps/api/menu";
 import { commands, type SimulatorAppearance, type SimulatorAppearanceChange, type InterfaceStyle } from "../../../ipc/bindings";
@@ -10,7 +9,6 @@ const known = new Map<string, SimulatorAppearance>();
 
 const keyOf = (worktree: string, preview: boolean) => `${preview ? "preview" : "run"}:${worktree}`;
 
-/** Reads the settings of the worktree's simulator, or with `preview` its preview simulator, and keeps them for the next open. */
 export async function loadAppearance(worktree: string, preview: boolean) {
   const now = await commands.simulatorAppearance(worktree, preview);
   known.set(keyOf(worktree, preview), now);
@@ -37,13 +35,11 @@ function displayName(type: "language" | "region") {
   };
 }
 
-/** One checked item per value, the current one checked; picking one sends its change. */
 const choices = <T,>(worktree: string, preview: boolean, values: { value: T; text: string }[], current: unknown, toChange: (value: T) => SimulatorAppearanceChange): CheckMenuItemOptions[] =>
   values.map(({ value, text }) => ({ text, checked: current === value, action: () => change(worktree, preview, toChange(value)) }));
 
 const named = (codes: string[], type: "language" | "region") => namedCodes(codes, displayName(type)).map(({ code, name }) => ({ value: code, text: name }));
 
-// One call builds the whole menu: an item each would be hundreds of round trips for the languages and regions.
 function appearanceMenu(worktree: string, preview: boolean, now: SimulatorAppearance) {
   const styles: { value: InterfaceStyle; text: string }[] = [
     { value: "light", text: "Light" },
@@ -60,13 +56,11 @@ function appearanceMenu(worktree: string, preview: boolean, now: SimulatorAppear
   });
 }
 
-/** Opens the menu under `button`. */
 export async function openAppearanceMenu(worktree: string, preview: boolean, button: HTMLElement) {
   const box = button.getBoundingClientRect();
   const reading = loadAppearance(worktree, preview);
   const last = known.get(keyOf(worktree, preview));
   if (last) reading.catch(console.error);
-  // The read waits outside the menu lock, so a slow one cannot block every other menu.
   const now = last ?? (await reading);
   await openContextMenu(async () => (await appearanceMenu(worktree, preview, now)).popup(new LogicalPosition(box.left, box.bottom)));
 }

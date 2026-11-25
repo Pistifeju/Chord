@@ -1,4 +1,3 @@
-// The screenshot row of Settings' Simulators section: the folder the Simulator view's screenshots and recordings go in, the Desktop until the user chooses one.
 import { Row } from "../../../ui/Row";
 import { chooseScreenshotFolder, screenshotFolder } from "./store";
 

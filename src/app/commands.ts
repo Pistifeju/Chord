@@ -1,4 +1,3 @@
-// The commands table: every feature's commands, the shortcuts that run them, their menu accelerators and tooltips.
 import { Menu } from "@tauri-apps/api/menu";
 import type { MouseEvent } from "react";
 import { commands } from "../ipc/bindings";
@@ -21,7 +20,6 @@ import { worktreeCommands } from "../features/worktrees/commands";
 import { changedShortcut, currentShortcuts, loadedChanges, pressMatches, type Shortcut, type ShortcutChanges, type ShortcutMap } from "./shortcuts";
 
 export type AppCommand = { id: string; title: string; shortcut?: Shortcut; run: (target?: string) => void;
-  /** Escape and other keys shared by commands: the first one whose condition holds runs. */
   when?: () => boolean;
 };
 
@@ -29,14 +27,12 @@ const table: AppCommand[] = [...sidebarCommands, ...filesCommands, ...changesCom
 
 const defaultShortcuts: ShortcutMap = Object.fromEntries(table.map((c) => [c.id, c.shortcut]));
 
-// The key a command has now: its default, or the one the user chose.
 const shortcutOf = (id: string): Shortcut | undefined => currentShortcuts(defaultShortcuts, shortcutChanges.get())[id];
 
 export function loadShortcutChanges(saved: ShortcutChanges) {
   shortcutChanges.set(loadedChanges(defaultShortcuts, saved));
 }
 
-// Returns the titles of the commands that lost the key.
 export function changeShortcut(id: string, shortcut: Shortcut | null): string[] {
   const { changes, lost } = changedShortcut(defaultShortcuts, shortcutChanges.get(), id, shortcut);
   shortcutChanges.set(changes);
@@ -82,7 +78,6 @@ const accelerator = (s: Shortcut) => keyParts(s, 2).join("+");
 
 export const commandEnabled = (id: string): boolean => table.find((c) => c.id === id)?.when?.() ?? true;
 
-// A native menu item that runs a command on the item it was opened for.
 export function menuItem(id: string, target: string) {
   const command = table.find((c) => c.id === id);
   const shortcut = shortcutOf(id);
@@ -94,7 +89,6 @@ export function menuItem(id: string, target: string) {
   };
 }
 
-// Opens a context menu of commands, each run on its target.
 export async function showMenu(event: MouseEvent, items: ([commandId: string, target: string] | "separator")[]) {
   event.preventDefault();
   event.stopPropagation();

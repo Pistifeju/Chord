@@ -1,4 +1,3 @@
-// Tests for bare web URLs in text.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { webUrlsIn } from "./webUrls.ts";

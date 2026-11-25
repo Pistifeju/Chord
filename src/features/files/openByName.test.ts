@@ -1,4 +1,3 @@
-// Tests for the Open File by Name rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { matchingFiles, recentFirst } from "./openByName.ts";

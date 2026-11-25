@@ -1,5 +1,3 @@
-//! Input for the simulator the Simulator view shows: the view's touches, keys and buttons, over DTUHID from CoreSimulator 1155.4 (Xcode 27) on and over Indigo before, with the rule that keeps a touch's moves in order.
-
 mod dtuhid;
 mod indigo;
 
@@ -11,12 +9,9 @@ use specta::Type;
 
 use crate::simulator;
 
-/// The first CoreSimulator whose guest takes DTUHID input; the Indigo keyboard and lock stop working there.
 const DTUHID_FROM: [u32; 2] = [1155, 4];
-/// The edge flag that makes a swipe from the bottom a system swipe (home on Face ID models), on both channels.
 const EDGE_BOTTOM: u32 = 3;
 
-/// A point on the screen: 0…1 from the top left.
 #[derive(Deserialize, Type, Clone, Copy, Debug, PartialEq)]
 pub struct Point {
     pub x: f64,
@@ -46,7 +41,6 @@ pub enum Button {
     rename_all_fields = "camelCase"
 )]
 pub enum Input {
-    /// One or two fingers. `seq` grows with every touch the view sends; `from_bottom` marks a swipe that starts at the bottom edge.
     Touch {
         seq: u32,
         phase: TouchPhase,
@@ -54,7 +48,6 @@ pub enum Input {
         second: Option<Point>,
         from_bottom: bool,
     },
-    /// A USB HID keyboard usage (page 7).
     Key {
         usage: u32,
         down: bool,
@@ -64,7 +57,6 @@ pub enum Input {
     },
 }
 
-/// Input that runs a tool; run it off the main thread.
 pub struct Blocking(Box<dyn FnOnce() -> Result<(), Error> + Send>);
 
 impl Blocking {
@@ -87,14 +79,12 @@ fn channel_for(version: &[u32]) -> Channel {
     }
 }
 
-/// The newest touch a device got. The view's touches can arrive out of order over IPC.
 #[derive(Default)]
 struct TouchOrder {
     last: Option<u32>,
 }
 
 impl TouchOrder {
-    /// Whether the touch goes to the device: a move older than the newest touch is dropped; a down or an up always goes, and a down starts the count again, so a reloaded view's touches pass.
     fn admits(&mut self, seq: u32, phase: TouchPhase) -> bool {
         let newest = phase == TouchPhase::Down || self.last.is_none_or(|last| seq > last);
         if newest {
@@ -109,7 +99,6 @@ enum Link {
     Indigo(indigo::Client),
 }
 
-/// The input link to one booted device, kept for as long as it stays booted.
 pub(crate) struct Hid {
     udid: String,
     link: Link,
@@ -117,7 +106,6 @@ pub(crate) struct Hid {
 }
 
 impl Hid {
-    /// Main thread. None when this CoreSimulator offers no link to the device.
     pub fn new(version: &[u32], udid: String, device: &Retained<AnyObject>) -> Option<Hid> {
         let link = match channel_for(version) {
             Channel::Dtuhid => Link::Dtuhid(dtuhid::Link::connect(device)),
@@ -130,7 +118,6 @@ impl Hid {
         })
     }
 
-    /// Main thread. Sends `input` at once, or returns the tool run that carries it.
     pub fn send(&mut self, input: Input) -> Option<Blocking> {
         let udid = || self.udid.clone();
         match (input, &self.link) {

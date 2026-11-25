@@ -1,4 +1,3 @@
-/* The picker sheet: a search field over a list of rows, one of them highlighted. */
 .picker-sheet {
   width: min(560px, calc(100vw - 40px));
   padding: 12px;

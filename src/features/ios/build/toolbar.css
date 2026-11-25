@@ -1,8 +1,5 @@
-/* The window toolbar over the panes and the side panel in a worktree with an Xcode project. Rules: design/build-and-run.md. */
-/* Run and Stop with the activity field after them, centered as one group, the view buttons at the right. */
 .toolbar {
   position: relative;
-  /* Above the fixed title bar, as the tab bar is, so its buttons take clicks. */
   z-index: 2;
   display: flex;
   align-items: center;
@@ -35,7 +32,6 @@
   margin-left: auto;
 }
 
-/* Play reads green and stop red; a disabled one takes the disabled glyph. */
 .toolbar-run:not(:disabled) {
   color: var(--success);
 }
@@ -48,7 +44,6 @@
   color: var(--danger);
 }
 
-/* The build's status, with the run target at its left. */
 .toolbar-activity {
   position: relative;
   overflow: hidden;
@@ -65,7 +60,6 @@
   white-space: nowrap;
 }
 
-/* The run target, as in Xcode: the scheme, then the destination, a rule after them; fixed slots so a pick or a loading listing never moves the rule or the status. */
 .toolbar-target {
   display: flex;
   flex: none;
@@ -91,7 +85,6 @@
   transition: background-color var(--t-fast) var(--ease-out);
 }
 
-/* The destination takes the room the scheme leaves, so no gap opens after a short scheme name. */
 .toolbar-scheme-part:last-child {
   flex: 1 1 auto;
   padding: 0 8px 0 4px;
@@ -123,7 +116,6 @@
   color: var(--ink-disabled);
 }
 
-/* The build configuration, after the scheme's name. */
 .toolbar-configuration {
   font-weight: 400;
   color: var(--ink-secondary);
@@ -140,7 +132,6 @@
   color: var(--ink-muted);
 }
 
-/* The lead names what happens in `ink`, the detail after it in `ink-secondary`; a success or a failure colors the lead. */
 .toolbar-activity-lead {
   font-weight: 500;
   color: var(--ink);
@@ -167,7 +158,6 @@
   text-overflow: ellipsis;
 }
 
-/* While it builds, installs or launches: a 2px line along the field's bottom edge with a segment sliding across it. Rust reports no file counts, so it shows that work goes on, not how far. */
 .toolbar-progress {
   position: absolute;
   right: 0;
@@ -242,7 +232,6 @@
   height: 12px;
 }
 
-/* The error list under the count: errors grouped by file, the highlighted row on `raised`. It opens as the commit mode menu does, out of the count's corner. */
 .error-list {
   position: fixed;
   z-index: 15;
@@ -400,7 +389,6 @@
   outline-offset: -2px;
 }
 
-/* A narrow toolbar hides the iOS version, then the scheme's name and configuration. */
 @container (max-width: 900px) {
   .toolbar-destination-os {
     display: none;

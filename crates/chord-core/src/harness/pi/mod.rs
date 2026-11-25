@@ -1,5 +1,3 @@
-//! The pi adapter: runs `pi --mode rpc` as a process and hands its stdout to the reader. The only module that knows pi's records.
-
 mod commands;
 mod reader;
 mod records;
@@ -27,10 +25,8 @@ use commands::{
 use reader::{Read, Reader};
 use records::{models_event, newest_first};
 
-/// The harness name a pane saves.
 pub const NAME: &str = "pi";
 
-// `pi auth check` needs a provider, so pi has no sign-in check.
 pub const HARNESS: Harness = Harness {
     name: NAME,
     title: "pi",
@@ -42,35 +38,22 @@ pub const HARNESS: Harness = Harness {
     starts: true,
 };
 
-/// The extension Chord ships: the session commands RPC lacks, the subscription usage windows, and the build and run tools.
 const EXTENSION: &str = include_str!("extension.ts");
 const EXTENSION_FILE: &str = "chord-extension.ts";
-/// The commands the extension adds start with this; the slash menu lists Chord's own names for them.
 const EXTENSION_PREFIX: &str = "chord-";
-/// The status key the extension reports the usage windows under.
 const USAGE_STATUS: &str = "chord-usage";
-/// The extension registers the build and run tools when pi starts with these: the socket Chord takes the calls on, the worktree they build, and the tools' texts.
 const TOOLS_SOCKET_ENV: &str = "CHORD_TOOLS";
 const WORKTREE_ENV: &str = "CHORD_WORKTREE";
 const TOOL_TEXTS_ENV: &str = "CHORD_TOOL_TEXTS";
-/// A subagent extension's widget carries its background runs as one line with this prefix, then a JSON snapshot.
 const SUBAGENTS_PREFIX: &str = "PI_SUBAGENT_ASYNC_JSON:";
-/// The request id of a prompt that runs one of the extension's commands; its response means the session may have changed.
 const SESSION_PROMPT: &str = "chord-session";
-/// The request id of the prompt that runs `/chord-reload`; its response is the one thing that tells the user the reload happened.
 const RELOAD_PROMPT: &str = "chord-reload";
-/// A fork dialog's id starts with this; the ids of the entries it lists follow, comma-separated, in the order of its options.
 const FORK_DIALOG: &str = "chord-fork:";
-/// The id of the model dialog; its options are `provider/model`.
 const MODEL_DIALOG: &str = "chord-model";
-/// The id of the thinking level dialog; its options are the levels, capitalized.
 const THINKING_DIALOG: &str = "chord-thinking";
-/// The request id of the model list the agent picker shows, so its response is no model dialog.
 const MODELS_REQUEST: &str = "chord-models";
-/// A `set_model` request id starts with this when the pick carries a level, which follows it; pi runs requests side by side, and a model switch resets the level once it lands.
 const PICKED_LEVEL: &str = "chord-level:";
 
-/// A dialog the adapter opens to change the session's model or thinking level.
 #[derive(Clone, Copy)]
 enum Picker {
     Model,
@@ -101,7 +84,6 @@ impl Picker {
     }
 }
 
-/// What pi offers after a slash in its own terminal and RPC does not list: each name and its description.
 const SESSION_COMMANDS: [Entry; 10] = [
     MODEL,
     THINKING,
@@ -121,7 +103,6 @@ const SESSION_COMMANDS: [Entry; 10] = [
     ),
 ];
 
-/// pi's models, read from a pi that saves no session.
 pub(crate) fn models() -> Result<Vec<ModelOption>, Error> {
     let request = json!({ "id": MODELS_REQUEST, "type": "get_available_models" });
     let mut models = models::ask(
@@ -139,14 +120,11 @@ pub(crate) fn models() -> Result<Vec<ModelOption>, Error> {
     Ok(models)
 }
 
-/// One running `pi --mode rpc` process.
 pub struct Session {
     process: Mutex<Process>,
     running: Arc<AtomicBool>,
-    /// The session file pi holds, from its last `SessionInfo`.
     file: Arc<Mutex<Option<String>>>,
     on_event: Arc<Mutex<dyn Fn(HarnessEvent) + Send>>,
-    /// Starts another pi with the same setup on the given session file, or on a new session without one.
     launch: Box<Launch>,
 }
 
@@ -154,7 +132,6 @@ type Launch = dyn Fn(Option<&str>) -> Result<Process, Error> + Send;
 
 static EXTENSION_WRITE: Mutex<()> = Mutex::new(());
 
-// Written only when it differs, and one start at a time, so no pi reads a half-written file.
 fn installed_extension(dir: &Path) -> Result<PathBuf, Error> {
     let _writing = lock(&EXTENSION_WRITE);
     std::fs::create_dir_all(dir)?;
@@ -166,7 +143,6 @@ fn installed_extension(dir: &Path) -> Result<PathBuf, Error> {
 }
 
 impl Session {
-    /// `extension_dir` is where the extension Chord ships is written for pi to load. `session` is a pi session file; without an existing one pi starts a new session in its own session folder. With `tools`, the socket Chord's tools listen on, the agent gets the build and run tools.
     pub fn start(
         dir: &Path,
         session: Option<&str>,
@@ -213,7 +189,6 @@ impl Session {
         Ok(session)
     }
 
-    // pi's own `/new` first waits for the run to settle, which a hung tool never does, and pi refuses `/reload` mid-run; a new pi on `session`, or on a new session, starts at once and the old one is killed.
     fn restart(&self, session: Option<&str>) -> Result<(), Error> {
         let new = (self.launch)(session)?;
         let old = std::mem::replace(&mut *lock(&self.process), new);
@@ -225,10 +200,8 @@ impl Session {
     }
 
     fn read_session(&self) {
-        // Without the list the slash menu stays hidden; the agent works without it.
         let _ = self.write(&json!({ "type": "get_commands" }));
         let _ = self.write(&json!({ "id": MODELS_REQUEST, "type": "get_available_models" }));
-        // The session file may hold earlier messages; they come back as history.
         for request in session_requests() {
             let _ = self.write(&request);
         }
@@ -255,12 +228,10 @@ impl Agent for Session {
         ]
     }
 
-    /// Sends a message; while the agent runs, pi queues it as a steer. A session command runs instead of being sent; `/resume` leaves out `held_elsewhere`, the session files other panes hold, so no two agents write one file.
     fn send(&self, text: &str, images: &[Image], held_elsewhere: &[String]) -> Result<bool, Error> {
         let Some(command) = session_command(text.trim(), held_elsewhere) else {
             return self.write(&prompt_command(text, images)).map(|()| true);
         };
-        // A new session mid-run replaces pi; pi aborts the run to open another session; `/tree` mid-run it refuses itself and `/export` leaves the run alone; `/model` and `/thinking` only open a picker, and pi's refusal of the pick shows as a notice.
         let keeps_run = matches!(
             command_name(text.trim()),
             "/tree" | "/export" | "/model" | "/thinking"
@@ -285,7 +256,6 @@ impl Agent for Session {
         self.write(&json!({ "type": "abort" }))
     }
 
-    /// `id` is `provider/model`; the reader sends a picked level once pi answers the model switch.
     fn pick_model(&self, id: &str, level: Option<&str>) -> Result<(), Error> {
         let (provider, model) = id
             .split_once('/')
@@ -297,7 +267,6 @@ impl Agent for Session {
         self.write(&command)
     }
 
-    /// Answers the dialog pi asked with `id`; a fork dialog is the adapter's own, so its answer becomes the fork.
     fn answer_dialog(&self, id: &str, answer: &DialogAnswer) -> Result<(), Error> {
         if let Some(picker) = Picker::from_id(id) {
             return self.write_if_picked(picker.command(answer));
@@ -320,7 +289,6 @@ impl Agent for Session {
     }
 }
 
-// One pi process on `session`, or on a new session without one; its reader keeps `running` and hands each event to `on_event`.
 fn launch(
     dir: &Path,
     extension: &str,
@@ -331,7 +299,6 @@ fn launch(
     on_event: &Arc<Mutex<impl Fn(HarnessEvent) + Send + 'static>>,
 ) -> Result<Process, Error> {
     let mut args = vec!["--mode", "rpc", "--extension", extension];
-    // The same file on every start puts the pane back in its exact session.
     if let Some(file) = session.filter(|file| Path::new(file).is_file()) {
         args.extend(["--session", file]);
     }
@@ -361,7 +328,6 @@ fn launch(
                 }
                 emit(event);
             }
-            // A `/tree` pi refused mid-run left the session as it was, so reading it again would restart the live transcript; only the state and the stats, which are read-only, go out mid-run.
             let running = reader_running.load(Ordering::SeqCst);
             for request in requests {
                 if !running

@@ -1,5 +1,3 @@
-//! Tests for the Codex adapter: hand-written records fed to the reader, and the lines written to Codex.
-
 use std::path::Path;
 
 use serde_json::json;
@@ -9,7 +7,6 @@ use super::reader::Reader;
 use crate::harness::subagents::Subagents;
 use crate::harness::{DialogAnswer, DialogAsk, HarnessEvent, SubagentState, UsageWindow};
 
-// A reader past the handshake, on thread "t1".
 fn started() -> Reader {
     let mut reader = Reader::new(Path::new("/w"), None, Default::default(), None);
     reader.initialize();
@@ -358,7 +355,6 @@ fn resume_lists_the_threads_no_other_pane_holds_and_opens_the_pick() {
     );
 }
 
-// The select `command` opens on a thread whose turns are "u1" (a message), "c1" (a compaction) and "u2" (a message), and what picking the second message writes.
 fn go_back(command: &str) -> (Vec<String>, Vec<HarnessEvent>, Vec<serde_json::Value>) {
     let mut reader = started();
     reader.send(command, &[], &[]).ok();

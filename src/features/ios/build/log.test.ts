@@ -1,4 +1,3 @@
-// Tests for the build log rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { appendToLog, emptyLog, LOG_LINES, logLines, matchesIn, segmentsOf } from "./log.ts";

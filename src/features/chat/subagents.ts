@@ -1,4 +1,3 @@
-// The subagent lines' text: a run's name, tool and time joined, the summary of several runs, and when the time ticks.
 import type { SubagentNode } from "../../ipc/bindings";
 import { elapsedText } from "./elapsed.ts";
 
@@ -14,7 +13,6 @@ export function subagentLine(node: SubagentNode, now: number): string {
 
 const runsOf = (nodes: SubagentNode[]) => nodes.filter((n) => n.depth === 0);
 
-// A chain's steps and a fan-out's workers are the agents the user counts, not the run that holds them.
 const leafCount = (nodes: SubagentNode[]) => nodes.filter((n, i) => (nodes[i + 1]?.depth ?? 0) <= n.depth).length;
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;

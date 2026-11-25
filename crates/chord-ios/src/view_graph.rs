@@ -1,11 +1,7 @@
-//! Which files a preview hot reload recompiles: the shown preview's file, the saved view file and every view file between them, found by the type names each file declares and uses. The new image then builds the saved view's new types all the way from the preview, and old code never meets them.
-//! shortcut: names, not the compiler's dependency graph (`.swiftdeps` has no reader in the toolchain). A missed edge leaves an old file on the path, which keeps the old view: stale, not a crash.
-
 use std::collections::{BTreeSet, HashMap, HashSet};
 
 const DECLARES: &[&str] = &["struct", "class", "enum", "protocol", "actor", "typealias"];
 
-/// A file's identifiers outside comments and string literals, and the type names it declares at file level or one level in.
 #[derive(Default)]
 struct Scan {
     uses: HashSet<String>,
@@ -16,7 +12,6 @@ fn starts(b: &[u8], i: usize, pat: &[u8]) -> bool {
     b.get(i..).is_some_and(|r| r.starts_with(pat))
 }
 
-/// Index of `pat` from `i`.
 pub(crate) fn find(b: &[u8], i: usize, pat: &[u8]) -> Option<usize> {
     b.get(i..)?
         .windows(pat.len())
@@ -24,19 +19,15 @@ pub(crate) fn find(b: &[u8], i: usize, pat: &[u8]) -> Option<usize> {
         .map(|k| i + k)
 }
 
-/// Index just past `pat` from `i`, or the end.
 fn past(b: &[u8], i: usize, pat: &[u8]) -> usize {
     find(b, i, pat).map_or(b.len(), |k| k + pat.len())
 }
 
-/// Index just past the comment or string literal that starts at `i`; None when none starts there.
-/// shortcut: string interpolation with nested quotes can end a string early; write a full Swift lexer if that misleads a scan.
 pub(crate) fn past_literal(b: &[u8], i: usize) -> Option<usize> {
     if starts(b, i, b"//") {
         return Some(past(b, i, b"\n"));
     }
     if starts(b, i, b"/*") {
-        // Swift block comments nest.
         let (mut open, mut i) = (1, i + 2);
         while i < b.len() && open > 0 {
             if starts(b, i, b"/*") {
@@ -49,7 +40,6 @@ pub(crate) fn past_literal(b: &[u8], i: usize) -> Option<usize> {
         }
         return Some(i);
     }
-    // Raw strings, `#"…"#` and `#"""…"""#`, close with as many `#` as they open with.
     let hashes = b.get(i..)?.iter().take_while(|&&h| h == b'#').count();
     let open = i + hashes;
     if b.get(open) != Some(&b'"') {
@@ -84,7 +74,6 @@ fn scan(src: &str) -> Scan {
                 i += 1;
             }
             let word = &src[start..i];
-            // `class func` and `class var` are members, not types.
             if declaring
                 && !matches!(
                     word,
@@ -109,15 +98,12 @@ fn scan(src: &str) -> Scan {
 
 pub(crate) struct Graph {
     files: Vec<String>,
-    /// Uses `View` or `ViewModifier`: only view files embed another file's view types in their own body types.
     view: Vec<bool>,
-    /// Per file, the view files it depends on, and the reverse.
     into_views: Vec<Vec<usize>>,
     from_views: Vec<Vec<usize>>,
 }
 
 impl Graph {
-    /// `sources`: (path, contents) of one module's files.
     pub(crate) fn new(sources: &[(String, String)]) -> Graph {
         let scans: Vec<Scan> = sources.iter().map(|(_, s)| scan(s)).collect();
         let view: Vec<bool> = scans
@@ -133,7 +119,6 @@ impl Graph {
         let n = sources.len();
         let (mut into_views, mut from_views) = (vec![Vec::new(); n], vec![Vec::new(); n]);
         for (i, s) in scans.iter().enumerate() {
-            // A name declared in more than two files (`Content`, `Kind`) says nothing about which one is meant.
             let deps: BTreeSet<usize> = s
                 .uses
                 .iter()
@@ -171,7 +156,6 @@ impl Graph {
         seen
     }
 
-    /// `from`, `to` and every view file on a path between them; None when `from` does not reach `to`.
     pub(crate) fn path(&self, from: &str, to: &str) -> Option<BTreeSet<String>> {
         let (f, t) = (self.index(from)?, self.index(to)?);
         let forward = Self::reach(f, &self.into_views);
@@ -223,7 +207,6 @@ mod tests {
             ),
             ("T", "struct T: View { var body: some View { S() } }"),
             ("S", "struct S: View { var body: some View { Text(\"\") } }"),
-            // A model that names S (a route) is no way from P to S.
             ("M", "final class M { var route: S? }"),
             (
                 "Q",

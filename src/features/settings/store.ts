@@ -1,4 +1,3 @@
-// The theme, the text size, the terminal and editor font sizes, keep-awake, notifications, where links open, the changed shortcuts, whether the Settings page is open and the section it opens on. The first eight are saved through Rust; the theme, the text size and the editor font size are applied to the document.
 import { commands, type Appearance_Serialize as Appearance, type Theme } from "../../ipc/bindings";
 import type { ShortcutChanges } from "../../app/shortcuts";
 import { externalStore } from "../../ui/externalStore";
@@ -12,7 +11,6 @@ export const linksInDefaultBrowser = externalStore(false);
 export const shortcutChanges = externalStore<ShortcutChanges>({});
 export const settingsOpen = externalStore(false);
 export type SettingsSection = "general" | "agents" | "appearance" | "shortcuts" | "simulators";
-// The section Settings opens on.
 export const settingsSection = externalStore<SettingsSection>("general");
 
 const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
@@ -61,7 +59,6 @@ export function setLinksInDefaultBrowser(outside: boolean) {
   commands.changeState({ linksInDefaultBrowser: outside }).catch(console.error);
 }
 
-// Rust refuses the switch when caffeinate is missing, so the row shows why instead of a setting that does nothing.
 export async function setKeepAwake(enabled: boolean): Promise<string | null> {
   try {
     await commands.setKeepAwake(enabled);
@@ -72,7 +69,6 @@ export async function setKeepAwake(enabled: boolean): Promise<string | null> {
   }
 }
 
-// Settings and the Usage panel take the same place over the window, so one closes the other.
 export function openSettings() {
   settingsSection.set("general");
   usagePanelOpen.set(false);

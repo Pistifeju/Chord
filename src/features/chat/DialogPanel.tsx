@@ -1,4 +1,3 @@
-// The dialog an agent opens, shown in place of the composer: a select with its filter row, a confirm or an input; the menu a composer bar picker floats above it; and the select itself, which the branch menu takes too.
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import type { DialogAnswer } from "../../ipc/bindings";
 import { CheckIcon, MoreIcon } from "../../ui/icons";
@@ -9,32 +8,21 @@ import { filtersOptions, matchingOptions, numberedIndex, startIndex, typedIndex,
 import { answerDialog } from "./store";
 import type { OpenDialog } from "./transcript";
 
-// "field" filters through a Filter field, "typing" moves the highlight to what the user types (as a Mac menu does), "none" does neither.
 type Filter = "field" | "typing" | "none";
-
 
 type SelectProps = {
   options: string[];
   current: string | null;
   answer: (answer: DialogAnswer) => void;
   filter?: Filter;
-  /** A meta line at the right end of the row for the option at this index, before the current option's check. */
   meta?: (at: number) => string;
-  /** Whether the option at this index shows but cannot be picked. */
   unavailable?: (at: number) => boolean;
-  /** The right-click menu of the option at this index. */
   rowMenu?: (at: number, event: MouseEvent) => void;
-  /** A stacked row ends with a More button, which runs this for the option at this index. */
   rowMore?: (at: number) => void;
-  /** One line per option, shown under its label. */
   descriptions?: string[];
-  /** Each option takes a checkbox, and Submit answers with the checked ones. */
   multi?: boolean;
-  /** The rows lead with the check column and stack the description under the name, as the branch menu does. */
   stacked?: boolean;
-  /** The icon each row leads with. */
   icon?: (option: string) => ReactNode;
-  /** Each row ends with its number, and the digit key picks it. */
   numbered?: boolean;
 };
 
@@ -50,7 +38,6 @@ export function Select({ options, current, answer, filter = "field", meta, unava
   const root = useRef<HTMLDivElement>(null);
   const typed = useRef({ text: "", at: 0 });
   const list = useRef<HTMLDivElement>(null);
-  // A row the pointer highlights stays put: scrolling it into view would slide the next row under the pointer and keep scrolling.
   const pointed = useRef(false);
   const shown = matchingOptions(options, query);
   const toggle = (at: number) => setChecked((was) => (was.has(at) ? new Set([...was].filter((i) => i !== at)) : new Set([...was, at])));
@@ -95,7 +82,6 @@ export function Select({ options, current, answer, filter = "field", meta, unava
 
   const field = <input autoFocus className="input" value={query} placeholder="Filter" aria-label="Filter Options" onChange={(e) => narrow(e.target.value)} />;
   return (
-    // Without a filter row the list itself takes the focus, so the arrows and Return still reach it.
     <div className="chat-dialog-select" onKeyDown={onKey} tabIndex={filter === "field" ? undefined : -1} ref={root}>
       {filter === "field" && field}
       <div className="chat-dialog-options" role="listbox" ref={list}>
@@ -154,7 +140,6 @@ export function Select({ options, current, answer, filter = "field", meta, unava
                       className="icon-button chat-dialog-more"
                       title="More"
                       aria-label={`More for ${option}`}
-                      // Return and Space press the button; the list would take them as a pick.
                       onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && e.stopPropagation()}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -237,7 +222,6 @@ function Input({ placeholder, answer }: { placeholder: string; answer: (answer: 
   );
 }
 
-// With a link, Open sends it to the default browser before it answers, whatever the link setting says.
 function Confirm({ message, detail, url, answer }: { message: string; detail: string | null; url: string | null; answer: (answer: DialogAnswer) => void }) {
   const yes = url ? "Open" : "Yes";
   const pick = (given: DialogAnswer) => {
@@ -263,7 +247,6 @@ function Confirm({ message, detail, url, answer }: { message: string; detail: st
   );
 }
 
-/** The card a composer bar menu floats in above the composer; a press outside it dismisses it. */
 export function MenuCard({ label, onDismiss, children }: { label: string; onDismiss: () => void; children: ReactNode }) {
   const card = useRef<HTMLDivElement>(null);
   useOutsidePointer(card, onDismiss);

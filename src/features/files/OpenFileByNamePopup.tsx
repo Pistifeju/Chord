@@ -1,4 +1,3 @@
-// The Open File by Name sheet: a field for the name, the worktree's matching files under it; Return or a click opens one.
 import { closeSheet, sheet, sheetOf } from "../../app/sheet";
 import { FileIcon } from "../../ui/icons";
 import { PickerSheet } from "../../ui/PickerSheet";

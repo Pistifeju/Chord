@@ -1,4 +1,3 @@
-// The find bar over the open file, the transcript's bar on the editor's matches.
 import type { EditorView } from "@codemirror/view";
 import { useEffect, useRef, useState } from "react";
 import { tooltip } from "../../app/commands";
@@ -8,7 +7,6 @@ import { steppedIndex } from "../../ui/listStep";
 import { closeEditorFind, onEditorFindEnd, setEditorFindQuery } from "./find";
 import { matchesOf, paintMatches, revealMatch, type Match } from "./findMarks";
 
-// `version` changes with the text, so the matches are found again.
 export function EditorFind({ id, view, find, version }: { id: string; view: EditorView; find: Find; version: number }) {
   const [matches, setMatches] = useState<Match[]>([]);
   const [current, setCurrent] = useState(0);
@@ -21,7 +19,6 @@ export function EditorFind({ id, view, find, version }: { id: string; view: Edit
       setCurrent((at) => Math.min(at, Math.max(0, found.length - 1)));
       return;
     }
-    // A new query starts at the first match from the caret on.
     const head = view.state.selection.main.head;
     const first = Math.max(0, found.findIndex((m) => m.from >= head));
     searched.current = find.query;
@@ -33,7 +30,6 @@ export function EditorFind({ id, view, find, version }: { id: string; view: Edit
     paintMatches(view, matches, current);
   }, [view, matches, current]);
 
-  // The editor may be destroyed first, when its tab closes.
   useEffect(() => () => void (view.dom.isConnected && paintMatches(view, [], 0)), [view]);
 
   const close = (toEditor: boolean) => {

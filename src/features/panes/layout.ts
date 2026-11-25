@@ -1,4 +1,3 @@
-// Rules for one split layout of tab groups: split a group, close one, its tabs, and the sizes of a split's children.
 import type { Direction, Layout, Tab } from "../../ipc/bindings";
 import { isAtOrInside, movedPath } from "../files/paths.ts";
 
@@ -7,7 +6,6 @@ export type Group = Extract<Layout, { kind: "group" }>;
 export type FilePane = Extract<Tab, { kind: "file" }>;
 export type BrowserPane = Extract<Tab, { kind: "browser" }>;
 
-/** The pixels a tab group keeps at least along each direction, so its tab bar and composer stay readable. */
 const MIN_GROUP: Record<Direction, number> = { row: 280, column: 200 };
 
 export const groups = (layout: Layout): Group[] => (layout.kind === "split" ? layout.children.flatMap(groups) : [layout]);
@@ -26,24 +24,20 @@ export const filePanes = (layout: Layout): FilePane[] => tabs(layout).flatMap((t
 
 export const browserPaneIds = (layout: Layout): string[] => tabs(layout).flatMap((tab) => (tab.kind === "browser" ? [tab.id] : []));
 
-/** The tabs on screen: the open tab of each group. */
 export const shownTabIds = (layout: Layout): string[] => groups(layout).map((group) => group.active);
 
 export const groupOf = (layout: Layout, tab: string): Group | undefined => groups(layout).find((group) => group.tabs.some((t) => t.id === tab));
 
-// The group `id` gets `change` applied.
 export function withGroup(layout: Layout, id: string, change: (group: Group) => Group): Layout {
   if (layout.kind === "group") return layout.id === id ? change(layout) : layout;
   return { ...layout, children: layout.children.map((child) => withGroup(child, id, change)) };
 }
 
-// The browser tab `id` takes the page's address or title.
 export function withBrowserPage(layout: Layout, id: string, page: Partial<Pick<BrowserPane, "url" | "title">>): Layout {
   if (layout.kind === "split") return { ...layout, children: layout.children.map((child) => withBrowserPage(child, id, page)) };
   return { ...layout, tabs: layout.tabs.map((tab) => (tab.kind === "browser" && tab.id === id ? { ...tab, ...page } : tab)) };
 }
 
-// A rename moves the file tabs of the entry and of everything inside it to their new paths.
 export function withFilePanesMoved(layout: Layout, from: string, to: string): Layout {
   if (layout.kind === "split") return { ...layout, children: layout.children.map((child) => withFilePanesMoved(child, from, to)) };
   return { ...layout, tabs: layout.tabs.map((tab) => (tab.kind === "file" && isAtOrInside(tab.path, from) ? { ...tab, path: movedPath(tab.path, from, to) } : tab)) };
@@ -51,7 +45,6 @@ export function withFilePanesMoved(layout: Layout, from: string, to: string): La
 
 const evenSizes = (count: number): number[] => Array.from({ length: count }, () => 1 / count);
 
-// `inserted` goes before or after the group and takes half of its share; a lone group in a same-direction split gains a sibling, anything else nests.
 export function withBeside(layout: Layout, group: string, inserted: Layout, direction: Direction, before: boolean): Layout {
   if (layout.kind !== "split") {
     if (layout.id !== group) return layout;
@@ -73,7 +66,6 @@ export type Box = { left: number; top: number; width: number; height: number };
 
 export type Edge = "left" | "right" | "top" | "bottom";
 
-// The group edge the point is nearest to, measured in shares of the group's width and height.
 export function dropEdge(x: number, y: number, box: Box): Edge {
   const fx = (x - box.left) / box.width;
   const fy = (y - box.top) / box.height;
@@ -86,10 +78,8 @@ export function dropEdge(x: number, y: number, box: Box): Edge {
   return near.edge;
 }
 
-// Both halves of `box` split along `direction` keep the group minimum.
 export const fitsSplit = (box: Box, direction: Direction): boolean => (direction === "row" ? box.width : box.height) / 2 >= MIN_GROUP[direction];
 
-// The pixels `layout` needs along `direction`: children side by side add up, children across it need the largest.
 export function minExtent(layout: Layout, direction: Direction): number {
   if (layout.kind === "group") return MIN_GROUP[direction];
   const mins = layout.children.map((child) => minExtent(child, direction));
@@ -98,7 +88,6 @@ export function minExtent(layout: Layout, direction: Direction): number {
 
 export const edgeDirection = (edge: Edge): Direction => (edge === "left" || edge === "right" ? "row" : "column");
 
-// The half of the group that a drop on `edge` would fill.
 export function dropPreview(edge: Edge, box: Box): Box {
   const row = edgeDirection(edge) === "row";
   return {
@@ -109,7 +98,6 @@ export function dropPreview(edge: Edge, box: Box): Box {
   };
 }
 
-// The closed group's share goes to the others in proportion; a split left with one child becomes that child.
 export function withoutGroup(layout: Layout, group: string): Layout | null {
   if (layout.kind !== "split") return layout.id === group ? null : layout;
   const kept: { child: Layout; size: number }[] = [];
@@ -123,7 +111,6 @@ export function withoutGroup(layout: Layout, group: string): Layout | null {
   return { ...layout, sizes: kept.map((k) => k.size / total), children: kept.map((k) => k.child) };
 }
 
-// The split at `path` (child indexes from the root) gets `change` applied.
 function withSplitAt(layout: Layout, path: number[], change: (split: Split) => Split): Layout {
   if (layout.kind !== "split") return layout;
   if (path.length === 0) return change(layout);
@@ -135,7 +122,6 @@ export const withSizes = (layout: Layout, path: number[], sizes: number[]): Layo
 
 export const withEvenSizes = (layout: Layout, path: number[]): Layout => withSplitAt(layout, path, (split) => ({ ...split, sizes: evenSizes(split.children.length) }));
 
-// Moves the divider after child `index` by `delta` (a share of the split); the two children it touches keep their `mins` (shares), or their size if already below it.
 export function resizedSizes(sizes: number[], index: number, delta: number, mins: [number, number]): number[] {
   const pair = sizes[index] + sizes[index + 1];
   const low = Math.min(mins[0], sizes[index]);

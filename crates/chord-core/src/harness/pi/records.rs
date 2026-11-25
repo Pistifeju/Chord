@@ -1,5 +1,3 @@
-//! What pi's records mean: each record the reader parses, turned into harness events.
-
 use serde_json::Value;
 
 use super::{
@@ -14,7 +12,6 @@ use crate::harness::{
     SubagentState, ToolOutcome, UsageWindow, capitalized, count, images, text,
 };
 
-// The model label shows pi's name for the model; the thinking level shows only for a model that reasons.
 fn chosen_model(state: &Value) -> Option<HarnessEvent> {
     let model = &state["model"];
     let name = model["name"].as_str().or_else(|| model["id"].as_str())?;
@@ -30,7 +27,6 @@ fn chosen_model(state: &Value) -> Option<HarnessEvent> {
     })
 }
 
-// The id a pick sends back: pi names a model by its provider and its id together.
 fn model_id(model: &Value) -> Option<String> {
     Some(format!(
         "{}/{}",
@@ -39,7 +35,6 @@ fn model_id(model: &Value) -> Option<String> {
     ))
 }
 
-// pi's own rule (`getSupportedThinkingLevels`): a model that reasons takes every level its map does not turn off, and xhigh and max only when the map names them.
 const THINKING_LEVELS: [&str; 7] = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
 
 fn thinking_levels(model: &Value) -> Vec<String> {
@@ -96,7 +91,6 @@ fn model_dialog(models: &Value) -> HarnessEvent {
     )
 }
 
-// The current model's provider leads, the others keep pi's order; inside a provider the higher version comes first. A version is the id's short number runs (`claude-opus-4-5-20251101` is 4.5), so a release date does not count.
 pub(super) fn newest_first<T>(options: &mut [T], current: Option<&str>, id: impl Fn(&T) -> &str) {
     fn provider(option: &str) -> &str {
         option.split_once('/').map_or("", |(provider, _)| provider)
@@ -122,7 +116,6 @@ pub(super) fn newest_first<T>(options: &mut [T], current: Option<&str>, id: impl
     });
 }
 
-// pi lists only the levels the current model supports, and just "off" for one that does not think.
 fn thinking_dialog(levels: &Value) -> HarnessEvent {
     let options = levels
         .as_array()
@@ -133,7 +126,6 @@ fn thinking_dialog(levels: &Value) -> HarnessEvent {
     picker_dialog(Picker::Thinking, options, NO_THINKING)
 }
 
-// A list with nothing to pick (no option, or only "Off") is a notice instead.
 fn picker_dialog(picker: Picker, options: Vec<String>, nothing_to_pick: &str) -> HarnessEvent {
     if options.iter().all(|option| option == "Off") {
         return HarnessEvent::Notice {
@@ -157,7 +149,6 @@ pub(super) fn events_from(record: &Value) -> Vec<HarnessEvent> {
             ]
         }
         Some("agent_settled") => vec![HarnessEvent::State { running: false }],
-        // A `/compact` runs outside an agent run, so its start and end are the run; an automatic one happens inside a run.
         Some("compaction_start") if record["reason"] == "manual" => {
             vec![
                 HarnessEvent::State { running: true },
@@ -200,7 +191,6 @@ pub(super) fn events_from(record: &Value) -> Vec<HarnessEvent> {
                 .collect(),
         }],
         Some("extension_ui_request") => ui_request(record).into_iter().collect(),
-        // A failure in one of Chord's own commands is the answer to what the user asked for.
         Some("extension_error")
             if record["extensionPath"]
                 .as_str()
@@ -213,7 +203,6 @@ pub(super) fn events_from(record: &Value) -> Vec<HarnessEvent> {
                     .into(),
             }]
         }
-        // The chat takes no message until a history ends, so a refused one still ends.
         Some("response") if record["success"] == false => {
             let notice = HarnessEvent::Notice {
                 text: record["error"]
@@ -224,7 +213,6 @@ pub(super) fn events_from(record: &Value) -> Vec<HarnessEvent> {
             let ended = (record["command"] == "get_messages").then_some(HarnessEvent::HistoryEnd);
             std::iter::once(notice).chain(ended).collect()
         }
-        // A done reload is an answer, not a warning, so it shows as a reply and not as the red notice.
         Some("response") if record["id"] == RELOAD_PROMPT => session_commands::reloaded().into(),
         Some("response") if record["id"] == MODELS_REQUEST => {
             vec![models_event(&record["data"]["models"])]
@@ -290,7 +278,6 @@ fn response(command: Option<&str>, data: &Value) -> Vec<HarnessEvent> {
     }
 }
 
-// The session's saved messages as the events their live run produced, between the marks that start the transcript over and end the replay.
 fn history(messages: &Value) -> Vec<HarnessEvent> {
     let mut events = vec![HarnessEvent::HistoryStart];
     let mut open_calls = OpenCalls::default();
@@ -358,7 +345,6 @@ fn saved_block(block: &Value, at: Option<f64>) -> Vec<HarnessEvent> {
     }
 }
 
-// One numbered option per user message of the session, oldest first; the number finds the entry again in the answer.
 fn fork_dialog(messages: &Value) -> HarnessEvent {
     let messages: Vec<(&str, String)> = messages
         .as_array()
@@ -397,7 +383,6 @@ fn first_line(text: &str) -> String {
     line.unwrap_or_default().trim().chars().take(80).collect()
 }
 
-// The package a command comes from, from a source like `npm:@scope/name@1.2.0` or `https://host/user/name.git`; none for a local file.
 fn package_name(source_info: &Value) -> Option<String> {
     if source_info["origin"] != "package" {
         return None;
@@ -413,7 +398,6 @@ fn package_name(source_info: &Value) -> Option<String> {
     (!name.is_empty()).then(|| name.to_string())
 }
 
-// Select, confirm and input wait for an answer; the editor text goes in the composer; the usage status is read; other status texts and notify are not.
 fn ui_request(record: &Value) -> Option<HarnessEvent> {
     let text = |key: &str| record[key].as_str().unwrap_or_default().to_string();
     let ask = match record["method"].as_str()? {
@@ -462,7 +446,6 @@ fn ui_request(record: &Value) -> Option<HarnessEvent> {
     })
 }
 
-// The extension writes the windows as JSON; text that does not parse shows no usage.
 fn usage_windows(text: &str) -> Vec<UsageWindow> {
     let windows: Vec<Value> = serde_json::from_str(text).unwrap_or_default();
     windows
@@ -476,7 +459,6 @@ fn usage_windows(text: &str) -> Vec<UsageWindow> {
         .collect()
 }
 
-// A snapshot that does not parse holds no runs.
 pub(super) fn subagent_nodes(snapshot: &str) -> Vec<SubagentNode> {
     fn state_of(state: &str) -> SubagentState {
         match state {
@@ -488,7 +470,6 @@ pub(super) fn subagent_nodes(snapshot: &str) -> Vec<SubagentNode> {
     fn row(node: &Value, depth: u32) -> Option<SubagentNode> {
         let id = node["id"].as_str()?;
         let label = node["label"].as_str()?;
-        // A workflow step without a label of its own carries its key ("task-1") as label and id; the agent names it better.
         let name = match node["agent"].as_str() {
             Some(agent) if label == id => agent,
             _ => label,
@@ -503,7 +484,6 @@ pub(super) fn subagent_nodes(snapshot: &str) -> Vec<SubagentNode> {
             ended_at: node["endedAt"].as_f64(),
         })
     }
-    // A run, its step and a nested summary of one agent repeat its name down a chain of single children; they are one row, in one state: running while any of them runs, else failed if any failed, else done.
     fn walk(node: &Value, depth: u32, nodes: &mut Vec<SubagentNode>) {
         let Some(mut merged) = row(node, depth) else {
             return;
@@ -530,7 +510,6 @@ pub(super) fn subagent_nodes(snapshot: &str) -> Vec<SubagentNode> {
             merged.ended_at = None;
         }
         let children = last["children"].as_array().map_or(&[][..], Vec::as_slice);
-        // A parallel run is named after its agents ("scout, scout"); its children already show them, so the row goes.
         let agents: Vec<&str> = children
             .iter()
             .filter_map(|child| child["agent"].as_str().or(child["label"].as_str()))
@@ -571,7 +550,6 @@ pub(super) fn message_update(kind: Option<&str>, delta: Option<&str>) -> Vec<Har
     }
 }
 
-// A shell command that only reads shows as Read, Search or List; an unknown tool shows its name and argument values.
 fn tool_start(id: Option<&str>, name: Option<&str>, args: &Value) -> HarnessEvent {
     let name = name.unwrap_or("tool");
     let (title, detail) = describe_tool(name, args);
@@ -580,7 +558,6 @@ fn tool_start(id: Option<&str>, name: Option<&str>, args: &Value) -> HarnessEven
         title,
         detail,
         command: name == "bash",
-        // shortcut: a write that replaces a file counts every line as added, as pi reports no diff for it; count removed lines once pi does.
         changes: match (name, args["content"].as_str()) {
             ("write", Some(content)) => Some(LineChanges {
                 added: content.lines().count() as u32,
@@ -591,7 +568,6 @@ fn tool_start(id: Option<&str>, name: Option<&str>, args: &Value) -> HarnessEven
     }
 }
 
-// pi's edit result holds a diff whose changed lines start with + or -.
 fn edit_changes(name: Option<&str>, details: &Value) -> Option<LineChanges> {
     let diff = details["diff"].as_str().filter(|_| name == Some("edit"))?;
     let count = |sign: char| diff.lines().filter(|line| line.starts_with(sign)).count() as u32;
@@ -618,7 +594,6 @@ fn describe_tool(name: &str, args: &Value) -> (String, String) {
     }
 }
 
-// pi's confirm sends one plain string, so its text is all there is to tell a shell command by.
 fn is_command(message: &str) -> bool {
     const TOOLS: [&str; 10] = [
         "cd", "git", "npm", "npx", "rm", "mv", "cp", "cargo", "sh", "bash",
@@ -631,7 +606,6 @@ fn is_command(message: &str) -> bool {
             .is_some_and(|(first, _)| TOOLS.contains(&first))
 }
 
-// "mcp__github__list_issues" reads as "Github list issues".
 fn readable_name(name: &str) -> String {
     let words = name
         .trim_start_matches("mcp__")
@@ -684,7 +658,6 @@ fn message_end(message: &Value) -> Vec<HarnessEvent> {
     }
 }
 
-// pi expands `/skill:name args` into `<skill name="name" location="...">\n...\n</skill>\n\nargs`; the chat shows what the user typed.
 pub(super) fn collapse_skill(text: &str) -> String {
     let collapsed = text
         .strip_prefix("<skill name=\"")

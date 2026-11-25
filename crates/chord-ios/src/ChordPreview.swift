@@ -1,9 +1,3 @@
-// The preview helper: a dylib preview.rs builds with swiftc and inserts into the app on a preview simulator. It takes over the app's entry point, finds the `#Preview` registry types of the app and its packages' dynamic frameworks and shows the one Chord picks full screen. It answers Chord on a Unix socket, one JSON object per line: which file the shown preview is in, another preview to show, a hot reload's dylib (hot_reload.rs) to load and show the preview from, and the slide of a loaded image.
-// Private behavior it relies on, checked on Xcode 27.1:
-// - Xcode's debug-dylib stub executable calls `__previews_injection_jit_link_entrypoint(argc, argv, …)` first when any image exports it.
-// - `Preview` hides its content, so the dylib interposes the public `Preview.init(_:traits:body:)` of SwiftUI and UIKit and keeps the arguments.
-// - `PreviewTrait<T>` is one reference to a Swift array of `any PreviewTraitProtocol`; each element has a `value` (`PreviewLayout` for layouts).
-// - A debug build's rpath names the build folder's `PackageFrameworks` before the app's `Frameworks`, so a package's dynamic framework loads from outside the app bundle.
 import DeveloperToolsSupport
 import Foundation
 import MachO
@@ -28,7 +22,6 @@ typealias SwiftUIInit = @convention(thin) (String?, Traits, @escaping @MainActor
 typealias ControllerInit = @convention(thin) (String?, Traits, @escaping @MainActor () -> UIViewController) -> Preview
 typealias ViewInit = @convention(thin) (String?, Traits, @escaping @MainActor () -> UIView) -> Preview
 
-// The originals are reached through the interpose tuples: naming them in Swift as well crashes swiftc 6.4.
 @_silgen_name("chord_swiftui_init")
 @MainActor func swiftUIInit(_ name: String?, traits: Traits, body: @escaping @MainActor () -> any View) -> Preview {
     captured = Captured(traits: traits, body: .swiftUI(body))
@@ -47,7 +40,6 @@ typealias ViewInit = @convention(thin) (String?, Traits, @escaping @MainActor ()
     return unsafeBitCast(unsafeBitCast(interposeView.1, to: UnsafeRawPointer.self), to: ViewInit.self)(name, traits, body)
 }
 
-// Linker aliases of the functions above (-Xlinker -alias): a second Swift declaration of the same name crashes swiftc.
 @_extern(c, "chord_swiftui_init_alias") func swiftUIInitC()
 @_extern(c, "chord_controller_init_alias") func controllerInitC()
 @_extern(c, "chord_view_init_alias") func viewInitC()
@@ -68,7 +60,6 @@ enum Layout: Equatable {
     case fixed(CGSize)
 }
 
-/// `.sizeThatFitsLayout` and `.fixedLayout(width:height:)`; the preview fills the screen for every other trait.
 func layout(of traits: Traits) -> Layout {
     guard MemoryLayout<PreviewTrait<Preview.ViewTraits>>.size == 8 else { return .device }
     var out = Layout.device
@@ -77,7 +68,6 @@ func layout(of traits: Traits) -> Layout {
         let count = storage.load(fromByteOffset: 16, as: Int.self)
         guard (0..<64).contains(count) else { continue }
         for i in 0..<count {
-            // A 40-byte existential whose first 32 bytes have the layout of `Any`.
             let value = storage.load(fromByteOffset: 32 + i * 40, as: Any.self)
             for child in Mirror(reflecting: value).children {
                 switch child.value as? PreviewLayout {
@@ -97,7 +87,6 @@ struct Entry {
     let type: any PreviewRegistry.Type
 }
 
-/// Every `PreviewRegistry` conformance in one image, from its `__swift5_proto` section.
 func scan(_ header: UnsafePointer<mach_header>) -> [Entry] {
     guard let proto = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "$s21DeveloperToolsSupport15PreviewRegistryMp") else { return [] }
     var found: [Entry] = []
@@ -107,7 +96,6 @@ func scan(_ header: UnsafePointer<mach_header>) -> [Entry] {
     for k in 0..<Int(size) / 4 {
         let entry = base + k * 4
         let descriptor = entry + Int(entry.load(as: Int32.self))
-        // A relative pointer to the protocol, indirect when its low bit is set.
         let protoOffset = descriptor.load(as: Int32.self)
         var p = descriptor + Int(protoOffset & ~1)
         if protoOffset & 1 != 0 { p = p.load(as: UnsafeRawPointer.self) }
@@ -120,7 +108,6 @@ func scan(_ header: UnsafePointer<mach_header>) -> [Entry] {
         case 1: type = type.load(as: UnsafeRawPointer.self)
         default: continue
         }
-        // Type context descriptor: flags, parent, name, then the relative access function.
         let accessField = type + 12
         let access = accessField + Int(accessField.load(as: Int32.self))
         let metadata = unsafeBitCast(access, to: (@convention(c) (Int) -> UnsafeRawPointer).self)(0)
@@ -130,7 +117,6 @@ func scan(_ header: UnsafePointer<mach_header>) -> [Entry] {
     return found
 }
 
-/// The previews of the app bundle and of its packages' dynamic frameworks, in file and line order.
 @MainActor func previews() -> [Entry] {
     let path = "/" + (Bundle.main.bundlePath as NSString).lastPathComponent + "/"
     let all = (0..<_dyld_image_count()).flatMap { i -> [Entry] in
@@ -199,7 +185,6 @@ final class Pinned: UIViewController {
     }
 }
 
-/// Images dyld adds while the hook collects: the ones a hot reload's `dlopen` brings in.
 nonisolated(unsafe) var added: [UnsafePointer<mach_header>] = []
 nonisolated(unsafe) var collecting = false
 let addImageHook: Void = _dyld_register_func_for_add_image { header, _ in
@@ -209,7 +194,6 @@ let addImageHook: Void = _dyld_register_func_for_add_image { header, _ in
 @MainActor enum Screen {
     static var window: UIWindow?
     static var shown: Entry?
-    /// The shown preview's place among its file's previews, which keeps it across a reload that moves its line.
     static var position = 0
 
     static func attach(_ scene: UIScene) {
@@ -222,7 +206,6 @@ let addImageHook: Void = _dyld_register_func_for_add_image { header, _ in
         Server.start()
     }
 
-    /// Shows the `index`th preview of the file named `file`, from the images the app launched with.
     static func show(file: String, index: Int) -> [String: Any] {
         let inFile = previews().filter { $0.fileID.hasSuffix("/" + file) }
         guard inFile.indices.contains(index) else { return ["error": "The app has no preview \(index + 1) in \(file)"] }
@@ -233,7 +216,6 @@ let addImageHook: Void = _dyld_register_func_for_add_image { header, _ in
         return ["ok": true]
     }
 
-    /// Loads a hot reload's dylib and shows the shown preview from its image.
     static func load(_ path: String) -> [String: Any] {
         guard let old = shown else { return ["error": "No preview shows"] }
         _ = addImageHook
@@ -252,7 +234,6 @@ let addImageHook: Void = _dyld_register_func_for_add_image { header, _ in
     }
 }
 
-/// The socket server: Chord connects once per request.
 enum Server {
     static func start() {
         guard let path = ProcessInfo.processInfo.environment["CHORD_PREVIEW_SOCKET"] else { return }
@@ -310,7 +291,6 @@ enum Server {
 @objc(ChordPreviewDelegate)
 final class Delegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions options: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
-        // Restored scene sessions skip `configurationForConnecting`, so the window attaches on the connect notification.
         NotificationCenter.default.addObserver(forName: UIScene.willConnectNotification, object: nil, queue: .main) { n in
             guard let scene = n.object as? UIScene else { return }
             MainActor.assumeIsolated { Screen.attach(scene) }
@@ -318,7 +298,6 @@ final class Delegate: UIResponder, UIApplicationDelegate {
         return true
     }
 
-    // Without it iOS 27 traps for a missing scene lifecycle, though a restored session never calls it.
     func application(_ application: UIApplication, configurationForConnecting session: UISceneSession, options: UIScene.ConnectionOptions) -> UISceneConfiguration {
         let c = UISceneConfiguration(name: nil, sessionRole: session.role)
         c.delegateClass = SceneDelegate.self
@@ -331,7 +310,6 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {}
 
 @_cdecl("__previews_injection_jit_link_entrypoint")
 public func entry(_ argc: Int32, _ argv: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>) -> Int32 {
-    // Registers the class under its @objc name before UIApplicationMain looks it up.
     _ = Delegate.self
     return UIApplicationMain(argc, argv, nil, "ChordPreviewDelegate")
 }

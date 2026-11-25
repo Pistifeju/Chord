@@ -1,4 +1,3 @@
-// The chat's commands for the commands table.
 import type { AppCommand } from "../../app/commands";
 import { onTarget } from "../../app/commandTarget";
 import { chatPaneIds } from "../panes/layout";
@@ -10,7 +9,6 @@ import { agentPickerPane, closeAgentPicker } from "./agentPicker";
 import { slashMenu } from "./slash";
 import { abortRun, answerDialog, chatOf, chats, closeSlash, drafts, pickAttachments, slashClosed } from "./store";
 
-// A focused file tab is no chat; an open sheet and the focus in a side or bottom panel own the keys.
 const focusedPane = (): string | null => {
   if (sheet.get() !== null || document.activeElement?.closest(".side-panel, .bottom-panel")) return null;
   const shown = shownPanes();

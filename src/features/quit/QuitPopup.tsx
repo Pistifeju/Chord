@@ -1,4 +1,3 @@
-// The sheet that confirms a quit while agents are working.
 import { sheet } from "../../app/sheet";
 import { ConfirmSheet } from "../../ui/ConfirmSheet";
 import { cancelQuit, confirmQuit } from "./store";

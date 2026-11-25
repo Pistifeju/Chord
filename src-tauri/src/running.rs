@@ -1,5 +1,3 @@
-//! What runs for the worktrees, their agents, shells and builds, and how it stops when a worktree, a project or the app goes.
-
 use std::path::Path;
 
 use chord_core::harness::sessions::Sessions;
@@ -22,7 +20,6 @@ impl<'a> Running<'a> {
         }
     }
 
-    /// Stops the worktree's agents and shell, removes it, forgets its panes and deletes its branch when it is merged; its build data goes only once git removed it.
     pub fn remove_worktree(
         &self,
         project: &Project,
@@ -44,7 +41,6 @@ impl<'a> Running<'a> {
         Ok(Removal::Removed { kept_branch })
     }
 
-    /// The frontend stops the agents; the shells and builds are Rust's to end.
     pub fn stop_project(&self, project: &Path) {
         for worktree in worktrees::list(project).unwrap_or_default() {
             self.terminals.stop(&worktree.path);

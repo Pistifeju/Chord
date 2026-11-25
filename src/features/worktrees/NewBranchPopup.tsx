@@ -1,4 +1,3 @@
-// The New Branch sheet: the name with its live git check, Create.
 import { sheet, sheetOf } from "../../app/sheet";
 import { tooltip } from "../../app/commands";
 import { CloseIcon } from "../../ui/icons";

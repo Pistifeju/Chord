@@ -1,13 +1,8 @@
-//! How many of Chord's run simulators stay booted, from the Mac's RAM, and which ones a boot shuts down to stay under it. The choice is pure; the RAM is read from the system.
-
 use std::time::Instant;
 
-/// A booted simulator of Chord's, as the choice sees it.
 pub(crate) struct Booted {
     pub udid: String,
-    /// When its worktree was last opened in the app; None when this session never saw it opened.
     pub opened: Option<Instant>,
-    /// A run is in progress in its worktree.
     pub busy: bool,
 }
 
@@ -19,11 +14,9 @@ pub(crate) fn limit(ram_bytes: u64) -> usize {
         .max(1)
 }
 
-/// The Mac's RAM in bytes; 0 when the system does not say, which keeps one simulator booted.
 pub(crate) fn installed_ram() -> u64 {
     let mut bytes: u64 = 0;
     let mut size = size_of::<u64>();
-    // SAFETY: the name is a NUL-terminated string, and `bytes` holds `size` bytes.
     let status = unsafe {
         libc::sysctlbyname(
             c"hw.memsize".as_ptr(),
@@ -36,7 +29,6 @@ pub(crate) fn installed_ram() -> u64 {
     if status == 0 { bytes } else { 0 }
 }
 
-/// The simulators to shut down so that no more than `keep` of them stay booted: the ones whose worktree was opened longest ago, never one with a run in progress. A simulator the session never saw opened counts as the oldest.
 pub(crate) fn to_shut_down(mut booted: Vec<Booted>, keep: usize) -> Vec<String> {
     let excess = booted.len().saturating_sub(keep);
     booted.retain(|device| !device.busy);

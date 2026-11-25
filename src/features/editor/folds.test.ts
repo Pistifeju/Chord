@@ -1,4 +1,3 @@
-// Tests for the folds an editor keeps when an agent rewrites its file.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { rewrite } from "./folds.ts";

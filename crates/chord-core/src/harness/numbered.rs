@@ -1,8 +1,5 @@
-//! The numbered select Chord opens for a session command: its options, each led by its number, and the entry a pick names.
-
 use super::{DialogAnswer, DialogAsk, HarnessEvent};
 
-/// The select of `labels`, numbered from 1; `none` as a notice when there is no label.
 pub(crate) fn select(id: &str, title: &str, labels: &[String], none: &str) -> HarnessEvent {
     if labels.is_empty() {
         return HarnessEvent::Notice { text: none.into() };
@@ -25,7 +22,6 @@ pub(crate) fn select(id: &str, title: &str, labels: &[String], none: &str) -> Ha
     }
 }
 
-/// The entry of `entries` the answer's number names; none after a cancel.
 pub(crate) fn pick<T>(entries: Vec<T>, answer: &DialogAnswer) -> Option<T> {
     let DialogAnswer::Value { value } = answer else {
         return None;

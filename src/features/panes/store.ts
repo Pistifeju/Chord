@@ -1,4 +1,3 @@
-// Connects the tab and layout rules to IPC: each worktree's tab groups, their agents, saved through Rust.
 import { commands, type DiffSide, type Direction, type ModelPick, type WorktreePanes } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
 import { closeSheet, openSheet, type Sheet } from "../../app/sheet";
@@ -28,10 +27,8 @@ const set = (worktree: string, next: WorktreePanes) => panes.set({ ...panes.get(
 
 const browsersIn = (saved: WorktreePanes | undefined): string[] => (saved ? browserPaneIds(saved.layout) : []);
 
-// The agent and model a new chat tab starts on in place of the default, until its start.
 const startsOn = new Map<string, { harness: string; pick: ModelPick | null }>();
 
-// Every pane change goes through here: a pane that appears starts its agent, a pane that goes forgets its chat or closes its page.
 function commit(worktree: string, next: WorktreePanes | undefined, persist: boolean) {
   const { [worktree]: before, ...rest } = panes.get();
   const kept = browsersIn(next);
@@ -47,7 +44,6 @@ function commit(worktree: string, next: WorktreePanes | undefined, persist: bool
   for (const pane of gone) forgetChat(pane);
 }
 
-// Opening a worktree for the first time gives it one group with one chat, whose agent waits for Start.
 export function ensurePanes(worktree: string) {
   if (panes.get()[worktree]) return;
   set(worktree, firstPanes(newId(), newId()));
@@ -65,17 +61,14 @@ const change = (worktree: string, rule: (current: WorktreePanes) => WorktreePane
   if (next !== current) commit(worktree, next, persist);
 };
 
-// A new worktree's first pane starts its agent without a click on Start.
 export function startFocused(worktree: string) {
   void startChat(worktree, panesOf(worktree).focused);
 }
 
 export const splitFocused = (worktree: string, direction: Direction) => change(worktree, (p) => withSplitFocused(p, newId(), newId(), direction));
 
-// A new chat tab in `group`, by default the focused one.
 export const newSession = (worktree: string, group?: string) => change(worktree, (p) => withNewSession(p, newId(), group));
 
-/** A new chat tab in the focused group on `harness` at the model `pick`; the chat the user picked it from stays as it is. */
 export function newSessionOn(worktree: string, harness: string, pick: ModelPick | null) {
   const id = newId();
   startsOn.set(id, { harness, pick });
@@ -86,7 +79,6 @@ export const closeFocused = (worktree: string) => closePane(worktree, panesOf(wo
 
 type CloseAgents = Extract<Sheet, { kind: "closeAgents" }>;
 
-// A close that would stop a working agent asks first.
 export function closePane(worktree: string, tab: string) {
   const current = panesOf(worktree);
   const { gone } = paneChanges(current, withTabClosed(current, tab));
@@ -103,7 +95,6 @@ export function confirmClose(sheet: CloseAgents) {
 
 export const moveTab = (worktree: string, tab: string, drop: TabDrop) => change(worktree, (p) => withTabMoved(p, tab, drop, newId()));
 
-// A file a tab already shows opens that tab, so a second editor never saves over it; any other opens in the focused group, as a preview when `preview`. With `diff` the tab shows that diff of the file.
 export function openFileTab(worktree: string, path: string, preview: boolean, diff?: DiffSide) {
   const shown = filePaneOf(worktree, path, diff);
   const file: FilePane = { kind: "file", id: newId(), path, preview, ...(diff && { diff }) };
@@ -115,7 +106,6 @@ export function openBrowserTab(worktree: string, url: string) {
   change(worktree, (p) => withBrowserOpened(p, browser));
 }
 
-// A page's new address or title, in whichever worktree holds the tab.
 export function setBrowserPage(tab: string, page: Partial<Pick<BrowserPane, "url" | "title">>) {
   const worktree = Object.keys(panes.get()).find((w) => browsersIn(panes.get()[w]).includes(tab));
   const shown = worktree ? groupOf(panes.get()[worktree].layout, tab)?.tabs.find((t) => t.id === tab) : undefined;
@@ -130,7 +120,6 @@ export function moveFilePanes(worktree: string, from: string, to: string) {
   change(worktree, (p) => ({ ...p, layout: withFilePanesMoved(p.layout, from, to) }));
 }
 
-// Closes the file tabs of `path` and of everything inside it.
 export function closeFilePanesAt(worktree: string, path: string) {
   const saved = panes.get()[worktree];
   for (const file of saved ? filePanes(saved.layout) : []) if (isAtOrInside(file.path, path)) closePane(worktree, file.id);
@@ -142,10 +131,8 @@ const filePaneOf = (worktree: string, path: string, diff: DiffSide | undefined):
   return saved && filePanes(saved.layout).find((f) => f.path === path && (f.diff ? diffKey(f.diff, path) : undefined) === key);
 };
 
-// Focus stays in memory; the next layout save writes it.
 export const focusPane = (worktree: string, tab: string) => change(worktree, (p) => withFocus(p, tab), false);
 
-// A drag changes the layout many times and saves once, when it ends.
 export const resizeSplit = (worktree: string, path: number[], sizes: number[]) =>
   change(worktree, (p) => ({ ...p, layout: withSizes(p.layout, path, sizes) }), false);
 
@@ -153,7 +140,6 @@ export const endResize = save;
 
 export const evenOutSplit = (worktree: string, path: number[]) => change(worktree, (p) => ({ ...p, layout: withEvenSizes(p.layout, path) }));
 
-// The worktree is gone: its agents stop and its layouts go.
 export function forgetPanes(worktree: string) {
   if (panes.get()[worktree]) commit(worktree, undefined, true);
 }

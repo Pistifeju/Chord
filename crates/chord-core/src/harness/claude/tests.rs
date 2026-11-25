@@ -1,5 +1,3 @@
-//! Tests for the Claude Code adapter: hand-written records fed to the reader.
-
 use std::path::Path;
 
 use serde_json::json;

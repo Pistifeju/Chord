@@ -1,4 +1,3 @@
-// Tests for the usage rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { openWindows, usageLevel, usageText } from "./usage.ts";

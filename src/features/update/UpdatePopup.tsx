@@ -1,4 +1,3 @@
-// The sheet that confirms an update while agents are working.
 import { sheet } from "../../app/sheet";
 import { ConfirmSheet } from "../../ui/ConfirmSheet";
 import { cancelUpdate, confirmUpdate } from "./store";

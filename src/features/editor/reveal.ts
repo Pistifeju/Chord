@@ -1,4 +1,3 @@
-// The line an editor scrolls to once its file shows: asked for by a click on a build error, taken by the editor.
 import { externalStore } from "../../ui/externalStore";
 
 const key = (worktree: string, path: string) => `${worktree}\0${path}`;

@@ -1,5 +1,3 @@
-//! The Codex adapter: runs `codex app-server` as a process and hands its stdout to the reader. The only module that knows Codex's records.
-
 mod asks;
 mod commands;
 mod items;
@@ -22,7 +20,6 @@ use crate::Error;
 use commands::Settings;
 use reader::{Reader, Relaunch};
 
-/// The harness name a pane saves.
 pub const NAME: &str = "codex";
 
 pub const HARNESS: Harness = Harness {
@@ -39,10 +36,8 @@ pub const HARNESS: Harness = Harness {
     starts: true,
 };
 
-/// Codex's 60 s tool timeout would end a cold build's call.
 const TOOL_TIMEOUT_SEC: u32 = 3600;
 
-/// Codex's models, read from an app server that opens no thread.
 pub(crate) fn models() -> Result<Vec<ModelOption>, Error> {
     let mut settings = Settings::default();
     models::ask(
@@ -57,7 +52,6 @@ pub(crate) fn models() -> Result<Vec<ModelOption>, Error> {
     )
 }
 
-/// Starts the pane's Codex in `dir` on the saved thread `session`, else on a new thread; `/new` and `/reload` swap its process for another. With `tools`, the socket Chord's tools listen on, the agent gets the build and run tools.
 pub fn start(
     dir: &Path,
     session: Option<&str>,

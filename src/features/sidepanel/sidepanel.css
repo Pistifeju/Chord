@@ -1,11 +1,9 @@
-/* The side panel: one column right of the panes. Rules: design/side-panel-and-files.md. */
 .side-panel {
   position: relative;
   display: flex;
   flex-direction: column;
   flex: 0 0 300px;
   min-width: 0;
-  /* The panes beside it keep room to work in. */
   max-width: calc(100% - 320px);
   border-left: 1px solid var(--line);
   background: var(--canvas);

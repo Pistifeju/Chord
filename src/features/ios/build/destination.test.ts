@@ -1,4 +1,3 @@
-// Tests for the run destination rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Destinations, RunDestination } from "../../../ipc/bindings";

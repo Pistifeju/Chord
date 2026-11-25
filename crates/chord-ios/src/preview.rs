@@ -1,5 +1,3 @@
-//! The worktree's preview simulator in Chord's own device set, at most two booted at once, and the app launched on it with the preview helper (ChordPreview.swift), which shows the picked `#Preview` full screen and answers on a socket for a new pick and the hot reload.
-
 use chord_core::lock;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashSet, VecDeque};
@@ -24,32 +22,26 @@ use crate::simulator::{self, DeviceSet};
 
 const SOURCE: &str = include_str!("ChordPreview.swift");
 const MAX_BOOTED: usize = 2;
-/// How long a launched preview app may take to open its socket: a first launch on a simulator that just booted, beside a build, takes many seconds.
 const HELPER_START: Duration = Duration::from_secs(60);
-/// The lines of the app's output kept for the reason it ended.
 const KEPT_LINES: usize = 50;
 
 static CACHE_FOLDER: OnceLock<PathBuf> = OnceLock::new();
 
-/// Where the preview device set and the built helper go: the app's cache folder. Call once at launch, before the Simulator view loads the frameworks.
 pub fn set_cache_folder(folder: &Path) {
     let _ = std::fs::create_dir_all(folder.join("PreviewDevices"));
     let _ = CACHE_FOLDER.set(folder.to_path_buf());
 }
 
-/// The folder of Chord's preview device set.
 pub(crate) fn devices_folder() -> Option<PathBuf> {
     CACHE_FOLDER
         .get()
         .map(|folder| folder.join("PreviewDevices"))
 }
 
-/// The folder of the hot reload folders, one per worktree.
 pub(crate) fn hot_reload_folders() -> Option<PathBuf> {
     CACHE_FOLDER.get().map(|folder| folder.join("HotReload"))
 }
 
-/// The worktree's compile commands and reload files, named like its simulators.
 pub(crate) fn hot_reload_folder(worktree: &Path) -> Option<PathBuf> {
     hot_reload_folders().map(|folder| folder.join(simulator::name_of(worktree)))
 }
@@ -57,49 +49,26 @@ pub(crate) fn hot_reload_folder(worktree: &Path) -> Option<PathBuf> {
 #[derive(Serialize, Type, Clone, Debug, PartialEq)]
 #[serde(tag = "state", rename_all = "snake_case")]
 pub enum PreviewState {
-    /// The preview simulator boots.
     Starting,
-    /// A ⌘R or ⌘B build of the worktree holds its build; the preview build follows it.
     Waiting,
     Building,
-    /// The preview app runs on the preview simulator.
     Live,
-    /// Two other worktrees' preview simulators run; their folder names.
-    Full {
-        worktrees: Vec<String>,
-    },
-    /// No pick, or the picked `#Preview` is gone.
+    Full { worktrees: Vec<String> },
     Unpicked,
-    /// The first compile error of a preview build or hot reload; the last frame stays.
-    Error {
-        issue: BuildIssue,
-    },
-    Failed {
-        message: String,
-    },
+    Error { issue: BuildIssue },
+    Failed { message: String },
 }
 
-/// A preview simulator's boot: empty while it runs, then its outcome.
 pub(crate) type Boot = Arc<OnceLock<Result<(), String>>>;
 
 pub(crate) enum Booted {
-    /// It was booted already.
-    Ready {
-        udid: String,
-    },
-    /// It boots on a thread of its own, so no app runs on it yet.
-    Booting {
-        udid: String,
-        boot: Boot,
-    },
+    Ready { udid: String },
+    Booting { udid: String, boot: Boot },
     Full(Vec<String>),
 }
 
-/// Held from the count of the booted preview simulators to the end of a boot, so two worktrees never boot a third one together.
-// shortcut: a second worktree's Preview view waits for the first one's boot, up to 30 s; count booting devices instead if that shows.
 static BOOTING: Mutex<()> = Mutex::new(());
 
-/// The worktree's preview simulator of the `wanted` model, booting unless two other preview simulators run; one whose name is not in `open`, its Preview view closed, shuts down for it. Returns once the boot started; the build needs no booted preview simulator. `on_state` hears Starting before this returns and Failed as soon as the boot fails.
 pub(crate) fn boot(
     worktree: &Path,
     wanted: Option<(&str, &str)>,
@@ -145,7 +114,6 @@ pub(crate) fn boot(
             Ok(Booted::Booting { udid, boot }) => Some((udid.clone(), Arc::clone(boot))),
             _ => None,
         };
-        // Before the verdict, so it never lands after the Failed below.
         if booting.is_some() {
             on_state(PreviewState::Starting);
         }
@@ -169,7 +137,6 @@ pub(crate) fn boot(
     })
 }
 
-/// Installs the app on the worktree's preview simulator, launches it with the helper in place of its entry point and returns once the helper's socket is there. The launch stays attached: `on_exit` hears why the app ended, from a thread of its own.
 pub(crate) fn launch(
     worktree: &Path,
     udid: &str,
@@ -186,7 +153,6 @@ pub(crate) fn launch(
     let helper = helper()?;
     let bundle = simulator::plist_text(app, "CFBundleIdentifier", register)?;
     simulator::install(DeviceSet::Preview, udid, app, register)?;
-    // --console-pty keeps simctl running until the app ends, with the app's output.
     let mut command = simulator::simctl_command(
         DeviceSet::Preview,
         &[
@@ -245,7 +211,6 @@ pub(crate) fn launch(
     Ok(())
 }
 
-/// Why the preview app ended, from its last output: the crash line when it printed one, else its last line.
 fn end_reason(said: &[String]) -> String {
     let crash = said
         .iter()
@@ -257,13 +222,11 @@ fn end_reason(said: &[String]) -> String {
     }
 }
 
-/// In the temp folder: a socket path holds 104 bytes at most.
 fn socket(worktree: &Path) -> PathBuf {
     let hash = path_hash(&worktree.to_string_lossy());
     std::env::temp_dir().join(format!("chord-preview-{}.sock", &hash[..12]))
 }
 
-/// One request to the helper in the worktree's preview app, which may still be starting.
 fn request(worktree: &Path, request: &Value) -> Result<Value, String> {
     let path = socket(worktree);
     let start = Instant::now();
@@ -291,7 +254,6 @@ fn request(worktree: &Path, request: &Value) -> Result<Value, String> {
     }
 }
 
-/// The `fileID` (`Module/File.swift`) of the preview the app shows.
 pub(crate) fn shown_file(worktree: &Path) -> Result<String, String> {
     let reply = request(worktree, &json!({ "op": "shown" }))?;
     reply["fileID"]
@@ -300,23 +262,18 @@ pub(crate) fn shown_file(worktree: &Path) -> Result<String, String> {
         .ok_or_else(|| "the preview app named no file".into())
 }
 
-/// How far dyld moved the app's loaded image named `image` from the addresses in its file.
 pub(crate) fn slide(worktree: &Path, image: &str) -> Result<u64, String> {
     let reply = request(worktree, &json!({ "op": "slide", "image": image }))?;
-    // A negative slide wraps, and adding it to an address wraps back.
     reply["slide"]
         .as_i64()
         .map(|slide| slide as u64)
         .ok_or_else(|| "the preview app named no slide".into())
 }
 
-/// The helper knows a preview by its `fileID`, `Module/File.swift`, and the worktree path's module is unknown.
-// shortcut: two modules' files of the same name with previews mix up; pass the module once the picker reads it from the compile commands.
 fn file_name(pick: &PreviewPick) -> &str {
     pick.file.rsplit('/').next().unwrap_or(&pick.file)
 }
 
-/// Has the preview app show another `#Preview` from the images it launched with.
 pub(crate) fn show(worktree: &Path, pick: &PreviewPick) -> Result<(), String> {
     request(
         worktree,
@@ -325,12 +282,10 @@ pub(crate) fn show(worktree: &Path, pick: &PreviewPick) -> Result<(), String> {
     .map(drop)
 }
 
-/// Has the preview app load a hot reload's dylib and show the preview from it.
 pub(crate) fn load(worktree: &Path, dylib: &Path) -> Result<(), String> {
     request(worktree, &json!({ "op": "load", "path": dylib })).map(drop)
 }
 
-/// The helper dylib, built on first use for each Xcode build and helper source.
 fn helper() -> Result<PathBuf, Error> {
     static BUILDING: Mutex<()> = Mutex::new(());
     let _building = lock(&BUILDING);
@@ -394,7 +349,6 @@ fn helper() -> Result<PathBuf, Error> {
     Ok(dylib)
 }
 
-/// "27A9275" from `xcodebuild -version`, read once per app run.
 fn xcode_build() -> &'static str {
     static BUILD: OnceLock<String> = OnceLock::new();
     BUILD.get_or_init(|| {

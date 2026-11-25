@@ -1,4 +1,3 @@
-// The panes that finished unseen, the pane a notification click opens, and the open of the next agent needing you.
 import { listen } from "@tauri-apps/api/event";
 import { commands } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
@@ -29,7 +28,6 @@ export function watchFinished(): () => void {
     before = now;
     if (marks.join() !== finished.get().join()) finished.set(marks);
   };
-  // A reply's chunks leave every report as it was, so they skip the check.
   let seen = chats.get();
   const syncReports = () => {
     const all = chats.get();
@@ -54,7 +52,6 @@ export function openNextAttention() {
   else notify(queue.length ? "No other agent needs you" : "No agent needs you");
 }
 
-// Tells Rust which panes the window shows, so it skips notifications for them.
 export function watchShownPanes(): () => void {
   let sent = "";
   const sync = () => {
@@ -68,7 +65,6 @@ export function watchShownPanes(): () => void {
   return () => unsubscribe.forEach((off) => off());
 }
 
-// A click on a notification, sent by Rust with the worktree and the pane.
 export function watchNotificationClicks(): () => void {
   const unlisten = listen<[string, string]>("notification-opened", ({ payload: [worktree, pane] }) => {
     openAgent({ worktree, pane });

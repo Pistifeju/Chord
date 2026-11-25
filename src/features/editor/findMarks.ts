@@ -1,11 +1,9 @@
-// The find matches in the editor's text, found with @codemirror/search and painted as marks: every match, the current one apart.
 import { SearchQuery } from "@codemirror/search";
 import { StateEffect, StateField, type EditorState } from "@codemirror/state";
 import { Decoration, EditorView, type DecorationSet } from "@codemirror/view";
 
 export type Match = { from: number; to: number };
 
-// Plain text without case, as the transcript's find.
 export function matchesOf(state: EditorState, search: string): Match[] {
   if (!search) return [];
   const found: Match[] = [];

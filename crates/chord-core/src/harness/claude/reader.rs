@@ -1,5 +1,3 @@
-//! The Claude Code reader: one stdout line in, the harness events it means and the lines to write Claude Code next out. Holds the session, whether a turn runs, the control requests waiting for an answer, the messages waiting for their echo and the open tool calls.
-
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -19,41 +17,29 @@ use crate::harness::subagents::Subagents;
 use crate::harness::timestamp;
 use crate::harness::{DialogAnswer, HarnessEvent, Image, SubagentState, UsageWindow, count, text};
 
-/// What one record leads to: events for the chat, lines to write Claude Code, and what a new process opens in place of this one.
 pub(super) type Read = relaunch::Read<Open>;
 
-/// What a Claude Code process opens.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(super) struct Open {
-    /// The session to resume; none for a new one.
     pub(super) session: Option<String>,
-    /// The resumed session's turns go into a new session, which Claude Code names at the first message.
     pub(super) fork: bool,
-    /// The last reply the resumed session keeps; the later turns leave it.
     pub(super) at: Option<String>,
-    /// The user's picks the process starts with, in place of the config's.
     pub(super) picks: Picks,
 }
 
-/// A control request the adapter wrote, waiting for its answer.
 enum Pending {
     Initialize,
     Thinking,
     Settings,
     Context,
     Interrupt,
-    /// A model or effort change, after which `get_settings` reads what took hold; `model` is the picked entry's value.
-    Changed {
-        model: Option<String>,
-    },
+    Changed { model: Option<String> },
     Mode,
     Usage,
 }
 
-/// Claude Code sends `rate_limit_event` as often as each reply; usage is read again at most this often.
 const USAGE_EVERY: Duration = Duration::from_secs(30);
 
-/// The task types that are agents; a long shell command or a monitor is a task too.
 const AGENT_TASKS: [&str; 4] = [
     "local_agent",
     "remote_agent",
@@ -61,20 +47,15 @@ const AGENT_TASKS: [&str; 4] = [
     "local_workflow",
 ];
 
-/// A message the adapter wrote, until Claude Code echoes it.
 struct Sent {
     uuid: String,
     text: String,
-    /// Sent while a turn ran, so it waits in the queue.
     steer: bool,
 }
 
-/// Reads one Claude Code process's stdout, line by line.
 pub(super) struct Reader {
     cwd: PathBuf,
-    /// The worktree's folder of session files.
     folder: Option<PathBuf>,
-    /// What the process opened, until its first message: Claude Code writes a fork's session and a rewind's branch only with it.
     opened: Open,
     dialogs: SessionDialogs,
     session: Option<String>,
@@ -84,21 +65,15 @@ pub(super) struct Reader {
     messages: u64,
     sent: Vec<Sent>,
     settings: Settings,
-    /// The model's context window, kept for the meter after a compaction.
     window: Option<u32>,
-    /// A compaction ended and no reply came since; Claude Code's context usage would still count the context before it.
     compacted: bool,
-    /// The content block that streams now had text deltas, so its `assistant` record does not repeat them.
     text_streamed: bool,
     thought_started: bool,
-    /// The open tool calls' tool names by id.
     tools: HashMap<String, String>,
-    /// A local command's output, held until the command's echo.
     held: Vec<HarnessEvent>,
     calls: OpenCalls,
     asks: Asks,
     subagents: Subagents,
-    /// When a `rate_limit_event` last read the usage.
     usage_read: Option<Instant>,
 }
 
@@ -130,12 +105,10 @@ impl Reader {
         }
     }
 
-    /// The first line Claude Code hears.
     pub(super) fn initialize(&mut self) -> Value {
         self.request(Pending::Initialize, "initialize", json!({}))
     }
 
-    /// The user's message; mid-turn it waits in the queue until Claude Code takes it in.
     pub(super) fn send(
         &mut self,
         text: &str,
@@ -144,7 +117,6 @@ impl Reader {
     ) -> Result<Read, Error> {
         let command = session_command(text);
         if let Some(command @ ("new" | "reload")) = command {
-            // A reload keeps the session and the user's picks; a new session takes the config's.
             let open = match command {
                 "reload" => self.standing(),
                 _ => Open::default(),
@@ -180,7 +152,6 @@ impl Reader {
                         ..Read::default()
                     });
                 }
-                // Claude Code runs it from the message text.
                 "compact" => return Ok(self.message(text, images)),
                 _ => {
                     let back = if command == "fork" {
@@ -210,7 +181,6 @@ impl Reader {
         Ok(self.message(text, images))
     }
 
-    /// What the process stands on, with the user's picks: what it opened until its first message, then its session.
     fn standing(&self) -> Open {
         let picks = self.settings.picks().clone();
         match &self.opened.session {
@@ -242,7 +212,6 @@ impl Reader {
         }
     }
 
-    /// The model and effort the agent picker chose; Claude Code reads the settings again once they took hold.
     pub(super) fn pick_model(&mut self, model: &str, effort: Option<&str>) -> Read {
         self.settings.chose(model, effort);
         let mut lines = vec![self.request(
@@ -265,7 +234,6 @@ impl Reader {
         }
     }
 
-    /// The user's answer to an open ask, and the line that answers Claude Code.
     pub(super) fn answer(&mut self, id: &str, answer: &DialogAnswer) -> Read {
         if let Some(session_dialogs::Answered { events, picked }) = self.dialogs.answer(id, answer)
         {
@@ -274,11 +242,9 @@ impl Reader {
                     session: Some(session),
                     ..Open::default()
                 }),
-                // Before the first reply nothing stays, so a new session opens.
                 Picked::Message(picked) => picked.map(|(back, message)| {
                     let standing = self.standing();
                     match message.before {
-                        // A rewind of a fork that has no message yet stays a fork, so the old session keeps its turns.
                         Some(at) => Open {
                             fork: back == Back::Fork || standing.fork,
                             at: Some(at),
@@ -331,7 +297,6 @@ impl Reader {
         }
     }
 
-    /// Stops the running turn and drops the queued messages; none when no turn runs.
     pub(super) fn interrupt(&mut self) -> Option<Value> {
         self.running.then(|| {
             self.request(
@@ -342,7 +307,6 @@ impl Reader {
         })
     }
 
-    /// Stdout closed: the calls still open end as stopped, the open ask closes and the subagents go with the process.
     pub(super) fn end(&mut self) -> Vec<HarnessEvent> {
         let mut events = self.asks.withdraw(|_| true);
         events.extend(self.calls.stop());
@@ -354,7 +318,6 @@ impl Reader {
         let Ok(record) = serde_json::from_slice::<Value>(line) else {
             return Read::default();
         };
-        // A subagent speaks on the same stdout.
         let subagent = !record["parent_tool_use_id"].is_null();
         let mut read = match record["type"].as_str() {
             Some("control_request") => match asks::parse(&record, &self.cwd) {
@@ -375,7 +338,6 @@ impl Reader {
             Some("assistant") if !subagent => events(self.assistant(&record)),
             Some("user") if !subagent => events(self.user(&record)),
             Some("result") => self.result(&record),
-            // The event holds one window's state, so the usage is read whole.
             Some("rate_limit_event") => {
                 let due = self.usage_read.is_none_or(|at| at.elapsed() >= USAGE_EVERY);
                 if due {
@@ -429,13 +391,11 @@ impl Reader {
             }
             Some("status") => {
                 let mut events = vec![];
-                // A compaction sends its `init` only after it is done.
                 if record["status"] == "compacting" {
                     self.running = true;
                     events.push(HarnessEvent::State { running: true });
                     events.push(HarnessEvent::Compacting { active: true });
                 }
-                // One follows a pick, and one a change Claude Code makes itself, as after an approved plan.
                 if let Some(mode) = record["permissionMode"].as_str() {
                     events.push(self.settings.mode_changed(mode.into()));
                 }
@@ -522,7 +482,6 @@ impl Reader {
         }
     }
 
-    // One record per content block, sent before the block's `content_block_stop`.
     fn assistant(&mut self, record: &Value) -> Vec<HarnessEvent> {
         self.compacted = false;
         let streamed = Streamed {
@@ -532,7 +491,6 @@ impl Reader {
         let events = blocks::assistant(record, streamed, &mut self.tools, &self.cwd);
         self.text_streamed = false;
         self.thought_started = false;
-        // A local command's output comes before the command's echo, so it waits for it.
         if record
             .get("local_command_run")
             .is_some_and(|run| !run.is_null() && *run != false)
@@ -546,7 +504,6 @@ impl Reader {
     fn user(&mut self, record: &Value) -> Vec<HarnessEvent> {
         let content = &record["message"]["content"];
         if record["isReplay"] == true {
-            // Claude Code echoes its own lines too, and those have no message of ours.
             let uuid = record["uuid"].as_str().unwrap_or_default();
             let Some(at) = self.sent.iter().position(|sent| sent.uuid == uuid) else {
                 return vec![];
@@ -607,7 +564,6 @@ impl Reader {
     }
 
     fn response(&mut self, response: &Value) -> Read {
-        // Claude Code echoes each answer the adapter writes; those wait for nothing.
         let Some(pending) = response["request_id"]
             .as_str()
             .and_then(|id| self.pending.remove(id))
@@ -622,14 +578,11 @@ impl Reader {
                 .to_string()
         });
         let mut read = Read::default();
-        // Usage is a hint: a login without it shows none, and says nothing.
         if let Some(text) = error.clone().filter(|_| !matches!(pending, Pending::Usage)) {
             read.events.push(HarnessEvent::Notice { text });
         }
         match pending {
-            // The chat waits for a history, even an empty one, before it takes a message.
             Pending::Initialize => {
-                // Claude Code replays nothing on a resume, so the turns come from its file.
                 read.events.push(HarnessEvent::HistoryStart);
                 let opened = self.opened.clone();
                 if let Some(id) = opened.session {
@@ -652,7 +605,6 @@ impl Reader {
                 read.events.push(HarnessEvent::HistoryEnd);
                 if error.is_none() {
                     read.events.extend(self.settings.initialized(answer));
-                    // Without `thinking_display` a thought streams and saves empty.
                     read.lines = vec![
                         self.request(
                             Pending::Thinking,
@@ -677,7 +629,6 @@ impl Reader {
             }
             Pending::Context if error.is_none() => {
                 self.window = count(&answer["maxTokens"]);
-                // Before a new session's first message Claude Code counts its own prompt, tools and skills.
                 let empty = self.session.is_none() && self.opened.session.is_none();
                 read.events.push(HarnessEvent::Context {
                     tokens: if empty {
@@ -703,7 +654,6 @@ impl Reader {
     }
 }
 
-// The five-hour and weekly windows of a subscription; an API key has none.
 fn usage_windows(usage: &Value) -> Vec<UsageWindow> {
     if usage["rate_limits_available"] != true {
         return vec![];
@@ -712,7 +662,6 @@ fn usage_windows(usage: &Value) -> Vec<UsageWindow> {
         .into_iter()
         .filter_map(|(name, key)| {
             let window = &usage["rate_limits"][key];
-            // Claude Code writes the reset with an offset, which is always UTC.
             let resets_at = window["resets_at"]
                 .as_str()
                 .map(|at| Value::from(at.replace("+00:00", "Z")));

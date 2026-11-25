@@ -1,4 +1,3 @@
-// The image viewer state: which pane shows which image of a message at full size.
 import type { Image } from "../../ipc/bindings";
 import { externalStore } from "../../ui/externalStore";
 

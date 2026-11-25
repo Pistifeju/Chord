@@ -1,4 +1,3 @@
-// Tests for the Appearance menu's rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { namedCodes } from "./appearance.ts";

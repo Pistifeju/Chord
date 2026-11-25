@@ -1,5 +1,3 @@
-//! A harness's process: started through the user's login shell on pipes, its stdout read line by line on a thread of its own, JSON lines written to its stdin, killed when dropped.
-
 use crate::lock;
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, Command, Stdio};
@@ -12,15 +10,11 @@ use serde_json::Value;
 
 use crate::Error;
 
-/// What the process's stdout gives the adapter.
 pub enum Output<'a> {
-    /// One line, with its LF.
     Line(&'a [u8]),
-    /// Stdout closed and nothing follows. `exited` holds the exit code, missing when a signal ended it; it is none when the process was dropped, since its pane is already forgotten.
     Closed { exited: Option<Option<i32>> },
 }
 
-/// The process's stdin, for the reader thread to answer on.
 #[derive(Clone)]
 pub struct Stdin(Arc<Mutex<ChildStdin>>);
 
@@ -37,12 +31,10 @@ pub struct Process {
     child: Arc<Mutex<Child>>,
     stdin: Stdin,
     stopped: Arc<AtomicBool>,
-    /// Set when the pane stays, so its chat hears the end as an exit.
     reports_end: bool,
 }
 
 impl Process {
-    /// Starts `command`, from `login_shell`. `on_output` runs on the reader thread for each stdout line, then once with `Closed`.
     pub fn start(
         mut command: Command,
         mut on_output: impl FnMut(Output<'_>, &Stdin) + Send + 'static,
@@ -64,7 +56,6 @@ impl Process {
         thread::spawn(move || {
             let mut reader = BufReader::new(stdout);
             let mut line = Vec::new();
-            // Split on LF only: a JSON string may hold U+2028.
             while matches!(reader.read_until(b'\n', &mut line), Ok(read) if read > 0) {
                 on_output(Output::Line(&line), &reader_stdin);
                 line.clear();
@@ -84,7 +75,6 @@ impl Process {
         self.stdin.write(line)
     }
 
-    /// Ends the process and reports its exit, for a pane that stays.
     pub fn end_reported(mut self) {
         self.reports_end = true;
     }
@@ -96,7 +86,6 @@ impl Drop for Process {
             self.stopped.store(true, Ordering::SeqCst);
         }
         let pid = lock(&self.child).id();
-        // SIGTERM lets pi end the commands it started in their own process groups; SIGKILL would leave them running.
         if let Ok(pid) = i32::try_from(pid) {
             unsafe { libc::kill(pid, libc::SIGTERM) };
         }
@@ -114,10 +103,8 @@ impl Drop for Process {
     }
 }
 
-/// How long pi gets to end its commands after SIGTERM before it is killed.
 const TERM_GRACE: Duration = Duration::from_secs(2);
 
-// Stdout closed, so the process is ending; it gets a moment to report its code.
 fn exit_code(child: &Mutex<Child>) -> Option<i32> {
     for _ in 0..50 {
         let waited = lock(child).try_wait();
@@ -130,8 +117,6 @@ fn exit_code(child: &Mutex<Child>) -> Option<i32> {
     None
 }
 
-/// The user's login shell finds the harness and its API keys the way their terminal does.
-/// Without a SHELL, the binary runs directly and finds itself on the app's own PATH.
 pub fn login_shell(binary: &str, args: &[&str]) -> Command {
     match std::env::var("SHELL") {
         Ok(shell) if !shell.is_empty() => {

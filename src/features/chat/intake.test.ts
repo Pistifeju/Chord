@@ -1,4 +1,3 @@
-// Tests for the agent start intake.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { intakes } from "./intake.ts";

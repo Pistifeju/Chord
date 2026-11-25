@@ -1,4 +1,3 @@
-// The sheet that confirms a worktree delete before its folder leaves the disk.
 import { closeSheet, sheet, sheetOf } from "../../app/sheet";
 import { ConfirmSheet } from "../../ui/ConfirmSheet";
 import { confirmDeletion } from "./store";

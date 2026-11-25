@@ -1,54 +1,22 @@
-//! The background services a slim simulator does not start, in the groups Settings lists: a Rust port of the service list of simslim 0.13.0 (https://github.com/mobai-app/simslim). Core services and the ones that wedge a simulator when off (`assistantd`, `gamed`, `sharingd` and the rest simslim never disables) are not listed.
-//!
-//! simslim is MIT licensed:
-//!
-//! Copyright (c) 2026 Interlap
-//!
-//! Permission is hereby granted, free of charge, to any person obtaining a copy
-//! of this software and associated documentation files (the "Software"), to deal
-//! in the Software without restriction, including without limitation the rights
-//! to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-//! copies of the Software, and to permit persons to whom the Software is
-//! furnished to do so, subject to the following conditions:
-//!
-//! The above copyright notice and this permission notice shall be included in all
-//! copies or substantial portions of the Software.
-//!
-//! THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-//! IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-//! FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-//! AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-//! LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-//! OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-//! SOFTWARE.
-
 use serde::Serialize;
 use specta::Type;
 
-/// The launchd services that start or stay off together.
 pub struct Subgroup {
-    /// Its group's id when the group has only this one.
     pub id: &'static str,
     pub name: &'static str,
-    /// What stops working while it is off.
     pub effect: &'static str,
-    /// An estimate: the group's measured idle memory on an iOS 26.5 clean boot, split across its subgroups.
     pub memory_mb: u32,
     pub(crate) labels: &'static [&'static str],
 }
 
-/// A group of subgroups the user opens in Settings, with one switch for them all.
 pub struct ServiceGroup {
     pub id: &'static str,
     pub name: &'static str,
-    /// What stops working while the whole group is off.
     pub effect: &'static str,
-    /// Whether its subgroups start on: App Store, Push & Media and Safari Sync & Web Services (universal links).
     pub kept_by_default: bool,
     pub(crate) subgroups: &'static [Subgroup],
 }
 
-/// One subgroup of Settings' Simulators section with the state of its switch.
 #[derive(Serialize, Type, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct SubgroupRow {
@@ -56,22 +24,17 @@ pub struct SubgroupRow {
     pub name: &'static str,
     pub effect: &'static str,
     pub memory_mb: u32,
-    /// The user's switch for it, else the switch of its group, else the group's default.
     pub kept: bool,
 }
 
-/// One row of Settings' Simulators section: a group with the state of its switch.
 #[derive(Serialize, Type, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct ServiceRow {
     pub id: &'static str,
     pub name: &'static str,
     pub effect: &'static str,
-    /// The sum of its subgroups'.
     pub memory_mb: u32,
-    /// On when every subgroup is kept, off when none is, `None` when they differ.
     pub kept: Option<bool>,
-    /// Empty for a group with one coherent function, which has no rows to open.
     pub subgroups: Vec<SubgroupRow>,
 }
 

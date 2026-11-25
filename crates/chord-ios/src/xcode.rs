@@ -1,5 +1,3 @@
-//! The worktree's Xcode project or workspace, its schemes with the configuration each one runs in, its build configurations, and the check that `xcodebuild` and `xcrun` exist.
-
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -18,11 +16,9 @@ use crate::simulator::{OPEN, PLUTIL};
 
 pub(crate) struct Project {
     pub path: PathBuf,
-    /// `-workspace` or `-project`.
     pub flag: &'static str,
 }
 
-/// The tools a build needs, how each is checked and how to get it.
 const TOOLS: [(&str, &str, &str); 2] = [
     (
         "xcodebuild",
@@ -32,7 +28,6 @@ const TOOLS: [(&str, &str, &str); 2] = [
     ("xcrun", "--version", "xcode-select --install"),
 ];
 
-/// Fails with `MissingTool` and the install step when `xcodebuild`, `xcrun`, `lsof`, `plutil` or `open` does not run: the login shell finds nothing, or the command line tools' stand-in has no Xcode behind it.
 pub(crate) fn require_tools() -> Result<(), Error> {
     for path in [LSOF, PLUTIL, OPEN] {
         if !Path::new(path).exists() {
@@ -59,7 +54,6 @@ pub(crate) fn require_tools() -> Result<(), Error> {
     Ok(())
 }
 
-/// The workspace in the worktree's folder, else its project.
 pub(crate) fn project_in(worktree: &Path) -> Result<Project, Error> {
     let found = xcode_bundles(worktree);
     let of = |extension: &str| {
@@ -82,23 +76,19 @@ pub(crate) fn project_in(worktree: &Path) -> Result<Project, Error> {
     }
 }
 
-/// What the Run menu offers a project.
 #[derive(Serialize, Type, Clone, Debug, PartialEq)]
 pub struct Schemes {
     pub schemes: Vec<Scheme>,
     pub configurations: Vec<String>,
-    /// The scheme a build without a pick uses.
     pub default: String,
 }
 
 #[derive(Serialize, Type, Clone, Debug, PartialEq)]
 pub struct Scheme {
     pub name: String,
-    /// The configuration a build without a pick uses: the one the scheme's Run action names.
     pub configuration: String,
 }
 
-/// The schemes and build configurations of the worktree's project; a workspace's configurations are its sibling projects'.
 pub fn list_schemes(worktree: &Path) -> Result<Schemes, Error> {
     require_tools()?;
     let project = project_in(worktree)?;
@@ -137,7 +127,6 @@ pub fn list_schemes(worktree: &Path) -> Result<Schemes, Error> {
     })
 }
 
-/// The scheme named like the project, else one named like a target, else the first. Each `xcodebuild -list` runs in its own process group, whose id goes to `register` so a stop can end it.
 pub(crate) fn scheme_of(
     project: &Project,
     worktree: &Path,
@@ -147,7 +136,6 @@ pub(crate) fn scheme_of(
     pick_scheme(&listed, || targets(project, &listed, worktree, register))
 }
 
-/// The destination of a build: the simulator or device by id; any simulator while it has none.
 pub(crate) fn destination(target: Option<&str>) -> String {
     match target {
         Some(udid) => format!("id={udid}"),
@@ -155,7 +143,6 @@ pub(crate) fn destination(target: Option<&str>) -> String {
     }
 }
 
-/// The configuration the scheme's Run action names, from its `.xcscheme` in a project or workspace of the worktree, shared or the user's own; Debug for a scheme Xcode creates on the fly, which has no file.
 pub(crate) fn run_configuration(worktree: &Path, scheme: &str) -> String {
     let file = format!("{scheme}.xcscheme");
     xcode_bundles(worktree)
@@ -174,7 +161,6 @@ pub(crate) fn run_configuration(worktree: &Path, scheme: &str) -> String {
         .unwrap_or_else(|| "Debug".into())
 }
 
-/// The `buildConfiguration` of the scheme's `<LaunchAction>` tag.
 fn launch_configuration(scheme: &str) -> Option<String> {
     let tag = &scheme[scheme.find("<LaunchAction")?..];
     let tag = &tag[..tag.find('>')?];
@@ -183,7 +169,6 @@ fn launch_configuration(scheme: &str) -> Option<String> {
     Some(value[..value.find('"')?].to_string())
 }
 
-/// What xcodebuild builds: the project, the scheme in the configuration, and the destination's id, any simulator while it has none. No `-derivedDataPath` and no build setting, so Xcode's own folder for the project is used.
 pub(crate) fn build_args(
     project: &Project,
     scheme: &str,
@@ -204,8 +189,6 @@ pub(crate) fn build_args(
     .into()
 }
 
-/// The modification times of the files that decide which app a scheme builds where: each project's `project.pbxproj`, each workspace's contents and the shared schemes in the worktree's folder.
-// shortcut: a product name set in an `.xcconfig`, a user scheme or a project below the folder is not watched; add their times if a stale app path shows.
 fn project_stamp(worktree: &Path) -> Vec<Option<SystemTime>> {
     xcode_bundles(worktree)
         .into_iter()
@@ -227,7 +210,6 @@ fn project_stamp(worktree: &Path) -> Vec<Option<SystemTime>> {
         .collect()
 }
 
-/// The `.app` the scheme builds for the destination, from `xcodebuild -showBuildSettings -json` with the arguments of the build, kept until a project or shared scheme changes. Runs in its own process group, whose id goes to `register`.
 pub(crate) fn built_app(
     project: &Project,
     scheme: &str,
@@ -273,9 +255,7 @@ pub(crate) fn built_app(
     }
 }
 
-/// The first target of the scheme that is an app, as `TARGET_BUILD_DIR/FULL_PRODUCT_NAME`. Extensions, watch apps and test bundles have other product types.
 fn app_in_settings(text: &str) -> Result<PathBuf, Error> {
-    // xcodebuild may print notes before the JSON array.
     let listed: Value = serde_json::from_str(&text[text.find('[').unwrap_or(0)..])?;
     listed
         .as_array()
@@ -304,7 +284,6 @@ fn list(flag: &str, path: &Path, dir: &Path, register: &dyn Fn(u32)) -> Result<V
     parse_list(&String::from_utf8_lossy(&output.stdout))
 }
 
-// xcodebuild may print notes before the JSON.
 fn parse_list(text: &str) -> Result<Value, Error> {
     Ok(serde_json::from_str(&text[text.find('{').unwrap_or(0)..])?)
 }
@@ -321,7 +300,6 @@ fn strings(value: &Value) -> Vec<String> {
         .unwrap_or_default()
 }
 
-// Package and Pods schemes match no target, and `-list` sorts them in among the app's.
 fn pick_scheme(listed: &Value, targets: impl FnOnce() -> Vec<String>) -> Result<String, Error> {
     let info = info(listed)?;
     let schemes = strings(&info["schemes"]);
@@ -350,7 +328,6 @@ fn info(listed: &Value) -> Result<&Value, Error> {
         .ok_or_else(|| Error::Message("xcodebuild -list returned no project".into()))
 }
 
-// A workspace has no targets of its own: its sibling projects' targets count, and Pods.xcodeproj sits in Pods/, so its stay out.
 fn targets(
     project: &Project,
     listed: &Value,
@@ -366,7 +343,6 @@ fn targets(
         .collect()
 }
 
-/// The `-list` of each project beside a workspace.
 fn siblings(worktree: &Path, register: &dyn Fn(u32)) -> Vec<Value> {
     xcode_bundles(worktree)
         .into_iter()

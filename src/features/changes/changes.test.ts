@@ -1,4 +1,3 @@
-// Tests for the Changes view rules: where the focus lands after rows leave their group, and which rows animate in.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Change } from "../../ipc/bindings";

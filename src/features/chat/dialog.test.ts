@@ -1,4 +1,3 @@
-// Tests for the select dialog rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { matchingOptions, numberedIndex, typedIndex } from "./dialog.ts";

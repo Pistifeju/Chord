@@ -1,4 +1,3 @@
-// The sidebar: the navigator's control over one view at a time, Workspaces, Files or Changes; under Workspaces each project's worktrees as cards under its name, in project order, each with a row per chat session, its harness logo and its status, the More buttons that open a project's and a card's menu, and the drags that reorder the projects and the cards; the attention dock over its foot; its show/hide button and the Settings and Help buttons at its foot.
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import type { GitCounts_Serialize as GitCounts, Project, Worktree_Serialize as Worktree } from "../../ipc/bindings";
 import { shortcutLabel, showMenu, tooltip } from "../../app/commands";
@@ -49,7 +48,6 @@ const navigatorViews: { view: NavigatorView; label: string; icon: ReactNode }[] 
   { view: "changes", label: "Changes", icon: <BranchIcon /> },
 ];
 
-// The navigator's control: one icon per view; Workspaces carries a dot while an agent awaits input you have not seen, so a hidden card still calls.
 function Navigator({ shown, views }: { shown: NavigatorView; views: NavigatorView[] }) {
   shortcutChanges.use();
   const finishedPanes = finished.use();
@@ -68,14 +66,12 @@ function Navigator({ shown, views }: { shown: NavigatorView; views: NavigatorVie
   );
 }
 
-/** A short mark on a worktree's meta line; its tone picks the color. */
 type CardMarker = { text: string; tone: "busy" | "done" | "stopped" | "failed" };
 
 type Dragged = { kind: "card" | "project"; project: string; path: string; name: string };
 type SidebarDrag = { handlers: (item: Dragged) => object; clicked: () => boolean; dragging: string | null };
 type Box = { top: number; left: number; width: number };
 
-// The slot the pointer is over, by the items' middles, and the line between the items at that slot; `gap` is half the space after the last item.
 function slotAt(items: HTMLElement[], y: number, gap: number): { slot: number; line: Box } {
   const boxes = items.map((item) => item.getBoundingClientRect());
   const slot = boxes.filter((box) => box.top + box.height / 2 < y).length;
@@ -86,20 +82,17 @@ function slotAt(items: HTMLElement[], y: number, gap: number): { slot: number; l
   return { slot, line: { top, left, width } };
 }
 
-// shortcut: scrolls only while the pointer moves near an edge; add a timer if holding still there should scroll on.
 function scrollNearEdge(scroller: HTMLElement, y: number) {
   const { top, bottom } = scroller.getBoundingClientRect();
   if (y < top + 24) scroller.scrollBy(0, -8);
   else if (y > bottom - 24) scroller.scrollBy(0, 8);
 }
 
-// Its place in its list now, which a refresh during the drag can change.
 function placeOf(item: Dragged): number {
   const { list, worktrees } = projects.get();
   return (item.kind === "card" ? (worktrees[item.project] ?? []) : list).findIndex((entry) => entry.path === item.path);
 }
 
-// A card moves only within its project: the line stays on the project's cards wherever the pointer goes.
 function useSidebarDrag(scroller: RefObject<HTMLDivElement | null>) {
   const [dragged, setDragged] = useState<Dragged | null>(null);
   const [line, setLine] = useState<Box | null>(null);
@@ -132,7 +125,6 @@ function useSidebarDrag(scroller: RefObject<HTMLDivElement | null>) {
   return { drag: { handlers: drag.handlers, clicked: drag.clicked, dragging: dragged?.path ?? null }, dragged, line, ghost: drag.ghost };
 }
 
-// `markers` are the iOS part of the cards, passed in by App by worktree path.
 export function Sidebar({ markers }: { markers: Record<string, CardMarker> }) {
   const { hidden } = sidebar.use();
   const picked = navigatorView.use();
@@ -146,7 +138,6 @@ export function Sidebar({ markers }: { markers: Record<string, CardMarker> }) {
   if (hidden) return null;
   const order = worktreeOrder(state);
   const worktree = state.selected;
-  // Files and Changes need an open worktree, Changes one git reads; without one the sidebar shows Workspaces.
   const views: NavigatorView[] = ["workspaces"];
   if (worktree) views.push("files");
   if (worktreeAt(state, worktree)?.git) views.push("changes");
@@ -229,7 +220,6 @@ function useNow(): number {
   return now;
 }
 
-// A session row's lead: the logo of its pane's harness, the chat icon until the pane's first start.
 function SessionLogo({ pane }: { pane: string }) {
   const harness = paneHarnesses.usePart((all) => all[pane] ?? null);
   const Logo = chatLogo(harness);
@@ -240,7 +230,6 @@ function SessionLogo({ pane }: { pane: string }) {
   );
 }
 
-// A session row's right slot: "Done" for a finish nobody opened, the mark and age while an agent runs, the status word while it needs attention, otherwise the age of the last status.
 function SessionStatus({ paneIdList, finishedPanes }: { paneIdList: string[]; finishedPanes: string[] }) {
   const report = chats.usePart((all) => urgentReport(paneIdList.map((pane) => all[pane]?.report)));
   const dialog = chats.usePart((all) => paneIdList.some((pane) => all[pane]?.dialog != null));
@@ -266,13 +255,11 @@ function SessionStatus({ paneIdList, finishedPanes }: { paneIdList: string[]; fi
   );
 }
 
-// The dock over the sidebar's foot, in every navigator view: the running agents and the other agents that need you folded into a row each, and a card for the agent Next Agent Needing You opens.
 function AttentionDock() {
   shortcutChanges.use();
   const state = projects.use();
   const saved = panes.use();
   const finishedPanes = finished.use();
-  // A reply's chunks leave every report as it was, so they skip the render.
   chats.usePart((all) => Object.entries(all).map(([pane, chat]) => (chat.report ? `${pane}:${chat.report.status.kind}:${chat.report.since}` : "")).join());
   const [open, setOpen] = useState<"working" | "needs" | null>(null);
   const reports = chats.get();
@@ -343,7 +330,6 @@ function AttentionDock() {
   );
 }
 
-// Reads only its own worktree's panes, so a resize or a focus in another worktree leaves it alone.
 function WorktreeCard({
   project,
   worktree,
@@ -359,7 +345,6 @@ function WorktreeCard({
   worktree: Worktree;
   drag: SidebarDrag;
   selected: boolean;
-  /** Its panes are on screen, so its focused session row reads as open. */
   shown: boolean;
   hint: string | undefined;
   counts: GitCounts | undefined;
@@ -440,7 +425,6 @@ function WorktreeCard({
   );
 }
 
-// Leaving the field drops it, so a name git refuses never lingers on the card.
 function BranchNameField() {
   const form = rename.use();
   const field = useRef<HTMLInputElement>(null);

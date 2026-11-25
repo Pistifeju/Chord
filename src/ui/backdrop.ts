@@ -1,4 +1,3 @@
-// A press on the blurred window behind a panel: it closes the panel on release; moving first drags the window instead.
 import type { MouseEvent } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 

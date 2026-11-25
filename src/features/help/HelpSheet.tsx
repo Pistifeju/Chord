@@ -1,4 +1,3 @@
-// The Help sheet: what a project, a worktree, a session and an agent are, the slash commands, and what each agent status means.
 import type { Status } from "../../ipc/bindings";
 import { tooltip } from "../../app/commands";
 import { closeSheet, sheet } from "../../app/sheet";

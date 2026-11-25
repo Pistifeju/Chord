@@ -1,5 +1,3 @@
-//! Claude Code's control requests as asks: tool permissions, `AskUserQuestion`, `ExitPlanMode` and MCP elicitations, and the answer each one gets.
-
 use std::collections::VecDeque;
 use std::path::Path;
 
@@ -14,26 +12,19 @@ pub(super) type Asks = asks::Asks<Reply>;
 
 pub(super) type Parsed = asks::Parsed<Reply>;
 
-/// How an ask's answer goes back to Claude Code.
 pub(super) struct Reply {
-    /// The `request_id` of Claude Code's control request.
     pub(super) request: String,
     kind: Kind,
-    /// The answer an Esc sends.
     cancel: Value,
 }
 
 enum Kind {
-    /// The picked option's answer is the whole answer.
     Decided,
-    /// `AskUserQuestion`: the tool's input, which the answers join.
     Questions(Value),
     Form,
-    /// The picked action, accept or decline, of a link.
     Link,
 }
 
-/// The events an answer leads to, and the line that answers Claude Code.
 pub(super) fn answer(
     asks: &mut Asks,
     id: &str,
@@ -72,7 +63,6 @@ pub(super) fn answer(
     )
 }
 
-/// The ask a control request opens.
 pub(super) fn parse(record: &Value, cwd: &Path) -> Parsed {
     let id = text(&record["request_id"]);
     let request = &record["request"];
@@ -96,7 +86,6 @@ pub(super) fn parse(record: &Value, cwd: &Path) -> Parsed {
     }
 }
 
-// Allow, one option per suggestion Chord can name, then Deny; Esc denies and stops the turn.
 fn permission(id: String, request: &Value, cwd: &Path) -> Parsed {
     let tool = text(&request["tool_name"]);
     let input = &request["input"];
@@ -180,7 +169,6 @@ fn plan(id: String) -> Ask {
     )
 }
 
-// One dialog per question; a single-choice question gains Other, which opens an input. None without a question.
 fn questions(id: String, input: &Value) -> Option<Parsed> {
     let steps: VecDeque<Step> = input["questions"]
         .as_array()?

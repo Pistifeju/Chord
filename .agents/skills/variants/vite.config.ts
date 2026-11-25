@@ -1,4 +1,3 @@
-// Vite config for the variants page: its own port and cache, so the app's dev server keeps port 1420.
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 

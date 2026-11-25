@@ -1,4 +1,3 @@
-// Tests for the composer's send, key, drop and picker rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { composerKey, composerState, droppedFiles, heldMessage, pickerClick, sendable } from "./composer.ts";

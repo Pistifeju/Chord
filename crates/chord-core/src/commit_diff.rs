@@ -1,5 +1,3 @@
-//! Diffs between two commits or trees: a commit's first parent, the files that differ with their line counts, and one file's diff, which the branch, a commit and a stash share.
-
 use std::path::Path;
 
 use serde::Serialize;
@@ -13,15 +11,12 @@ use crate::{Error, git};
 #[serde(rename_all = "camelCase")]
 pub struct CommittedFile {
     pub path: String,
-    /// The path a rename came from.
     pub old_path: Option<String>,
     pub status: ChangeStatus,
-    /// None for a binary file.
     pub added: Option<u32>,
     pub removed: Option<u32>,
 }
 
-/// The commit's first parent, or git's empty tree for a root commit.
 pub(crate) fn parent(dir: &Path, commit: &str) -> Result<String, Error> {
     match git::optional(git::run(
         dir,
@@ -36,7 +31,6 @@ pub(crate) fn parent(dir: &Path, commit: &str) -> Result<String, Error> {
     }
 }
 
-/// The files the commit changed against its first parent.
 pub fn commit_files(dir: &Path, commit: &str) -> Result<Vec<CommittedFile>, Error> {
     files_between(dir, &parent(dir, commit)?, commit)
 }
@@ -54,19 +48,16 @@ pub(crate) fn files_between(dir: &Path, from: &str, to: &str) -> Result<Vec<Comm
     Ok(files)
 }
 
-/// The file's diff in the commit against its first parent.
 pub(crate) fn commit_diff(dir: &Path, commit: &str, path: &str) -> Result<FileDiff, Error> {
     diff_between(dir, &parent(dir, commit)?, commit, path)
 }
 
-/// The file's diff from one commit or tree to another.
 pub(crate) fn diff_between(
     dir: &Path,
     from: &str,
     to: &str,
     path: &str,
 ) -> Result<FileDiff, Error> {
-    // A rename shows against the file it came from, so git needs both paths.
     let names = git::read(dir, &["diff", "-M", "--name-status", "-z", from, to, "--"])?;
     let old_path = parse_name_status(&names)
         .into_iter()
@@ -78,7 +69,6 @@ pub(crate) fn diff_between(
     Ok(diff::parse_diff(&git::read(dir, &args)?))
 }
 
-/// Each record of `git diff --name-status -z`: the status, then the path, or a rename's or copy's old and new path.
 fn parse_name_status(output: &str) -> Vec<CommittedFile> {
     let mut files = Vec::new();
     let mut records = output.split('\0');
@@ -94,7 +84,6 @@ fn parse_name_status(output: &str) -> Vec<CommittedFile> {
         };
         files.push(CommittedFile {
             path: path.to_string(),
-            // A copy leaves its source in place, so only a rename keeps the old path.
             old_path: old_path
                 .filter(|_| status == ChangeStatus::Renamed)
                 .map(str::to_string),

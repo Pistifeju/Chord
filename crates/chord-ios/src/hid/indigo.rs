@@ -1,5 +1,3 @@
-//! The Indigo input channel before CoreSimulator 1155.4: SimulatorKit's message builders and its legacy HID client. Home goes through SpringBoard instead (`Hid::send`).
-
 use std::ffi::c_void;
 use std::sync::OnceLock;
 
@@ -11,10 +9,8 @@ use objc2_core_foundation::CGPoint;
 use super::{Button, EDGE_BOTTOM, Input, TouchPhase};
 use crate::simulator_kit::{class, get, msg, responds, symbol};
 
-/// Indigo HID targets: the touch digitizer and the hardware buttons.
 const TARGET_TOUCH: u32 = 0x32;
 const TARGET_BUTTON: i32 = 0x33;
-/// `IndigoHIDMessageForMouseNSEvent` event types: 1 down and move, 2 up.
 const MOUSE_DOWN: i32 = 1;
 const MOUSE_UP: i32 = 2;
 const BUTTON_LOCK: i32 = 0x1;
@@ -33,20 +29,16 @@ struct Builders {
 fn builders() -> Option<&'static Builders> {
     static BUILDERS: OnceLock<Option<Builders>> = OnceLock::new();
     BUILDERS
-        .get_or_init(|| {
-            // SAFETY: the types match SimulatorKit's declarations.
-            unsafe {
-                Some(Builders {
-                    mouse: symbol(c"IndigoHIDMessageForMouseNSEvent")?,
-                    button: symbol(c"IndigoHIDMessageForButton")?,
-                    keyboard: symbol(c"IndigoHIDMessageForKeyboardArbitrary"),
-                })
-            }
+        .get_or_init(|| unsafe {
+            Some(Builders {
+                mouse: symbol(c"IndigoHIDMessageForMouseNSEvent")?,
+                button: symbol(c"IndigoHIDMessageForButton")?,
+                keyboard: symbol(c"IndigoHIDMessageForKeyboardArbitrary"),
+            })
         })
         .as_ref()
 }
 
-/// `SimDeviceLegacyHIDClient`. One per device for the app's life: a second live client in one process gets its touches dropped.
 pub(super) struct Client(Retained<AnyObject>);
 
 impl Client {
@@ -58,7 +50,6 @@ impl Client {
         if !responds(alloc, init) {
             return None;
         }
-        // SAFETY: `initWithDevice:error:` takes the device and an optional error out-pointer and returns +1.
         let client = unsafe {
             msg::<
                 unsafe extern "C" fn(
@@ -69,7 +60,6 @@ impl Client {
                 ) -> *mut AnyObject,
             >()(alloc, init, Retained::as_ptr(device), std::ptr::null_mut())
         };
-        // SAFETY: an owned object or null.
         let client = unsafe { Retained::from_raw(client) }?;
         responds(
             Retained::as_ptr(&client) as *mut AnyObject,
@@ -99,14 +89,12 @@ impl Client {
                     .as_ref()
                     .map_or(std::ptr::null(), |point| point as *const CGPoint);
                 let edge = if from_bottom { EDGE_BOTTOM } else { 0 };
-                // SAFETY: points live for the call; the builder returns a malloc'd message.
                 self.deliver(unsafe {
                     (build.mouse)(&first, second, TARGET_TOUCH, kind, 1.0, 1.0, edge)
                 });
             }
             Input::Key { usage, down } => {
                 if let Some(keyboard) = build.keyboard {
-                    // SAFETY: as above.
                     self.deliver(unsafe { keyboard(usage, if down { 1 } else { 2 }) });
                 }
             }
@@ -114,7 +102,6 @@ impl Client {
                 button: Button::Lock,
             } => {
                 for direction in [1, 2] {
-                    // SAFETY: as above.
                     self.deliver(unsafe { (build.button)(BUTTON_LOCK, direction, TARGET_BUTTON) });
                 }
             }
@@ -126,7 +113,6 @@ impl Client {
         if message.is_null() {
             return;
         }
-        // SAFETY: checked in `new`; the client frees the message when done.
         unsafe {
             msg::<
                 unsafe extern "C" fn(

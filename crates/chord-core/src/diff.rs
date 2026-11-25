@@ -1,5 +1,3 @@
-//! A file's diff as Chord shows it, its hunks and numbered lines, parsed from `git diff`, and the lines each path adds and removes, parsed from `git diff --numstat -z`; the worktree's changes, the branch, a commit and a stash share both.
-
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
@@ -18,7 +16,6 @@ pub enum LineKind {
 pub struct DiffLine {
     pub kind: LineKind,
     pub text: String,
-    /// The line's number in the old side, the new side, or both for context.
     pub old: Option<u32>,
     pub new: Option<u32>,
 }
@@ -26,7 +23,6 @@ pub struct DiffLine {
 #[derive(Serialize, Deserialize, Type, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Hunk {
-    /// The line git names after the hunk's range, mostly the function it sits in; empty when git finds none.
     pub context: String,
     pub lines: Vec<DiffLine>,
 }
@@ -38,7 +34,6 @@ pub struct FileDiff {
     pub hunks: Vec<Hunk>,
 }
 
-/// The lines added and removed per path of `git diff --numstat -z`, None for a binary file; a rename counts under its new path.
 pub(crate) fn parse_numstat(output: &str) -> HashMap<String, Option<(u32, u32)>> {
     let mut counts = HashMap::new();
     let mut records = output.split('\0');
@@ -49,7 +44,6 @@ pub(crate) fn parse_numstat(output: &str) -> HashMap<String, Option<(u32, u32)>>
         else {
             continue;
         };
-        // A rename leaves the path empty, then gives the old and the new path.
         let path = if path.is_empty() {
             records.next();
             records.next().unwrap_or_default()
@@ -89,7 +83,6 @@ pub(crate) fn parse_diff(output: &str) -> FileDiff {
             Some(b'+') => (LineKind::Added, None, Some(new)),
             Some(b'-') => (LineKind::Removed, Some(old), None),
             Some(b' ') | None => (LineKind::Context, Some(old), Some(new)),
-            // "\ No newline at end of file"
             _ => continue,
         };
         old += u32::from(old_at.is_some());

@@ -1,4 +1,3 @@
-// Drop target: folders dropped on the window become projects.
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { useEffect, useState } from "react";
 import { imageMime } from "../chat/attachments";
@@ -11,7 +10,6 @@ export function ProjectDrop() {
   useEffect(() => {
     let carriesFolders = false;
     const unlisten = getCurrentWebview().onDragDropEvent(({ payload }) => {
-      // Images belong to the chat they land on, and every file dropped on a chat or the terminal belongs to it, so they neither show the label nor become projects.
       const claimed = payload.type !== "leave" && (isOverTerminal(payload.position) || !!elementAtDrop(payload.position)?.closest(".chat"));
       if (payload.type === "enter") carriesFolders = payload.paths.some((path) => !imageMime(path));
       setOver(payload.type !== "drop" && payload.type !== "leave" && carriesFolders && !claimed);

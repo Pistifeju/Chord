@@ -1,5 +1,4 @@
 #!/bin/sh
-# Runs every check even after one fails, prints one exit line per step, and keeps the output in a log of its own.
 
 log=$(mktemp -t chord-check)
 out=$(mktemp -t chord-step)
@@ -24,7 +23,6 @@ step tsc-test npx tsc --noEmit -p tsconfig.test.json
 step rules sh scripts/check-rules.sh
 step test node --test "src/**/*.test.ts"
 step fmt cargo fmt --all --check
-# The Rust steps take minutes after a rebuild, so a local change outside Rust skips them. CI and a clean tree run them.
 changes=$(git status --porcelain)
 if [ -z "$CI" ] && [ -n "$changes" ] && ! printf '%s\n' "$changes" | grep -qE 'crates/|src-tauri/|Cargo\.(toml|lock)|rust-toolchain|\.cargo/'; then
   echo "step=clippy exit=skipped"

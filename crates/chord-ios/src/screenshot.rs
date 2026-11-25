@@ -1,5 +1,3 @@
-//! A screenshot of the worktree's simulator: the PNG `simctl` writes, into the folder of Settings or the Desktop, and a small preview of it for the thumbnail and the drag image.
-
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -12,21 +10,16 @@ use specta::Type;
 use crate::simulator;
 
 const SIPS: &str = "/usr/bin/sips";
-/// The longest side of the preview, in pixels.
 const PREVIEW_SIDE: &str = "160";
 
 #[derive(Serialize, Type, Clone, Debug)]
 pub struct Screenshot {
-    /// The PNG, a file other apps take by a drag.
     pub file: PathBuf,
-    /// A small PNG of it, in the temporary folder.
     pub preview: PathBuf,
 }
 
-/// "2026-05-12 at 14.03.22", the local time as macOS names its own screenshots.
 fn local_stamp() -> String {
     let mut text = [0u8; 32];
-    // SAFETY: `localtime_r` fills `time` from the clock; `strftime` writes at most `text.len()` bytes and a NUL into `text`.
     let written = unsafe {
         let now = libc::time(std::ptr::null_mut());
         let mut time: libc::tm = std::mem::zeroed();
@@ -41,7 +34,6 @@ fn local_stamp() -> String {
     String::from_utf8_lossy(&text[..written]).into_owned()
 }
 
-/// A name in `folder` that no file has: "Simulator <kind> <stamp>.<extension>", then "<stamp> 2.<extension>" and on.
 pub(crate) fn free_file(folder: &Path, kind: &str, extension: &str) -> PathBuf {
     let stamp = local_stamp();
     let mut file = folder.join(format!("Simulator {kind} {stamp}.{extension}"));
@@ -53,7 +45,6 @@ pub(crate) fn free_file(folder: &Path, kind: &str, extension: &str) -> PathBuf {
     file
 }
 
-/// The folder of Settings, else the Desktop.
 pub(crate) fn save_folder(folder: Option<&Path>) -> Result<PathBuf, Error> {
     let folder = match folder {
         Some(folder) => folder.to_path_buf(),
@@ -72,14 +63,12 @@ pub(crate) fn save_folder(folder: Option<&Path>) -> Result<PathBuf, Error> {
     Ok(folder)
 }
 
-/// The temporary folder that holds the previews.
 pub(crate) fn previews_folder() -> Result<PathBuf, Error> {
     let temporary = std::env::temp_dir().join("chord-screenshots");
     std::fs::create_dir_all(&temporary)?;
     Ok(temporary)
 }
 
-/// Shrinks `image` into `<stem of file>.preview.png` in the temporary folder, and deletes old previews.
 pub(crate) fn preview_of(file: PathBuf, image: &Path) -> Result<Screenshot, Error> {
     let temporary = previews_folder()?;
     let preview = temporary.join(format!(
@@ -99,7 +88,6 @@ pub(crate) fn preview_of(file: PathBuf, image: &Path) -> Result<Screenshot, Erro
     Ok(Screenshot { file, preview })
 }
 
-/// Takes the screenshot of the worktree's booted simulator, or with `preview` its preview simulator, into `folder`, else the Desktop.
 pub fn take_screenshot(
     worktree: &Path,
     preview: bool,
@@ -121,10 +109,8 @@ pub fn take_screenshot(
     preview_of(file.clone(), &file)
 }
 
-/// A shot is a file and its preview; the temporary folder keeps this many.
 const KEPT_SHOTS: usize = 10;
 
-/// The files of every shot but the `KEPT_SHOTS` newest, a shot being as new as its newest file.
 fn files_of_old_shots(files: &[(String, SystemTime)]) -> Vec<&str> {
     let stem = |name: &str| {
         name.strip_suffix(".preview.png")
@@ -151,7 +137,6 @@ fn files_of_old_shots(files: &[(String, SystemTime)]) -> Vec<&str> {
         .collect()
 }
 
-/// Best effort: a file that cannot be listed or deleted stays, and the screenshot still succeeds.
 fn delete_old_shots(temporary: &Path) {
     let Ok(entries) = std::fs::read_dir(temporary) else {
         return;

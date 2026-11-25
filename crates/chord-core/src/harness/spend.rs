@@ -1,5 +1,3 @@
-//! The spend the session files on this Mac record: the walk of each harness's folder, a cache of each file's replies, one count per reply, and the sums per hour, harness and model.
-
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, LazyLock, Mutex};
@@ -13,10 +11,8 @@ use crate::lock;
 
 const HOUR: f64 = 3_600_000.0;
 
-/// pi nests its files four folders deep, Claude Code a subagent's file under its session's folder.
 const DEPTH: usize = 5;
 
-/// One reply as its harness recorded it. Stays inside chord-core.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Reply {
     pub(crate) id: String,
@@ -30,7 +26,6 @@ pub(crate) struct Reply {
     pub(crate) saved: Option<f64>,
 }
 
-/// One hour of one model of one harness. `hour` is the start of the UTC hour in ms.
 #[derive(Serialize, Type, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct SpendRow {
@@ -45,14 +40,12 @@ pub struct SpendRow {
     pub saved: Option<f64>,
 }
 
-/// The rows since a time, and per harness the number of session files with a reply since then.
 #[derive(Serialize, Type, Debug, Clone, Default, PartialEq)]
 pub struct Spend {
     pub rows: Vec<SpendRow>,
     pub sessions: BTreeMap<String, u32>,
 }
 
-/// A harness's session files: the folder they live in, and one file's text as its replies.
 struct Source {
     harness: &'static str,
     folder: fn() -> Option<PathBuf>,
@@ -77,9 +70,7 @@ const SOURCES: [Source; 3] = [
     },
 ];
 
-/// The spend of every reply at or after `since`, epoch ms. A missing folder, file or line gives no rows.
 pub fn read(since: f64) -> Spend {
-    // A read that starts during another waits for it, then finds its files in the cache instead of parsing them twice.
     static READING: Mutex<()> = Mutex::new(());
     let _reading = lock(&READING);
     let mut tally = Tally::new(since);
@@ -115,7 +106,6 @@ fn session_files(dir: &Path, depth: usize, files: &mut Vec<PathBuf>) {
     }
 }
 
-/// A file's replies as of its modified time and size.
 struct Cached {
     modified: SystemTime,
     size: u64,
@@ -124,7 +114,6 @@ struct Cached {
 
 static CACHE: LazyLock<Mutex<HashMap<PathBuf, Cached>>> = LazyLock::new(Mutex::default);
 
-/// The replies of a file changed at or after `since`, parsed again only when its modified time or size changed.
 fn file_replies(path: &Path, since: f64, parse: fn(&str) -> Vec<Reply>) -> Option<Arc<Vec<Reply>>> {
     let meta = std::fs::metadata(path).ok()?;
     let modified = meta.modified().ok()?;
@@ -153,7 +142,6 @@ fn file_replies(path: &Path, since: f64, parse: fn(&str) -> Vec<Reply>) -> Optio
     Some(replies)
 }
 
-/// The sums so far, and the reply ids each harness already counted: a pi fork copies its history into a new file.
 struct Tally {
     since: f64,
     seen: HashMap<&'static str, HashSet<String>>,
@@ -171,12 +159,10 @@ impl Tally {
         }
     }
 
-    /// Adds one session file's replies.
     fn add(&mut self, harness: &'static str, replies: &[Reply]) {
         let seen = self.seen.entry(harness).or_default();
         let mut session = false;
         for reply in replies.iter().filter(|reply| reply.at >= self.since) {
-            // Claude Code writes a synthetic reply with no tokens when a turn fails.
             if reply.input + reply.cache_read + reply.cache_write + reply.output == 0.0 {
                 continue;
             }
@@ -219,7 +205,6 @@ impl Tally {
     }
 }
 
-/// A sum that stays None until one of its parts is known.
 fn plus(sum: Option<f64>, part: Option<f64>) -> Option<f64> {
     match (sum, part) {
         (None, None) => None,

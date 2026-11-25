@@ -1,10 +1,7 @@
-// Rules for shortcuts: matching a key press, recording one, and the saved changes to the default keys.
 export type Shortcut = { key: string; cmd?: boolean; ctrl?: boolean; alt?: boolean; shift?: boolean };
 
-// A command id to its key. A command without a key is absent.
 export type ShortcutMap = Record<string, Shortcut | undefined>;
 
-// The changes to the defaults, by command id. null means the command lost its key.
 export type ShortcutChanges = Record<string, Shortcut | null>;
 
 type KeyPress = Pick<KeyboardEvent, "key" | "metaKey" | "ctrlKey" | "altKey" | "shiftKey">;
@@ -17,7 +14,6 @@ const sameShortcut = (a: Shortcut | undefined, b: Shortcut | undefined) =>
 
 const modifierKeys = ["meta", "control", "alt", "shift"];
 
-// A press worth saving holds cmd, ctrl or alt, so it never steals typing. Rust checks the same rule on load.
 export function recordedShortcut(e: KeyPress): Shortcut | undefined {
   const key = e.key.toLowerCase();
   if (modifierKeys.includes(key) || key.trim() === "" || !(e.metaKey || e.ctrlKey || e.altKey)) return undefined;
@@ -30,19 +26,16 @@ export function currentShortcuts(defaults: ShortcutMap, changes: ShortcutChanges
   return current;
 }
 
-// Commands may share a default key (they run in different contexts); a changed key must be unique.
 function hasTwoCommandsOnOneKey(defaults: ShortcutMap, map: ShortcutMap) {
   const ids = Object.keys(map).filter((id) => map[id] !== undefined);
   return ids.some((id, i) => ids.some((other, j) => j !== i && sameShortcut(map[id], map[other]) && !(sameShortcut(map[id], defaults[id]) && sameShortcut(map[other], defaults[other]))));
 }
 
-// Saved changes for commands that exist. If they put two commands on one key, none of them load.
 export function loadedChanges(defaults: ShortcutMap, saved: ShortcutChanges): ShortcutChanges {
   const known = Object.fromEntries(Object.entries(saved).filter(([id]) => id in defaults));
   return hasTwoCommandsOnOneKey(defaults, currentShortcuts(defaults, known)) ? {} : known;
 }
 
-// Gives a command a key, or null for no key. Every command that held the key loses it and is named in `lost`, except one that shares it by default.
 export function changedShortcut(
   defaults: ShortcutMap,
   changes: ShortcutChanges,

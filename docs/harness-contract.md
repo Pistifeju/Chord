@@ -45,7 +45,7 @@ The pi side of ACP:
 
 ## 3. Contract
 
-The `Agent` trait and `start` in `crates/chord-core/src/harness/mod.rs`, one implementation per harness in `harness/<name>/`. The doc comments on the trait and on `HarnessEvent` are the reference; this section holds what they do not say.
+The `Agent` trait and `start` in `crates/chord-core/src/harness/mod.rs`, one implementation per harness in `harness/<name>/`. The names and types of the trait and of `HarnessEvent` are the reference; this section holds what they do not say.
 
 - **Events** (adapter to UI): the `HarnessEvent` variants, named after ACP's session updates where ACP has one. The frontend gets these and never a harness record. Core adds `status`; an adapter never emits it.
 - **Sessions**: `session_info` carries the adapter's own session key as a string (a pi file path, a Codex thread id, a Claude Code session id); `Sessions` saves it in `PaneAgent` and hands it back to `start`. On open, the adapter replays the saved messages as live events between `history_start` and `history_end`.

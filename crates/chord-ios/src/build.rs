@@ -1,5 +1,3 @@
-//! One build per worktree: its xcodebuild with its arguments, its own process group and its log in batches, the wait while a build Chord did not start holds the build database, the run of the app on the run destination after it with its console, and the stop that signals the whole group.
-
 use chord_core::lock;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
@@ -38,24 +36,17 @@ const POLL: Duration = Duration::from_millis(100);
 #[derive(Serialize, Type, Clone, Copy, Debug, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum BuildPhase {
-    /// Before xcodebuild: the project's scheme is looked up.
     Preparing,
-    /// A build Chord did not start holds the build database.
     Waiting,
     Building,
-    /// The build succeeded: the simulator boots, then the app installs.
     Installing,
     Launching,
-    /// The app runs on the destination.
     Running,
 }
 
-/// What a build targets.
 enum Target {
-    /// A build that finds no simulator of the worktree's builds for any simulator.
     AnySimulator,
     Simulator(Simulator),
-    /// A connected device, by its hardware UDID.
     Device(String),
 }
 
@@ -72,30 +63,15 @@ impl Target {
 #[derive(Serialize, Type, Clone, Debug, PartialEq)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum BuildEvent {
-    Phase {
-        phase: BuildPhase,
-    },
-    Log {
-        text: String,
-    },
-    /// Whole lines of the running app's output.
-    Console {
-        text: String,
-        tone: ConsoleTone,
-    },
+    Phase { phase: BuildPhase },
+    Log { text: String },
+    Console { text: String, tone: ConsoleTone },
     Succeeded,
-    /// The app that ran ended on its own.
     Exited,
-    /// Stopped by the user; a build a newer one replaced sends nothing.
     Stopped,
-    /// The first errors of the build, and how many more it printed.
-    Failed {
-        issues: Vec<BuildIssue>,
-        more: u32,
-    },
+    Failed { issues: Vec<BuildIssue>, more: u32 },
 }
 
-/// The worktrees' builds, one slot each. Clones share the same builds.
 #[derive(Clone, Default)]
 pub struct Builds(Arc<Inner>);
 
@@ -111,23 +87,16 @@ type TurnKey = (PathBuf, Lane);
 #[derive(Default)]
 struct Inner {
     slots: Mutex<Slots>,
-    /// Held by a worktree's build thread from its start to its end (a build beside the app run and a preview build have their own turns), so a newer build starts after the old one ended.
     turns: Mutex<HashMap<TurnKey, Arc<Mutex<()>>>>,
     previews: Mutex<HashMap<PathBuf, Preview>>,
-    /// The saves of each worktree whose Preview view opened.
     watchers: Mutex<HashMap<PathBuf, notify::RecommendedWatcher>>,
-    /// The scheme of each project from its last build, so the next one skips `xcodebuild -list`.
     schemes: Mutex<HashMap<PathBuf, String>>,
-    /// Held while a worktree's simulator is looked up and created, so two builds never create it twice.
     simulators: Mutex<()>,
-    /// When each worktree's simulator (by name) was last opened in the app.
     opened: Mutex<HashMap<String, Instant>>,
-    /// The tools were found once; later builds skip the login shells that check them.
     tools_found: AtomicBool,
 }
 
 impl Builds {
-    /// Starts a build of the worktree's project in the scheme and configuration of `pick`, and with `run` the app's install and launch, and returns. The app runs on the `destination`: a connected device, or a simulator of that model that is the worktree's own; without one, the worktree's own simulator of `Destinations::fallback`. `kept_services` are the user's switches of the service groups a boot keeps on. `on_event` hears its phases, log and end from a thread of its own. A build already running there stops first. A build that cannot start, such as a missing `xcodebuild` with its install step, ends as a failed one.
     pub fn start(
         &self,
         worktree: PathBuf,
@@ -179,7 +148,6 @@ impl Builds {
         );
     }
 
-    /// Ends the builds `start` replaced and runs `build` with the slot's id on a thread, after the lane's older build ended.
     fn spawn(&self, start: Start, lane: Lane, mut build: Build) {
         for pid in start.kill {
             thread::spawn(move || end_group(pid));
@@ -204,14 +172,12 @@ impl Builds {
         xcode::project_in(worktree)
     }
 
-    /// Stops the worktree's build without waiting for it.
     pub fn stop(&self, worktree: &Path) {
         for pid in lock(&self.0.slots).stop(worktree) {
             thread::spawn(move || end_group(pid));
         }
     }
 
-    /// Stops every build and returns once the builds ended, build database released: the app is quitting.
     pub fn stop_all(&self) {
         let pids = lock(&self.0.slots).stop_all();
         end_groups(pids);
@@ -221,12 +187,10 @@ impl Builds {
         }
     }
 
-    /// Records that the user opened the worktree in the app.
     pub fn opened(&self, worktree: &Path) {
         lock(&self.0.opened).insert(simulator::name_of(worktree), Instant::now());
     }
 
-    /// When each worktree's simulator (by name) was last opened, and the names of those with a build or a running app.
     fn opened_and_running(&self) -> (HashMap<String, Instant>, HashSet<String>) {
         let busy = lock(&self.0.slots)
             .held_worktrees()
@@ -236,7 +200,6 @@ impl Builds {
         (lock(&self.0.opened).clone(), busy)
     }
 
-    /// For a worktree that was deleted: stops its build, waits for the build database to be released, forgets its schemes, then removes its build data.
     pub fn forget(&self, worktree: &Path) {
         let pids = {
             let mut slots = lock(&self.0.slots);
@@ -259,7 +222,6 @@ impl Builds {
         crate::caches::forget(worktree);
     }
 
-    /// Clean Build Folder, as Xcode's: stops the worktree's build and run, waits for them to end, then removes the project's `Build` folder in DerivedData and the worktree's hot reload folder, whose compile commands point into it.
     pub fn clean(&self, worktree: &Path) -> Result<(), Error> {
         let project = self.project_of(worktree)?;
         let pids = lock(&self.0.slots).stop(worktree);
@@ -271,7 +233,6 @@ impl Builds {
                 .filter_map(|lane| turns.get(&(worktree.to_path_buf(), lane)).cloned())
                 .collect()
         };
-        // Holding the turns keeps a queued build from writing into the folders while they go.
         let _held: Vec<_> = turns.iter().map(|turn| lock(turn)).collect();
         let build = derived_data::folder_of(&project.path).map(|folder| folder.join("Build"));
         for folder in [build, preview::hot_reload_folder(worktree)]
@@ -292,7 +253,6 @@ impl Builds {
     }
 }
 
-/// Ends the process groups and returns once each one ended.
 fn end_groups(pids: Vec<u32>) {
     let ending: Vec<_> = pids
         .into_iter()
@@ -303,12 +263,10 @@ fn end_groups(pids: Vec<u32>) {
     }
 }
 
-/// Shuts down the simulators beyond what the RAM allows before `udid` boots. Best effort: a list that fails leaves them booted.
 fn make_room(udid: &str, opened: &HashMap<String, Instant>, busy: &HashSet<String>) {
     let Ok(owned) = simulator::owned(DeviceSet::Run) else {
         return;
     };
-    // The target takes a place only when it is one of Chord's own.
     let keep = if owned.iter().any(|device| device.udid == udid) {
         capacity::limit(capacity::installed_ram()).saturating_sub(1)
     } else {
@@ -330,9 +288,7 @@ struct Build {
     builds: Builds,
     worktree: PathBuf,
     id: u64,
-    /// Install and launch the app after the build.
     run: bool,
-    /// Install and launch the app on the worktree's preview simulator after the build.
     preview: bool,
     destination: Option<RunDestination>,
     pick: SchemePick,
@@ -361,7 +317,6 @@ impl Build {
         self.builds.follow_with_preview(&self.worktree);
     }
 
-    /// Says an event unless a newer build took the slot: the old one stays silent.
     fn say(&self, event: BuildEvent) {
         let current = lock(&self.builds.0.slots).is_current(&self.worktree, self.id);
         if current {
@@ -397,7 +352,6 @@ impl Build {
             Err(_) if self.stopped() => return BuildEvent::Stopped,
             Err(error) => return self.failed(error.to_string()),
         };
-        // The first boot hides inside the build.
         let boot = match &target {
             Target::Simulator(device) if self.run => {
                 let device = device.clone();
@@ -434,7 +388,6 @@ impl Build {
         }
     }
 
-    /// What the build targets: a device; the worktree's own simulator, created in the destination's model; a build without a run that can create none builds for any simulator.
     fn target(&self) -> Result<Target, Error> {
         if let Some(RunDestination::Device { id, .. }) = &self.destination {
             return Ok(Target::Device(id.clone()));
@@ -451,7 +404,6 @@ impl Build {
         .map(Target::Simulator)
     }
 
-    /// The destination's model and runtime identifiers.
     fn wanted(&self) -> Option<(&str, &str)> {
         match &self.destination {
             Some(RunDestination::Simulator { model, runtime, .. }) => {
@@ -461,7 +413,6 @@ impl Build {
         }
     }
 
-    /// The worktree's run simulator for a build that boots none, created shut down when the worktree has none: a build for any simulator compiles every architecture and differs from ⌘R's. It leaves the simulator that exists as it is, whatever its model.
     fn build_simulator(&self) -> Option<Simulator> {
         let _lookup = lock(&self.builds.0.simulators);
         if let Ok(Some(device)) = simulator::find(DeviceSet::Run, &self.worktree) {
@@ -473,14 +424,12 @@ impl Build {
         .ok()
     }
 
-    /// Runs `step` with the way to register its process group in the slot, so a stop ends it.
     fn step<T>(&self, step: impl FnOnce(&dyn Fn(u32)) -> Result<T, Error>) -> Result<T, Error> {
         let result = step(&|pid| self.register(pid));
         lock(&self.builds.0.slots).clear_pid(&self.worktree, self.id);
         result
     }
 
-    /// After a successful build: waits for the boot, installs the app and launches it, and returns when the app ends.
     fn run_app(
         &self,
         scheme: &str,
@@ -508,7 +457,6 @@ impl Build {
             if self.stopped() {
                 return Ok(None);
             }
-            // The Simulator view shows the device; the external app only stands in when it cannot.
             if simulator_kit::load().is_err() {
                 let _ = simulator::open_app(false);
             }
@@ -552,7 +500,6 @@ impl Build {
         })
     }
 
-    /// After a successful build for a device: installs the app and launches it, and returns when the app ends. A stop ends the console, and `devicectl` ends the app with it.
     fn run_on_device(&self, scheme: &str, udid: &str) -> BuildEvent {
         let ended = (|| {
             if self.stopped() {
@@ -593,7 +540,6 @@ impl Build {
         self.finished_run(ended, drop)
     }
 
-    /// The end of a run: Stopped (`on_stop` hears whether a stop reached the run, the only case that ends its app), Exited with the app's exit code on the console, or Failed.
     fn finished_run(
         &self,
         ended: Result<Option<i32>, Error>,
@@ -634,7 +580,6 @@ impl Build {
         Ok(scheme)
     }
 
-    /// The picked configuration, else the one the scheme runs in.
     fn configuration(&self, scheme: &str) -> String {
         self.pick
             .configuration
@@ -646,7 +591,6 @@ impl Build {
         derived_data::folder_of(&self.project.path).map(|folder| derived_data::build_db(&folder))
     }
 
-    /// Waits while some process holds the build database, and never ends that process. False when the build was stopped meanwhile.
     fn wait_for_database(&self) -> bool {
         let Some(database) = self.database() else {
             return !self.stopped();
@@ -669,7 +613,6 @@ impl Build {
         !self.stopped()
     }
 
-    /// After a stop: gives the processes of the group a moment to let go of the build database, and says so when one does not.
     fn wait_for_release(&self) {
         let Some(database) = self.database() else {
             return;
@@ -736,7 +679,6 @@ impl Build {
         if status.as_ref().is_ok_and(|status| status.success()) {
             return BuildEvent::Succeeded;
         }
-        // A renamed scheme may be why: the next build lists the schemes again.
         lock(&self.builds.0.schemes).remove(&self.project.path);
         if issues.total() == 0 {
             let message = match status.ok().and_then(|status| status.code()) {
@@ -749,7 +691,6 @@ impl Build {
         BuildEvent::Failed { issues, more }
     }
 
-    /// Records a process group of the build in its slot. A build stopped or replaced before it started has its group ended at once.
     fn register(&self, pid: u32) {
         let end = lock(&self.builds.0.slots).register(&self.worktree, self.id, pid);
         if end {

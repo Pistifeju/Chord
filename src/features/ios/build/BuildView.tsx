@@ -1,4 +1,3 @@
-// The Build view in the bottom panel: the build's errors above its log.
 import { useMemo } from "react";
 import type { BuildIssue_Deserialize } from "../../../ipc/bindings";
 import { WarningIcon } from "../../../ui/icons";
@@ -43,7 +42,6 @@ export function BuildView({ worktree }: { worktree: string }) {
   const find = buildFinds.usePart((all) => all[worktree]);
   const lines = useMemo(() => (log ? logLines(log) : []), [log]);
   if (!build) return <div className="log-part log-empty">No build yet</div>;
-  // A failed build shows its errors first.
   const shown = build.side ?? build;
   const failed = shown.phase === "failed";
   return (

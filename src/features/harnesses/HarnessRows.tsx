@@ -1,4 +1,3 @@
-// The harness rows: each harness Chord can start with its state, the command it needs, and the default's check; a click on a row that takes the pick makes it the default. Git's row follows while git is missing. Check Again runs the check.
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { Checks, HarnessCheck } from "../../ipc/bindings";
 import { CopyButton } from "../../ui/CopyButton";
@@ -46,7 +45,6 @@ function Row({ logo, title, state, side, pick, current }: { logo: ReactNode; tit
       <span className="harness-logo">{logo}</span>
       <span className="harness-text">
         <span>{title}</span>
-        {/* Keyed by its text, so the line rises in when a check changes it and stays still on a redraw. */}
         <span key={state} className="harness-state">
           {state}
         </span>
@@ -62,7 +60,6 @@ function harnessSide(harness: HarnessCheck, chosen: boolean, drawCheck: boolean)
   return command && <Command key={command} text={command} />;
 }
 
-/** Every row Chord can start, or only `rows`, which leaves out git's. */
 export function HarnessRows({ checks, rows }: { checks: Checks | null; rows?: HarnessCheck[] }) {
   const defaultHarness = checks?.defaultHarness;
   const previousDefault = useRef(defaultHarness);

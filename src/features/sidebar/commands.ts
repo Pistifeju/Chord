@@ -1,4 +1,3 @@
-// The sidebar's commands for the commands table: show or hide it, and the navigator's views.
 import type { AppCommand } from "../../app/commands";
 import { onTarget } from "../../app/commandTarget";
 import { gitWorktree, openWorktree } from "../worktrees/store";

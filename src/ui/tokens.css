@@ -1,4 +1,3 @@
-/* Design tokens: every color, shadow, radius, curve and font the app uses. Rules: DESIGN.md. */
 :root {
   --canvas: #fcfcfc;
   --panel: #fafafa;
@@ -39,7 +38,6 @@
   --diff-added: rgba(0, 122, 85, 0.1);
   --diff-removed: rgba(231, 0, 11, 0.08);
 
-  /* The harness logos keep their brand colors in both themes; OpenCode's mark has a light and a dark version. */
   --brand-pi-coral: #e48a7a;
   --brand-pi-blue: #4f8eb3;
   --brand-pi-yellow: #eab65d;
@@ -71,7 +69,6 @@
   --syn-type: hsl(190, 80%, 30%);
   --syn-function: hsl(214, 70%, 42%);
 
-  /* The terminal's 16 ANSI colors, readable on canvas. */
   --term-black: #24292f;
   --term-red: #cf222e;
   --term-green: #116329;
@@ -157,7 +154,6 @@
   --syn-type: hsl(190, 60%, 64%);
   --syn-function: hsl(214, 85%, 74%);
 
-  /* The terminal's 16 ANSI colors: xterm's own Tango palette. */
   --term-black: #2e3436;
   --term-red: #cc0000;
   --term-green: #4e9a06;
@@ -176,7 +172,6 @@
   --term-bright-white: #eeeeec;
 }
 
-/* The sidebar's cards: a resting card takes --card, the open one is white in light and a brighter wash in dark. */
 .sidebar {
   --selected: #ffffff;
   --card: var(--raised);
@@ -190,7 +185,6 @@
 * { box-sizing: border-box; }
 html, body { overflow: hidden; overscroll-behavior: none; }
 body { margin: 0; -webkit-user-select: none; user-select: none; }
-/* WebKit's own monospace is Courier. */
 code, pre { font-family: var(--font-code); }
 input, textarea, [data-selectable] { -webkit-user-select: text; user-select: text; }
 ::selection { background: var(--accent-wash); }

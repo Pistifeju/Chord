@@ -1,4 +1,3 @@
-/* Shared controls: buttons, icon button, segmented control, input, sheet, toast, drop target, drag ghost and drop line, find bar. Rules: DESIGN.md, Components. */
 button {
   font: inherit;
   color: inherit;
@@ -38,7 +37,6 @@ button:focus-visible {
   background: var(--selected);
 }
 
-/* An icon-only button's icon presses to 90%. */
 .icon-button > svg,
 .settings-step > svg,
 .tab-close > svg,
@@ -89,7 +87,6 @@ button:focus-visible {
   visibility: hidden;
 }
 
-/* The hover and pressed fills ride a wide inset shadow, since a gradient cannot transition. */
 .button-secondary,
 .button-destructive {
   position: relative;
@@ -129,7 +126,6 @@ button:focus-visible {
   animation: spin 800ms linear infinite;
 }
 
-/* The running mark: two dots circle a shared center, seen from the side, so the near one grows and the far one fades. In the text's color. */
 .status-orbit {
   position: relative;
   flex: none;
@@ -154,7 +150,6 @@ button:focus-visible {
   animation-delay: -0.7s;
 }
 
-/* A circle seen edge-on: the dots move sideways fastest as they cross the center, where they are nearest (largest) or farthest (faintest). */
 @keyframes status-orbit-x {
   0% {
     translate: -3px 0;
@@ -206,7 +201,6 @@ button:focus-visible {
   }
 }
 
-/* An 8px agent status mark; the element's data-status sets the color of the dot and of the orbit beside it. */
 .status-dot {
   flex: none;
   width: 8px;
@@ -238,7 +232,6 @@ button:focus-visible {
   }
 }
 
-/* Borderless on raised; the focused field takes sheet and a border. */
 .input {
   width: 100%;
   height: 30px;
@@ -260,7 +253,6 @@ button:focus-visible {
   background: var(--sheet);
 }
 
-/* A field with icon buttons inside its right end, shown while you hover it or work in it. */
 .input-row {
   position: relative;
   display: flex;
@@ -405,7 +397,6 @@ button:focus-visible {
   animation: sheet-in var(--t-med) var(--ease-out);
 }
 
-/* A drag over the window or a pane: a dashed outline over the scrim with its label on a chip. */
 .drop-target {
   position: fixed;
   inset: 12px;
@@ -464,7 +455,6 @@ button:focus-visible {
   text-wrap: balance;
 }
 
-/* The confirm sheet's title, description and detail read as one block, apart from the buttons. */
 .sheet-text {
   display: flex;
   flex-direction: column;
@@ -508,7 +498,6 @@ button:focus-visible {
   transform: rotate(90deg);
 }
 
-/* The find bar floats over the top right of a transcript or terminal, so opening it resizes nothing. */
 .find-bar {
   position: absolute;
   top: 8px;
@@ -598,7 +587,6 @@ button:focus-visible {
   }
 }
 
-/* The chip that follows the pointer while a tab, a card or a project drags. */
 .drag-ghost {
   position: fixed;
   z-index: 4;
@@ -623,7 +611,6 @@ button:focus-visible {
   text-overflow: ellipsis;
 }
 
-/* Where a dragged card or project lands. */
 .drop-line {
   position: fixed;
   z-index: 3;
@@ -662,7 +649,6 @@ button:focus-visible {
   transition: transform var(--t-fast) var(--ease-out);
 }
 
-/* A segment's label presses to 95%; text at 90% reads as a jump. */
 .segmented button:active:not(:disabled) > .segmented-label {
   transform: scale(0.95);
   transition-duration: 60ms;
@@ -682,7 +668,6 @@ button:focus-visible {
   color: var(--ink);
 }
 
-/* A sliding control draws the checked look once, on a thumb that moves under the buttons. */
 .segmented[data-sliding] {
   position: relative;
 }
@@ -724,7 +709,6 @@ button:focus-visible {
   }
 }
 
-/* A 14px checkbox. */
 .checkbox {
   display: grid;
   place-items: center;
@@ -744,7 +728,6 @@ button:focus-visible {
   transition-duration: 60ms;
 }
 
-/* The check always renders, so it animates only when it changes, never when a row first shows. */
 .checkbox > svg {
   opacity: 0;
   transform: scale(0.8);

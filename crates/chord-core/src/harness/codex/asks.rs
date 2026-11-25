@@ -1,5 +1,3 @@
-//! Codex's asks as dialogs: the approvals, questions and forms Codex waits on, and the result each answer sends back.
-
 use std::collections::VecDeque;
 
 use serde_json::{Map, Value, json};
@@ -13,26 +11,20 @@ pub(super) type Asks = asks::Asks<Reply>;
 
 pub(super) type Parsed = asks::Parsed<Reply>;
 
-/// How an ask's answer goes back to Codex.
 pub(super) struct Reply {
-    /// The id of Codex's request; none for an agent message's questions, whose answer goes out as a new turn.
     pub(super) request: Option<Value>,
     kind: Kind,
-    /// The result an Esc sends.
     cancel: Value,
 }
 
 enum Kind {
-    /// The picked option's result is the whole answer.
     Decided,
-    /// The picked action, accept or decline, of a link.
     Link,
     UserInput,
     Form,
     Turn,
 }
 
-/// What an answer leads to: events, the line that answers Codex, and the text a new turn sends.
 #[derive(Default)]
 pub(super) struct Answered {
     pub(super) events: Vec<HarnessEvent>,
@@ -95,7 +87,6 @@ fn plain(value: &Value) -> String {
         .map_or_else(|| value.to_string(), String::from)
 }
 
-/// The ask a server request opens; `files` gives the paths of an open file change by its item id.
 pub(super) fn parse(
     id: &Value,
     method: &str,
@@ -248,7 +239,6 @@ pub(super) fn parse(
     }
 }
 
-/// The questions an agent message ends with; their answers go out as the next message.
 pub(super) fn message_questions(item: &Value) -> Option<Ask> {
     let steps: VecDeque<Step> = item["questions"]
         .as_array()?
@@ -323,7 +313,6 @@ fn user_question(question: &Value) -> Step {
     }
 }
 
-// The network access and the paths a permission ask names, one per line.
 fn permissions_detail(asked: &Value) -> Option<String> {
     let files = &asked["fileSystem"];
     let mut lines = vec![];

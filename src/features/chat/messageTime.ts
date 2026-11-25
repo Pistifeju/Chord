@@ -1,4 +1,3 @@
-// How a message's time reads: the clock today, "yesterday at" the clock, else the date and the clock, in the system's locale.
 const DAY = 86_400_000;
 
 const midnight = (ms: number) => new Date(ms).setHours(0, 0, 0, 0);

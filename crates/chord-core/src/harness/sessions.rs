@@ -1,5 +1,3 @@
-//! The running agents, one per pane: start, send, abort, stop, and the saved facts that follow them: the running flag, the harness and the session.
-
 use crate::lock;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -16,10 +14,8 @@ use super::{
 use crate::awake::Awake;
 use crate::{Error, PaneAgent, Store, WorktreePanes, xcode_bundles};
 
-/// Each pane's agent and the worktree it runs in.
 type Running = HashMap<String, (PathBuf, Box<dyn Agent>)>;
 
-/// A pane's started agent: the harness it runs and what that harness can do.
 #[derive(Serialize, Type, Debug)]
 pub struct Started {
     pub harness: String,
@@ -35,7 +31,6 @@ pub struct Sessions {
 }
 
 impl Sessions {
-    /// `dir` holds the files the harness adapters write for themselves.
     pub fn new(store: Arc<Store>, dir: PathBuf) -> Sessions {
         let awake = Arc::new(Awake::new(store.get().keep_awake));
         Sessions {
@@ -47,7 +42,6 @@ impl Sessions {
         }
     }
 
-    /// Agents in a worktree with an Xcode project get the build and run tools, whose calls go to `socket`.
     pub fn with_tools(self, socket: PathBuf) -> Sessions {
         Sessions {
             tools: Some(socket),
@@ -70,9 +64,6 @@ impl Sessions {
         }
     }
 
-    /// Starts the pane's agent in the worktree with the harness the pane saved, or the default one for a pane without one, replaces the one the pane had, and saves the pane as running.
-    /// `switch_to` names another harness: the pane takes it on a new session, and `pick` is the model it starts on.
-    /// `on_status_change` hears a status once per change, with the agent's last message, before `on_event` gets it.
     pub fn start(
         &self,
         worktree: PathBuf,
@@ -149,7 +140,6 @@ impl Sessions {
         let session = match session {
             Ok(session) => session,
             Err(error) => {
-                // A failed switch leaves the pane on the agent that still runs in it.
                 if let Some(previous) = replaced_agent {
                     self.store.update(|state| match previous {
                         Some(previous) => state.agents.insert(pane.clone(), previous),
@@ -160,7 +150,6 @@ impl Sessions {
             }
         };
         let capabilities = session.capabilities();
-        // The lock is free again before the old session drops: dropping kills the agent's process and waits for it.
         let replaced = self.sessions().insert(pane.clone(), (worktree, session));
         drop(replaced);
         self.store
@@ -171,7 +160,6 @@ impl Sessions {
         })
     }
 
-    /// Whether the message took the images.
     pub fn send(&self, pane: &str, text: &str, images: &[Image]) -> Result<bool, Error> {
         let state = self.store.get();
         let held_elsewhere = state
@@ -196,7 +184,6 @@ impl Sessions {
         self.with(pane, |session| session.abort())
     }
 
-    /// The pane is gone: its agent stops and no longer starts on launch. Its sessions stay for `/resume`.
     pub fn stop_pane(&self, pane: &str) -> Result<(), Error> {
         let session = self.sessions().remove(pane);
         drop(session);
@@ -204,19 +191,16 @@ impl Sessions {
         self.store.update(|state| state.forget_pane(pane))
     }
 
-    /// Returns once every agent has ended, so none outlives the app. The panes stay saved as running.
     pub fn stop_all(&self) {
         let stopped = std::mem::take(&mut *self.sessions());
         end_at_once(stopped.into_values().map(|(_, agent)| agent), drop);
         self.awake.clear();
     }
 
-    /// Turns the setting on or off; on fails with `MissingTool` when `caffeinate` is missing, even with no agent working.
     pub fn keep_awake(&self, enabled: bool) -> Result<(), Error> {
         self.awake.set_enabled(enabled)
     }
 
-    /// Returns once every agent in the worktree has ended, so git can remove its directory. Its layouts stay in case git refuses, and each chat hears its agent exit.
     pub fn stop(&self, worktree: &Path) {
         let mut stopped = Vec::new();
         {
@@ -236,14 +220,12 @@ impl Sessions {
         });
     }
 
-    /// The worktree is gone: its layouts, panels and running flags go with it. Its sessions stay for `/resume`.
     pub fn forget(&self, worktree: &Path) -> Result<(), Error> {
         self.stop(worktree);
         self.store.update(|state| state.forget_worktree(worktree))
     }
 }
 
-// Each agent waits out its exit on a thread of its own, so ending ten takes as long as ending the slowest.
 fn end_at_once(agents: impl Iterator<Item = Box<dyn Agent>>, end: fn(Box<dyn Agent>)) {
     std::thread::scope(|scope| {
         for agent in agents {
@@ -252,7 +234,6 @@ fn end_at_once(agents: impl Iterator<Item = Box<dyn Agent>>, end: fn(Box<dyn Age
     });
 }
 
-/// What one pane's agent events change: the saved facts, keep-awake and the status.
 struct PaneWatch {
     pane: String,
     store: Arc<Store>,
@@ -260,7 +241,6 @@ struct PaneWatch {
     tracker: StatusTracker,
 }
 
-/// What the chat hears of one agent event, in the order it hears it.
 #[derive(Debug, PartialEq)]
 enum Delivery {
     Event(HarnessEvent),
@@ -268,7 +248,6 @@ enum Delivery {
 }
 
 impl PaneWatch {
-    /// The event, then the status change and the `Status` event when a status is due.
     fn deliver(&mut self, event: HarnessEvent) -> Vec<Delivery> {
         let report = self.observe(&event);
         let mut deliveries = vec![Delivery::Event(event)];
@@ -289,13 +268,11 @@ impl PaneWatch {
     fn observe(&mut self, event: &HarnessEvent) -> Option<StatusReport> {
         match event {
             HarnessEvent::State { running } => self.awake.set_working(&self.pane, *running),
-            // The agent picker lists a harness's models while another harness runs.
             HarnessEvent::Models { harness, models } => {
                 let _ = self.store.update(|state| {
                     state.models.insert((*harness).into(), models.clone());
                 });
             }
-            // The next start opens the session the pane shows now.
             HarnessEvent::SessionInfo { id } => {
                 let _ = self.store.update(|state| {
                     state.agents.entry(self.pane.clone()).or_default().session = Some(id.clone());
@@ -303,7 +280,6 @@ impl PaneWatch {
             }
             HarnessEvent::Exited { .. } => {
                 self.awake.set_working(&self.pane, false);
-                // An agent that ended on its own does not come back on launch.
                 let _ = self
                     .store
                     .update(|state| state.running_panes.remove(&self.pane));

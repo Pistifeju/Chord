@@ -1,5 +1,3 @@
-//! An agent's asks as dialogs: one open per pane and the rest waiting oldest first, the walk through one ask's steps, the elicitation form, and what the user settled.
-
 use std::collections::VecDeque;
 
 use serde_json::{Value, json};
@@ -8,14 +6,12 @@ use super::{DialogAnswer, DialogAsk, HarnessEvent};
 
 pub(crate) const OTHER: &str = "Other";
 
-/// One ask's dialogs, shown one at a time, with the adapter's own tag for its reply.
 pub(crate) struct Ask<R> {
     pub(crate) reply: R,
     steps: VecDeque<Step>,
     answers: Vec<(String, Value)>,
 }
 
-/// What an agent's request leads to: an ask to show, or an answer at once with a notice.
 pub(crate) enum Parsed<R> {
     Ask(Ask<R>),
     Refused { line: Value, notice: String },
@@ -38,9 +34,7 @@ pub(crate) struct Step {
 }
 
 pub(crate) enum Field {
-    /// Each option's value; the pick settles the ask.
     Decision(Vec<Value>),
-    /// Each option's value; `other` turns the last option into an input whose text goes under that key.
     Choice {
         key: String,
         values: Vec<Value>,
@@ -53,7 +47,6 @@ pub(crate) enum Field {
     Flag {
         key: String,
     },
-    /// A link the user opens: settles as "accept" after Open, "decline" after Decline.
     Link,
 }
 
@@ -63,26 +56,20 @@ pub(crate) enum Number {
     Float,
 }
 
-/// What the user settled an ask with.
 pub(crate) enum Settled {
     Cancelled,
-    /// One option's value, from a decision or a link.
     Picked(Value),
-    /// Each step's answer by key, in the order asked.
     Answers(Vec<(String, Value)>),
 }
 
-/// The events an answer leads to, and the ask it settled with its reply tag.
 pub(crate) struct Answered<R> {
     pub(crate) events: Vec<HarnessEvent>,
     pub(crate) settled: Option<(R, Settled)>,
 }
 
-/// The pane's asks: the one open and those that wait.
 pub(crate) struct Asks<R> {
     open: Option<Ask<R>>,
     waiting: VecDeque<Ask<R>>,
-    /// How many dialogs went out, so each one's id is new and a late answer to an old one does nothing.
     shown: u64,
 }
 
@@ -97,7 +84,6 @@ impl<R> Default for Asks<R> {
 }
 
 impl<R> Asks<R> {
-    /// Opens the ask, or queues it behind the open one.
     pub(crate) fn push(&mut self, ask: Ask<R>) -> Vec<HarnessEvent> {
         if self.open.is_some() {
             self.waiting.push_back(ask);
@@ -152,12 +138,10 @@ impl<R> Asks<R> {
         }
     }
 
-    /// The open ask's reply, then each waiting one's.
     pub(crate) fn replies(&self) -> impl Iterator<Item = &R> {
         self.open.iter().chain(&self.waiting).map(|ask| &ask.reply)
     }
 
-    /// The agent withdrew the asks `gone` names: the open one's dialog closes, the waiting ones drop.
     pub(crate) fn withdraw(&mut self, gone: impl Fn(&R) -> bool) -> Vec<HarnessEvent> {
         self.waiting.retain(|ask| !gone(&ask.reply));
         match &self.open {
@@ -248,7 +232,6 @@ impl Step {
     }
 }
 
-// An enum is a select, an array of enums a multi select, a boolean a confirm, a string or number an input. A field of any other type makes the form unreadable.
 pub(crate) fn form_steps(schema: &Value, message: &str) -> Option<VecDeque<Step>> {
     schema["properties"]
         .as_object()?
@@ -312,7 +295,6 @@ pub(crate) fn form_steps(schema: &Value, message: &str) -> Option<VecDeque<Step>
         .collect()
 }
 
-// Plain strings, with `enumNames` as their labels when given, or `{ const, title }` options.
 fn enum_options(options: &Value, names: &Value) -> Option<(Vec<String>, Vec<Value>)> {
     let options = options.as_array()?;
     let names = strings(names);

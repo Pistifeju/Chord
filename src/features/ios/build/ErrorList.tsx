@@ -1,4 +1,3 @@
-// The error list under the toolbar's error count: a failed build's errors grouped by file; ↑ ↓ move the highlight, Return or a click opens the file at the error's line.
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import type { BuildIssue_Deserialize } from "../../../ipc/bindings";
@@ -31,7 +30,6 @@ export function ErrorList({ worktree, build, anchor }: { worktree: string; build
   };
 
   useOutsidePointer(panel, closeErrorList);
-  // The list hangs off the count's right edge; a resize would leave it there, so it closes.
   useLayoutEffect(() => {
     const box = anchor.current?.getBoundingClientRect();
     if (box) setSpot({ top: box.bottom + 6, right: window.innerWidth - box.right });

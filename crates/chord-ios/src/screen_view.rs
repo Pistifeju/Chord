@@ -1,5 +1,3 @@
-//! The Simulator and Preview views' native part: one NSView under the webview shows the shown worktree's run or preview simulator in its bezel (its framebuffer IOSurface as CALayer contents, no copies), follows it booting and shutting down, restarts a wedged boot once, and passes the view's input to the device.
-
 use chord_core::lock;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -30,16 +28,11 @@ use crate::simulator_kit::{
     udid_of,
 };
 
-/// How often an attached device without a screen yet gets its frame callbacks again: SimulatorKit creates the framebuffer descriptors lazily.
 const RETRY: Duration = Duration::from_secs(1);
-/// How long after a Lock or Home press the lock state gets read again: SpringBoard reports it only after its animation, up to 3 s for Lock, and not at all when the press changed nothing.
 const LOCK_RECHECK: Duration = Duration::from_millis(3500);
-/// How long after a Home on a locked device the lock state gets read: still locked means the press only woke the screen.
 const WAKE_CHECK: Duration = Duration::from_millis(400);
-/// Retries in a row without any framebuffer descriptor that make a wedged boot.
 const WEDGED_AFTER: u32 = 5;
 
-/// Where the screen goes, in the webview's CSS pixels from its top left; the bezel goes around it.
 #[derive(Deserialize, Type, Clone, Copy, Debug, PartialEq, Default)]
 pub struct ScreenRect {
     pub x: f64,
@@ -48,36 +41,33 @@ pub struct ScreenRect {
     pub height: f64,
 }
 
-/// The phone's frame around the screen: the screen's corner radius and the window's colors as sRGB bytes. Drawn natively, so frame and screen move in the same frame.
 #[derive(Deserialize, Type, Clone, Copy, Debug, PartialEq, Default)]
 pub struct Bezel {
     pub radius: f64,
-    /// The canvas under the frame's rounded corners.
     pub canvas: [u8; 3],
     pub frame: [u8; 3],
-    /// The 1px line outside the frame.
     pub edge: [u8; 3],
 }
 
-/// The frame's width and its edge's, outside the screen.
 const FRAME_WIDTH: f64 = 8.0;
 const EDGE_WIDTH: f64 = 1.0;
-/// Canvas around the bezel, under the web. The web's hole reaches 32px past the bezel and the buttons under it (`HOLE_MARGIN`): on a resize either side can run a frame ahead, and the hole then still opens onto this canvas, never the window's background, and never covers the bezel or the buttons.
 const CANVAS_MARGIN: f64 = 160.0;
 
 #[derive(Serialize, Type, Clone, Debug, PartialEq)]
 #[serde(tag = "state", rename_all = "snake_case")]
 pub enum ScreenState {
-    /// Frames show; the screen's size in pixels and whether SpringBoard is locked.
     Live {
         width: u32,
         height: u32,
         locked: bool,
     },
-    /// No booted simulator, or one with no screen yet; `message` says why when it is more than off.
-    Off { message: Option<String> },
-    /// The private API did not load; `app` names the simulator app to open instead.
-    Unavailable { message: String, app: String },
+    Off {
+        message: Option<String>,
+    },
+    Unavailable {
+        message: String,
+        app: String,
+    },
 }
 
 #[link(name = "IOSurface", kind = "framework")]
@@ -87,7 +77,6 @@ unsafe extern "C" {
     fn IOSurfaceGetSeed(surface: *const c_void) -> u32;
 }
 
-/// The framebuffer to show among the descriptors' surface sizes: the one of the device's native size, never Xcode 27's extra 7680×4320 presentation surface. Without a native size, the largest live one.
 fn pick_surface(sizes: &[(usize, usize)], native: Option<(usize, usize)>) -> Option<usize> {
     let live = || {
         sizes
@@ -104,14 +93,11 @@ fn pick_surface(sizes: &[(usize, usize)], native: Option<(usize, usize)>) -> Opt
         .map(|(index, _)| index)
 }
 
-/// The device type's native screen size in pixels (`SimDeviceType.mainScreenSize`).
-// shortcut: skips capabilities.plist, which only foldables need; read it when foldables come in.
 fn native_size(device: *mut AnyObject) -> Option<(usize, usize)> {
     let kind = get(device, sel!(deviceType));
     if !responds(kind, sel!(mainScreenSize)) {
         return None;
     }
-    // SAFETY: `mainScreenSize` returns a CGSize.
     let size = unsafe {
         msg::<unsafe extern "C" fn(*mut AnyObject, Sel) -> CGSize>()(kind, sel!(mainScreenSize))
     };
@@ -123,7 +109,6 @@ fn register_selector() -> Sel {
     sel!(registerScreenCallbacksWithUUID:callbackQueue:frameCallback:surfacesChangedCallback:propertiesChangedCallback:)
 }
 
-/// The device's framebuffer display descriptors (main screen and overlay planes).
 fn descriptors(device: *mut AnyObject) -> Vec<Retained<AnyObject>> {
     let io = get(device, sel!(io));
     get(io, sel!(updateIOPorts));
@@ -131,7 +116,6 @@ fn descriptors(device: *mut AnyObject) -> Vec<Retained<AnyObject>> {
     if ports.is_null() {
         return vec![];
     }
-    // SAFETY: `deviceIOPorts` returns an NSArray.
     let ports = unsafe { &*(ports as *const NSArray<AnyObject>) };
     ports
         .iter()
@@ -145,14 +129,12 @@ fn descriptors(device: *mut AnyObject) -> Vec<Retained<AnyObject>> {
             let descriptor = get(port, sel!(descriptor));
             (responds(descriptor, sel!(framebufferSurface))
                 && responds(descriptor, register_selector()))
-            // SAFETY: an object pointer.
             .then(|| unsafe { Retained::retain(descriptor) })
             .flatten()
         })
         .collect()
 }
 
-/// Registers `on_frame` for every frame and surface change of the descriptors, on `queue`. SimulatorKit only fills `framebufferSurface` once a client listens.
 fn register(
     descriptors: &[Retained<AnyObject>],
     uuid: &NSUUID,
@@ -161,7 +143,6 @@ fn register(
 ) {
     let nothing = RcBlock::with_encoding::<_, _, _, VoidBlock>(|| {});
     for descriptor in descriptors {
-        // SAFETY: checked in `descriptors`; SimulatorKit copies the blocks.
         unsafe {
             msg::<
                 unsafe extern "C" fn(
@@ -200,7 +181,6 @@ fn surface_size(surface: *mut AnyObject) -> (usize, usize) {
     if surface.is_null() {
         return (0, 0);
     }
-    // SAFETY: an IOSurface.
     unsafe {
         (
             IOSurfaceGetWidth(surface as _),
@@ -209,42 +189,35 @@ fn surface_size(surface: *mut AnyObject) -> (usize, usize) {
     }
 }
 
-/// The window's backing scale, for layers that draw their own contents.
 fn backing_scale(view: &NSView) -> f64 {
     let window = get(view as *const NSView as *mut AnyObject, sel!(window));
     if !responds(window, sel!(backingScaleFactor)) {
         return 2.0;
     }
-    // SAFETY: `backingScaleFactor` returns a CGFloat.
     unsafe {
         msg::<unsafe extern "C" fn(*mut AnyObject, Sel) -> f64>()(window, sel!(backingScaleFactor))
     }
 }
 
-/// NSWindowOcclusionStateVisible: clear while the window is minimized, on another Space, fully covered or its app hidden.
 const OCCLUSION_VISIBLE: usize = 2;
 
-/// Whether any of the window shows; a view with no window counts as visible.
 fn window_visible(view: &NSView) -> bool {
     let window = get(view as *const NSView as *mut AnyObject, sel!(window));
     if !responds(window, sel!(occlusionState)) {
         return true;
     }
-    // SAFETY: `occlusionState` returns an NSUInteger.
     let state = unsafe {
         msg::<unsafe extern "C" fn(*mut AnyObject, Sel) -> usize>()(window, sel!(occlusionState))
     };
     state & OCCLUSION_VISIBLE != 0
 }
 
-/// Calls `on_change` on the main thread whenever a window's occlusion changes. The center keeps the block for the app's life.
 fn watch_occlusion(on_change: impl Fn() + 'static) -> Option<()> {
     let center = get(class(c"NSNotificationCenter")?, sel!(defaultCenter));
     let main_queue = get(class(c"NSOperationQueue")?, sel!(mainQueue));
     let block =
         RcBlock::with_encoding::<_, _, _, ObjectBlock>(move |_: *mut AnyObject| on_change());
     let name = objc2_foundation::NSString::from_str("NSWindowDidChangeOcclusionStateNotification");
-    // SAFETY: `addObserverForName:object:queue:usingBlock:` takes a name, nil, the main operation queue and a block; the center copies the block.
     unsafe {
         msg::<
             unsafe extern "C" fn(
@@ -267,12 +240,10 @@ fn watch_occlusion(on_change: impl Fn() + 'static) -> Option<()> {
     Some(())
 }
 
-/// The webview paints no background while the screen shows through it.
 fn set_draws_background(webview: &NSView, draws: bool) {
     let Some(number) = class(c"NSNumber") else {
         return;
     };
-    // SAFETY: `numberWithBool:` returns an autoreleased NSNumber; WKWebView takes `drawsBackground` by key-value coding.
     unsafe {
         let value = msg::<unsafe extern "C" fn(*mut AnyObject, Sel, Bool) -> *mut AnyObject>()(
             number,
@@ -291,66 +262,48 @@ fn set_draws_background(webview: &NSView, draws: bool) {
     }
 }
 
-/// The device the view shows, with its frame callbacks.
 struct Attached {
     udid: String,
     device: Retained<AnyObject>,
     descriptors: Vec<Retained<AnyObject>>,
     uuid: Retained<NSUUID>,
     native: Option<(usize, usize)>,
-    /// Retries in a row that found no framebuffer descriptor.
     missing: u32,
-    /// Shown surface and its seed: an unchanged seed means no new pixels.
     shown: (usize, u32),
     size: (usize, usize),
     locked: bool,
-    /// Lock states the watch reported; a recheck that sees a new one leaves the watch's state.
     lock_reports: u32,
-    /// The lock state watch's process group.
     lock_watch: Option<u32>,
 }
 
 struct Shown {
     worktree: PathBuf,
-    /// The worktree's simulator name.
     name: String,
     set: DeviceSet,
     on_state: Box<dyn Fn(ScreenState)>,
 }
 
-/// Main-thread state of the one screen view in the window.
 struct Screen {
     webview: Retained<NSView>,
     view: Retained<NSView>,
-    /// The bezel's edge, inside the view's canvas-colored layer.
     frame: Retained<CALayer>,
-    /// The bezel's frame, 1px inside its edge. A border on `frame` would let its fill bleed past the edge's round corners.
     plate: Retained<CALayer>,
-    /// The screen, inside the frame.
     layer: Retained<CALayer>,
-    /// Home, Lock and Shake under the frame, once the web has laid them out.
     capsule: Retained<CALayer>,
     buttons: Option<ScreenButtons>,
     motion: Motion,
-    /// The device set's notification handler, for the app's life.
     _watch: RcBlock<dyn Fn(*mut AnyObject)>,
-    /// The window is hidden: no frame callbacks are registered.
     window_hidden: bool,
-    /// A `check_screen` retry is queued: a show queues another only when none is.
     checking: bool,
     shown: Option<Shown>,
     rect: ScreenRect,
     bezel: Bezel,
     attached: Option<Attached>,
-    /// Bumped on every attach and detach: callbacks of an older attach do nothing.
     generation: u64,
     sent: Option<ScreenState>,
-    /// One input link per booted device, until it shuts down: a second Indigo client in one process gets its touches dropped.
     links: HashMap<String, Hid>,
-    /// Device restarted once for a wedged boot; a second wedge shows the error instead.
     restarted: Option<String>,
     restarting: bool,
-    /// Device still wedged after its restart: shown as off with the error until it shuts down.
     wedged: Option<String>,
 }
 
@@ -358,27 +311,22 @@ thread_local! {
     static SCREEN: RefCell<Option<Screen>> = const { RefCell::new(None) };
 }
 
-/// Bumped by every show and hide: a show that finishes loading after a later hide does nothing.
 static TURN: AtomicU64 = AtomicU64::new(0);
-/// The newest rect and bezel: a move that comes in while a show still loads must not be lost.
 static PLACE: Mutex<Option<(ScreenRect, Bezel)>> = Mutex::new(None);
 
 fn set_place(rect: ScreenRect, bezel: Bezel) {
     *lock(&PLACE) = Some((rect, bezel));
 }
 
-/// A show's place in line: a later show or hide makes it stale.
 #[derive(Clone, Copy, Debug)]
 pub struct ShowTurn(u64);
 
-/// Any thread, before `prepare_screen`: starts a show at `rect` in `bezel`; `show_screen` takes its turn.
 pub fn begin_show(rect: ScreenRect, bezel: Bezel) -> ShowTurn {
     let turn = TURN.fetch_add(1, Ordering::SeqCst) + 1;
     set_place(rect, bezel);
     ShowTurn(turn)
 }
 
-/// Runs `f` on the screen state; skips when it is borrowed or not created yet.
 fn with(f: impl FnOnce(&mut Screen)) {
     SCREEN.with(|screen| {
         if let Ok(mut screen) = screen.try_borrow_mut()
@@ -406,7 +354,6 @@ const WEDGED: &str = "The simulator booted without a screen. Shut it down and bo
 impl Screen {
     fn create(mtm: MainThreadMarker, webview: Retained<NSView>) -> Option<Screen> {
         let kit = simulator_kit::load().ok()?;
-        // SAFETY: AppKit's own view hierarchy.
         let parent = unsafe { webview.superview() }?;
         let view = NSView::new(mtm);
         view.setWantsLayer(true);
@@ -422,7 +369,6 @@ impl Screen {
         root.addSublayer(&frame);
         root.addSublayer(&capsule);
         view.setHidden(true);
-        // During the zoom animation the webview shows its old frame pinned top left, so the view stays pinned there too, under the hole, until the web moves it.
         if !parent.isFlipped() {
             view.setAutoresizingMask(NSAutoresizingMaskOptions::ViewMinYMargin);
         }
@@ -540,7 +486,6 @@ impl Screen {
         CATransaction::commit();
     }
 
-    /// The view shows only while a frame is on it; until then the web shows the state under the hole.
     fn update_hidden(&self) {
         let live = self
             .attached
@@ -549,7 +494,6 @@ impl Screen {
         self.view.setHidden(self.shown.is_none() || !live);
     }
 
-    /// Follows the shown worktree's simulator: attaches when it is booted, detaches when it is not. Runs on show and on every device set notification.
     fn sync(&mut self) {
         let Ok(kit) = simulator_kit::load() else {
             return;
@@ -598,7 +542,6 @@ impl Screen {
         }
         let native = native_size(Retained::as_ptr(&device) as *mut AnyObject);
         let generation = self.generation;
-        // The Preview view has no Lock button.
         let lock_watch = (set == DeviceSet::Run)
             .then(|| {
                 simulator::watch_lock(&udid, move |locked| {
@@ -661,7 +604,6 @@ impl Screen {
         self.refresh();
     }
 
-    /// Drops the frame callbacks while the window is hidden; registers them again and draws the current frame when it shows.
     fn follow_window(&mut self) {
         let hidden = !window_visible(&self.webview);
         if hidden == self.window_hidden {
@@ -690,12 +632,10 @@ impl Screen {
             }
         }
         self.generation += 1;
-        // SAFETY: clearing the contents.
         unsafe { self.layer.setContents(None) };
         self.update_hidden();
     }
 
-    /// No screen yet: listen again. A booted device with no framebuffer descriptor at all for `WEDGED_AFTER` retries is a wedged boot: it gets restarted once; a second wedge shows the error.
     fn check_screen(&mut self) {
         let Some(attached) = self.attached.as_mut() else {
             return;
@@ -738,7 +678,6 @@ impl Screen {
         });
     }
 
-    /// Points the layer at the current framebuffer surface. Runs on every frame callback.
     fn refresh(&mut self) {
         let Some(attached) = self.attached.as_mut() else {
             return;
@@ -761,7 +700,6 @@ impl Screen {
             return;
         };
         let surface = surfaces[index];
-        // SAFETY: an IOSurface.
         let seed = unsafe { IOSurfaceGetSeed(surface as _) };
         if attached.shown == (surface as usize, seed) {
             return;
@@ -771,11 +709,9 @@ impl Screen {
         CATransaction::begin();
         CATransaction::setDisableActions(true);
         let layer = Retained::as_ptr(&self.layer) as *mut AnyObject;
-        // Core Animation does not redraw when the same IOSurface changes underneath: tell it.
         if same && responds(layer, sel!(setContentsChanged)) {
             get(layer, sel!(setContentsChanged));
         } else {
-            // SAFETY: an IOSurface is valid layer contents.
             unsafe {
                 self.layer.setContents(None);
                 self.layer.setContents(Some(&*surface));
@@ -783,7 +719,6 @@ impl Screen {
         }
         CATransaction::commit();
         if attached.size != sizes[index] {
-            // A screen came up: a later wedge of this device gets its restart again.
             if attached.size == (0, 0) {
                 self.restarted = None;
             }
@@ -800,7 +735,6 @@ impl Screen {
         }
     }
 
-    /// Reads the lock state again `after` a press, which corrects a wrong guess. A Home that only woke the lock screen (`unlocking` and still locked) gets a second Home, which unlocks.
     fn recheck_lock(&self, after: Duration, unlocking: bool) {
         let Some(attached) = &self.attached else {
             return;
@@ -844,7 +778,6 @@ impl Screen {
         });
     }
 
-    /// Sends Live once the attached device has a screen.
     fn send_live(&mut self) {
         let Some(attached) = &self.attached else {
             return;
@@ -867,15 +800,11 @@ fn unavailable(message: String) -> ScreenState {
     ScreenState::Unavailable { message, app }
 }
 
-/// Loads the private frameworks once, which finds the selected Xcode with a tool run: call it off the main thread before `show_screen`. The Unavailable state when they do not load.
 pub fn prepare_screen() -> Option<ScreenState> {
     simulator_kit::load().err().map(unavailable)
 }
 
-/// Main thread. Shows the worktree's simulator, or with `preview` its preview simulator, under `webview` (a WKWebView) at the newest place; its state goes to `on_state`. Does nothing when a later show or hide made `turn` stale.
-///
-/// # Safety
-/// `webview` must point to the window's live WKWebView.
+#[allow(clippy::missing_safety_doc)]
 pub unsafe fn show_screen(
     webview: *mut c_void,
     turn: ShowTurn,
@@ -893,7 +822,6 @@ pub unsafe fn show_screen(
     if let Some(state) = prepare_screen() {
         return on_state(state);
     }
-    // SAFETY: the caller passes the live webview.
     let Some(webview) = (unsafe { Retained::retain(webview as *mut NSView) }) else {
         return;
     };
@@ -940,7 +868,6 @@ pub unsafe fn show_screen(
     });
 }
 
-/// Any thread: keeps `rect` and `bezel` for a show still loading, and returns the move of the shown screen, to run on the main thread.
 pub fn move_screen(rect: ScreenRect, bezel: Bezel) -> impl FnOnce() + Send + 'static {
     set_place(rect, bezel);
     move || {
@@ -952,7 +879,6 @@ pub fn move_screen(rect: ScreenRect, bezel: Bezel) -> impl FnOnce() + Send + 'st
     }
 }
 
-/// Main thread. Draws the buttons under the shown screen as the web laid them out.
 pub fn set_buttons(buttons: ScreenButtons) {
     with(|screen| {
         let was = screen.buttons.as_ref().and_then(screen_buttons::lock_icon);
@@ -965,7 +891,6 @@ pub fn set_buttons(buttons: ScreenButtons) {
     });
 }
 
-/// Any thread: makes a show still loading stale, and returns the hide, to run on the main thread. The hide drops the frame callbacks; the webview paints its background again.
 pub fn hide_screen() -> impl FnOnce() + Send + 'static {
     TURN.fetch_add(1, Ordering::SeqCst);
     || {
@@ -979,7 +904,6 @@ pub fn hide_screen() -> impl FnOnce() + Send + 'static {
     }
 }
 
-/// Main thread. Sends the view's input to the shown worktree's simulator; returns the tool run that carries it, if any.
 pub fn send_input(worktree: &Path, input: Input) -> Option<Blocking> {
     let mut blocking = None;
     with(|screen| {
@@ -1032,8 +956,6 @@ mod tests {
         assert_eq!(pick_surface(&[(0, 0)], None), None);
     }
 
-    /// Needs a booted simulator: `CHORD_SIM_UDID=<udid> cargo test -p chord-ios frame_smoke -- --ignored --nocapture`.
-    /// Waits for the first frame callback, then counts them while `simctl ui appearance` flips the screen; the appearance ends as it started.
     #[test]
     #[ignore]
     fn frame_smoke() {

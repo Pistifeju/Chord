@@ -1,4 +1,3 @@
-// The side panel's open state, width and shown view per worktree, saved through Rust.
 import { commands, type SidePanel_Serialize as SidePanel, type SideView } from "../../ipc/bindings";
 import { panelStore } from "../../ui/panel";
 
@@ -12,22 +11,17 @@ const store = panelStore<"width", SidePanel>({
 
 export const { panels: sidePanels, panelOf: sidePanelOf, load: loadSidePanels, resize: resizeSidePanel, endResize: endSidePanelResize } = store;
 
-/** Whether the panel shows `view` now. */
 export const showsSideView = (all: Record<string, SidePanel>, worktree: string, view: SideView) => {
   const panel = sidePanelOf(all, worktree);
   return panel.open && panel.view === view;
 };
 
-/** Shows `view` the next time the panel opens, without opening it. */
 export const keepSideView = (worktree: string, view: SideView) => store.change(worktree, { view });
 
-/** Files and Changes moved to the sidebar: a panel saved on one of them closes and keeps `view` for its next open. */
 export const leaveSidebarView = (worktree: string, view: SideView) => store.change(worktree, { open: false, view });
 
-// The Preview view's list sits beside its screen and needs the room.
 const minWidths: Partial<Record<SideView, number>> = { preview: 560 };
 
-/** The width a view with a minimum widened the panel from, which the next view without one gets back. */
 const widthsBefore = new Map<string, number>();
 
 export function openSideView(worktree: string, view: SideView) {
@@ -44,6 +38,5 @@ export function openSideView(worktree: string, view: SideView) {
   store.change(worktree, { open: true, view, width });
 }
 
-/** Hides the panel while it shows `view`, else opens it on `view`. */
 export const toggleSideView = (worktree: string, view: SideView) =>
   showsSideView(sidePanels.get(), worktree, view) ? store.show(worktree, false) : openSideView(worktree, view);

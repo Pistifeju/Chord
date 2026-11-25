@@ -1,5 +1,3 @@
-//! App entry: builds the Tauri app, lists its commands and runs it.
-
 mod commands;
 mod notifications;
 mod running;
@@ -126,12 +124,10 @@ pub fn ipc() -> tauri_specta::Builder<tauri::Wry> {
         ])
 }
 
-/// The socket the agents' build and run tools call. The temp folder keeps the path under the 104 bytes a socket path may hold.
 fn tools_socket() -> PathBuf {
     std::env::temp_dir().join(format!("chord-{}.sock", std::process::id()))
 }
 
-/// Keeps the app's own web view on the app: a link that would load another page in it, from a right-click Open Link or a dropped link, goes to the window, which opens it like a chat link. Browser tabs navigate freely.
 fn link_guard() -> tauri::plugin::TauriPlugin<tauri::Wry> {
     tauri::plugin::Builder::new("link-guard")
         .on_navigation(|webview, url| {
@@ -171,7 +167,6 @@ pub fn run() {
             let socket = tools_socket();
             let tools = AgentTools::default();
             let handle = app.handle().clone();
-            // Without the socket the agents work on without the tools.
             let sessions = match tools.listen(&socket, move |call| {
                 let _ = commands::build::AgentBuildRequested(call).emit(&handle);
             }) {
@@ -193,7 +188,6 @@ pub fn run() {
             if let tauri::RunEvent::Exit = event {
                 let _ = std::fs::remove_file(tools_socket());
             }
-            // Closing the window asks like Quit does: the window quits at once or shows its sheet.
             if let tauri::RunEvent::WindowEvent {
                 event: tauri::WindowEvent::CloseRequested { api, .. },
                 ..

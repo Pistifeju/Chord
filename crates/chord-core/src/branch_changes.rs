@@ -1,5 +1,3 @@
-//! A worktree's branch against a base: the base it compares with by default, the branches it can compare with instead, its commits since the merge base, the files the branch changed, and one file's diff on the branch.
-
 use std::path::Path;
 
 use serde::Serialize;
@@ -15,18 +13,14 @@ pub struct Commit {
     pub hash: String,
     pub short_hash: String,
     pub subject: String,
-    /// When it was committed, in milliseconds since 1970.
     pub time: f64,
 }
 
 #[derive(Serialize, Type, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct BranchChanges {
-    /// The base the commits and files compare with: the one asked for while it exists, else the default.
     pub base: String,
-    /// The main checkout's branch, or the upstream on the main checkout itself.
     pub default_base: String,
-    /// Newest first.
     pub commits: Vec<Commit>,
     pub files: Vec<CommittedFile>,
 }
@@ -34,9 +28,7 @@ pub struct BranchChanges {
 #[derive(Serialize, Type, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct BaseBranches {
-    /// Without the worktree's own branch.
     pub local: Vec<String>,
-    /// As `origin/main`, without the remotes' HEAD.
     pub remote: Vec<String>,
 }
 
@@ -44,7 +36,6 @@ fn current_branch(dir: &Path) -> Result<Option<String>, Error> {
     git::optional(git::run(dir, &["symbolic-ref", "-q", "--short", "HEAD"]))
 }
 
-/// The main checkout's branch; on the main checkout itself its upstream; None on a detached HEAD.
 fn default_base(dir: &Path) -> Result<Option<String>, Error> {
     if current_branch(dir)?.is_none() {
         return Ok(None);
@@ -72,7 +63,6 @@ fn merge_base(dir: &Path, base: &str) -> Result<Option<String>, Error> {
     git::optional(git::run(dir, &["merge-base", base, "HEAD"]))
 }
 
-/// The branch's commits and files against `base`, or the default base when `base` is None or gone; None without a default base or a shared history.
 pub fn read(dir: &Path, base: Option<&str>) -> Result<Option<BranchChanges>, Error> {
     let Some(default_base) = default_base(dir)? else {
         return Ok(None);
@@ -106,7 +96,6 @@ pub fn read(dir: &Path, base: Option<&str>) -> Result<Option<BranchChanges>, Err
     }))
 }
 
-/// The branches a worktree can compare with, local and remote.
 pub fn bases(dir: &Path) -> Result<BaseBranches, Error> {
     let own = current_branch(dir)?;
     let refs = git::read(
@@ -136,14 +125,12 @@ pub fn bases(dir: &Path) -> Result<BaseBranches, Error> {
     Ok(branches)
 }
 
-/// The file's diff on the branch since its merge base with `base`.
 pub fn diff(dir: &Path, path: &str, base: &str) -> Result<FileDiff, Error> {
     let from = merge_base(dir, base)?
         .ok_or_else(|| Error::Message(format!("This branch shares no history with {base}.")))?;
     commit_diff::diff_between(dir, &from, "HEAD", path)
 }
 
-/// Each record of `git log -z` with the fields 1F apart: hash, short hash, commit time in seconds, subject.
 fn parse_log(output: &str) -> Vec<Commit> {
     output
         .split('\0')
@@ -204,7 +191,6 @@ mod tests {
         commit(&tree, "add two")?;
         std::fs::write(tree.join("b.rs"), "new\n")?;
         commit(&tree, "add b")?;
-        // A commit on main after the branch split off changes nothing on the branch.
         std::fs::write(repo.join("c.rs"), "main\n")?;
         commit(&repo, "on main")?;
 
@@ -228,7 +214,6 @@ mod tests {
         let last = commit_diff::commit_files(&tree, &branch.commits[0].hash)?;
         assert_eq!(last.len(), 1);
         assert_eq!(last[0].path, "b.rs");
-        // The main checkout has no upstream, so it has no base.
         assert_eq!(read(&repo, None)?, None);
         Ok(())
     }

@@ -1,4 +1,3 @@
-// Tests for the path rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { fileName } from "./paths.ts";

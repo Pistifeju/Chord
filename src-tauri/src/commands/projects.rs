@@ -1,5 +1,3 @@
-//! Commands for projects and their worktrees: add, remove, list, create, rename a branch, list the local branches, switch to one, create one and delete one, delete a worktree, git counts.
-
 use std::path::PathBuf;
 
 use chord_core::{
@@ -168,7 +166,6 @@ pub async fn create_worktree(
             .map(|w| w.path)
             .collect();
         let created = worktrees::create(&project, &branch)?;
-        // Git lists worktrees in its own order, never by creation, so only the saved order puts the new card last.
         let new: Vec<PathBuf> = worktrees::list(&project.path)?
             .into_iter()
             .map(|w| w.path)

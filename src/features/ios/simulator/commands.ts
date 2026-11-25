@@ -1,4 +1,3 @@
-// The Simulator view's commands for the commands table: show or hide the view, take a screenshot, and press Home, Lock or Unlock, or Shake on its simulator.
 import type { AppCommand } from "../../../app/commands";
 import { onTarget } from "../../../app/commandTarget";
 import type { Button } from "../../../ipc/bindings";
@@ -6,7 +5,6 @@ import { showsSideView, sidePanels, toggleSideView } from "../../sidepanel/store
 import { xcodeWorktree } from "../../worktrees/store";
 import { pressButton, screen, takeScreenshot } from "./store";
 
-// The open worktree while its side panel shows the Simulator view.
 const shownWorktree = (): string | null => {
   const worktree = xcodeWorktree();
   return worktree && showsSideView(sidePanels.get(), worktree, "simulator") ? worktree : null;

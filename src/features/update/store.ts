@@ -1,4 +1,3 @@
-// The newer release, looked for at launch and every six hours, and the install that restarts into it: at once, or after the sheet while an agent works.
 import { Channel } from "@tauri-apps/api/core";
 import { commands } from "../../ipc/bindings";
 import { closeSheet, openSheet } from "../../app/sheet";
@@ -11,10 +10,8 @@ import { flushAllSaves } from "../editor/store";
 const RECHECK_MS = 6 * 60 * 60 * 1000;
 
 export const newerVersion = externalStore<string | null>(null);
-// The running install's download percentage: null before the server told the size, 100 once the download ended and the restart began.
 export const installing = externalStore<{ percent: number | null } | null>(null);
 
-// A look that fails, offline or before a release has a feed, keeps the last answer.
 const look = () => {
   commands.checkUpdate().then(newerVersion.set).catch(console.error);
 };

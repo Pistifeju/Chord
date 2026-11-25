@@ -1,4 +1,3 @@
-// The lightbox: one image of a message at full size; ← and → step through the message's images, Esc closes.
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import type { Image } from "../../ipc/bindings";
@@ -10,7 +9,6 @@ type Props = { images: Image[]; index: number; onStep: (by: -1 | 1) => void; onC
 export function Lightbox({ images, index, onStep, onClose }: Props) {
   const last = images.length - 1;
   const root = useRef<HTMLDivElement>(null);
-  // The lightbox takes the keys from the composer behind it, and gives the focus back when it closes.
   useEffect(() => {
     const before = document.activeElement as HTMLElement | null;
     root.current?.focus();

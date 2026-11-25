@@ -1,5 +1,3 @@
-//! The OpenCode adapter: runs `opencode acp` as a process and hands its stdout to the reader. The only module that knows OpenCode's records.
-
 mod asks;
 mod commands;
 mod reader;
@@ -15,7 +13,6 @@ use super::{Agent, Harness, HarnessEvent, agent_tools};
 use crate::Error;
 use reader::Reader;
 
-/// The harness name a pane saves.
 pub const NAME: &str = "opencode";
 
 pub const HARNESS: Harness = Harness {
@@ -29,7 +26,6 @@ pub const HARNESS: Harness = Harness {
     starts: true,
 };
 
-/// Starts the pane's OpenCode in `dir` on the saved `session`, else on a new session; `/new` and `/reload` swap its process for another. With `tools`, the socket Chord's tools listen on, the agent gets the build and run tools.
 pub fn start(
     dir: &Path,
     session: Option<&str>,

@@ -1,4 +1,3 @@
-// Tests for the Simulator view's screen rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { clampToScreen, cornerRadius, fingersFor, fit, fromBottom, gestureFingers, secondFinger, toScreen } from "./screen.ts";

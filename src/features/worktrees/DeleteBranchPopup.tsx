@@ -1,4 +1,3 @@
-// The sheets that ask before a local branch is deleted, and again with force when git calls it unmerged.
 import { closeSheet, sheet, sheetOf } from "../../app/sheet";
 import { ConfirmSheet } from "../../ui/ConfirmSheet";
 import { confirmDeleteBranch } from "./localBranches";

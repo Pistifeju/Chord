@@ -1,4 +1,3 @@
-// Tests for the terminal's dropped path rules.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { shellPath } from "./paths.ts";

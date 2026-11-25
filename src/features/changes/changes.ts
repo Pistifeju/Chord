@@ -1,10 +1,8 @@
-// Rules for the Changes view: its Staged and Changes groups, when Commit runs, the rows a shift-click picks, how a change's status reads, which row the focused tab's diff selects, what a diff tab's title adds, and whether its diff can change.
 import type { Change, ChangeStatus, DiffSide, WorktreePanes } from "../../ipc/bindings";
 import { groupOf } from "../panes/layout.ts";
 
 export type ChangeGroup = { title: "Staged" | "Changes"; side: "staged" | "unstaged"; changes: Change[] };
 
-/** Both groups, Staged first, each in path order; an empty one still shows, so a count of 0 reads. */
 export function changeGroups(list: Change[]): ChangeGroup[] {
   const sorted = [...list].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   return [
@@ -17,7 +15,6 @@ export const statusLetters: Record<ChangeStatus, string> = { modified: "M", adde
 
 export const statusWord = (status: ChangeStatus) => status[0].toUpperCase() + status.slice(1);
 
-/** A diff side's key, what its tab's tooltip adds to the path, and whether its diff can change, so the view's reads refresh it. */
 function describeSide(side: DiffSide): { key: string; title: string; changes: boolean } {
   if (side === "staged") return { key: side, title: " (Staged)", changes: true };
   if (side === "unstaged") return { key: side, title: " (Changes)", changes: true };
@@ -26,17 +23,12 @@ function describeSide(side: DiffSide): { key: string; title: string; changes: bo
   return { key: `stash ${side.stash}`, title: ` (Stash ${side.stash.slice(0, 7)})`, changes: false };
 }
 
-// A ref name and a hash hold no colon, so the path starts after the first one.
-/** A row's key: its side and path, as the diff tab it opens holds them. */
 export const diffKey = (side: DiffSide, path: string) => `${describeSide(side).key}:${path}`;
 
-/** What a diff tab's tooltip adds to the path. */
 export const diffTitle = (side: DiffSide) => describeSide(side).title;
 
-/** False for a commit's or a stash's diff, which never changes. */
 export const diffChanges = (side: DiffSide) => describeSide(side).changes;
 
-/** The keys of the group's rows from `anchor` to `key`, both in; `key` alone while the anchor is not in the group. */
 export function pickRange(group: ChangeGroup, anchor: string | null, key: string): string[] {
   const keys = group.changes.map((c) => diffKey(group.side, c.path));
   const from = anchor ? keys.indexOf(anchor) : -1;
@@ -45,7 +37,6 @@ export function pickRange(group: ChangeGroup, anchor: string | null, key: string
   return keys.slice(Math.min(from, to), Math.max(from, to) + 1);
 }
 
-/** The row the focus moves to once `acted` leave the group: the first one after them, else the last one before, else none. */
 export function landingAfter(group: ChangeGroup, acted: string[]): string | null {
   const keys = group.changes.map((c) => diffKey(group.side, c.path));
   const last = Math.max(...acted.map((key) => keys.indexOf(key)));
@@ -53,7 +44,6 @@ export function landingAfter(group: ChangeGroup, acted: string[]): string | null
   return after ?? keys.slice(0, last).reverse().find((key) => !acted.includes(key)) ?? null;
 }
 
-/** The row to select once a read drops the selected one from its group: the next row the group kept, else the last one before, else the change itself in its new group, else none. */
 export function nextSelection(before: Change[], after: Change[], selected: string): string | null {
   const keys = new Set(after.map((c) => diffKey(c.staged ? "staged" : "unstaged", c.path)));
   if (keys.has(selected)) return null;
@@ -64,7 +54,6 @@ export function nextSelection(before: Change[], after: Change[], selected: strin
   return landingAfter(group, gone) ?? (keys.has(moved) ? moved : null);
 }
 
-/** The rows that arrived since the first read, so only they animate in: new in `after`, or arrived before and still there. */
 export function arrivals(before: Change[] | undefined, after: Change[] | undefined, arrived: Set<string>): Set<string> {
   if (!before || !after) return new Set();
   const keyOf = (c: Change) => diffKey(c.staged ? "staged" : "unstaged", c.path);
@@ -72,11 +61,9 @@ export function arrivals(before: Change[] | undefined, after: Change[] | undefin
   return new Set(after.map(keyOf).filter((key) => !had.has(key) || arrived.has(key)));
 }
 
-/** The key of the diff the focused tab shows, if it shows one. */
 export function focusedDiff(panes: WorktreePanes | undefined): string | null {
   const tab = panes && groupOf(panes.layout, panes.focused)?.tabs.find((t) => t.id === panes.focused);
   return tab?.kind === "file" && tab.diff ? diffKey(tab.diff, tab.path) : null;
 }
 
-/** Whether Commit runs: a message, and a staged file or the last commit to amend. */
 export const canCommit = (message: string, amend: boolean, staged: boolean) => message.trim() !== "" && (staged || amend);

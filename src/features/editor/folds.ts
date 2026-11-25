@@ -1,8 +1,6 @@
-// The folded blocks an editor keeps when an agent rewrites its file: each one moved past the agent's change, gone when the change touches it.
 import { foldedRanges, foldEffect } from "@codemirror/language";
 import { ChangeSet, type EditorState, type StateEffect } from "@codemirror/state";
 
-/** The change from `before` to `after` as one replaced span between their common start and common end. */
 export function rewrite(before: string, after: string): ChangeSet {
   const shorter = Math.min(before.length, after.length);
   let start = 0;

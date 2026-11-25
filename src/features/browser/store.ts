@@ -1,4 +1,3 @@
-// Connects browser tabs to IPC: a web link opened in a browser tab of the open worktree or, as Settings chooses, in the default browser; each tab's page shown over its pane; its loads and title from Rust.
 import { commands, events, type BrowserAction, type BrowserRect } from "../../ipc/bindings";
 import { fail } from "../../ui/alert";
 import { externalStore } from "../../ui/externalStore";
@@ -7,12 +6,10 @@ import { linksInDefaultBrowser } from "../settings/store";
 import { openWorktree } from "../worktrees/store";
 import { webAddress } from "./address";
 
-/** The browser tabs whose page is loading. */
 export const loading = externalStore<Record<string, boolean>>({});
 
 export const openInDefaultBrowser = (url: string) => void commands.openLink(url).catch(fail);
 
-// Only web addresses open in a tab; a mail link, or a link while no worktree shows, goes to the default app.
 export function openLink(url: string) {
   const worktree = openWorktree();
   const web = /^https?:\/\//i.test(url) ? webAddress(url) : null;

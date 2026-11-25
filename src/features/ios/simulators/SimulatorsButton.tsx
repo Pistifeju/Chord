@@ -1,4 +1,3 @@
-// The status bar's simulators button: how many simulators Chord created are booted, and the menu that lists them with Shut Down Others.
 import { LogicalPosition } from "@tauri-apps/api/dpi";
 import { Menu, MenuItem, PredefinedMenuItem } from "@tauri-apps/api/menu";
 import { useEffect, type MouseEvent } from "react";

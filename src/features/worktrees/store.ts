@@ -1,4 +1,3 @@
-// Connects the project rules to IPC: load, add by dialog or drop, remove, select, reorder, delete a worktree.
 import { commands, type Project } from "../../ipc/bindings";
 import { closeSheet, openSheet, sheet, sheetOf } from "../../app/sheet";
 import { fail, notify } from "../../ui/alert";
@@ -12,19 +11,15 @@ import { fileName } from "../files/paths";
 
 export const projects = externalStore(noProjects);
 
-/** A project was added once, so a window without projects shows the empty state, not the welcome. Rust also sets it on a removal, for projects added before it existed. */
 export const welcomed = externalStore(false);
 
-// The worktree the window shows: the selected one, none while Settings covers the window.
 export const openWorktree = (): string | null => (settingsOpen.get() ? null : projects.get().selected);
 
-/** The open worktree while it has an Xcode project. */
 export const xcodeWorktree = (): string | null => {
   const worktree = openWorktree();
   return worktree && worktreeAt(projects.get(), worktree)?.xcode ? worktree : null;
 };
 
-/** The open worktree while git reads it, so not a plain folder. */
 export const gitWorktree = (): string | null => {
   const worktree = openWorktree();
   return worktree && worktreeAt(projects.get(), worktree)?.git ? worktree : null;
@@ -32,7 +27,6 @@ export const gitWorktree = (): string | null => {
 
 export const shownPanes = () => shownSession(panes.get(), projects.get().selected, settingsOpen.get());
 
-/** The stores `shownPanes` reads, for a watcher that follows it. */
 export const shownPanesStores = () => [panes, projects, settingsOpen];
 
 const update = (change: (p: Projects) => Projects) => {
@@ -45,14 +39,12 @@ const update = (change: (p: Projects) => Projects) => {
   }
 };
 
-// Every worktree that goes, by a delete, a removed project or outside Chord, goes through here.
 const worktreesGone = (paths: string[]) => paths.forEach(forgetPanes);
 
 export async function refreshWorktrees(project: string) {
   const list = await commands.listWorktrees(project);
   const gone = goneWorktrees(projects.get(), project, list);
   worktreesGone(gone);
-  // A gone selected card hands the selection on, as a delete in Chord does.
   update((p) => withWorktrees(gone.reduce((q, path) => withoutWorktree(q, project, path), p), project, list));
 }
 
@@ -64,13 +56,11 @@ function show(project: Project) {
 
 const add = (project: Project) => show(project).then(() => update((p) => withFirstWorktreeSelected(p, project.path)));
 
-// The saved worktree comes back once its project's list has loaded; one that no longer exists stays unselected.
 export function loadProjects(list: Project[], saved: string | null) {
   const loaded = list.map((project) => show(project).then(() => update((p) => withSavedSelection(p, saved))));
   return Promise.all(loaded).then(pruneVanishedPanes);
 }
 
-// Only when every project's list loaded and none is empty: a failed load must not wipe saved layouts.
 function pruneVanishedPanes() {
   const { list, worktrees } = projects.get();
   if (list.some((p) => !worktrees[p.path]?.length)) return;
@@ -96,7 +86,6 @@ export async function addFolders(folders: string[]) {
   }
 }
 
-// A remove that would stop a working agent asks first.
 export function requestRemoveProject(path: string) {
   const { worktrees, list } = projects.get();
   if (!agentsWorkIn((worktrees[path] ?? []).map((w) => w.path))) return void removeProject(path);
@@ -148,7 +137,6 @@ export function confirmDeletion() {
   if (pending) void deleteWorktree(pending.project, pending.path);
 }
 
-// The card goes at once; git runs in the background and the list comes back if it refuses.
 async function deleteWorktree(project: string, path: string, force = false) {
   const branch = projects.get().worktrees[project]?.find((w) => w.path === path)?.branch ?? null;
   const before = projects.get().selected;

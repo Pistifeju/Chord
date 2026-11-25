@@ -1,4 +1,3 @@
-// Rules for a worktree's build: how Rust's events change it, how the card's marker reads it, which failed build the toolbar counts, and where an error's file lies, how its place reads and how errors group by file.
 import type { BuildEvent_Deserialize, BuildIssue_Deserialize } from "../../../ipc/bindings";
 import type { BottomViewSlot } from "../../bottompanel/BottomPanel";
 import type { BottomView } from "../../../ipc/bindings";
@@ -9,25 +8,18 @@ import { fileName } from "../../files/paths.ts";
 export type Build = {
   phase: "preparing" | "waiting" | "building" | "installing" | "launching" | "running" | "exited" | "succeeded" | "failed" | "stopped";
   startedAt: number;
-  /** The first errors, and how many more the build printed. */
   issues: BuildIssue_Deserialize[];
   more: number;
-  /** The user saw the success or the stop, so its marker goes. */
   endSeen: boolean;
-  /** When it succeeded, failed, stopped or its app exited. */
   endedAt?: number;
-  /** What the log says it does now, "Compiling ChordKit"; none before the first step. */
   step?: string;
-  /** A ⌘B that came while the app ran: the app and its console go on, and this build shows beside them. */
   side?: Build;
 };
 
-/** A worktree has no build until Rust reports its first phase. */
 export type BuildAndLog = { build: Build | undefined; log: Log; console: ConsoleLine[] };
 
 export const noBuild: BuildAndLog = { build: undefined, log: emptyLog, console: emptyConsole };
 
-// xcodebuild's step names, as the activity field reads them.
 const stepVerbs: Record<string, string> = {
   SwiftCompile: "Compiling",
   CompileSwift: "Compiling",
@@ -41,7 +33,6 @@ const stepVerbs: Record<string, string> = {
   CodeSign: "Signing",
 };
 
-/** The last step in a batch of log text that names its target, "Compiling ChordKit", or null. */
 export function buildStep(text: string): string | null {
   const lines = text.split("\n");
   for (let i = lines.length - 1; i >= 0; i--) {
@@ -57,7 +48,6 @@ const withStep = (build: Build, text: string): Build => {
   return step ? { ...build, step } : build;
 };
 
-// `startedAt` is when the build began compiling: the time Preparing and Waiting took does not count.
 export function appliedEvent(state: BuildAndLog, event: BuildEvent_Deserialize, now: number): BuildAndLog {
   const build = state.build ?? { phase: "preparing", startedAt: now, issues: [], more: 0, endSeen: false };
   switch (event.kind) {
@@ -78,7 +68,6 @@ export function appliedEvent(state: BuildAndLog, event: BuildEvent_Deserialize, 
   }
 }
 
-// A build beside the running app: its phases and errors, while the app's phase stays.
 export function appliedSideEvent(state: BuildAndLog, event: BuildEvent_Deserialize, now: number): BuildAndLog {
   if (!state.build) return state;
   const side = state.build.side ?? { phase: "preparing", startedAt: now, issues: [], more: 0, endSeen: true };
@@ -97,26 +86,21 @@ export function appliedSideEvent(state: BuildAndLog, event: BuildEvent_Deseriali
   }
 }
 
-// From the start of a build until the app launches or the build ends: the run control shows stop.
 export const isStarting = (build: Build | undefined): boolean =>
   build?.phase === "preparing" || build?.phase === "waiting" || build?.phase === "building" || build?.phase === "installing" || build?.phase === "launching";
 
 export const isRunning = (build: Build | undefined): boolean => build?.phase === "running";
 
-// Console has output only once the app has run; before that Build is the view with something to show.
 export const viewToShow = (build: Build | undefined): BottomViewSlot["id"] => (build?.phase === "running" || build?.phase === "exited" ? "console" : "build");
 
-// A launching app takes the Build column over; any other event leaves the view as it is.
 export const viewAfterEvent = (view: BottomView, event: BuildEvent_Deserialize): BottomView =>
   view === "build" && event.kind === "phase" && event.phase === "running" ? "console" : view;
 
 type Marker = { text: string; tone: "busy" | "done" | "stopped" | "failed" };
 
-// Marks a success, a run past its build, or a stop as seen, so it leaves the card; any other build stays as it is.
 export const seenEnd = (build: Build): Build =>
   ["succeeded", "installing", "launching", "stopped"].includes(build.phase) && !build.endSeen ? { ...build, endSeen: true } : build;
 
-// The marker on the worktree's card: the last build's phase, until the next build starts; a seen success or stop shows none.
 export function markerText(build: Build): Marker | null {
   if (build.side && isStarting(build.side)) return { text: "Building", tone: "busy" };
   if (build.side?.phase === "failed") return { text: "Build failed", tone: "failed" };
@@ -140,10 +124,8 @@ export function markerText(build: Build): Marker | null {
   }
 }
 
-/** What the toolbar's activity field says: `lead` in `ink`, then `detail`, which carries its own lead-in ("· 10:32", "on iPhone 17 Pro"); the build beside a running app first, then the last build; `errors` counts a failed build's errors. */
 export type Activity = { lead: string; detail: string | null; tone: "idle" | "busy" | "running" | "done" | "failed"; errors: number };
 
-/** `scheme` is the scheme's name once its listing came; `time` reads an end's time, as a message's does. */
 export function activityOf(build: Build | undefined, scheme: string | null, destination: string, time: (at: number) => string): Activity {
   const of = (verb: string) => (scheme ? `${verb} ${scheme}` : verb);
   const ended = (b: Build) => (b.endedAt === undefined ? null : `· ${time(b.endedAt)}`);
@@ -175,26 +157,22 @@ export function activityOf(build: Build | undefined, scheme: string | null, dest
   }
 }
 
-/** "LoginView.swift:42", or the file's name alone without a line; null without a file. */
 export function issuePlace(issue: BuildIssue_Deserialize): string | null {
   const name = issue.file && fileName(issue.file);
   if (!name) return null;
   return issue.line ? `${name}:${issue.line}` : name;
 }
 
-// An error's file as a path inside the worktree, or null for a file outside it.
 export function pathInWorktree(worktree: string, file: string): string | null {
   return file.startsWith(`${worktree}/`) ? file.slice(worktree.length + 1) : null;
 }
 
-/** The failed build whose errors the toolbar counts, as the activity field picks it: the build beside a running app first, then the last build. */
 export function failedBuild(build: Build | undefined): Build | null {
   if (!build || (build.side && isStarting(build.side))) return null;
   if (build.side?.phase === "failed") return build.side;
   return build.phase === "failed" ? build : null;
 }
 
-/** A build's errors grouped by file in the order they came; `file` is null for the errors without one. */
 export function issueGroups(issues: BuildIssue_Deserialize[]): { file: string | null; issues: BuildIssue_Deserialize[] }[] {
   const groups = new Map<string | null, BuildIssue_Deserialize[]>();
   for (const issue of issues) {

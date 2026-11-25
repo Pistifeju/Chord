@@ -1,4 +1,3 @@
-// A log in the bottom panel: lines in a scroll area that stays at the end while output arrives, only the lines in view mounted, and the find bar over it.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { tooltip } from "../../../app/commands";
 import type { BottomViewSlot } from "../../bottompanel/BottomPanel";
@@ -10,25 +9,19 @@ import { appearance } from "../../settings/store";
 import { matchesIn, segmentsOf } from "./log";
 import "./build.css";
 
-/** A log line's height at the default text size, in pixels; it scales with the text size. */
 const LINE_HEIGHT = 18;
-/** Rows mounted beyond the ones in view, so a fast scroll shows no gap. */
 const OVERSCAN = 20;
 const FOLLOW_SLACK = 8;
 
 type Viewport = { top: number; height: number; offset: number };
 
 type Props = {
-  /** Names the view for the command that finds in the one with the focus. */
   view: BottomViewSlot["id"];
   label: string;
   lines: string[];
   toneAt?: (line: number) => ConsoleTone;
-  /** A new value follows the end of an empty log again. */
   restartKey: unknown;
-  /** Shown above the lines, in the scroll area. */
   head?: ReactNode;
-  /** True scrolls to the start, where `head` is. */
   atStart: boolean;
   find: Find | undefined;
   findLabel: string;

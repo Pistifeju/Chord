@@ -1,5 +1,3 @@
-//! Slim simulators: before a boot, the launchd disable overrides of the services the user does not keep go into the simulator's own override store, and after it the overrides are read back. Only Chord's own simulators on iOS 18.5 or newer are slimmed; an older runtime boots stock.
-
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -11,10 +9,8 @@ use crate::process;
 use crate::service_groups::{GROUPS, ServiceGroup, ServiceRow, Subgroup, SubgroupRow};
 use crate::simulator::{DeviceSet, PLUTIL, simctl};
 
-/// The earliest runtime whose launchd_sim reads the override store at its start.
 const FIRST_SLIM_RUNTIME: (u32, u32) = (18, 5);
 
-/// Whether the subgroup stays on: the user's switch for it, else for its group (a saved group switch covers all its subgroups), else the group's default.
 fn kept(group: &ServiceGroup, subgroup: &Subgroup, switches: &BTreeMap<String, bool>) -> bool {
     switches
         .get(subgroup.id)
@@ -23,7 +19,6 @@ fn kept(group: &ServiceGroup, subgroup: &Subgroup, switches: &BTreeMap<String, b
         .unwrap_or(group.kept_by_default)
 }
 
-/// The rows Settings lists, each with whether its subgroups stay on.
 pub fn service_rows(switches: &BTreeMap<String, bool>) -> Vec<ServiceRow> {
     GROUPS
         .iter()
@@ -57,7 +52,6 @@ pub fn service_rows(switches: &BTreeMap<String, bool>) -> Vec<ServiceRow> {
         .collect()
 }
 
-/// Every subgroup with whether it stays on.
 fn subgroups_kept(
     switches: &BTreeMap<String, bool>,
 ) -> impl Iterator<Item = (&'static Subgroup, bool)> + '_ {
@@ -69,7 +63,6 @@ fn subgroups_kept(
     })
 }
 
-/// The services to switch off: those of every subgroup not kept, except one that a kept subgroup shares.
 fn labels_to_disable(switches: &BTreeMap<String, bool>) -> BTreeSet<&'static str> {
     let needed: BTreeSet<&str> = subgroups_kept(switches)
         .filter(|(_, kept)| *kept)
@@ -82,7 +75,6 @@ fn labels_to_disable(switches: &BTreeMap<String, bool>) -> BTreeSet<&'static str
         .collect()
 }
 
-/// "com.apple.CoreSimulator.SimRuntime.iOS-26-4" is iOS 26.4.
 pub(crate) fn runtime_slims(runtime: &str) -> bool {
     let name = runtime.rsplit('.').next().unwrap_or_default();
     let mut parts = name.split('-');
@@ -94,7 +86,6 @@ pub(crate) fn runtime_slims(runtime: &str) -> bool {
     }
 }
 
-/// The folder launchd_sim reads its `disabled.plist` from. Not documented by Apple: probed on iOS 26.4, where launchd listed the labels as disabled after a boot; the device's own `data/` folder was not read.
 fn store_folder(udid: &str) -> PathBuf {
     PathBuf::from(format!(
         "/private/var/tmp/com.apple.CoreSimulator.SimDevice.{udid}"
@@ -119,7 +110,6 @@ fn plist_of(entries: &BTreeMap<String, bool>) -> String {
     text
 }
 
-/// The entries the store holds now; empty when there is none.
 fn stored_entries(file: &Path) -> BTreeMap<String, bool> {
     let mut command = Command::new(PLUTIL);
     command.args(["-convert", "json", "-o", "-"]).arg(file);
@@ -133,7 +123,6 @@ fn stored_entries(file: &Path) -> BTreeMap<String, bool> {
         .collect()
 }
 
-/// The labels `launchctl print-disabled system` lists as disabled.
 fn disabled_labels(output: &str) -> BTreeSet<&str> {
     output
         .lines()
@@ -144,7 +133,6 @@ fn disabled_labels(output: &str) -> BTreeSet<&str> {
         .collect()
 }
 
-/// Writes the overrides into the shut down simulator's store before its boot, and returns the labels it switched off. A label of a subgroup not kept is written off; one of a kept subgroup is removed, which leaves it stock; the store's other entries stay.
 pub(crate) fn write_overrides(
     udid: &str,
     switches: &BTreeMap<String, bool>,
@@ -169,7 +157,6 @@ pub(crate) fn write_overrides(
     Ok(off)
 }
 
-/// Whether the booted simulator disabled every label in `off`; `None` when it could not be read.
 pub(crate) fn holds(udid: &str, off: &BTreeSet<&str>) -> Option<bool> {
     let Ok(listed) = simctl(
         DeviceSet::Run,
@@ -202,7 +189,6 @@ mod tests {
         assert!(off.contains("com.apple.siriinferenced"));
         assert!(!off.contains("com.apple.storekitd"));
         assert!(!off.contains("com.apple.swcd"));
-        // Shared by the App Store group, which stays on, and by iCloud.
         assert!(!off.contains("com.apple.amsaccountsd"));
     }
 

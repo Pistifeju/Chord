@@ -1,5 +1,3 @@
-//! Commands that load the saved state and save one change to it.
-
 use chord_core::{State, StateChange};
 use tauri::AppHandle;
 

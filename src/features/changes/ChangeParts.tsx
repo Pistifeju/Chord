@@ -1,4 +1,3 @@
-// The parts of a changed file's row in the Changes view, staged, unstaged or committed: its name, its folder, the lines it added and removed, and its status letter.
 import type { ChangeStatus } from "../../ipc/bindings";
 import { fileName, parentFolder } from "../files/paths";
 import { statusLetters, statusWord } from "./changes";
