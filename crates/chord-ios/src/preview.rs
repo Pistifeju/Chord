@@ -197,6 +197,7 @@ pub(crate) fn launch(
     let _ = std::fs::remove_file(&socket);
     hot_reload::launched(
         worktree,
+        Platform::Simulator,
         &app.join(format!("{executable}.debug.dylib")),
         None,
     );
@@ -232,7 +233,7 @@ pub(crate) fn launch_mac(
     }
     let identity = signature::identity(app).map_err(Error::Message)?;
     let helper = helper(Platform::Mac, identity.as_deref())?;
-    hot_reload::launched(worktree, &debug_dylib, identity);
+    hot_reload::launched(worktree, Platform::Mac, &debug_dylib, identity);
     let (ours, theirs) = UnixStream::pair()?;
     let fd = theirs.as_raw_fd();
     let mut command = Command::new(folder.join(executable));

@@ -9,7 +9,7 @@ use std::sync::Mutex;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-use crate::preview;
+use crate::preview::{self, Platform};
 use crate::process;
 
 const DRIVER: &str = "builtin-SwiftDriver -- ";
@@ -24,6 +24,18 @@ pub(crate) struct Driver {
 impl Driver {
     pub(crate) fn module(&self) -> Option<&str> {
         value_of(&self.args, "-module-name")
+    }
+
+    fn platform(&self) -> Option<Platform> {
+        platform_of(&self.args)
+    }
+
+    fn key(&self) -> Option<String> {
+        let platform = match self.platform()? {
+            Platform::Simulator => "simulator",
+            Platform::Mac => "mac",
+        };
+        Some(format!("{}/{platform}", self.module()?))
     }
 
     pub(crate) fn files(&self) -> Vec<String> {
@@ -57,10 +69,7 @@ impl DriverLines {
             self.cwd = split(folder).concat();
         } else if let Some(command) = line.strip_prefix(DRIVER) {
             let args = split(command);
-            let simulator = value_of(&args, "-target").is_some_and(|target| {
-                target.starts_with("arm64-") && target.ends_with("-simulator")
-            });
-            if simulator {
+            if platform_of(&args).is_some() {
                 self.found.push(Driver {
                     cwd: self.cwd.clone(),
                     args,
@@ -79,9 +88,10 @@ impl DriverLines {
         static WRITING: Mutex<()> = Mutex::new(());
         let _writing = lock(&WRITING);
         let mut drivers: BTreeMap<String, Driver> = read(&folder.join(DRIVERS)).unwrap_or_default();
+        drivers.retain(|key, driver| driver.key().as_ref() == Some(key));
         for driver in self.found {
-            if let Some(module) = driver.module() {
-                drivers.insert(module.to_string(), driver);
+            if let Some(key) = driver.key() {
+                drivers.insert(key, driver);
             }
         }
         let _ = fs::create_dir_all(&folder);
@@ -94,11 +104,27 @@ impl DriverLines {
     }
 }
 
-pub(crate) fn drivers(worktree: &Path) -> Vec<Driver> {
+pub(crate) fn drivers(worktree: &Path, platform: Platform) -> Vec<Driver> {
     preview::hot_reload_folder(worktree)
         .and_then(|folder| read::<BTreeMap<String, Driver>>(&folder.join(DRIVERS)))
-        .map(|drivers| drivers.into_values().collect())
+        .map(|drivers| {
+            drivers
+                .into_values()
+                .filter(|driver| driver.platform() == Some(platform))
+                .collect()
+        })
         .unwrap_or_default()
+}
+
+fn platform_of(args: &[String]) -> Option<Platform> {
+    let target = value_of(args, "-target")?;
+    if target.starts_with("arm64-") && target.ends_with("-simulator") {
+        Some(Platform::Simulator)
+    } else if target.starts_with("arm64-apple-macos") {
+        Some(Platform::Mac)
+    } else {
+        None
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -252,7 +278,7 @@ mod tests {
     }
 
     #[test]
-    fn keeps_arm64_simulator_driver_lines_with_their_folder() {
+    fn keeps_arm64_simulator_and_mac_driver_lines_with_their_folder() {
         let mut lines = DriverLines::default();
         for line in [
             "SwiftDriver Lib normal arm64 com.apple.xcode.tools.swift.compiler (in target 'Lib' from project 'Lib')\n",
@@ -260,26 +286,44 @@ mod tests {
             "    builtin-SwiftDriver -- /X/swiftc -module-name Lib @/DD/Lib.SwiftFileList -DDEBUG\\=1 -target arm64-apple-ios17.0-simulator -c\n",
             "    builtin-SwiftDriver -- /X/swiftc -module-name Lib -target x86_64-apple-ios17.0-simulator -c\n",
             "    builtin-SwiftDriver -- /X/swiftc -module-name Lib -target arm64-apple-ios17.0 -c\n",
+            "    builtin-SwiftDriver -- /X/swiftc -module-name Lib -target arm64-apple-ios17.0-macabi -c\n",
+            "    builtin-SwiftDriver -- /X/swiftc -module-name Lib -target x86_64-apple-macos14.0 -c\n",
+            "    builtin-SwiftDriver -- /X/swiftc -module-name Lib -target arm64-apple-macos14.0 -c\n",
         ] {
             lines.push(line);
         }
         assert_eq!(
             lines.found,
-            [Driver {
-                cwd: "/W/My App".into(),
-                args: [
-                    "/X/swiftc",
-                    "-module-name",
-                    "Lib",
-                    "@/DD/Lib.SwiftFileList",
-                    "-DDEBUG=1",
-                    "-target",
-                    "arm64-apple-ios17.0-simulator",
-                    "-c"
-                ]
-                .map(String::from)
-                .into(),
-            }]
+            [
+                Driver {
+                    cwd: "/W/My App".into(),
+                    args: [
+                        "/X/swiftc",
+                        "-module-name",
+                        "Lib",
+                        "@/DD/Lib.SwiftFileList",
+                        "-DDEBUG=1",
+                        "-target",
+                        "arm64-apple-ios17.0-simulator",
+                        "-c"
+                    ]
+                    .map(String::from)
+                    .into(),
+                },
+                Driver {
+                    cwd: "/W/My App".into(),
+                    args: [
+                        "/X/swiftc",
+                        "-module-name",
+                        "Lib",
+                        "-target",
+                        "arm64-apple-macos14.0",
+                        "-c"
+                    ]
+                    .map(String::from)
+                    .into(),
+                }
+            ]
         );
     }
 

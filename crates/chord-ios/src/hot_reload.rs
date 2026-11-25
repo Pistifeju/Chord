@@ -10,7 +10,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::compile_commands::{self, Job, value_of};
 use crate::derived_data::path_hash;
 use crate::issues::{BuildIssue, parse_line};
-use crate::preview::{self, PreviewState};
+use crate::preview::{self, Platform, PreviewState};
 use crate::process;
 use crate::signature;
 use crate::view_graph::{Graph, find, past_literal};
@@ -47,6 +47,7 @@ struct Launch {
     stamp: Option<(u64, SystemTime)>,
     hidden: Option<Arc<HashMap<String, u64>>>,
     identity: Option<String>,
+    platform: Platform,
 }
 
 struct Hidden {
@@ -130,7 +131,12 @@ fn hidden_functions(nm: &str) -> HashMap<String, u64> {
         .collect()
 }
 
-pub(crate) fn launched(worktree: &Path, dylib: &Path, identity: Option<String>) {
+pub(crate) fn launched(
+    worktree: &Path,
+    platform: Platform,
+    dylib: &Path,
+    identity: Option<String>,
+) {
     forget(worktree);
     lock(&LAUNCHED).insert(
         worktree.to_path_buf(),
@@ -139,6 +145,7 @@ pub(crate) fn launched(worktree: &Path, dylib: &Path, identity: Option<String>) 
             stamp: file_stamp(dylib),
             hidden: None,
             identity,
+            platform,
         },
     );
     if let Some(folder) = reload_folder(worktree) {
@@ -154,7 +161,11 @@ pub(crate) fn reload(worktree: &Path) -> Result<PreviewState, String> {
     }
     let file_id = preview::shown_file(worktree)?;
     let (module, name) = file_id.split_once('/').ok_or("the preview has no file")?;
-    let drivers = compile_commands::drivers(worktree);
+    let platform = lock(&LAUNCHED)
+        .get(worktree)
+        .map(|launch| launch.platform)
+        .ok_or("the preview has not launched")?;
+    let drivers = compile_commands::drivers(worktree, platform);
     let (driver, files, shown) = drivers
         .iter()
         .filter(|driver| driver.module() == Some(module))
