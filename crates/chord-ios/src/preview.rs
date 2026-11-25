@@ -259,6 +259,7 @@ pub(crate) fn launch_mac(
     let fd = theirs.as_raw_fd();
     let mut command = Command::new(folder.join(executable));
     command
+        .current_dir(app.parent().unwrap_or(app))
         .env("OS_ACTIVITY_DT_MODE", "YES")
         .env("DYLD_INSERT_LIBRARIES", &helper)
         .env("CHORD_PREVIEW_FD", fd.to_string());
