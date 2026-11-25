@@ -1,12 +1,14 @@
 import { Menu } from "@tauri-apps/api/menu";
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import { tooltip } from "../../../app/commands";
-import type { BuildIssue_Deserialize } from "../../../ipc/bindings";
-import { ChevronDownIcon, ChevronIcon, EyeIcon, FileIcon, PhoneIcon, WarningIcon } from "../../../ui/icons";
+import type { BuildIssue_Deserialize, RunDestination } from "../../../ipc/bindings";
+import { ChevronDownIcon, ChevronIcon, EyeIcon, FileIcon, MacIcon, PhoneIcon, WarningIcon } from "../../../ui/icons";
 import { showFileAt } from "../../editor/showing";
 import { fail } from "../../../ui/alert";
-import { popUpUnder, simulatorItems } from "../build/Toolbar";
-import { useFallbackSimulator } from "../build/destinationStore";
+import { macItems, popUpUnder, simulatorItems } from "../build/Toolbar";
+import { shownPreviewModel } from "../build/destination";
+import { schemeListings } from "../build/schemeStore";
+import { useFallbackDestination } from "../build/destinationStore";
 import { issuePlace, pathInWorktree } from "../build/run";
 import { shortcutChanges } from "../../settings/store";
 import { showsSideView, sidePanels, toggleSideView } from "../../sidepanel/store";
@@ -67,7 +69,9 @@ export function PreviewView({ worktree }: { worktree: string }) {
   const error = previews.usePart((all) => shownError(all[worktree]));
   const pick = previewPicks.usePart((all) => all[worktree] ?? null);
   const model = usePreviewModel(worktree);
-  const fallback = useFallbackSimulator(worktree);
+  const fallback = useFallbackDestination(worktree);
+  const mac = schemeListings.usePart((all) => all[worktree]?.mac);
+  const shown = shownPreviewModel(mac, model, fallback);
   const picked = pick !== null;
   const count = previewLists.usePart((lists) => lists[worktree]?.length ?? null);
   useEffect(() => {
@@ -80,7 +84,9 @@ export function PreviewView({ worktree }: { worktree: string }) {
     const number = openPreview(worktree);
     return () => closePreview(worktree, number);
   }, [worktree, model, picked]);
-  const modelMenu = async () => Menu.new({ items: await simulatorItems(model, (chosen) => choosePreviewModel(worktree, chosen)) });
+  const choose = (chosen: RunDestination) => choosePreviewModel(worktree, chosen);
+  const modelMenu = async () => Menu.new({ items: [...(await macItems(mac, model, choose)), ...(await simulatorItems(model, choose))] });
+  const modelIcon = shown?.kind === "mac" ? <MacIcon /> : <PhoneIcon />;
   if (count === null) return <div className="preview" />;
   if (count === 0)
     return (
@@ -98,18 +104,25 @@ export function PreviewView({ worktree }: { worktree: string }) {
       <div className="preview-body">
         <div className="preview-main">
           <div className="preview-header">
-            <button
-              type="button"
-              className="preview-button preview-model"
-              title="Preview Device"
-              onClick={(e: MouseEvent<HTMLButtonElement>) => popUpUnder(worktree, e.currentTarget, modelMenu).catch(fail)}
-            >
-              <PhoneIcon />
-              <span className="preview-file">{(model ?? fallback)?.name}</span>
-              <span className="preview-model-chevron">
-                <ChevronDownIcon />
-              </span>
-            </button>
+            {mac === "only" ? (
+              <div className="preview-button preview-model" title="Preview Device">
+                {modelIcon}
+                <span className="preview-file">{shown?.name}</span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="preview-button preview-model"
+                title="Preview Device"
+                onClick={(e: MouseEvent<HTMLButtonElement>) => popUpUnder(worktree, e.currentTarget, modelMenu).catch(fail)}
+              >
+                {modelIcon}
+                <span className="preview-file">{shown?.name}</span>
+                <span className="preview-model-chevron">
+                  <ChevronDownIcon />
+                </span>
+              </button>
+            )}
             {building && (
               <span className="preview-rebuilding" role="status">
                 <span className="spinner" aria-hidden="true" />

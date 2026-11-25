@@ -1,7 +1,7 @@
 import { CheckMenuItem, Menu, MenuItem, PredefinedMenuItem } from "@tauri-apps/api/menu";
 import { LogicalPosition } from "@tauri-apps/api/dpi";
 import { useEffect, useRef, type MouseEvent, type ReactNode } from "react";
-import type { RunDestination, SchemePick_Serialize as SchemePick } from "../../../ipc/bindings";
+import type { MacSupport, RunDestination, SchemePick_Serialize as SchemePick } from "../../../ipc/bindings";
 import { menuItem, tooltip } from "../../../app/commands";
 import { openContextMenu } from "../../../app/contextMenu";
 import { shortcutChanges } from "../../settings/store";
@@ -23,6 +23,12 @@ const disabledLine = (text: string) => MenuItem.new({ text, enabled: false });
 
 const choiceItem = (pick: RunDestination | null, destination: RunDestination, choose: (destination: RunDestination) => void) =>
   CheckMenuItem.new({ text: destination.name, checked: !!pick && sameDestination(pick, destination), action: () => choose(destination) });
+
+export async function macItems(mac: MacSupport | undefined, pick: RunDestination | null, choose: (destination: RunDestination) => void) {
+  if (mac === "only") return [await choiceItem(pick, myMac, choose)];
+  if (mac === "also") return [await choiceItem(pick, myMac, choose), await PredefinedMenuItem.new({ item: "Separator" })];
+  return [];
+}
 
 export async function simulatorItems(pick: RunDestination | null, choose: (destination: RunDestination) => void) {
   const listing = destinations.get();
@@ -64,8 +70,8 @@ async function runMenu(worktree: string) {
   const stop = await MenuItem.new({ ...menuItem("build.stop", worktree), enabled: isStarting(build) || isRunning(build) });
   const items = [await MenuItem.new(menuItem("build.run", worktree)), await MenuItem.new(menuItem("build.start", worktree)), stop, await PredefinedMenuItem.new({ item: "Separator" })];
   const mac = schemeListings.get()[worktree]?.mac;
-  if (mac === "only") return Menu.new({ items: [...items, await choiceItem(pick, myMac, choose)] });
-  if (mac === "also") items.push(await choiceItem(pick, myMac, choose), await PredefinedMenuItem.new({ item: "Separator" }));
+  items.push(...(await macItems(mac, pick, choose)));
+  if (mac === "only") return Menu.new({ items });
   if (listing?.devices.length) {
     items.push(await disabledLine("Devices"));
     for (const device of listing.devices) items.push(await choiceItem(pick, device, choose));

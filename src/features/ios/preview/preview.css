@@ -52,11 +52,11 @@
   transition: background-color var(--t-fast) var(--ease-out);
 }
 
-.preview-button:hover {
+button.preview-button:hover {
   background: var(--raised);
 }
 
-.preview-button:active {
+button.preview-button:active {
   background: var(--selected);
 }
 

@@ -24,3 +24,6 @@ export function pickAfterListing(pick: RunDestination, all: Destinations | null,
   const gone = `${destinationLabel(pick)} is not available.`;
   return { pick: fallback, notice: fallback ? `${gone} Using ${destinationLabel(fallback)}.` : gone };
 }
+
+export const shownPreviewModel = (mac: MacSupport | undefined, model: RunDestination | null, fallback: RunDestination | null): RunDestination | null =>
+  model && (model.kind === "mac" ? mac === "also" : mac !== "only") ? model : fallback;

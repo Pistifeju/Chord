@@ -1,9 +1,11 @@
 # Preview view
 
 - **Header:** a row over the screen, left of the list, as tall as the list's filter row so the model button lines up with the field: 30px with 4px top and bottom and 12px side padding.
-  Centered in it, over the screen it names, the model button: an `ink-muted` phone icon and the model name in 12px `ink-secondary`, without a pick the simulator a run without one uses, as the toolbar shows it (tooltip "Preview Device"); 24px tall, 8px side padding, 6px gaps, Inset radius, `raised` on hover, `selected` when pressed.
+  Centered in it, over the screen it names, the model button: an `ink-muted` phone icon, or the Mac icon for My Mac, and the model name in 12px `ink-secondary`, without a pick the simulator a run without one uses, as the toolbar shows it (tooltip "Preview Device"); 24px tall, 8px side padding, 6px gaps, Inset radius, `raised` on hover, `selected` when pressed.
   On hover or keyboard focus a 12px `ink-muted` chevron opens in after the name over 120ms with `--ease-out` (at once under Reduce Motion).
   It opens a native menu of the simulator models as the run menu lists them, the project's pick with a check mark.
+  A project that also builds for macOS lists My Mac first, then a separator, as the run menu does.
+  A macOS-only project shows My Mac with no menu, no hover and no chevron.
   While a rebuild runs, a 12px spinner and "Rebuilding" in meta text sit right of it; a hot reload shows nothing.
 - **List:** a column right of the screen, on the panel's outer edge, 200px wide by default, with a 1px `line` left edge that drags it between 140px and 320px, as the side panel's edge, and never past half the view's width, so a narrowed side panel keeps room for the screen; the width lasts until the app quits.
   It holds the Files filter field (placeholder "Filter"), then the worktree's `#Preview`s as Files tree rows.
