@@ -209,6 +209,10 @@ enum Server {
         case "load":
             guard let path = request["path"] as? String else { return ["error": "No path"] }
             return Shown.load(path)
+        #if os(macOS)
+        case "input":
+            return Screen.input(request)
+        #endif
         case "slide":
             guard let image = request["image"] as? String else { return ["error": "No image"] }
             for i in 0..<_dyld_image_count() {

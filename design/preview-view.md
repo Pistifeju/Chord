@@ -28,7 +28,8 @@
   The list reads again when the window takes the focus, and the view fills once a `#Preview` shows up.
   While the first list loads, the view stays blank.
 - **Screen:** the Simulator view's screen, bezel and input, without its button row.
-  A preview of a macOS view shows its window instead, title bar included, with no bezel and no input yet.
+  A preview of a macOS view shows its window instead, title bar included, with no bezel.
+  A click or drag on the window is a mouse click or drag, a scroll scrolls under the pointer, and keys type into the focused field, which shows no caret.
   The window keeps its own size and centers in the view; a view too small for it shrinks it to fit, keeping its shape, and never grows it.
   Its corners round by 16px at full size and shrink with it, and it casts a soft shadow onto the canvas.
 - **Compile error:** the last frame stays, and a bar on `raised` with a 1px `line` top edge sits along the view's bottom: a 16px `danger` error icon, then the first error, `file:line` in 12px `danger` and the message in 12px `ink`, which truncates, its full text as the tooltip, 10px 12px padding.

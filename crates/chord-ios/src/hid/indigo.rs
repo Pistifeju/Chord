@@ -105,7 +105,7 @@ impl Client {
                     self.deliver(unsafe { (build.button)(BUTTON_LOCK, direction, TARGET_BUTTON) });
                 }
             }
-            Input::Button { .. } => {}
+            Input::Button { .. } | Input::Scroll { .. } => {}
         }
     }
 

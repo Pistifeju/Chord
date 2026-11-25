@@ -38,6 +38,9 @@ export function hideScreen() {
 export const sendTouch = (worktree: string, phase: TouchPhase, first: Point, second: Point | null, fromBottom: boolean) =>
   void commands.sendSimulatorInput(worktree, { kind: "touch", seq: ++touchSeq, phase, first, second, fromBottom }).catch(console.error);
 
+export const sendScroll = (worktree: string, at: Point, delta: Point) =>
+  void commands.sendSimulatorInput(worktree, { kind: "scroll", at, delta }).catch(console.error);
+
 export const sendKey = (worktree: string, usage: number, down: boolean) =>
   void commands.sendSimulatorInput(worktree, { kind: "key", usage, down }).catch(console.error);
 

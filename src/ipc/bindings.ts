@@ -470,9 +470,9 @@ export type Image = {
 
 export type Input = Input_Serialize | Input_Deserialize;
 
-export type Input_Deserialize = { kind: "touch"; seq: number; phase: TouchPhase; first: Point; second?: Point | null; fromBottom: boolean } | { kind: "key"; usage: number; down: boolean } | { kind: "button"; button: Button };
+export type Input_Deserialize = { kind: "touch"; seq: number; phase: TouchPhase; first: Point; second?: Point | null; fromBottom: boolean } | { kind: "key"; usage: number; down: boolean } | { kind: "button"; button: Button } | { kind: "scroll"; at: Point; delta: Point };
 
-export type Input_Serialize = { kind: "touch"; seq: number; phase: TouchPhase; first: Point; second: Point | null; fromBottom: boolean } | { kind: "key"; usage: number; down: boolean } | { kind: "button"; button: Button };
+export type Input_Serialize = { kind: "touch"; seq: number; phase: TouchPhase; first: Point; second: Point | null; fromBottom: boolean } | { kind: "key"; usage: number; down: boolean } | { kind: "button"; button: Button } | { kind: "scroll"; at: Point; delta: Point };
 
 export type Install = { kind: "ready"; version: string } | { kind: "missing" } | { kind: "signed_out"; version: string } | { kind: "outdated"; version: string; oldest: string };
 

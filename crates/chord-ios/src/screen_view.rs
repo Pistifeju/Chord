@@ -19,9 +19,11 @@ use objc2_core_graphics::CGColor;
 use objc2_foundation::{NSArray, NSUUID};
 use objc2_quartz_core::{CACurrentMediaTime, CALayer, CATransaction, CATransform3D};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use specta::Type;
 
-use crate::hid::{Blocking, Button, Hid, Input};
+use crate::hid::{Blocking, Button, Hid, Input, Point, TouchOrder, TouchPhase};
+use crate::preview;
 use crate::screen_buttons::{self, Motion, ScreenButtons, srgb};
 use crate::simulator::{self, DeviceSet};
 use crate::simulator_kit::{
@@ -348,6 +350,7 @@ struct Screen {
     shadow: Retained<CALayer>,
     host: Retained<CALayer>,
     window: Option<MacWindow>,
+    window_order: TouchOrder,
     buttons: Option<ScreenButtons>,
     motion: Motion,
     watch: Option<RcBlock<dyn Fn(*mut AnyObject)>>,
@@ -452,6 +455,7 @@ impl Screen {
             shadow,
             host,
             window: None,
+            window_order: TouchOrder::default(),
             buttons: None,
             motion: Motion::default(),
             watch: None,
@@ -1059,6 +1063,32 @@ pub fn hide_screen() -> impl FnOnce() + Send + 'static {
     }
 }
 
+fn mac_input(input: Input, window: MacWindow, scale: f64) -> Option<serde_json::Value> {
+    let at = |point: Point| (point.x * window.width, point.y * window.height);
+    match input {
+        Input::Touch { phase, first, .. } => {
+            let (x, y) = at(first);
+            let phase = match phase {
+                TouchPhase::Down => "down",
+                TouchPhase::Move => "move",
+                TouchPhase::Up => "up",
+            };
+            Some(json!({ "op": "input", "kind": "mouse", "phase": phase, "x": x, "y": y }))
+        }
+        Input::Scroll { at: point, delta } => {
+            let (x, y) = at(point);
+            Some(json!({
+                "op": "input", "kind": "scroll", "x": x, "y": y,
+                "dx": delta.x / scale, "dy": delta.y / scale,
+            }))
+        }
+        Input::Key { usage, down } => {
+            Some(json!({ "op": "input", "kind": "key", "usage": usage, "down": down }))
+        }
+        Input::Button { .. } => None,
+    }
+}
+
 pub fn send_input(worktree: &Path, input: Input) -> Option<Blocking> {
     let mut blocking = None;
     with(|screen| {
@@ -1066,6 +1096,18 @@ pub fn send_input(worktree: &Path, input: Input) -> Option<Blocking> {
             .shown
             .as_ref()
             .is_some_and(|shown| shown.worktree == worktree);
+        if let Some(window) = screen.window.filter(|window| shows && window.shows()) {
+            if let Input::Touch { seq, phase, .. } = input
+                && !screen.window_order.admits(seq, phase)
+            {
+                return;
+            }
+            let scale = screen.rect.width / window.width;
+            if let Some(request) = mac_input(input, window, scale) {
+                preview::send_input(worktree, request);
+            }
+            return;
+        }
         let link = screen
             .attached
             .as_ref()

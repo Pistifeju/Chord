@@ -147,6 +147,7 @@ pub(crate) fn boot(
 struct MacPreview {
     pid: u32,
     stream: Arc<Mutex<UnixStream>>,
+    input: mpsc::Sender<Value>,
 }
 
 static MAC_PREVIEWS: Mutex<BTreeMap<PathBuf, MacPreview>> = Mutex::new(BTreeMap::new());
@@ -302,13 +303,15 @@ pub(crate) fn launch_mac(
     );
     match followed {
         Ok(()) => {
-            lock(&MAC_PREVIEWS).insert(
-                worktree.to_path_buf(),
-                MacPreview {
-                    pid,
-                    stream: Arc::new(Mutex::new(ours)),
-                },
-            );
+            let stream = Arc::new(Mutex::new(ours));
+            let (input, inputs) = mpsc::channel::<Value>();
+            let sends = Arc::clone(&stream);
+            std::thread::spawn(move || {
+                for request in inputs {
+                    let _ = exchange(&sends, &request);
+                }
+            });
+            lock(&MAC_PREVIEWS).insert(worktree.to_path_buf(), MacPreview { pid, stream, input });
             Ok(())
         }
         Err(error) => {
@@ -388,10 +391,7 @@ fn request(worktree: &Path, request: &Value) -> Result<Value, String> {
         .get(worktree)
         .map(|preview| Arc::clone(&preview.stream));
     if let Some(stream) = mac {
-        let stream = lock(&stream);
-        writeln!(&*stream, "{request}").map_err(|error| error.to_string())?;
-        let reply = read_answer(&stream)?;
-        drop(stream);
+        let reply = exchange(&stream, request)?;
         note_window(worktree, &reply);
         return Ok(reply);
     }
@@ -408,6 +408,18 @@ fn request(worktree: &Path, request: &Value) -> Result<Value, String> {
     };
     writeln!(stream, "{request}").map_err(|error| error.to_string())?;
     read_answer(&stream)
+}
+
+fn exchange(stream: &Mutex<UnixStream>, request: &Value) -> Result<Value, String> {
+    let stream = lock(stream);
+    writeln!(&*stream, "{request}").map_err(|error| error.to_string())?;
+    read_answer(&stream)
+}
+
+pub(crate) fn send_input(worktree: &Path, input: Value) {
+    if let Some(preview) = lock(&MAC_PREVIEWS).get(worktree) {
+        let _ = preview.input.send(input);
+    }
 }
 
 fn read_answer(stream: &UnixStream) -> Result<Value, String> {

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode, type WheelEvent } from "react";
 import { shortcutLabel, tooltip } from "../../../app/commands";
 import type { Bezel, Button, ButtonFace, FaceIcon, ScreenButtons } from "../../../ipc/bindings";
 import { AppearanceIcon, CameraIcon, HomeIcon, LockIcon, PhoneIcon, RecordIcon, ShakeIcon, StopIcon, UnlockIcon } from "../../../ui/icons";
@@ -8,7 +8,7 @@ import { shortcutChanges } from "../../settings/store";
 import { showsSideView, sidePanels, toggleSideView } from "../../sidepanel/store";
 import { hidUsage } from "./keys";
 import { clampToScreen, cornerRadius, fingersFor, fit, fromBottom, gestureFingers, secondFinger, toScreen, type Fingers, type Point, type Rect } from "./screen";
-import { hideScreen, moveScreen, openSimulatorApp, pressButton, recordingKey, recordings, screen, sendKey, sendTouch, setButtons, showScreen, takeScreenshot, toggleRecording } from "./store";
+import { hideScreen, moveScreen, openSimulatorApp, pressButton, recordingKey, recordings, screen, sendKey, sendScroll, sendTouch, setButtons, showScreen, takeScreenshot, toggleRecording } from "./store";
 import { loadAppearance, openAppearanceMenu } from "./appearanceMenu";
 import { fail } from "../../../ui/alert";
 import { ScreenshotThumbnail } from "./Screenshot";
@@ -301,13 +301,15 @@ export function SimulatorView({ worktree, preview }: { worktree: string; preview
     };
   }, [worktree, live]);
 
+  const fingersAt = (keys: { alt: boolean; shift: boolean }, first: Point): Fingers => (macWindow ? { kind: "one" } : fingersFor(keys, first));
+
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
     const first = rect && toScreen(e.clientX, e.clientY, rect);
     if (!first || e.button !== 0) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     e.currentTarget.focus();
-    const fingers = fingersFor({ alt: e.altKey, shift: e.shiftKey }, first);
-    touch.current = { fingers, fromBottom: fingers.kind === "one" && fromBottom(first) };
+    const fingers = fingersAt({ alt: e.altKey, shift: e.shiftKey }, first);
+    touch.current = { fingers, fromBottom: !macWindow && fingers.kind === "one" && fromBottom(first) };
     sendTouch(worktree, "down", first, secondFinger(fingers, first), touch.current.fromBottom);
     showCircles(first, fingers);
   };
@@ -316,6 +318,7 @@ export function SimulatorView({ worktree, preview }: { worktree: string; preview
     const pressed = touch.current;
     if (!rect) return;
     if (!pressed) {
+      if (macWindow) return;
       hover.current = toScreen(e.clientX, e.clientY, rect);
       return showCircles(hover.current, fingersFor({ alt: e.altKey, shift: e.shiftKey }, hover.current ?? { x: 0.5, y: 0.5 }));
     }
@@ -330,7 +333,12 @@ export function SimulatorView({ worktree, preview }: { worktree: string; preview
     touch.current = null;
     const first = clampToScreen(e.clientX, e.clientY, rect);
     sendTouch(worktree, "up", first, secondFinger(pressed.fingers, first), pressed.fromBottom);
-    showCircles(toScreen(e.clientX, e.clientY, rect), fingersFor({ alt: e.altKey, shift: e.shiftKey }, first));
+    showCircles(toScreen(e.clientX, e.clientY, rect), fingersAt({ alt: e.altKey, shift: e.shiftKey }, first));
+  };
+
+  const onWheel = (e: WheelEvent<HTMLDivElement>) => {
+    const at = rect && toScreen(e.clientX, e.clientY, rect);
+    if (at) sendScroll(worktree, at, { x: e.deltaX, y: e.deltaY });
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -378,19 +386,20 @@ export function SimulatorView({ worktree, preview }: { worktree: string; preview
             </div>
           </div>
         )}
-        {live && rect ? (
+        {(live || macWindow) && rect ? (
           <div
             ref={surface}
             className="simulator-screen"
-            style={{ left: rect.x, top: rect.y, width: rect.width, height: rect.height, borderRadius: cornerRadius(rect) }}
+            style={{ left: rect.x, top: rect.y, width: rect.width, height: rect.height, borderRadius: macWindow ? undefined : cornerRadius(rect) }}
             role="application"
-            aria-label="Simulator Screen"
+            aria-label={macWindow ? "Preview Window" : "Simulator Screen"}
             tabIndex={0}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerEnd}
             onPointerCancel={onPointerEnd}
             onPointerLeave={() => !touch.current && setCircles([])}
+            onWheel={macWindow ? onWheel : undefined}
             onKeyDown={onKeyDown}
             onKeyUp={onKeyUp}
             onBlur={releaseKeys}

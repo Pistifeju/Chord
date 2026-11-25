@@ -89,13 +89,88 @@ let interposeView: (@convention(c) () -> Void, @convention(c) () -> Void) = (vie
             "scale": window.backingScaleFactor,
         ]
     }
+
+    static var click = 0
+    static var modifiers: CGEventFlags = []
+
+    static func input(_ request: [String: Any]) -> [String: Any] {
+        let x = request["x"] as? Double ?? 0
+        let point = NSPoint(x: x, y: window.frame.height - (request["y"] as? Double ?? 0))
+        let now = ProcessInfo.processInfo.systemUptime
+        switch request["kind"] as? String {
+        case "mouse":
+            let phase = request["phase"] as? String
+            let type: NSEvent.EventType = switch phase {
+            case "down": .leftMouseDown
+            case "up": .leftMouseUp
+            default: .leftMouseDragged
+            }
+            if phase == "down" { click += 1 }
+            guard let event = NSEvent.mouseEvent(
+                with: type, location: point, modifierFlags: [], timestamp: now,
+                windowNumber: window.windowNumber, context: nil, eventNumber: click,
+                clickCount: 1, pressure: phase == "up" ? 0 : 1
+            ) else { return ["error": "No mouse event"] }
+            window.sendEvent(event)
+        case "scroll":
+            let dx = request["dx"] as? Double ?? 0
+            let dy = request["dy"] as? Double ?? 0
+            guard let scroll = CGEvent(
+                scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2,
+                wheel1: Int32((-dy).rounded()), wheel2: Int32((-dx).rounded()), wheel3: 0
+            ) else { return ["error": "No scroll event"] }
+            scroll.location = CGPoint(x: point.x, y: (NSScreen.screens.first?.frame.height ?? 0) - point.y)
+            guard let event = NSEvent(cgEvent: scroll) else { return ["error": "No scroll event"] }
+            window.sendEvent(event)
+        case "key":
+            guard let usage = request["usage"] as? Int else { return ["ok": true] }
+            let down = request["down"] as? Bool ?? false
+            if let flag = modifierFlags[usage] {
+                if down { modifiers.insert(flag) } else { modifiers.remove(flag) }
+                return ["ok": true]
+            }
+            guard let code = keyCodes[usage] else { return ["ok": true] }
+            guard let key = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: down) else { return ["error": "No key event"] }
+            key.flags = modifiers
+            guard let typed = NSEvent(cgEvent: key), let event = NSEvent.keyEvent(
+                with: typed.type, location: .zero, modifierFlags: typed.modifierFlags, timestamp: now,
+                windowNumber: window.windowNumber, context: nil, characters: typed.characters ?? "",
+                charactersIgnoringModifiers: typed.charactersIgnoringModifiers ?? "", isARepeat: false, keyCode: code
+            ) else { return ["error": "No key event"] }
+            window.sendEvent(event)
+        default:
+            return ["error": "Unknown input"]
+        }
+        return ["ok": true]
+    }
 }
+
+let modifierFlags: [Int: CGEventFlags] = [
+    0xe0: .maskControl, 0xe1: .maskShift, 0xe2: .maskAlternate,
+    0xe4: .maskControl, 0xe5: .maskShift, 0xe6: .maskAlternate,
+]
+
+let keyCodes: [Int: CGKeyCode] = [
+    0x04: 0x00, 0x05: 0x0B, 0x06: 0x08, 0x07: 0x02, 0x08: 0x0E, 0x09: 0x03, 0x0A: 0x05, 0x0B: 0x04,
+    0x0C: 0x22, 0x0D: 0x26, 0x0E: 0x28, 0x0F: 0x25, 0x10: 0x2E, 0x11: 0x2D, 0x12: 0x1F, 0x13: 0x23,
+    0x14: 0x0C, 0x15: 0x0F, 0x16: 0x01, 0x17: 0x11, 0x18: 0x20, 0x19: 0x09, 0x1A: 0x0D, 0x1B: 0x07,
+    0x1C: 0x10, 0x1D: 0x06,
+    0x1E: 0x12, 0x1F: 0x13, 0x20: 0x14, 0x21: 0x15, 0x22: 0x17, 0x23: 0x16, 0x24: 0x1A, 0x25: 0x1C,
+    0x26: 0x19, 0x27: 0x1D,
+    0x28: 0x24, 0x29: 0x35, 0x2A: 0x33, 0x2B: 0x30, 0x2C: 0x31, 0x2D: 0x1B, 0x2E: 0x18, 0x2F: 0x21,
+    0x30: 0x1E, 0x31: 0x2A, 0x33: 0x29, 0x34: 0x27, 0x35: 0x32, 0x36: 0x2B, 0x37: 0x2F, 0x38: 0x2C,
+    0x39: 0x39,
+    0x3A: 0x7A, 0x3B: 0x78, 0x3C: 0x63, 0x3D: 0x76, 0x3E: 0x60, 0x3F: 0x61, 0x40: 0x62, 0x41: 0x64,
+    0x42: 0x65, 0x43: 0x6D, 0x44: 0x67, 0x45: 0x6F,
+    0x4A: 0x73, 0x4B: 0x74, 0x4C: 0x75, 0x4D: 0x77, 0x4E: 0x79, 0x4F: 0x7C, 0x50: 0x7B, 0x51: 0x7D,
+    0x52: 0x7E, 0x64: 0x0A,
+]
 
 @_cdecl("__previews_injection_jit_link_entrypoint")
 public func entry(_ argc: Int32, _ argv: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>) -> Int32 {
     MainActor.assumeIsolated {
         let app = NSApplication.shared
-        app.setActivationPolicy(.accessory)
+        app.setActivationPolicy(.prohibited)
         _ = Screen.window
         Server.start()
         app.run()
