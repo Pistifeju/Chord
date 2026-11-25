@@ -149,7 +149,10 @@ enum Server {
         if let path = environment["CHORD_PREVIEW_SOCKET"] {
             Thread.detachNewThread { serve(path) }
         } else if let fd = environment["CHORD_PREVIEW_FD"].flatMap(Int32.init) {
-            Thread.detachNewThread { while answer(fd) {} }
+            Thread.detachNewThread {
+                while answer(fd) {}
+                exit(0)
+            }
         }
     }
 

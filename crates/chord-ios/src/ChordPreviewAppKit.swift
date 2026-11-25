@@ -49,9 +49,13 @@ let interposeView: (@convention(c) () -> Void, @convention(c) () -> Void) = (vie
     }
 }
 
+final class PreviewWindow: NSWindow {
+    @objc func hasKeyAppearance() -> Bool { true }
+}
+
 @MainActor enum Screen {
     static let window: NSWindow = {
-        let w = NSWindow(
+        let w = PreviewWindow(
             contentRect: NSRect(x: 0, y: 0, width: 480, height: 320),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
@@ -73,7 +77,13 @@ let interposeView: (@convention(c) () -> Void, @convention(c) () -> Void) = (vie
         return id.uint32Value
     }
 
+    static func orderIn() {
+        if NSApp.isHidden { NSApp.unhideWithoutActivation() }
+        if !window.isVisible { window.orderFrontRegardless() }
+    }
+
     static func present(_ c: Captured) -> [String: Any] {
+        orderIn()
         let layout = layout(of: c.traits)
         let fixed: CGSize? = if case .fixed(let s) = layout { s } else { nil }
         let content = controller(for: c, fixed: fixed != nil)
@@ -94,6 +104,7 @@ let interposeView: (@convention(c) () -> Void, @convention(c) () -> Void) = (vie
     static var modifiers: CGEventFlags = []
 
     static func input(_ request: [String: Any]) -> [String: Any] {
+        orderIn()
         let x = request["x"] as? Double ?? 0
         let point = NSPoint(x: x, y: window.frame.height - (request["y"] as? Double ?? 0))
         let now = ProcessInfo.processInfo.systemUptime
