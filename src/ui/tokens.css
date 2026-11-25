@@ -39,7 +39,7 @@
   --diff-added: rgba(0, 122, 85, 0.1);
   --diff-removed: rgba(231, 0, 11, 0.08);
 
-  /* The harness logos keep their brand colors in both themes. */
+  /* The harness logos keep their brand colors in both themes; OpenCode's mark has a light and a dark version. */
   --brand-pi-coral: #e48a7a;
   --brand-pi-blue: #4f8eb3;
   --brand-pi-yellow: #eab65d;
@@ -47,6 +47,8 @@
   --brand-codex-middle: #7a9dff;
   --brand-codex-bottom: #3941ff;
   --brand-claude: #d97757;
+  --brand-opencode-frame: #211e1e;
+  --brand-opencode-fill: #cfcecd;
 
   --shadow-control: 0 1px 2px rgba(0, 0, 0, 0.08);
   --shadow-composer: 0 1px 2px rgba(0, 0, 0, 0.03), 0 4px 16px rgba(0, 0, 0, 0.04);
@@ -104,6 +106,8 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
+  --brand-opencode-frame: #ffffff;
+  --brand-opencode-fill: #5a5858;
   --canvas: #0f1011;
   --panel: #18191a;
   --raised: rgba(255, 255, 255, 0.05);

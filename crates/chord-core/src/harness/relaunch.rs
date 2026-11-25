@@ -1,4 +1,4 @@
-//! A harness process a session command can swap for a new one: the running process and the reader of its stdout, the swap, the order events and lines go out in, and the pane's `Agent`. The Codex and Claude Code adapters build on it.
+//! A harness process a session command can swap for a new one: the running process and the reader of its stdout, the swap, the order events and lines go out in, and the pane's `Agent`. The Codex, Claude Code and OpenCode adapters build on it.
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -46,8 +46,8 @@ pub(super) trait Reader: Send + 'static {
     ) -> Result<Read<Self::Open>, Error>;
     fn answer(&mut self, id: &str, answer: &DialogAnswer) -> Result<Read<Self::Open>, Error>;
     fn pick_model(&mut self, id: &str, level: Option<&str>) -> Read<Self::Open>;
-    /// The line that stops the running turn; none when no turn runs.
-    fn interrupt(&mut self) -> Option<Value>;
+    /// What stops the running turn; nothing when no turn runs.
+    fn interrupt(&mut self) -> Read<Self::Open>;
     /// Stdout closed: the events that end what the process left open.
     fn end(&mut self) -> Vec<HarnessEvent>;
 }
@@ -158,8 +158,8 @@ impl<R: Reader> Agent for Relaunchable<R> {
     }
 
     fn abort(&self) -> Result<(), Error> {
-        let interrupt = lock(&self.reader()).interrupt();
-        interrupt.map_or(Ok(()), |line| self.write(&line))
+        let read = lock(&self.reader()).interrupt();
+        self.deliver(read)
     }
 
     fn answer_dialog(&self, id: &str, answer: &DialogAnswer) -> Result<(), Error> {

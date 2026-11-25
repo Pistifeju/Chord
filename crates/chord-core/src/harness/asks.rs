@@ -40,11 +40,11 @@ pub(crate) struct Step {
 pub(crate) enum Field {
     /// Each option's value; the pick settles the ask.
     Decision(Vec<Value>),
-    /// Each option's value; `other` turns the last option into an input.
+    /// Each option's value; `other` turns the last option into an input whose text goes under that key.
     Choice {
         key: String,
         values: Vec<Value>,
-        other: bool,
+        other: Option<String>,
     },
     Text {
         key: String,
@@ -152,6 +152,11 @@ impl<R> Asks<R> {
         }
     }
 
+    /// The open ask's reply, then each waiting one's.
+    pub(crate) fn replies(&self) -> impl Iterator<Item = &R> {
+        self.open.iter().chain(&self.waiting).map(|ask| &ask.reply)
+    }
+
     /// The agent withdrew the asks `gone` names: the open one's dialog closes, the waiting ones drop.
     pub(crate) fn withdraw(&mut self, gone: impl Fn(&R) -> bool) -> Vec<HarnessEvent> {
         self.waiting.retain(|ask| !gone(&ask.reply));
@@ -205,7 +210,7 @@ impl Step {
             }
             (
                 Field::Choice {
-                    key, other: true, ..
+                    other: Some(key), ..
                 },
                 DialogAnswer::Value { value },
             ) if value == OTHER => Taken::Next(Step {
@@ -263,7 +268,7 @@ pub(crate) fn form_steps(schema: &Value, message: &str) -> Option<VecDeque<Step>
                     field: Field::Choice {
                         key: key.clone(),
                         values,
-                        other: false,
+                        other: None,
                     },
                 })
             };

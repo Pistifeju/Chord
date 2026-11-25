@@ -51,7 +51,7 @@ Never test copy, CSS classes, constants, third-party libraries, private state, t
 - New Tauri command: a function in `src-tauri/src/commands/<area>.rs`, one line in the command list in `lib.rs`, then regenerate the bindings with `npm run bindings`.
 - New shortcut or menu item: one entry in the feature's commands, listed in `src/app/commands.ts`.
 - New harness: an entry in `HARNESSES` in `harness/mod.rs`, `Agent` implemented in `crates/chord-core/src/harness/<name>/`, and one arm in `harness::start`. Set the entry's `starts` once the arm lands.
-- New harness capability: a variant in `Capability`, add it to `capabilities()` for each harness that has it (`harness/pi/mod.rs` for pi, `harness/relaunch.rs` for Codex and Claude Code), check it in the view.
+- New harness capability: a variant in `Capability`, add it to `capabilities()` for each harness that has it (`harness/pi/mod.rs` for pi, `harness/relaunch.rs` for Codex, Claude Code and OpenCode), check it in the view.
 
 ## Done
 

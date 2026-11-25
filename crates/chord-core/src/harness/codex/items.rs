@@ -5,7 +5,7 @@ use std::path::Path;
 use serde_json::Value;
 
 use crate::harness::shell::{read_only_title, shell_script};
-use crate::harness::{HarnessEvent, Image, LineChanges, ToolOutcome, relative, text};
+use crate::harness::{HarnessEvent, Image, LineChanges, ToolOutcome, images, relative, text};
 use crate::images;
 
 /// The events of an item that started; `at` is when, in epoch milliseconds.
@@ -95,7 +95,7 @@ pub(super) fn completed(item: &Value, at: Option<f64>, streamed: bool) -> Vec<Ha
                 .collect()
         }
         Some("commandExecution" | "fileChange" | "webSearch") => end(vec![]),
-        Some("mcpToolCall") => end(content_images(&item["result"]["content"])),
+        Some("mcpToolCall") => end(images(&item["result"]["content"])),
         Some("imageView") => end(file_image(Path::new(&text(&item["path"])))
             .into_iter()
             .collect()),
@@ -147,21 +147,6 @@ fn user_images(item: &Value) -> Vec<Image> {
             Some(Image {
                 data: data.into(),
                 mime_type: mime_type.into(),
-            })
-        })
-        .collect()
-}
-
-fn content_images(content: &Value) -> Vec<Image> {
-    content
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter(|block| block["type"] == "image")
-        .filter_map(|block| {
-            Some(Image {
-                data: block["data"].as_str()?.into(),
-                mime_type: block["mimeType"].as_str()?.into(),
             })
         })
         .collect()

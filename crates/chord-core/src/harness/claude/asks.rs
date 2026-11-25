@@ -208,7 +208,7 @@ fn questions(id: String, input: &Value) -> Option<Parsed> {
                 field: Field::Choice {
                     key: title.clone(),
                     values: labels.iter().map(|label| json!(label)).collect(),
-                    other: !multi,
+                    other: (!multi).then(|| title.clone()),
                 },
                 ask: select(labels, None, descriptions, multi),
                 title,

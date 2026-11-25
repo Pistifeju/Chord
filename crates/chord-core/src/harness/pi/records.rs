@@ -9,8 +9,8 @@ use crate::harness::calls::OpenCalls;
 use crate::harness::session_commands::{self, NO_THINKING};
 use crate::harness::shell::read_only_title;
 use crate::harness::{
-    DialogAsk, HarnessEvent, Image, LineChanges, ModelOption, SlashCommand, SlashKind,
-    SubagentNode, SubagentState, ToolOutcome, UsageWindow, capitalized, count, text,
+    DialogAsk, HarnessEvent, LineChanges, ModelOption, SlashCommand, SlashKind, SubagentNode,
+    SubagentState, ToolOutcome, UsageWindow, capitalized, count, images, text,
 };
 
 // The model label shows pi's name for the model; the thinking level shows only for a model that reasons.
@@ -185,7 +185,7 @@ pub(super) fn events_from(record: &Value) -> Vec<HarnessEvent> {
             } else {
                 ToolOutcome::Done
             },
-            images: images_of(&record["result"]["content"]),
+            images: images(&record["result"]["content"]),
             ms: record["durationMs"].as_f64().map(|ms| ms.round() as u32),
             changes: edit_changes(record["toolName"].as_str(), &record["result"]["details"]),
         }],
@@ -319,7 +319,7 @@ fn saved_message(message: &Value) -> Vec<HarnessEvent> {
             } else {
                 ToolOutcome::Done
             },
-            images: images_of(&message["content"]),
+            images: images(&message["content"]),
             ms: None,
             changes: edit_changes(message["toolName"].as_str(), &message["details"]),
         }],
@@ -661,7 +661,7 @@ fn message_end(message: &Value) -> Vec<HarnessEvent> {
     match message["role"].as_str() {
         Some("user") => vec![HarnessEvent::UserMessageChunk {
             text: collapse_skill(&text_of(&message["content"])),
-            images: images_of(&message["content"]),
+            images: images(&message["content"]),
             at,
         }],
         Some("assistant") => {
@@ -709,20 +709,4 @@ fn text_of(content: &Value) -> String {
             .join("\n"),
         _ => String::new(),
     }
-}
-
-fn images_of(content: &Value) -> Vec<Image> {
-    let Some(blocks) = content.as_array() else {
-        return vec![];
-    };
-    blocks
-        .iter()
-        .filter(|block| block["type"] == "image")
-        .filter_map(|block| {
-            Some(Image {
-                data: block["data"].as_str()?.into(),
-                mime_type: block["mimeType"].as_str()?.into(),
-            })
-        })
-        .collect()
 }

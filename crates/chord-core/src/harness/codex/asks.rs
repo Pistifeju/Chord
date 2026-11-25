@@ -259,7 +259,7 @@ pub(super) fn message_questions(item: &Value) -> Option<Ask> {
             let field = |values: &[String]| Field::Choice {
                 key: title.clone(),
                 values: values.iter().map(|value| json!(value)).collect(),
-                other: false,
+                other: None,
             };
             match options.is_empty() {
                 true => input(title.clone(), String::new(), title, None),
@@ -315,9 +315,9 @@ fn user_question(question: &Value) -> Step {
     Step {
         title,
         field: Field::Choice {
+            other: other.then(|| key.clone()),
             key,
             values: labels.iter().map(|label| json!(label)).collect(),
-            other,
         },
         ask: select(labels, None, descriptions, false),
     }

@@ -96,6 +96,13 @@ export const ClaudeIcon = () => (
   </Logo>
 );
 
+export const OpenCodeIcon = () => (
+  <Logo side={320}>
+    <path style={{ fill: "var(--brand-opencode-fill)" }} d="M224 128V256H96V128H224Z" />
+    <path style={{ fill: "var(--brand-opencode-frame)" }} d="M288 320H32V0H288V320ZM224 64H96V256H224V64Z" />
+  </Logo>
+);
+
 export const CloseIcon = ({ size }: { size?: number }) => (
   <Icon size={size}>
     <path d="M4 4l8 8M12 4l-8 8" />

@@ -2,9 +2,9 @@
 
 ## Decision
 
-Chord's own adapter trait in Rust, with an event schema that borrows ACP's names. The pi adapter speaks pi RPC. Codex and Claude Code each get an adapter that speaks the CLI's own protocol: `codex app-server`, and `claude -p` with stream-json in and out. Chord has no ACP adapter.
+Chord's own adapter trait in Rust, with an event schema that borrows ACP's names. The pi adapter speaks pi RPC. Codex and Claude Code each get an adapter that speaks the CLI's own protocol: `codex app-server`, and `claude -p` with stream-json in and out. OpenCode's adapter speaks ACP v1 to `opencode acp`, plus OpenCode's own extensions for steering and subagents.
 
-ACP as the contract fails for all three: section 2 lists five features that would disappear, and both ACP adapters need Node and an npm package on top of the CLI. The feature list and the edge cases: `docs/features/onboarding-and-harnesses.md`.
+ACP as the contract fails for pi, Codex and Claude Code: section 2 lists five features that would disappear, and both ACP adapters need Node and an npm package on top of the CLI. OpenCode ships `opencode acp` in its own binary and adds steering and subagents through extensions, so its adapter speaks ACP: `docs/features/opencode-adapter.md`. The feature list and the edge cases: `docs/features/onboarding-and-harnesses.md`.
 
 ## 1. What Chord needs from pi
 
@@ -66,7 +66,8 @@ The `Agent` trait and `start` in `crates/chord-core/src/harness/mod.rs`, one imp
 1. pi over RPC. First release. Full capability list.
 2. Codex over `codex app-server` (`docs/features/onboarding-and-harnesses.md`, N2). Its protocol has a published schema, so it goes first.
 3. Claude Code over `claude -p` with stream-json (N3).
-4. Terminal pane for any other CLI. Status from process exit only.
+4. OpenCode over `opencode acp` (`docs/features/opencode-adapter.md`, N8).
+5. Terminal pane for any other CLI. Status from process exit only.
 
 ## 5. Not verified
 
