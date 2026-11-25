@@ -683,3 +683,14 @@ fn opencodes_own_turn_runs_from_its_first_update_until_the_quiet_and_takes_a_ste
     );
     assert_eq!(reader.quiet_after(), None);
 }
+
+#[test]
+fn a_model_pick_before_the_session_opens_goes_out_when_it_opens() {
+    let mut reader = Reader::new(Path::new("/w"), None, None, None);
+    reader.initialize();
+    reader.feed(br#"{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1}}"#);
+    assert!(reader.pick_model("openai/luna", None).lines.is_empty());
+    let answer = r#"{"jsonrpc":"2.0","id":2,"result":{"sessionId":"s1","configOptions":[{"id":"model","category":"model","currentValue":"opencode/big-pickle","options":[{"value":"opencode/big-pickle","name":"opencode/Big Pickle"},{"value":"openai/luna","name":"openai/Luna"}]}]}}"#;
+    let read = reader.feed(answer.as_bytes());
+    assert!(read.lines.contains(&json!({"jsonrpc":"2.0","id":3,"method":"session/set_config_option","params":{"sessionId":"s1","configId":"model","value":"openai/luna"}})));
+}
