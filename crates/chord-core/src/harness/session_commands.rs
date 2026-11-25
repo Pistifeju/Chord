@@ -1,4 +1,4 @@
-//! The session commands the harnesses share: their names and descriptions, their slash command list, and the picker menus they open.
+//! The session commands the harnesses share: their names and descriptions, their slash command list, the picker menus they open, and the reply to a finished reload.
 
 use super::{DialogAsk, HarnessEvent, SlashCommand, SlashKind};
 
@@ -71,4 +71,17 @@ pub(crate) fn thinking(id: &str, options: Vec<String>, current: Option<String>) 
         };
     }
     menu(Picker::Thinking, id, options, current)
+}
+
+/// The reply a finished `/reload` shows.
+pub(crate) fn reloaded() -> [HarnessEvent; 2] {
+    [
+        HarnessEvent::MessageChunk {
+            text: "Reloaded extensions, skills, prompts and context files".into(),
+        },
+        HarnessEvent::MessageEnd {
+            failed: false,
+            at: None,
+        },
+    ]
 }

@@ -225,15 +225,7 @@ pub(super) fn events_from(record: &Value) -> Vec<HarnessEvent> {
             std::iter::once(notice).chain(ended).collect()
         }
         // A done reload is an answer, not a warning, so it shows as a reply and not as the red notice.
-        Some("response") if record["id"] == RELOAD_PROMPT => vec![
-            HarnessEvent::MessageChunk {
-                text: "Reloaded extensions, skills, prompts and context files".into(),
-            },
-            HarnessEvent::MessageEnd {
-                failed: false,
-                at: None,
-            },
-        ],
+        Some("response") if record["id"] == RELOAD_PROMPT => session_commands::reloaded().into(),
         Some("response") if record["id"] == MODELS_REQUEST => {
             vec![models_event(&record["data"]["models"])]
         }
