@@ -57,6 +57,8 @@ const TOOL_TEXTS_ENV: &str = "CHORD_TOOL_TEXTS";
 const SUBAGENTS_PREFIX: &str = "PI_SUBAGENT_ASYNC_JSON:";
 /// The request id of a prompt that runs one of the extension's commands; its response means the session may have changed.
 const SESSION_PROMPT: &str = "chord-session";
+/// The request id of the prompt that runs `/chord-reload`; its response is the one thing that tells the user the reload happened.
+const RELOAD_PROMPT: &str = "chord-reload";
 /// A fork dialog's id starts with this; the ids of the entries it lists follow, comma-separated, in the order of its options.
 const FORK_DIALOG: &str = "chord-fork:";
 /// The id of the model dialog; its options are `provider/model`.
