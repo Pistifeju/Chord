@@ -21,7 +21,7 @@ use crate::plist;
 use crate::process;
 use crate::simulator::{self, DeviceSet};
 
-const SOURCE: &str = include_str!("ChordPreview.swift");
+const CAPTURE: &str = include_str!("ChordPreview.swift");
 const MAX_BOOTED: usize = 2;
 const HELPER_START: Duration = Duration::from_secs(60);
 const KEPT_LINES: usize = 50;
@@ -151,7 +151,7 @@ pub(crate) fn launch(
             "Previews need the debug dylib: set Enable Debug Dylib Support to Yes in the app target's Debug build settings.".into(),
         ));
     }
-    let helper = helper()?;
+    let helper = helper(Platform::Simulator)?;
     let bundle = plist::app_value(app, "CFBundleIdentifier", register)?;
     simulator::install(DeviceSet::Preview, udid, app, register)?;
     let mut command = simulator::simctl_command(
@@ -287,16 +287,52 @@ pub(crate) fn load(worktree: &Path, dylib: &Path) -> Result<(), String> {
     request(worktree, &json!({ "op": "load", "path": dylib })).map(drop)
 }
 
-fn helper() -> Result<PathBuf, Error> {
+#[derive(Clone, Copy)]
+pub(crate) enum Platform {
+    Simulator,
+    #[expect(dead_code)]
+    Mac,
+}
+
+struct Shell {
+    sdk: &'static str,
+    target: &'static str,
+    file: &'static str,
+    source: &'static str,
+}
+
+impl Platform {
+    fn shell(self) -> Shell {
+        match self {
+            Platform::Simulator => Shell {
+                sdk: "iphonesimulator",
+                target: "arm64-apple-ios17.0-simulator",
+                file: "ChordPreviewUIKit.swift",
+                source: include_str!("ChordPreviewUIKit.swift"),
+            },
+            Platform::Mac => Shell {
+                sdk: "macosx",
+                target: "arm64-apple-macos14.0",
+                file: "ChordPreviewAppKit.swift",
+                source: include_str!("ChordPreviewAppKit.swift"),
+            },
+        }
+    }
+}
+
+fn helper(platform: Platform) -> Result<PathBuf, Error> {
     static BUILDING: Mutex<()> = Mutex::new(());
     let _building = lock(&BUILDING);
     let cache = CACHE_FOLDER
         .get()
         .ok_or_else(|| Error::Message("Chord has no cache folder.".into()))?;
+    let shell = platform.shell();
     let mut hasher = DefaultHasher::new();
-    SOURCE.hash(&mut hasher);
+    CAPTURE.hash(&mut hasher);
+    shell.source.hash(&mut hasher);
     let folder = cache.join("PreviewHelper").join(format!(
-        "{}-{:08x}",
+        "{}-{}-{:08x}",
+        shell.sdk,
         xcode_build(),
         hasher.finish() as u32
     ));
@@ -305,17 +341,23 @@ fn helper() -> Result<PathBuf, Error> {
         return Ok(dylib);
     }
     std::fs::create_dir_all(&folder)?;
-    let source = folder.join("ChordPreview.swift");
-    std::fs::write(&source, SOURCE)?;
+    let capture = folder.join("ChordPreview.swift");
+    std::fs::write(&capture, CAPTURE)?;
+    let shell_path = folder.join(shell.file);
+    std::fs::write(&shell_path, shell.source)?;
     let partial = folder.join("ChordPreview.partial.dylib");
-    let (source, partial_text) = (source.to_string_lossy(), partial.to_string_lossy());
+    let (capture, shell_path, partial_text) = (
+        capture.to_string_lossy(),
+        shell_path.to_string_lossy(),
+        partial.to_string_lossy(),
+    );
     let mut args = vec![
         "-sdk",
-        "iphonesimulator",
+        shell.sdk,
         "swiftc",
         "-emit-library",
         "-target",
-        "arm64-apple-ios17.0-simulator",
+        shell.target,
         "-module-name",
         "ChordPreview",
         "-parse-as-library",
@@ -334,7 +376,7 @@ fn helper() -> Result<PathBuf, Error> {
             "-Xlinker", "-alias", "-Xlinker", function, "-Xlinker", alias,
         ]);
     }
-    args.extend(["-o", &partial_text, &source]);
+    args.extend(["-o", &partial_text, &capture, &shell_path]);
     let output = process::captured(login_shell("xcrun", &args), &|_| {})?;
     if !output.status.success() {
         let errors = String::from_utf8_lossy(&output.stderr);

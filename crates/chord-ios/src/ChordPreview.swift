@@ -2,15 +2,9 @@ import DeveloperToolsSupport
 import Foundation
 import MachO
 import SwiftUI
-import UIKit
-
-enum Body {
-    case swiftUI(@MainActor () -> any View)
-    case controller(@MainActor () -> UIViewController)
-    case view(@MainActor () -> UIView)
-}
 
 struct Captured {
+    let name: String?
     let traits: [PreviewTrait<Preview.ViewTraits>]
     let body: Body
 }
@@ -19,40 +13,18 @@ struct Captured {
 
 typealias Traits = [PreviewTrait<Preview.ViewTraits>]
 typealias SwiftUIInit = @convention(thin) (String?, Traits, @escaping @MainActor () -> any View) -> Preview
-typealias ControllerInit = @convention(thin) (String?, Traits, @escaping @MainActor () -> UIViewController) -> Preview
-typealias ViewInit = @convention(thin) (String?, Traits, @escaping @MainActor () -> UIView) -> Preview
 
 @_silgen_name("chord_swiftui_init")
 @MainActor func swiftUIInit(_ name: String?, traits: Traits, body: @escaping @MainActor () -> any View) -> Preview {
-    captured = Captured(traits: traits, body: .swiftUI(body))
+    captured = Captured(name: name, traits: traits, body: .swiftUI(body))
     return unsafeBitCast(unsafeBitCast(interposeSwiftUI.1, to: UnsafeRawPointer.self), to: SwiftUIInit.self)(name, traits, body)
 }
 
-@_silgen_name("chord_controller_init")
-@MainActor func controllerInit(_ name: String?, traits: Traits, body: @escaping @MainActor () -> UIViewController) -> Preview {
-    captured = Captured(traits: traits, body: .controller(body))
-    return unsafeBitCast(unsafeBitCast(interposeController.1, to: UnsafeRawPointer.self), to: ControllerInit.self)(name, traits, body)
-}
-
-@_silgen_name("chord_view_init")
-@MainActor func viewInit(_ name: String?, traits: Traits, body: @escaping @MainActor () -> UIView) -> Preview {
-    captured = Captured(traits: traits, body: .view(body))
-    return unsafeBitCast(unsafeBitCast(interposeView.1, to: UnsafeRawPointer.self), to: ViewInit.self)(name, traits, body)
-}
-
 @_extern(c, "chord_swiftui_init_alias") func swiftUIInitC()
-@_extern(c, "chord_controller_init_alias") func controllerInitC()
-@_extern(c, "chord_view_init_alias") func viewInitC()
 @_extern(c, "$s21DeveloperToolsSupport7PreviewV7SwiftUIE_6traits4bodyACSSSg_AA0D5TraitVyAC10ViewTraitsOGdAD0J0_pyScMYcctcfC") func originalSwiftUIInit()
-@_extern(c, "$s21DeveloperToolsSupport7PreviewV5UIKitE_6traits4bodyACSSSg_AA0D5TraitVyAC10ViewTraitsOGdSo16UIViewControllerCyScMYcctcfC") func originalControllerInit()
-@_extern(c, "$s21DeveloperToolsSupport7PreviewV5UIKitE_6traits4bodyACSSSg_AA0D5TraitVyAC10ViewTraitsOGdSo6UIViewCyScMYcctcfC") func originalViewInit()
 
 @section("__DATA,__interpose") @used
 let interposeSwiftUI: (@convention(c) () -> Void, @convention(c) () -> Void) = (swiftUIInitC, originalSwiftUIInit)
-@section("__DATA,__interpose") @used
-let interposeController: (@convention(c) () -> Void, @convention(c) () -> Void) = (controllerInitC, originalControllerInit)
-@section("__DATA,__interpose") @used
-let interposeView: (@convention(c) () -> Void, @convention(c) () -> Void) = (viewInitC, originalViewInit)
 
 enum Layout: Equatable {
     case device
@@ -127,62 +99,12 @@ func scan(_ header: UnsafePointer<mach_header>) -> [Entry] {
     return all.sorted { ($0.fileID, $0.line) < ($1.fileID, $1.line) }
 }
 
-@MainActor func capture(_ type: any PreviewRegistry.Type) -> Captured? {
+@MainActor func capture(_ entry: Entry) -> Captured? {
     captured = nil
-    _ = try? type.makePreview()
+    _ = try? entry.type.makePreview()
     defer { captured = nil }
-    return captured
-}
-
-final class Centered: UIViewController {
-    let size: CGSize?
-    let child: UIView
-    init(_ child: UIView, size: CGSize?) {
-        self.child = child
-        self.size = size
-        super.init(nibName: nil, bundle: nil)
-    }
-    required init?(coder: NSCoder) { nil }
-    override func viewDidLoad() {
-        view.backgroundColor = .systemBackground
-        child.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(child)
-        var c = [child.centerXAnchor.constraint(equalTo: view.centerXAnchor), child.centerYAnchor.constraint(equalTo: view.centerYAnchor)]
-        if let size {
-            c += [child.widthAnchor.constraint(equalToConstant: size.width), child.heightAnchor.constraint(equalToConstant: size.height)]
-        }
-        NSLayoutConstraint.activate(c)
-    }
-}
-
-final class Pinned: UIViewController {
-    let child: UIView
-    init(_ child: UIView) {
-        self.child = child
-        super.init(nibName: nil, bundle: nil)
-    }
-    required init?(coder: NSCoder) { nil }
-    override func loadView() { view = child }
-}
-
-@MainActor func controller(for c: Captured) -> UIViewController {
-    let layout = layout(of: c.traits)
-    let size: CGSize? = if case .fixed(let s) = layout { s } else { nil }
-    switch c.body {
-    case .controller(let make):
-        return make()
-    case .view(let make):
-        return layout == .device ? Pinned(make()) : Centered(make(), size: size)
-    case .swiftUI(let make):
-        let host = UIHostingController(rootView: AnyView(make()))
-        guard layout != .device else { return host }
-        host.sizingOptions = .intrinsicContentSize
-        host.view.backgroundColor = .clear
-        let box = Centered(host.view, size: size)
-        box.addChild(host)
-        host.didMove(toParent: box)
-        return box
-    }
+    let file = ((entry.fileID as NSString).lastPathComponent as NSString).deletingPathExtension
+    return captured.map { Captured(name: $0.name ?? file, traits: $0.traits, body: $0.body) }
 }
 
 nonisolated(unsafe) var added: [UnsafePointer<mach_header>] = []
@@ -191,33 +113,21 @@ let addImageHook: Void = _dyld_register_func_for_add_image { header, _ in
     if collecting, let header { added.append(header) }
 }
 
-@MainActor enum Screen {
-    static var window: UIWindow?
-    static var shown: Entry?
+@MainActor enum Shown {
+    static var entry: Entry?
     static var position = 0
-
-    static func attach(_ scene: UIScene) {
-        guard window == nil, let scene = scene as? UIWindowScene else { return }
-        let w = UIWindow(windowScene: scene)
-        w.backgroundColor = .systemBackground
-        w.rootViewController = UIViewController()
-        w.makeKeyAndVisible()
-        window = w
-        Server.start()
-    }
 
     static func show(file: String, index: Int) -> [String: Any] {
         let inFile = previews().filter { $0.fileID.hasSuffix("/" + file) }
         guard inFile.indices.contains(index) else { return ["error": "The app has no preview \(index + 1) in \(file)"] }
-        guard let c = capture(inFile[index].type) else { return ["error": "The preview did not build"] }
-        window?.rootViewController = controller(for: c)
-        shown = inFile[index]
+        guard let c = capture(inFile[index]) else { return ["error": "The preview did not build"] }
+        entry = inFile[index]
         position = index
-        return ["ok": true]
+        return Screen.present(c)
     }
 
     static func load(_ path: String) -> [String: Any] {
-        guard let old = shown else { return ["error": "No preview shows"] }
+        guard let old = entry else { return ["error": "No preview shows"] }
         _ = addImageHook
         added.removeAll()
         collecting = true
@@ -227,17 +137,20 @@ let addImageHook: Void = _dyld_register_func_for_add_image { header, _ in
         let fresh = added.flatMap(scan).filter { $0.fileID == old.fileID }.sorted { $0.line < $1.line }
         guard !fresh.isEmpty else { return ["error": "The reload holds no preview of \(old.fileID)"] }
         position = min(position, fresh.count - 1)
-        guard let c = capture(fresh[position].type) else { return ["error": "The preview did not build"] }
-        window?.rootViewController = controller(for: c)
-        shown = fresh[position]
-        return ["ok": true]
+        guard let c = capture(fresh[position]) else { return ["error": "The preview did not build"] }
+        entry = fresh[position]
+        return Screen.present(c)
     }
 }
 
 enum Server {
     static func start() {
-        guard let path = ProcessInfo.processInfo.environment["CHORD_PREVIEW_SOCKET"] else { return }
-        Thread.detachNewThread { serve(path) }
+        let environment = ProcessInfo.processInfo.environment
+        if let path = environment["CHORD_PREVIEW_SOCKET"] {
+            Thread.detachNewThread { serve(path) }
+        } else if let fd = environment["CHORD_PREVIEW_FD"].flatMap(Int32.init) {
+            Thread.detachNewThread { while answer(fd) {} }
+        }
     }
 
     static func serve(_ path: String) {
@@ -253,28 +166,49 @@ enum Server {
         while true {
             let client = accept(fd, nil, nil)
             guard client >= 0 else { continue }
-            var line = Data()
-            var byte: UInt8 = 0
-            while read(client, &byte, 1) == 1, byte != 10 { line.append(byte) }
-            let request = (try? JSONSerialization.jsonObject(with: line)) as? [String: Any] ?? [:]
-            let reply = DispatchQueue.main.sync { MainActor.assumeIsolated { handle(request) } }
-            var out = (try? JSONSerialization.data(withJSONObject: reply)) ?? Data("{}".utf8)
-            out.append(10)
-            _ = out.withUnsafeBytes { write(client, $0.baseAddress, $0.count) }
+            _ = answer(client)
             close(client)
         }
+    }
+
+    static func answer(_ fd: Int32) -> Bool {
+        var line = Data()
+        var byte: UInt8 = 0
+        var open = true
+        while true {
+            let count = read(fd, &byte, 1)
+            if count < 0 && errno == EINTR { continue }
+            guard count == 1 else { open = false; break }
+            if byte == 10 { break }
+            line.append(byte)
+        }
+        guard open || !line.isEmpty else { return false }
+        let request = (try? JSONSerialization.jsonObject(with: line)) as? [String: Any] ?? [:]
+        let reply = DispatchQueue.main.sync { MainActor.assumeIsolated { withContextID(handle(request)) } }
+        var out = (try? JSONSerialization.data(withJSONObject: reply)) ?? Data("{}".utf8)
+        out.append(10)
+        _ = out.withUnsafeBytes { write(fd, $0.baseAddress, $0.count) }
+        return open
+    }
+
+    @MainActor static var contextIDSent = false
+
+    @MainActor static func withContextID(_ reply: [String: Any]) -> [String: Any] {
+        guard !contextIDSent, reply["error"] == nil, let id = Screen.contextID() else { return reply }
+        contextIDSent = true
+        return reply.merging(["context": id]) { own, _ in own }
     }
 
     @MainActor static func handle(_ request: [String: Any]) -> [String: Any] {
         switch request["op"] as? String {
         case "shown":
-            return Screen.shown.map { ["fileID": $0.fileID] } ?? ["error": "No preview shows"]
+            return Shown.entry.map { ["fileID": $0.fileID] } ?? ["error": "No preview shows"]
         case "show":
             guard let file = request["file"] as? String, let index = request["index"] as? Int else { return ["error": "No preview"] }
-            return Screen.show(file: file, index: index)
+            return Shown.show(file: file, index: index)
         case "load":
             guard let path = request["path"] as? String else { return ["error": "No path"] }
-            return Screen.load(path)
+            return Shown.load(path)
         case "slide":
             guard let image = request["image"] as? String else { return ["error": "No image"] }
             for i in 0..<_dyld_image_count() {
@@ -286,30 +220,4 @@ enum Server {
             return ["error": "Unknown request"]
         }
     }
-}
-
-@objc(ChordPreviewDelegate)
-final class Delegate: UIResponder, UIApplicationDelegate {
-    func application(_ application: UIApplication, didFinishLaunchingWithOptions options: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
-        NotificationCenter.default.addObserver(forName: UIScene.willConnectNotification, object: nil, queue: .main) { n in
-            guard let scene = n.object as? UIScene else { return }
-            MainActor.assumeIsolated { Screen.attach(scene) }
-        }
-        return true
-    }
-
-    func application(_ application: UIApplication, configurationForConnecting session: UISceneSession, options: UIScene.ConnectionOptions) -> UISceneConfiguration {
-        let c = UISceneConfiguration(name: nil, sessionRole: session.role)
-        c.delegateClass = SceneDelegate.self
-        return c
-    }
-}
-
-@objc(ChordPreviewSceneDelegate)
-final class SceneDelegate: UIResponder, UIWindowSceneDelegate {}
-
-@_cdecl("__previews_injection_jit_link_entrypoint")
-public func entry(_ argc: Int32, _ argv: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>) -> Int32 {
-    _ = Delegate.self
-    return UIApplicationMain(argc, argv, nil, "ChordPreviewDelegate")
 }
