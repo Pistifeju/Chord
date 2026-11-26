@@ -1,6 +1,7 @@
 use crate::lock;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use serde::Serialize;
@@ -14,7 +15,20 @@ use super::{
 use crate::awake::Awake;
 use crate::{Error, PaneAgent, Store, WorktreePanes, xcode_bundles};
 
-type Running = HashMap<String, (PathBuf, Box<dyn Agent>)>;
+type Running = HashMap<String, RunningPane>;
+
+struct RunningPane {
+    open: Arc<AtomicBool>,
+    worktree: PathBuf,
+    agent: Box<dyn Agent>,
+}
+
+impl RunningPane {
+    fn close(self) -> Box<dyn Agent> {
+        self.open.store(false, Ordering::SeqCst);
+        self.agent
+    }
+}
 
 #[derive(Serialize, Type, Debug)]
 pub struct Started {
@@ -59,7 +73,7 @@ impl Sessions {
         act: impl FnOnce(&dyn Agent) -> Result<T, Error>,
     ) -> Result<T, Error> {
         match self.sessions().get(pane) {
-            Some((_, session)) => act(session.as_ref()),
+            Some(running) => act(running.agent.as_ref()),
             None => Err(Error::Message("The agent is not running".into())),
         }
     }
@@ -90,11 +104,13 @@ impl Sessions {
                 )
             })?);
         }
+        let open = Arc::new(AtomicBool::new(true));
         let watch = Mutex::new(PaneWatch {
             pane: pane.clone(),
             store: Arc::clone(&self.store),
             awake: Arc::clone(&self.awake),
             tracker: StatusTracker::default(),
+            open: Arc::clone(&open),
         });
         let agent = self
             .store
@@ -150,8 +166,15 @@ impl Sessions {
             }
         };
         let capabilities = session.capabilities();
-        let replaced = self.sessions().insert(pane.clone(), (worktree, session));
-        drop(replaced);
+        let replaced = self.sessions().insert(
+            pane.clone(),
+            RunningPane {
+                open,
+                worktree,
+                agent: session,
+            },
+        );
+        drop(replaced.map(RunningPane::close));
         self.store
             .update(|state| state.running_panes.insert(pane))?;
         Ok(Started {
@@ -186,14 +209,14 @@ impl Sessions {
 
     pub fn stop_pane(&self, pane: &str) -> Result<(), Error> {
         let session = self.sessions().remove(pane);
-        drop(session);
+        drop(session.map(RunningPane::close));
         self.awake.set_working(pane, false);
         self.store.update(|state| state.forget_pane(pane))
     }
 
     pub fn stop_all(&self) {
         let stopped = std::mem::take(&mut *self.sessions());
-        end_at_once(stopped.into_values().map(|(_, agent)| agent), drop);
+        end_at_once(stopped.into_values().map(RunningPane::close), drop);
         self.awake.clear();
     }
 
@@ -207,7 +230,7 @@ impl Sessions {
             let mut sessions = self.sessions();
             let panes: Vec<String> = sessions
                 .iter()
-                .filter(|(_, (dir, _))| dir == worktree)
+                .filter(|(_, running)| running.worktree == worktree)
                 .map(|(pane, _)| pane.clone())
                 .collect();
             stopped.extend(panes.iter().filter_map(|pane| sessions.remove(pane)));
@@ -215,7 +238,7 @@ impl Sessions {
                 self.awake.set_working(pane, false);
             }
         }
-        end_at_once(stopped.into_iter().map(|(_, agent)| agent), |agent| {
+        end_at_once(stopped.into_iter().map(RunningPane::close), |agent| {
             agent.end_reported()
         });
     }
@@ -239,6 +262,7 @@ struct PaneWatch {
     store: Arc<Store>,
     awake: Arc<Awake>,
     tracker: StatusTracker,
+    open: Arc<AtomicBool>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -253,7 +277,7 @@ impl PaneWatch {
         let mut deliveries = vec![Delivery::Event(event)];
         if let Some(StatusReport { status, changed }) = report {
             let last_message = self.tracker.last_message().to_string();
-            if changed {
+            if changed && self.open.load(Ordering::SeqCst) {
                 deliveries.push(Delivery::StatusChange(status, last_message.clone()));
             }
             deliveries.push(Delivery::Event(HarnessEvent::Status {
@@ -356,6 +380,29 @@ mod tests {
     }
 
     #[test]
+    fn a_closed_pane_reports_no_status_change() -> Result<(), Error> {
+        let root = std::env::temp_dir().join(format!("chord-closed-{}", std::process::id()));
+        std::fs::create_dir_all(&root)?;
+        let mut watch = PaneWatch {
+            pane: "a".into(),
+            store: Arc::new(Store::open(root.join("state.json"))?),
+            awake: Arc::new(Awake::new(false)),
+            tracker: StatusTracker::default(),
+            open: Arc::new(AtomicBool::new(false)),
+        };
+
+        let deliveries = watch.deliver(HarnessEvent::State { running: true });
+
+        let _ = std::fs::remove_dir_all(&root);
+        assert!(
+            !deliveries
+                .iter()
+                .any(|delivery| matches!(delivery, Delivery::StatusChange(..)))
+        );
+        Ok(())
+    }
+
+    #[test]
     fn an_agent_that_exits_keeps_the_session_it_showed_and_no_longer_starts_on_launch()
     -> Result<(), Error> {
         let root = std::env::temp_dir().join(format!("chord-exit-{}", std::process::id()));
@@ -367,6 +414,7 @@ mod tests {
             store: Arc::clone(&store),
             awake: Arc::new(Awake::new(false)),
             tracker: StatusTracker::default(),
+            open: Arc::new(AtomicBool::new(true)),
         };
 
         watch.observe(&HarnessEvent::SessionInfo {
