@@ -10,7 +10,7 @@ import { slashMenu } from "./slash";
 import { abortRun, answerDialog, chatOf, chats, closeSlash, drafts, pickAttachments, slashClosed } from "./store";
 
 const focusedPane = (): string | null => {
-  if (sheet.get() !== null || document.activeElement?.closest(".side-panel, .bottom-panel")) return null;
+  if (sheet.get() !== null || document.activeElement?.closest(".sidebar, .side-panel, .bottom-panel")) return null;
   const shown = shownPanes();
   return shown?.focused && chatPaneIds(shown.layout).includes(shown.focused) ? shown.focused : null;
 };
